@@ -1,0 +1,265 @@
+---
+title: "Semantic Vector Space Models in R"
+author: "Martin Schweinberger"
+---
+
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {-}
+
+This tutorial introduces Semantic Vector Space (SVM) modeling R.[^1] Semantic vector space models, also known as distributional semantic models, are a type of machine learning model that represent the meaning of words or phrases as high-dimensional vectors in a mathematical space. These models are designed to capture the semantic relationships between words based on the distribution of their occurrences in large text corpora.
+
+In semantic vector space models, words or phrases are represented as vectors in a high-dimensional space, where the distance between two vectors reflects the semantic similarity between the corresponding words or phrases. These models are typically trained using unsupervised learning techniques, such as singular value decomposition (SVD) or word2vec, on large corpora of text data.
+
+One of the main advantages of semantic vector space models is that they can capture complex semantic relationships between words, including synonymy, antonymy, hypernymy, and hyponymy. These models can also be used to perform tasks such as language modeling, text classification, sentiment analysis, and information retrieval.
+
+Semantic vector space models are particularly useful in natural language processing (NLP) applications, where the ability to accurately represent the meaning of words and phrases is critical for tasks such as machine translation, text summarization, and question answering. By using semantic vector space models, NLP systems can better understand the meaning of natural language text and improve their performance on a wide range of tasks.
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to generate and visualize results of SVMs in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with SVMs. 
+
+
+<div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+The entire R Notebook for the tutorial can be downloaded [**here**](https://slcladal.github.io/content/svm.Rmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](https://slcladal.github.io/content/bibliography.bib) and store it in the same folder where you store the Rmd file.  <br><br>
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fsvm_cb.ipynb%26branch%3Dmain)<br>
+[**Click this link to open an interactive version of this tutorial on MyBinder.org**](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fsvm_cb.ipynb%26branch%3Dmain). <br> This interactive Jupyter notebook allows you to execute code yourself and you can also change and edit the notebook, e.g. you can change code and upload your own data. <br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+**Preparation and session set up**
+
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](https://slcladal.github.io/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+
+```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
+# set options
+options("scipen" = 100, "digits" = 4) # suppress math annotation
+# install packages
+install.packages("coop")
+install.packages("dplyr")
+install.packages("tm")
+install.packages("cluster")
+install.packages("flextable")
+```
+
+Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
+
+# Example: Similarity among adjective amplifiers {-}
+
+Vector Space Models are particularly useful when dealing with language data as they provide very accurate estimates of *semantic* similarity based on *word embeddings* (or co-occurrence profiles). Word embeddings refer to the vectors which hold the frequency information about how frequently a given word has co-occurred with other words. If the ordering of co-occurring words remains constant, then the vectors can be used to determine which words have similar profiles. 
+
+To show how vector space models work, we will follow the procedure described in @levshina2015linguistics. However, we will not use her `Rling` package, which is not supported my R version 4.0.2, to calculate cosine similarities but rather the `coop` package [see @coop]. In this tutorial, we investigate similarities among amplifiers based on their co-occurrences (word embeddings) with adjectives. Adjective amplifiers are elements such as those in 1. to 5.
+
+1. The *very*~amplifier~ *nice*~adjective~ man.
+2. A *truely*~amplifier~ *remarkable*~adjective~ woman. 
+2. He was *really*~amplifier~ *hesitant*~adjective~.
+4. The child was *awefully*~amplifier~ *loud*~adjective~.
+5. The festival was *so*~amplifier~ *amazing*~adjective~!
+
+The similarity among adjective amplifiers can then be used to find clusters or groups of amplifiers that "behave" similarly and are interchangeable. To elaborate, adjective amplifiers are interchangeable with some variants but not with others (consider 6. to 8.; the question mark signifies that the example is unlikely to be used or grammatically not acceptable by L1 speakers of English).
+
+6. The *very*~amplifier~ *nice*~adjective~ man.
+7. The *really*~amplifier~ *nice*~adjective~ man.
+8. ^?^The *completely*~amplifier~ *nice*~adjective~ man.
+
+We start by loading the required packages, the data, and then displaying the data which is called "vsmdata" and consist of 5,000 observations of adjectives and contains two columns: one column with the adjectives (Adjectives) and another column which has the amplifiers ("0" means that the adjective occurred without an amplifier). 
+
+```{r vsm1, message=F, warning=F}
+# load packages
+library(coop)
+library(dplyr)
+library(tm)
+library(cluster)
+library(flextable)
+# load data
+vsmdata <- read.delim("https://slcladal.github.io/data/vsmdata.txt",
+  sep = "\t", header = T
+)
+```
+
+```{r tb1, echo=FALSE, message=F, warning=F}
+vsmdata %>%
+  head(10) %>%
+  flextable::flextable() %>%
+  flextable::set_table_properties(width = .75, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::border_outer()
+```
+
+
+
+
+For this tutorial, we remove adjectives that were not amplified (as well as adjectives modified by *much* or *many*) and collapse all adjectives that occur less than 10 times into a bin category (*other*).
+
+```{r vsm2}
+# simplify data
+vsmdata_simp <- vsmdata %>%
+  # remove non-amplifier adjectives
+  dplyr::filter(
+    Amplifier != 0,
+    Adjective != "many",
+    Adjective != "much"
+  ) %>%
+  # collapse infrequent adjectives
+  dplyr::group_by(Adjective) %>%
+  dplyr::mutate(AdjFreq = dplyr::n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(Adjective = ifelse(AdjFreq > 10, Adjective, "other")) %>%
+  dplyr::filter(Adjective != "other") %>%
+  dplyr::select(-AdjFreq)
+```
+
+```{r tb2, echo=FALSE, message=F, warning=F}
+vsmdata_simp %>%
+  head(10) %>%
+  flextable::flextable() %>%
+  flextable::set_table_properties(width = .75, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::border_outer()
+```
+
+In a next step, we create a matrix from this data frame which maps how often a given amplifier co-occurred with a given adjective. In text mining, this format is called a text-document matrix or tdm.
+
+```{r vsm3}
+# tabulate data (create term-document matrix)
+tdm <- ftable(vsmdata_simp$Adjective, vsmdata_simp$Amplifier)
+# extract amplifiers and adjectives
+amplifiers <- as.vector(unlist(attr(tdm, "col.vars")[1]))
+adjectives <- as.vector(unlist(attr(tdm, "row.vars")[1]))
+# attach row and column names to tdm
+rownames(tdm) <- adjectives
+colnames(tdm) <- amplifiers
+# inspect data
+tdm[1:5, 1:5]
+```
+
+Now that we have a term document matrix, we want to remove adjectives that were never amplified. Note however that if we were interested in classifying adjectives (rather than amplifiers) according to their co-occurrence with amplifiers, we would, of course, not do this, as not being amplified would be a relevant feature for adjectives. But since we are interested in classifying amplifiers, not amplified adjectives do not have any information value.
+
+```{r vsm4}
+# convert frequencies greater than 1 into 1
+tdm <- t(apply(tdm, 1, function(x) {
+  ifelse(x > 1, 1, x)
+}))
+# remove adjectives that we never amplified
+tdm <- tdm[which(rowSums(tdm) > 1), ]
+# inspect data
+tdm[1:5, 1:5]
+```
+
+In a next step, we extract the expected values of the co-occurrences if the amplifiers were distributed homogeneously and calculate the *Pointwise Mutual Information* (PMI) score and use that to then calculate the *Positive Pointwise Mutual Information* (PPMI) scores. According to @levshina2015linguistics 327 - referring to @bullinaria2007extracting - PPMI perform better than PMI as negative values are replaced with zeros. In a next step, we calculate the cosine similarity which will for the bases for the subsequent clustering.
+
+```{r vsm5}
+# compute expected values
+tdm.exp <- chisq.test(tdm)$expected
+# calculate PMI and PPMI
+PMI <- log2(tdm / tdm.exp)
+PPMI <- ifelse(PMI < 0, 0, PMI)
+# calculate cosine similarity
+cosinesimilarity <- cosine(PPMI)
+# inspect cosine values
+cosinesimilarity[1:5, 1:5]
+```
+
+As we have now obtained a similarity measure, we can go ahead and perform a cluster analysis on these similarity values. However, as we have to extract the maximum values in the similarity matrix that is not 1 as we will use this to create a distance matrix. While we could also have simply subtracted the cosine similarity values from 1 to convert the similarity matrix into a distance matrix, we follow the procedure proposed by @levshina2015linguistics.
+
+```{r vsm6, eval = T, echo=T, message=FALSE, warning=FALSE}
+# find max value that is not 1
+cosinesimilarity.test <- apply(cosinesimilarity, 1, function(x) {
+  x <- ifelse(x == 1, 0, x)
+})
+maxval <- max(cosinesimilarity.test)
+# create distance matrix
+amplifier.dist <- 1 - (cosinesimilarity / maxval)
+clustd <- as.dist(amplifier.dist)
+```
+
+In a next step, we want to determine the optimal number of clusters. This has two reasons: firstly, we need to establish that we have reason to assume that the data is not homogeneous (this would occur if the optimal number of clusters were 1), and, secondly, we want check how many meaningful clusters there are in our data.
+
+
+```{r vsm7, eval = T, echo=T, message=FALSE, warning=FALSE}
+# find optimal number of clusters
+asw <- as.vector(unlist(sapply(2:ncol(tdm) - 1, function(x) pam(clustd, k = x)$silinfo$avg.width)))
+# determine the optimal number of clusters (max width is optimal)
+optclust <- which(asw == max(asw)) # optimal number of clusters
+# inspect clustering with optimal number of clusters
+amplifier.clusters <- pam(clustd, optclust)
+# inspect cluster solution
+amplifier.clusters$clustering
+```
+
+In a next step, we visualize the results of the semantic vector space model as a dendrogram.
+
+```{r vsm8, eval = T, echo=T, message=FALSE, warning=FALSE}
+# create cluster object
+cd <- hclust(clustd, method = "ward.D")
+# plot cluster object
+plot(cd, main = "", sub = "", yaxt = "n", ylab = "", xlab = "", cex = .8)
+# add colored rectangles around clusters
+rect.hclust(cd, k = optclust, border = "gray60")
+```
+
+The clustering solution shows that,  
+
+* *really*, *so*, and *very*  
+* *completely* and *totally*  
+* all other amplifiers.
+
+form clusters and are thus more similar in their collocational profile to each other compared to amplifiers in different clusters. Also, this suggests that amplifiers in the same cluster are more interchangable compared with amplifiers in different clusters. 
+
+It is important to note though that the data set is of rather moderate size which means that differences are unlikely to be detected due to the relative rarity of the amplifier (which is the reason why there is one umbrella cluster). Also, the amplifiers *very*, *so*, and *really* form a cluster together probably due to the fact that *really*, *very*, and *so* are the most frequent "variants" and because they co-occur with the most variety of adjectives. The results can be interpreted to suggest that *really*, *so*, and *very* are "default" amplifiers that lack distinct semantic profiles.
+
+There are many more useful methods for classifying and grouping data and the [tutorial by Gede Primahadi Wijaya Rajeg, Karlina Denistia, and Simon Musgrave](https://gederajeg.github.io/vector_space_model_indonesian/) [@rajeg2020semvec] highly recommended to get a better understanding of SVM but this should suffice to get you started.
+
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2023. *Semantic Vector Space Models in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/svm.html (Version 2023.02.16).
+
+```
+@manual{schweinberger2023svm,
+  author = {Schweinberger, Martin},
+  title = {Semantic Vector Space Models in R},
+  note = {https://ladal.edu.au/svm.html},
+  year = {2023},
+  organization = "The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2023.02.16}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+
+
+***
+
+[Back to top](#introduction)
+
+[Back to HOME](https://ladal.edu.au)
+
+***
+
+
+# References{-}
+
+[^1]: I am indebted to Paul Warren who kindly pointed out some errors in a previous version of this tutorial.
+
+
+
+

@@ -1,0 +1,573 @@
+---
+title: "Network Analysis using R"
+author: "Martin Schweinberger"
+---
+
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction{-}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial serves as an introduction to network analysis in R using the `quanteda`[@quanteda2018package], `igraph` [@csardi2006igraph], `tidygraph` [@tidygraph2024package], and `ggraph` [@ggraph2024package] packages.
+
+Networks are a powerful method for visualizing relationships among various elements, such as authors, characters, or words. Network analysis goes beyond mere visualization; it's a technique for uncovering patterns and structures within complex systems. In essence, network analysis represents relationships as nodes (elements) connected by edges (relationships) which provides a unique perspective for understanding the connections and interactions within your data.
+
+Geared towards beginners and intermediate users of R, this tutorial aims to showcase how to perform network analysis based on textual data and it shows how to visualize networks using R. The primary goal is not to deliver a fully-fledged analysis but rather to demonstrate and exemplify selected useful methods associated with network analysis. This tutorial delves into creating and modifying network graphs, allowing users to explore and compare their statistical properties. By the end, you'll not only grasp the basics of network analysis but also gain insights into leveraging statistical measures for a more comprehensive understanding of your data.
+
+<div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+The entire R markdown document for the sections below can be downloaded [here](https://slcladal.github.io/content/net.Rmd).  If you want to render the Rmarkdown notebook on your machine, i.e. knitting the document to a html or pdf file, you need to make sure that you have R installed and you also need to download the [bibliography file](https://slcladal.github.io/content/bibliography.bib) and store it in the same folder where you store the Rmd file.<br><br>
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fnet_cb.ipynb%26branch%3Dmain)<br>
+Click  [**here**](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fnet_cb.ipynb%26branch%3Dmain)  to open a Jupyter notebook that allows you to follow this tutorial interactively. This means that you can execute, change, and edit the code used in this tutorial to help you better understand how the code shown here works (make sure you run all code chunks in the order in which they appear - otherwise you will get an error). </p>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+<div class="warning" style='padding:0.1em; background-color:#51247a; color:#f2f2f2'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+**LADAL TOOL** 
+</p>
+<p style='margin-top:1em; text-align:center'>
+Click on this [![Binder](https://mybinder.org/badge_logo.svg)](https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fnettool.ipynb%26branch%3Dmain) badge to open an notebook-based tool <br> that allows you upload your own data, create a network, and download the resulting visualization of the network. </p><br>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+
+
+
+This tutorial builds on [a tutorial on plotting collocation networks](https://corpling.hypotheses.org/3341) by [Guillaume Desagulier](http://www2.univ-paris8.fr/desagulier/home/), a tutorial on network analysis by offered by Alice Miller from the [Digital Observatory](https://www.qut.edu.au/research/why-qut/infrastructure/digital-observatory) at the [Queensland University of Technology](https://www.qut.edu.au/), and [this tutorial](https://tm4ss.github.io/docs/Tutorial_5_Co-occurrence.html) by [Andreas Niekler](http://asv.informatik.uni-leipzig.de/staff/Andreas_Niekler) and [Gregor Wiedemann](https://leibniz-hbi.de/en/staff/gregor-wiedemann).
+
+# What is Network Analysis?{-}
+
+The most common way to visualize relationships between entities is through networks [@silge2017text, 131-137]. Networks, also known as graphs, are powerful tools that represent relationships among entities. They consist of **nodes** (often depicted as dots) and **edges** (typically represented as lines) and can be categorized as directed or undirected networks.
+
++ In *directed networks*, the direction of edges is captured, signifying the flow or relationship from one node to another. An example of a directed network is the trade relationships between countries, where arrows on the edges indicate the direction of exports. The thickness of these arrows can also encode additional information, such as the frequency or strength of the relationship.  
++ *Undirected networks*, on the other hand, represent symmetric relationships where the connection between two nodes is mutual. For example, in a social network, the connections between individuals are often undirected, as the relationship between friends is reciprocal.  
+
+Network analysis involves exploring the structure and properties of these networks. One key concept is centrality, which identifies the most important nodes in a network. Centrality metrics, such as *degree centrality* (number of connections) and *betweenness centrality* (importance in connecting other nodes), help unveil the significance of specific nodes.
+
+In R, there are several packages that provide essential tools for constructing, analyzing, and visualizing networks but here, we will focus on the  `quanteda.textplots`, `igraph`, `tidygraph`, and `ggraph` packages. To showcase how to prepare and generate network graphs, we will visualize the network that the characters in William Shakespeare's *Romeo and Juliet* form.
+
+**Preparation and session set up**
+
+Certainly! Here's a corrected and improved version of the passage:
+
+This tutorial is built with and uses R (the R programming language). If you haven't installed R or are new to it, you can find an introduction and more information on how to use R [here](https://slcladal.github.io/intror.html). In order to execute the scripts and code chunks presented in this tutorial without errors, we need to install specific *packages* from the R *library*. Prior to delving into the code below, please install the required packages by running the code provided in this paragraph. If you've already installed the mentioned packages, feel free to skip ahead and disregard this section. To install the necessary packages, execute the following code. Note that it may take some time (between 1 and 5 minutes) to install all the libraries, so don't worry if it takes a little while.
+
+```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
+# install packages
+install.packages("flextable")
+install.packages("GGally")
+install.packages("ggraph")
+install.packages("igraph")
+install.packages("Matrix")
+install.packages("network")
+install.packages("quanteda")
+install.packages("sna")
+install.packages("tidygraph")
+install.packages("tidyverse")
+install.packages("tm")
+install.packages("tibble")
+install.packages("quanteda.textplots")
+# install klippy for copy-to-clipboard button in code chunks
+install.packages("remotes")
+remotes::install_github("rlesur/klippy")
+```
+
+Next, we load the packages.
+
+```{r prep2, message=FALSE, warning=FALSE}
+# activate packages
+library(flextable)
+library(GGally)
+library(ggraph)
+library(gutenbergr)
+library(igraph)
+library(Matrix)
+library(network)
+library(quanteda)
+library(sna)
+library(tidygraph)
+library(tidyverse)
+library(tm)
+library(tibble)
+# activate klippy for copy-to-clipboard button
+klippy::klippy()
+```
+
+Once you have installed R, RStudio, and have also initiated the session by executing the code shown above, you are good to go.
+
+# Data preparation{-}
+
+In network analysis, it's crucial to have at least one table indicating the start and end points of edges (lines connecting nodes). Additionally, two additional tables providing information on node size/type and edge size/type are valuable. In the upcoming sections, we'll create these tables from raw data. Alternatively, you can generate network graphs by uploading tables containing the necessary information.
+
+We'll generate a network showing the frequency of characters in William Shakespeare's *Romeo and Juliet* appearing in the same scene. Our focus is on investigating the networks of personas in Shakespeare's *Romeo and Juliet*, and thus, we'll load this renowned work of fiction.
+
+
+## Creating a matrix{-}
+
+We start by loading the data which represents a table that contains the personas that are present during a sub-scene as well as how many contributions they make and how often they occur.
+
+
+```{r na1, echo=T, eval = T, message=FALSE, warning=FALSE}
+# load data
+net_dat <- read.delim("https://slcladal.github.io/data/romeo_tidy.txt", sep = "\t")
+```
+
+
+```{r na1b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+net_dat %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "First 15 rows of rom data.") %>%
+  flextable::border_outer()
+```
+
+We now transform that table into a co-occurrence matrix.
+
+```{r na2, echo = T, message=FALSE, warning=FALSE}
+net_cmx <- crossprod(table(net_dat[1:2]))
+diag(net_cmx) <- 0
+net_df <- as.data.frame(net_cmx)
+```
+
+
+```{r na2b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+net_df[1:5, 1:5] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Persona") %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "First 5 rows and 5 columns of the of romeoco-occurrence matrix.") %>%
+  flextable::border_outer()
+```
+
+The data shows how often a character has appeared with each other character in the play - only Friar Lawrence and Friar John were excluded because they only appear in one scene where they talk to each other. 
+
+# Network Visualization{-}
+
+There are various different ways to visualize a network structure. We will focus on two packages for network visualization here and exemplify how you can visualize networks in R. 
+
+## Quanteda Networks{-} 
+
+The `quanteda` package contains many very useful functions for analyzing texts. Among these functions is the `textplot_network` function which provides a very handy way to display networks. The advantage of the network plots provided by or generated with the `quanteda` package is that you can create them with very little code. However, this comes at a cost as  these visualizations cannot be modified easily (which means that their design is not very flexible compared to other methods for generating network visualizations).    
+
+In a first step, we transform the text vectors of the `romeo` data into a document-feature matrix using the `dfm ` function. 
+
+
+```{r qtda01, warning=F, message=F}
+# create a document feature matrix
+net_dfm <- quanteda::as.dfm(net_df)
+# create feature co-occurrence matrix
+net_fcm <- quanteda::fcm(net_dfm, tri = F)
+# inspect data
+head(net_fcm)
+```
+
+This feature-co-occurrence matrix can then serve as the input for the `textplot_network` function which already generates a nice network graph. 
+
+
+
+Now we generate a network graph using the `textplot_network` function from the `quanteda.textplots` package. This function has the following arguments: 
+
++ `x`: a fcm or dfm object  
++ `min_freq`: a frequency count threshold or proportion for co-occurrence frequencies of features to be included (default = 0.5),  
++ `omit_isolated`: if TRUE, features do not occur more frequent than min_freq will be omitted (default = TRUE),  
++ `edge_color`: color of edges that connect vertices (default = "#1F78B4"),
++ `edge_alpha`: opacity of edges ranging from 0 to 1.0 (default = 0.5),
++ `edge_size`: size of edges for most frequent co-occurrence (default = 2),
++ `vertex_color`: color of vertices (default = "#4D4D4D"),
++ `vertex_size`: size of vertices (default = 2),
++ `vertex_labelcolor`: color of texts. Defaults to the same as vertex_color,
++ `vertex_labelfont`: font-family of texts,
++ `vertex_labelsize`: size of vertex labels in mm. Defaults to size 5. Supports both integer values and vector values (default = 5),
++ `offset`: if NULL (default), the distance between vertices and texts are determined automatically,
+
+
+```{r qtda04}
+quanteda.textplots::textplot_network(
+  x = net_fcm, # a fcm or dfm object
+  min_freq = 0.5, # frequency count threshold or proportion for co-occurrence frequencies (default = 0.5)
+  edge_alpha = 0.5, # opacity of edges ranging from 0 to 1.0 (default = 0.5)
+  edge_color = "gray", # color of edges that connect vertices (default = "#1F78B4")
+  edge_size = 2, # size of edges for most frequent co-occurrence (default = 2)
+  # calculate the size of vertex labels for the network plot
+  vertex_labelsize = net_dfm %>%
+    # convert the dfm object to a data frame
+    quanteda::convert(to = "data.frame") %>%
+    # exclude the 'doc_id' column
+    dplyr::select(-doc_id) %>%
+    # calculate the sum of row values for each row
+    rowSums() %>%
+    # apply the natural logarithm to the resulting sums
+    log(),
+  vertex_color = "#4D4D4D", # color of vertices (default = "#4D4D4D")
+  vertex_size = 2 # size of vertices (default = 2)
+)
+```
+
+
+We now turn to generating *tidy networks* with is more complex but also offers more flexibility and options for customization. 
+
+## Tidy Networks{-}
+
+We now turn to a different method for generating networks that is extremely flexible.
+
+First, we define the *nodes* and we can also add information about the nodes that we can use later on (such as frequency information).
+
+```{r tidy4, message=F, warning=F}
+# create a new data frame 'va' using the 'net_dat' data
+net_dat %>%
+  # rename the 'person' column to 'node' and 'occurrences' column to 'n'
+  dplyr::rename(
+    node = person,
+    n = occurrences
+  ) %>%
+  # group the data by the 'node' column
+  dplyr::group_by(node) %>%
+  # summarize the data, calculating the total occurrences ('n') for each 'node'
+  dplyr::summarise(n = sum(n)) -> va
+```
+
+```{r tidy4b, echo = F, message=F, warning=F}
+va %>%
+  as.data.frame() %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .5, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Personas and their frequencies of occurrence in Shakespeare's *Romeo and Juliet*.") %>%
+  flextable::border_outer()
+```
+
+
+The next part is optional but it can help highlight important information. We add a column with additional information to our nodes table.
+
+```{r}
+# define family
+mon <- c("ABRAM", "BALTHASAR", "BENVOLIO", "LADY MONTAGUE", "MONTAGUE", "ROMEO")
+cap <- c("CAPULET", "CAPULET’S COUSIN", "FIRST SERVANT", "GREGORY", "JULIET", "LADY CAPULET", "NURSE", "PETER", "SAMPSON", "TYBALT")
+oth <- c("APOTHECARY", "CHORUS", "FIRST CITIZEN", "FIRST MUSICIAN", "FIRST WATCH", "FRIAR JOHN", "FRIAR LAWRENCE", "MERCUTIO", "PAGE", "PARIS", "PRINCE", "SECOND MUSICIAN", "SECOND SERVANT", "SECOND WATCH", "SERVANT", "THIRD MUSICIAN")
+# create color vectors
+va <- va %>%
+  dplyr::mutate(type = dplyr::case_when(
+    node %in% mon ~ "MONTAGUE",
+    node %in% cap ~ "CAPULET",
+    TRUE ~ "Other"
+  ))
+# inspect updates nodes table
+va
+```
+
+
+```{r tidy15, echo = F, message=F, warning=F}
+va %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .5, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Updated and enriched nodes table") %>%
+  flextable::border_outer()
+```
+
+Now, we define the *edges*, i.e., the connections between nodes and, again, we can add information in separate variables that we can use later on. 
+
+
+```{r tidy5, message=F, warning=F}
+# create a new data frame 'ed' using the 'dat' data
+ed <- net_df %>%
+  # add a new column 'from' with row names
+  dplyr::mutate(from = rownames(.)) %>%
+  # reshape the data from wide to long format using 'gather'
+  tidyr::gather(to, n, BALTHASAR:TYBALT) %>%
+  # remove zero frequencies
+  dplyr::filter(n != 0)
+```
+
+
+```{r tidy5b, echo = F, message=F, warning=F}
+ed %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .5, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Edges between nodes") %>%
+  flextable::border_outer()
+```
+
+
+Now that we have generated tables for the edges and the nodes, we can generate a *graph object*.
+
+```{r tidy6, message=F, warning=F}
+ig <- igraph::graph_from_data_frame(d = ed, vertices = va, directed = FALSE)
+```
+
+We will also add labels to the nodes as follows:
+
+```{r tidy7, message=F, warning=F}
+tg <- tidygraph::as_tbl_graph(ig) %>%
+  tidygraph::activate(nodes) %>%
+  dplyr::mutate(label = name)
+```
+
+When we now plot our network, it looks as shown below.
+
+```{r tidy11, message=F, warning=F}
+# set seed (so that the exact same network graph is created every time)
+set.seed(12345)
+
+# create a graph using the 'tg' data frame with the Fruchterman-Reingold layout
+tg %>%
+  ggraph::ggraph(layout = "fr") +
+
+  # add arcs for edges with various aesthetics
+  geom_edge_arc(
+    colour = "gray50",
+    lineend = "round",
+    strength = .1,
+    aes(
+      edge_width = ed$n,
+      alpha = ed$n
+    )
+  ) +
+
+  # add points for nodes with size based on log-transformed 'v.size' and color based on 'va$Family'
+  geom_node_point(
+    size = log(va$n) * 2,
+    aes(color = va$type)
+  ) +
+
+  # add text labels for nodes with various aesthetics
+  geom_node_text(aes(label = name),
+    repel = TRUE,
+    point.padding = unit(0.2, "lines"),
+    size = sqrt(va$n),
+    colour = "gray10"
+  ) +
+
+  # adjust edge width and alpha scales
+  scale_edge_width(range = c(0, 2.5)) +
+  scale_edge_alpha(range = c(0, .3)) +
+
+  # set graph background color to white
+  theme_graph(background = "white") +
+
+  # adjust legend position to the top
+  theme(
+    legend.position = "top",
+    # suppress legend title
+    legend.title = element_blank()
+  ) +
+
+  # remove edge width and alpha guides from the legend
+  guides(
+    edge_width = FALSE,
+    edge_alpha = FALSE
+  )
+```
+
+
+# Network Statistics{-}
+
+In addition to visualizing networks, we will analyze the network and extract certain statistics about the network that tell us about structural properties of networks. 
+
+To extract the statistics, we use the edge object generated above (called `ed`) and then repeat each combination as often as it occurred based on the value in the `Frequency` column.
+
+```{r nstat1, message=F, warning=F}
+dg <- ed[rep(seq_along(ed$n), ed$n), 1:2]
+rownames(dg) <- NULL
+```
+
+The resulting object (`dg`) looks as shown below.
+
+```{r nstat1b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+dg %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "First 15 rows of dg data.") %>%
+  flextable::border_outer()
+```
+
+## Degree centrality{-}
+
+We now generate an edge list from the `dg` object and then extract the *degree centrality*. The *degree centrality* reflects how many edges each node has with the most central node having the highest value.
+
+```{r nstat2, message=F, warning=F}
+dgg <- graph.edgelist(as.matrix(dg), directed = T)
+# extract degree centrality
+igraph::degree(dgg) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("node") %>%
+  dplyr::rename(`degree centrality` = 2) %>%
+  dplyr::arrange(-`degree centrality`) -> dc_tbl
+```
+
+```{r nstat2b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+dc_tbl %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Degree centrality") %>%
+  flextable::border_outer()
+```
+
+## Central node{-}
+
+Next, we extract the most *central node*.
+
+```{r nstat3b, message=F, warning=F}
+names(igraph::degree(dgg))[which(igraph::degree(dgg) == max(igraph::degree(dgg)))]
+```
+
+## Betweenness centrality{-}
+
+We now  extract the *betweenness centrality*. *Betweenness centrality* provides a measure of how important nodes are for information flow between nodes in a  network. The node with the highest betweenness centrality creates the shortest  paths in the network.  The higher a node’s *betweenness centrality*, the more important it is for the efficient flow of goods in a network.
+
+
+```{r nstat4, message=F, warning=F}
+igraph::betweenness(dgg) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("node") %>%
+  dplyr::rename(`betweenness centrality` = 2) %>%
+  dplyr::arrange(-`betweenness centrality`) -> bc_tbl
+```
+
+```{r nstat4b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+bc_tbl %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Betweenness centrality") %>%
+  flextable::border_outer()
+```
+
+We now extract the node with the highest *betweenness centrality*.
+
+```{r nstat4c, message=F, warning=F}
+names(igraph::betweenness(dgg))[which(igraph::betweenness(dgg) == max(igraph::betweenness(dgg)))]
+```
+
+## Closeness{-}
+
+In addition, we extract the closeness statistic of all edges in the `dg` object by using the `closeness` function from the `igraph` package. Closeness centrality refers to the shortest paths between nodes. The distance between two nodes represents the length of the shortest path between them. The closeness of a node is the average distance from that node to all other nodes. 
+
+```{r nstat5, message=F, warning=F}
+igraph::closeness(dgg) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("node") %>%
+  dplyr::rename(closeness = 2) %>%
+  dplyr::arrange(-closeness) -> c_tbl
+```
+
+
+```{r nstat5b, echo = F, message=FALSE, warning=FALSE}
+# inspect data
+c_tbl %>%
+  as.data.frame() %>%
+  head(15) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Closeness statistic") %>%
+  flextable::border_outer()
+```
+
+
+We now extract the node with the highest closeness.
+
+```{r nstat5c, message=F, warning=F}
+names(igraph::closeness(dgg))[which(igraph::closeness(dgg) == max(igraph::closeness(dgg)))]
+```
+
+
+We have reached the end of this tutorial and you now know how to create and modify networks in R and how you can highlight aspects of your data. 
+
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2024. *Network Analysis using R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/net.html (Version 2024.04.24).
+
+```
+@manual{schweinberger2024net,
+  author = {Schweinberger, Martin},
+  title = {Network Analysis using R},
+  note = {https://ladal.edu.au/net.html},
+  year = {2024},
+  organization = "The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2024.04.24}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+
+
+***
+
+[Back to top](#introduction)
+
+[Back to LADAL home](https://ladal.edu.au)
+
+***
+
+# References {-}
+

@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Dattatreya Majumdar">
+
+<title>Reinforcement Learning and Text Summarization in R – quarto_websites</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script>
+  // Wait for the document to be fully loaded
+  document.addEventListener("DOMContentLoaded", function () {
+    // Create a new div element to hold the dynamic content
+    var newContainer = document.createElement("div");
+    newContainer.classList.add("custom-banner");  // You can assign a class to the new container for styling
+
+    // You can also add content inside the new container
+    newContainer.innerHTML = `
+        <div class="banner">
+            <img src="/images/ladal_icon_white.png" alt="Icon" class="banner-icon">
+            <span class="banner-text">Language Technology and Data Analysis Laboratory</span>
+        </div>
+    `
+
+    // Select the header element
+    var header = document.getElementById("quarto-header");
+
+    // Select the nav element inside the header to place the new container just above it
+    var navbar = header.querySelector("nav");
+
+    // Insert the new container before the navbar element
+    header.insertBefore(newContainer, navbar);
+  });
+</script>
+<script src="../../site_libs/clipboard-1.7.1/clipboard.min.js"></script>
+<link href="../../site_libs/primer-tooltips-1.4.0/build.css" rel="stylesheet">
+<link href="../../site_libs/klippy-0.0.0.9500/css/klippy.min.css" rel="stylesheet">
+<script src="../../site_libs/klippy-0.0.0.9500/js/klippy.min.js"></script>
+
+
+<link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">quarto_websites</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">HOME</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html"> 
+<span class="menu-text">ABOUT</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../events.html"> 
+<span class="menu-text">EVENTS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tutorials.html"> 
+<span class="menu-text">TUTORIALS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tools.html"> 
+<span class="menu-text">TOOLS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../resources.html"> 
+<span class="menu-text">RESOURCES</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../contact.html"> 
+<span class="menu-text">CONTACT</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a>
+  <ul class="collapse">
+  <li><a href="#preparation-and-session-set-up" id="toc-preparation-and-session-set-up" class="nav-link" data-scroll-target="#preparation-and-session-set-up">Preparation and session set up</a></li>
+  </ul></li>
+  <li><a href="#reinforment-learning" id="toc-reinforment-learning" class="nav-link" data-scroll-target="#reinforment-learning">Reinforment Learning</a>
+  <ul class="collapse">
+  <li><a href="#text-summarisation" id="toc-text-summarisation" class="nav-link" data-scroll-target="#text-summarisation">Text Summarisation</a></li>
+  <li><a href="#other-applications-of-rl" id="toc-other-applications-of-rl" class="nav-link" data-scroll-target="#other-applications-of-rl">Other Applications of RL</a></li>
+  </ul></li>
+  <li><a href="#citation-session-info" id="toc-citation-session-info" class="nav-link" data-scroll-target="#citation-session-info">Citation &amp; Session Info</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Reinforcement Learning and Text Summarization in R</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Dattatreya Majumdar </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><img src="../../images/uq1.jpg" class="img-fluid" style="width:100.0%"></p>
+<section id="introduction" class="level1 unnumbered">
+<h1 class="unnumbered">Introduction</h1>
+<p>This tutorial introduces the concept of Reinforcement Learning (RL) <span class="citation" data-cites="sutton2018reinforcement wu2018study paulus2017deep">(see <a href="#ref-sutton2018reinforcement" role="doc-biblioref">Sutton and Barto</a>; <a href="#ref-wu2018study" role="doc-biblioref">Wu et al.</a>; <a href="#ref-paulus2017deep" role="doc-biblioref">Paulus, Xiong, and Socher</a>)</span>, and how it can be applied in the domain of Natural Language Processing (NLP) and linguistics.</p>
+<p><img src="../../images/gy_chili.png" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
+<p>This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how RI works. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with RI.</p>
+<div class="warning" style="padding:0.1em; background-color:#f2f2f2; color:#51247a">
+<span>
+<p style="margin-top:1em; text-align:center">
+The entire R Notebook for the tutorial can be downloaded <a href="https://slcladal.github.io/content/reinfnlp.Rmd"><strong>here</strong></a>. If you want to render the R Notebook on your machine, i.e.&nbsp;knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the <a href="https://slcladal.github.io/content/bibliography.bib"><strong>bibliography file</strong></a> and store it in the same folder where you store the Rmd file. <br>
+</p>
+<p style="margin-left:1em;">
+</p>
+<p></p>
+</span></div>
+<p><br></p>
+<section id="preparation-and-session-set-up" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="preparation-and-session-set-up">Preparation and session set up</h2>
+<p>This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R <a href="intror.html">here</a>. For this tutorials, we need to install certain <em>packages</em> from an R <em>library</em> so that the scripts in this tutorial are executed without errors. Before continuing, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).</p>
+<p>For this tutorial we will be primarily requiring four packages: <em>tidytext</em> for text manipulations, <em>tidyverse</em> for general tasks, <em>textrank</em> for the implementation of the TextRank algorithm and <em>rvest</em> to scrape through an article to use as an example. For this analysis an article for Time has been selected.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set options</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">stringsAsFactors =</span> F)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># install libraries</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="fu">c</span>(<span class="st">"tidytext"</span>, <span class="st">"tidyverse"</span>, <span class="st">"textrank"</span>, <span class="st">"rvest"</span>, <span class="st">"ggplot2"</span>))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># install klippy for copy-to-clipboard button in code chunks</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"remotes"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">"rlesur/klippy"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now that we have installed the packages, we activate them as shown below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r klippy code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set options</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">stringsAsFactors =</span> F) <span class="co"># no automatic data transformation</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="st">"scipen"</span> <span class="ot">=</span> <span class="dv">100</span>, <span class="st">"digits"</span> <span class="ot">=</span> <span class="dv">12</span>) <span class="co"># suppress math annotation</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># activate packages</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidytext)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(textrank)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rvest)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># activate klippy for copy-to-clipboard button</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>klippy<span class="sc">::</span><span class="fu">klippy</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<script>
+  addClassKlippyTo("pre.r, pre.markdown");
+  addKlippy('left', 'top', 'auto', '1', 'Copy code', 'Copied!');
+</script>
+</div>
+</div>
+<p>Once you have installed R and RStudio and also initiated the session by executing the code shown above, you are good to go.</p>
+</section>
+</section>
+<section id="reinforment-learning" class="level1 unnumbered">
+<h1 class="unnumbered">Reinforment Learning</h1>
+<p>Reinforcement Learning enables a machines and software agents to independently determine the optimal behavior depending on a specific concept to enhance the overall performance. The system requires a reward feedback to learn its behavior which is known as reinforcement signal. The schematic diagram of Reinforcement Learning is provided below: -</p>
+<p><img src="../../images/Reinforcement.PNG" class="img-fluid" style="float:center; padding:10px;width:60.0%"></p>
+<p>Any RL framework comprises of 3 major components:</p>
+<ul>
+<li><em>Action</em> determines all possible moves that the agent can make which is normally expressed as a mathematical function.</li>
+<li><em>State</em> it is an explicit and quick circumstance that the agent can find itself in posed by the environment or any future circumstance</li>
+<li><em>Reward</em> it is the feedback input from the environment which measure the achievement or failure of the agent’s activities.</li>
+</ul>
+<p>The are three broad categories of RL:</p>
+<ul>
+<li><em>Value Based</em> which determines the optimal value function and it is the maximum value achievable under any policy.</li>
+<li><em>Policy Based</em> which identifies the optimal policy achieving maximum future reward</li>
+<li><em>Model Based</em> involves a model which predicts attributes or provides representation of the environment</li>
+</ul>
+<p>Without going into the mathematical intricacies of RL we will focus on possible applications of deep RL to linguistic data this tutorial. In its current form, RL plays a pivotal role in various Natural Language Processing (NLP) applications some of which are:</p>
+<ul>
+<li>Article Summarisation</li>
+<li>Question Answering (QA)</li>
+<li>Dialogue Generation</li>
+<li>Dialogue System</li>
+<li>Knowledge-based QA</li>
+<li>Machine Translation</li>
+<li>Text Generation</li>
+</ul>
+<p>In the following sections we will explore some use cases of RL and interpret how deep RL can implement them.</p>
+<section id="text-summarisation" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="text-summarisation">Text Summarisation</h2>
+<p>A deep reinforced model for text summarisation involves sequence of input tokens <em>x={x<sub>1</sub>,x<sub>2</sub>,…,x<sub>n</sub>}</em> and produces a sequence of output (summary) tokens. A schematic presentation of the process is shown below:</p>
+<p><img src="../../images/deeprlartsumm.PNG" class="img-fluid" style="float:center; padding:10px;width:100.0%"></p>
+<p>For the article summarisation objective the deep RL has the following components:</p>
+<ul>
+<li><em>Action</em> which involves a function <em>u<sub>t</sub></em> which copies and generates summary output <em>y<sub>t</sub></em></li>
+<li><em>State</em> it encapsulates the hidden states of encoder and previous outputs</li>
+<li><em>Reward</em> which generates a rough score determining the performance of the summarisation</li>
+</ul>
+<p>Text summarisation <span class="citation" data-cites="mihalcea2004textrank">(see <a href="#ref-mihalcea2004textrank" role="doc-biblioref">Mihalcea and Tarau</a>)</span> is highly critical in extracting important information from large texts.</p>
+<p>In case of text summarisation there are broadly two categories:</p>
+<ul>
+<li>Extractive Summarisation</li>
+<li>Abstractive Summarisation</li>
+</ul>
+<p>In case of <em>Extractive Summarisation</em> words and sentences are scored according to a specific metric and then utilizing that information for summarizing based copying or pasting the most informative parts of the text.</p>
+<p>On the other hand <em>Abstractive Summarisation</em> involves building a semantic representation of the text and then incorporating natural language generation techniques to generate text highlighting the informative parts of the parent text document.</p>
+<p>Here, we will be focusing on an extractive summarisation method called <em>TextRank</em> which is hinged upon the <em>PageRank</em> algorithm which was developed by Google to rank websites based on their importance.</p>
+<p><strong>The TextRank Algorithm</strong></p>
+<p>TextRank is a graph-based ranking algorithm for NLP. Graph-based ranking algorithms evaluate the importance of a vertex within a graph, based on global information extracted recursively from the entire graph. When one vertex is associated with another it is actually casting a vote for that vertex. The higher the number of votes cast for a vertex, the higher importance of that vertex.</p>
+<p>In the NLP case it is necessary to define vertices and edges. In this tutorial we will be using sentences as vertices and words as edges. Thus sentences with words present in many other sentences will have higher priority</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define url</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>url <span class="ot">&lt;-</span> <span class="st">"http://time.com/5196761/fitbit-ace-kids-fitness-tracker/"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># read in data</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>site <span class="ot">&lt;-</span> <span class="fu">read_html</span>(url)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>article <span class="ot">&lt;-</span> <span class="fu">html_text</span>(<span class="fu">html_nodes</span>(site, <span class="st">"p,h1,h2,h3"</span>))</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>article</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Fitbit’s Newest Fitness Tracker Is Just for Kids"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+[2] "Fitbit is launching a new fitness tracker designed for children called the Fitbit Ace, which will go on sale for $99.95 in the second quarter of this year."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+[3] "The [tempo-ecommerce src=”http://www.amazon.com/Fitbit-Activity-Tracker-Purple-Stainless/dp/B07B9DX4WB&amp;#8221; title=”Fitbit Ace” context=”body”] looks a lot like the company’s Alta tracker, but with a few child-friendly tweaks. The most important of which is Fitbit’s new family account option, which gives parents control over how their child uses their tracker and is compliant with the Children’s Online Privacy Protection Act, or COPPA. Parents must approve who their child can connect with via the Fitbit app and can view their kid’s activity progress and sleep trends, the latter of which can help them manage their children’s bedtimes."                                                              
+[4] "Like many of Fitbit’s other products, the Fitbit Ace can automatically track steps, monitor active minutes, and remind kids to move when they’ve been still for too long. But while Fitbit’s default move goal is 30 minutes for adult users, the Ace’s will be 60 minutes, in line with the World Health Organization’s recommendation that children between the ages of five and 17 get an hour of daily physical activity per day. Fitbit says the tracker is designed for children eight years old and up."                                                                                                                                                                                                                  
+[5] "Fitbit will also be introducing a Family Faceoff feature that lets kids compete in a five-day step challenge against the other members of their family account. The app also will reward children with in-app badges for achieving their health goals. Fitbit’s new child-friendly fitness band will be available in blue and purple, is showerproof, and should last for five days on a single charge."                                                                                                                                                                                                                                                                                                                         
+[6] "The Ace launch is part of Fitbit’s broader goal of branching out to new audiences. The company also announced a new smartwatch on Tuesday called the Versa, which is being positioned as an everyday smartwatch rather than a fitness-only device or sports watch, like some of the company’s other products."                                                                                                                                                                                                                                                                                                                                                                                                                   
+[7] "Above all else, the Ace is an effort to get children up and moving. The Centers for Disease Control and Prevention report that the percentage of children and adolescents affected by obesity has more than tripled since the 1970’s. But parents who want to encourage their children to move already have several less expensive options to choose from. Garmin’s $79.99 Vivofit Jr. 2, for example, comes in themed skins like these Minnie Mouse and Star Wars versions, while the wristband entices kids to move by reflecting their fitness achievements in an accompanying smartphone game. The $39.99 Nabi Compete, meanwhile, is sold in pairs so that family members can work together to achieve movement milestones."
+[8] "More Must-Reads from TIME"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+[9] "Contact us at letters@time.com"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  </code></pre>
+</div>
+</div>
+<p>Next the article is loaded into a tibble. Then tokenisation is implemented according to sentences. Although this tokenisation is fully perfect it has a lower number of dependencies and is suitable for this case. Finally we add column for sentence number and switch the order of the columns.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">text =</span> article) <span class="sc">%&gt;%</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    tidytext<span class="sc">::</span><span class="fu">unnest_tokens</span>(sentence, text, <span class="at">token =</span> <span class="st">"sentences"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">sentence_id =</span> <span class="fu">row_number</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(sentence_id, sentence) <span class="ot">-&gt;</span> article_sentences</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>article_sentences</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 20 × 2
+   sentence_id sentence                                                         
+         &lt;int&gt; &lt;chr&gt;                                                            
+ 1           1 fitbit’s newest fitness tracker is just for kids                 
+ 2           2 fitbit is launching a new fitness tracker designed for children …
+ 3           3 the [tempo-ecommerce src=”http://www.amazon.com/fitbit-activity-…
+ 4           4 the most important of which is fitbit’s new family account optio…
+ 5           5 parents must approve who their child can connect with via the fi…
+ 6           6 like many of fitbit’s other products, the fitbit ace can automat…
+ 7           7 but while fitbit’s default move goal is 30 minutes for adult use…
+ 8           8 fitbit says the tracker is designed for children eight years old…
+ 9           9 fitbit will also be introducing a family faceoff feature that le…
+10          10 the app also will reward children with in-app badges for achievi…
+11          11 fitbit’s new child-friendly fitness band will be available in bl…
+12          12 the ace launch is part of fitbit’s broader goal of branching out…
+13          13 the company also announced a new smartwatch on tuesday called th…
+14          14 above all else, the ace is an effort to get children up and movi…
+15          15 the centers for disease control and prevention report that the p…
+16          16 but parents who want to encourage their children to move already…
+17          17 garmin’s $79.99 vivofit jr. 2, for example, comes in themed skin…
+18          18 the $39.99 nabi compete, meanwhile, is sold in pairs so that fam…
+19          19 more must-reads from time                                        
+20          20 contact us at letters@time.com                                   </code></pre>
+</div>
+</div>
+<p>Next we will tokenize based on words.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>article_words <span class="ot">&lt;-</span> article_sentences <span class="sc">%&gt;%</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    tidytext<span class="sc">::</span><span class="fu">unnest_tokens</span>(word, sentence)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>article_words</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 466 × 2
+   sentence_id word    
+         &lt;int&gt; &lt;chr&gt;   
+ 1           1 fitbit’s
+ 2           1 newest  
+ 3           1 fitness 
+ 4           1 tracker 
+ 5           1 is      
+ 6           1 just    
+ 7           1 for     
+ 8           1 kids    
+ 9           2 fitbit  
+10           2 is      
+# ℹ 456 more rows</code></pre>
+</div>
+</div>
+<p>We have one last step left is to remove the stop words in <em>article_words</em> as they are prone to result in redundancy.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>article_words <span class="ot">&lt;-</span> article_words <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">anti_join</span>(stop_words, <span class="at">by =</span> <span class="st">"word"</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>article_words</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 225 × 2
+   sentence_id word     
+         &lt;int&gt; &lt;chr&gt;    
+ 1           1 fitbit’s 
+ 2           1 fitness  
+ 3           1 tracker  
+ 4           1 kids     
+ 5           2 fitbit   
+ 6           2 launching
+ 7           2 fitness  
+ 8           2 tracker  
+ 9           2 designed 
+10           2 children 
+# ℹ 215 more rows</code></pre>
+</div>
+</div>
+<p>Using the textrank package it is really easy to implement the TextRank algorithm. The <em>textrank_sentences</em> function requires only 2 inputs:</p>
+<ul>
+<li>A data frame with sentences</li>
+<li>A data frame with tokens which are part of each sentence</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>article_summary <span class="ot">&lt;-</span> <span class="fu">textrank_sentences</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> article_sentences,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">terminology =</span> article_words</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect the summary</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>article_summary</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Textrank on sentences, showing top 5 most important sentences found:
+  1. fitbit is launching a new fitness tracker designed for children called the fitbit ace, which will go on sale for $99.95 in the second quarter of this year.
+  2. fitbit says the tracker is designed for children eight years old and up.
+  3. fitbit’s newest fitness tracker is just for kids
+  4. like many of fitbit’s other products, the fitbit ace can automatically track steps, monitor active minutes, and remind kids to move when they’ve been still for too long.
+  5. the most important of which is fitbit’s new family account option, which gives parents control over how their child uses their tracker and is compliant with the children’s online privacy protection act, or coppa.</code></pre>
+</div>
+</div>
+<p>Lets have a look where these important sentences appear in the article:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>article_summary[[<span class="st">"sentences"</span>]] <span class="sc">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ggplot</span>(<span class="fu">aes</span>(textrank_id, textrank, <span class="at">fill =</span> textrank_id)) <span class="sc">+</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_fill_viridis_c</span>() <span class="sc">+</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">guides</span>(<span class="at">fill =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> <span class="st">"Sentence"</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="at">y =</span> <span class="st">"TextRank score"</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Most informative sentences appear within first half of sentences"</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="at">subtitle =</span> <span class="st">'In article "Fitbits Newest Fitness Tracker Is Just for Kids"'</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        <span class="at">caption =</span> <span class="st">"Source: http://time.com/5196761/fitbit-ace-kids-fitness-tracker/"</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="reinfnlp_files/figure-html/impsent-1.png" class="img-fluid figure-img" width="576"></p>
+<figcaption>Position of Important Sentences in the Article</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="other-applications-of-rl" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="other-applications-of-rl">Other Applications of RL</h2>
+<section id="dialogue-generation" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="dialogue-generation">Dialogue Generation</h3>
+<p>In today’s digital world dialogue generation is a widely used application especially in chatbots. One widely used model in this regard is the Long Short Term Memory (LSTM) sequence-to-sequence (SEQ2SEQ) model. It is a neural generative model that maximizes the probability of generating a response given the previous dialogue. However SEQ2SEQ model has some constraints:</p>
+<ul>
+<li>They tend to generate highly generic responses</li>
+<li>Often they are stuck in an infinite loop of repetitive responses</li>
+</ul>
+<p>This is where deep RL is much more efficient as it can integrate developer-defined rewards which efficiently mimics the true goal of chatbot development. In case of dialogue generation the component:</p>
+<ul>
+<li><em>Action</em> which involves a function that generates sequences of arbitrary lengths</li>
+<li><em>State</em> it comprises of previous 2 dialogue turns [p<sub>i</sub>,q<sub>i</sub>]</li>
+<li><em>Reward</em> which determines the ease of answering, information flow and semantic coherence</li>
+</ul>
+<p>The schematic diagram highlighting the dialogue simulation between 2 agents using deep RL is shown below:</p>
+<p><img src="../../images/dlsimrl.PNG" class="img-fluid" style="float:center; padding:10px;width:100.0%"></p>
+</section>
+<section id="neural-machine-translation" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="neural-machine-translation">Neural Machine Translation</h3>
+<p>Most of Neural Machine Translation (NMT) models are based encoder-decoder framework with attention mechanism. The encoder initially maps a source sentence <em>x={x<sub>1</sub>,x<sub>2</sub>,…,x<sub>n</sub>}</em> to a set of continuous representations <em>z={z<sub>1</sub>,z<sub>2</sub>,…,z<sub>n</sub>}</em> . Given <em>z</em> the decoder then generates a target sentence <em>y={y<sub>1</sub>,y<sub>2</sub>,…,y<sub>m</sub>}</em> of word tokens one by one. RL is used to bridge the gap between training and inference of of NMT by directly optimizing the loss function at training time. In this scenario the NMT model acts as the <em>agent</em> which interacts with the <em>environment</em> which in this case are the previous words and the context vector <em>z</em> available at each step <em>t</em>. This is a a policy based RL and in place of a state a policy will be assigned in every iteration. The critical components of the RL for NMT are discussed below:</p>
+<ul>
+<li><em>Policy</em> which is a conditional probability defined by the parameters of the agent</li>
+<li><em>Action</em> is decided by the agent based on the policy and it will pick up a candidate word from the vocabulary</li>
+<li><em>Reward</em> is evaluated once the agent generates a complete sequence which in case of machine translation is <em>Bilingual Evaluation Understudy (BLEU)</em>.BLEU is defined by comparing the generated sequence with the ground truth sequence.</li>
+</ul>
+<p>The schematic of the overall process is depicted below:</p>
+<p><img src="../../images/NMT.PNG" class="img-fluid" style="float:center; padding:10px;width:60.0%"></p>
+</section>
+</section>
+</section>
+<section id="citation-session-info" class="level1 unnumbered">
+<h1 class="unnumbered">Citation &amp; Session Info</h1>
+<p>Majumdar, Dattatreya. 2024. <em>Reinforcement Learning in NLP</em>. Brisbane: The University of Queensland. url: https://slcladal.github.io/reinfnlp.html (Version 2024.11.08).</p>
+<pre><code>@manual{Majumdar2024ta,
+  author = {Majumdar, Dattatreya},
+  title = {Reinforcement Learning in NLP},
+  note = {https://slcladal.github.io/reinfnlp.html},
+  year = {2024},
+  organization = "The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2024.11.08}
+}</code></pre>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.1 (2024-06-14)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.6.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: Australia/Brisbane
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] rvest_1.0.4     textrank_0.3.1  lubridate_1.9.3 forcats_1.0.0  
+ [5] stringr_1.5.1   dplyr_1.1.4     purrr_1.0.2     readr_2.1.5    
+ [9] tidyr_1.3.1     tibble_3.2.1    ggplot2_3.5.1   tidyverse_2.0.0
+[13] tidytext_0.4.2 
+
+loaded via a namespace (and not attached):
+ [1] janeaustenr_1.0.0 utf8_1.2.4        generics_0.1.3    xml2_1.3.6       
+ [5] stringi_1.8.4     lattice_0.22-6    hms_1.1.3         digest_0.6.37    
+ [9] magrittr_2.0.3    evaluate_1.0.1    grid_4.4.1        timechange_0.3.0 
+[13] fastmap_1.2.0     jsonlite_1.8.9    Matrix_1.7-1      httr_1.4.7       
+[17] selectr_0.4-2     fansi_1.0.6       viridisLite_0.4.2 scales_1.3.0     
+[21] codetools_0.2-20  klippy_0.0.0.9500 cli_3.6.3         rlang_1.1.4      
+[25] tokenizers_0.3.0  munsell_0.5.1     withr_3.0.2       tools_4.4.1      
+[29] tzdb_0.4.0        colorspace_2.1-1  curl_5.2.3        assertthat_0.2.1 
+[33] vctrs_0.6.5       R6_2.5.1          lifecycle_1.0.4   htmlwidgets_1.6.4
+[37] pkgconfig_2.0.3   pillar_1.9.0      gtable_0.3.6      glue_1.8.0       
+[41] data.table_1.16.2 Rcpp_1.0.13       xfun_0.49         tidyselect_1.2.1 
+[45] rstudioapi_0.17.1 knitr_1.48        farver_2.1.2      htmltools_0.5.8.1
+[49] igraph_2.1.1      SnowballC_0.7.1   labeling_0.4.3    rmarkdown_2.28   
+[53] compiler_4.4.1   </code></pre>
+</div>
+</div>
+<hr>
+<p><a href="#introduction">Back to top</a></p>
+<p><a href="https://slcladal.github.io/index.html">Back to HOME</a></p>
+<hr>
+</section>
+<section id="references" class="level1 unnumbered">
+
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-mihalcea2004textrank" class="csl-entry" role="listitem">
+Mihalcea, Rada, and Paul Tarau. <span>“Textrank: Bringing Order into Text.”</span> In <em>Proceedings of the 2004 Conference on Empirical Methods in Natural Language Processing</em>, 404–11.
+</div>
+<div id="ref-paulus2017deep" class="csl-entry" role="listitem">
+Paulus, Romain, Caiming Xiong, and Richard Socher. <span>“A Deep Reinforced Model for Abstractive Summarization.”</span> <em>arXiv Preprint arXiv:1705.04304</em>.
+</div>
+<div id="ref-sutton2018reinforcement" class="csl-entry" role="listitem">
+Sutton, Richard S, and Andrew G Barto. <em>Reinforcement Learning: An Introduction</em>. MIT press.
+</div>
+<div id="ref-wu2018study" class="csl-entry" role="listitem">
+Wu, Lijun, Fei Tian, Tao Qin, Jianhuang Lai, and Tie-Yan Liu. <span>“A Study of Reinforcement Learning for Neural Machine Translation.”</span> <em>arXiv Preprint arXiv:1808.08866</em>.
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

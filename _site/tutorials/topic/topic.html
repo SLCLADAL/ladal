@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Martin Schweinberger">
+
+<title>Topic Modeling with R – quarto_websites</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script>
+  // Wait for the document to be fully loaded
+  document.addEventListener("DOMContentLoaded", function () {
+    // Create a new div element to hold the dynamic content
+    var newContainer = document.createElement("div");
+    newContainer.classList.add("custom-banner");  // You can assign a class to the new container for styling
+
+    // You can also add content inside the new container
+    newContainer.innerHTML = `
+        <div class="banner">
+            <img src="/images/ladal_icon_white.png" alt="Icon" class="banner-icon">
+            <span class="banner-text">Language Technology and Data Analysis Laboratory</span>
+        </div>
+    `
+
+    // Select the header element
+    var header = document.getElementById("quarto-header");
+
+    // Select the nav element inside the header to place the new container just above it
+    var navbar = header.querySelector("nav");
+
+    // Insert the new container before the navbar element
+    header.insertBefore(newContainer, navbar);
+  });
+</script>
+<script src="../../site_libs/clipboard-1.7.1/clipboard.min.js"></script>
+<link href="../../site_libs/primer-tooltips-1.4.0/build.css" rel="stylesheet">
+<link href="../../site_libs/klippy-0.0.0.9500/css/klippy.min.css" rel="stylesheet">
+<script src="../../site_libs/klippy-0.0.0.9500/js/klippy.min.js"></script>
+
+
+<link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">quarto_websites</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">HOME</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html"> 
+<span class="menu-text">ABOUT</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../events.html"> 
+<span class="menu-text">EVENTS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tutorials.html"> 
+<span class="menu-text">TUTORIALS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tools.html"> 
+<span class="menu-text">TOOLS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../resources.html"> 
+<span class="menu-text">RESOURCES</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../contact.html"> 
+<span class="menu-text">CONTACT</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#topic-modelling" id="toc-topic-modelling" class="nav-link" data-scroll-target="#topic-modelling">Topic Modelling</a>
+  <ul class="collapse">
+  <li><a href="#human-in-the-loop-topic-modelling" id="toc-human-in-the-loop-topic-modelling" class="nav-link" data-scroll-target="#human-in-the-loop-topic-modelling">Human-in-the-loop Topic Modelling</a></li>
+  <li><a href="#data-driven-topic-modelling" id="toc-data-driven-topic-modelling" class="nav-link" data-scroll-target="#data-driven-topic-modelling">Data-driven Topic Modelling</a></li>
+  </ul></li>
+  <li><a href="#citation-session-info" id="toc-citation-session-info" class="nav-link" data-scroll-target="#citation-session-info">Citation &amp; Session Info</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Topic Modeling with R</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Martin Schweinberger </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><img src="../../images/uq1.jpg" class="img-fluid" style="width:100.0%"></p>
+<section id="introduction" class="level1 unnumbered">
+<h1 class="unnumbered">Introduction</h1>
+<p>This tutorial introduces topic modeling using R.</p>
+<p><img src="../../images/gy_chili.png" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
+<p>This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to perform basic topic modeling on textual data using R and how to visualize the results of such a model. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with topic modeling.</p>
+<div class="warning" style="padding:0.1em; background-color:rgba(215,209,204,.3); color:#51247a">
+<span>
+<p style="margin-top:1em; text-align:center">
+To be able to follow this tutorial, we suggest you check out and familiarize yourself with the content of the following <strong>R Basics</strong> tutorials:<br>
+</p>
+<p style="margin-top:1em; text-align:left">
+</p><ul>
+<li>
+<a href="https://ladal.edu.au/intror.html">Getting started with R</a>
+</li>
+<li>
+<a href="https://ladal.edu.au/load.html">Loading, saving, and generating data in R</a>
+</li>
+<li>
+<a href="https://ladal.edu.au/string.html">String Processing in R</a>
+</li>
+<li>
+<a href="https://ladal.edu.au/regex.html">Regular Expressions in R</a>
+</li>
+</ul>
+<p></p>
+<p style="margin-top:1em; text-align:center">
+Click <a href="https://ladal.edu.au/content/topic.Rmd"><strong>here</strong></a><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> to download the <strong>entire R Notebook</strong> for this tutorial.<br><br> <a href="https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Ftm_cb.ipynb%26branch%3Dmain"><img src="https://mybinder.org/badge_logo.svg" class="img-fluid" alt="Binder"></a><br> Click <a href="https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Ftm_cb.ipynb%26branch%3Dmain"><strong>here</strong></a> to open a Jupyter notebook that allows you to follow this tutorial interactively. This means that you can execute, change, and edit the code used in this tutorial to help you better understand how the code shown here works (make sure you run all code chunks in the order in which they appear to avoid running into errors).
+</p>
+<br>
+<p></p>
+<p style="margin-left:1em;">
+</p>
+<p></p>
+</span></div>
+<p><br></p>
+<div class="warning" style="padding:0.1em; background-color:#51247a; color:#f2f2f2">
+<span>
+<p style="margin-top:1em; text-align:center">
+<strong>TOPIC MODEL TOOL</strong>
+</p>
+<p style="margin-top:1em; text-align:center">
+Click on this <a href="https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Ftopictool.ipynb%26branch%3Dmain"><img src="https://mybinder.org/badge_logo.svg" class="img-fluid" alt="Binder"></a> badge to open an notebook-based tool <br>that allows you to upload your own text(s), perform topic modelling on them, and download the results.
+</p>
+<br>
+<p style="margin-left:1em;">
+</p>
+<p></p>
+</span></div>
+<p><br></p>
+<p>This tutorial builds heavily on and uses materials from <span class="citation" data-cites="silge2017text">(<a href="#ref-silge2017text" role="doc-biblioref">Silge and Robinson, chap. 6</a>)</span> (see <a href="https://www.tidytextmining.com/topicmodeling">here</a>) and <a href="https://tm4ss.github.io/docs/Tutorial_6_Topic_Models.html">this tutorial</a> on topic modelling using R by Andreas Niekler and Gregor Wiedemann <span class="citation" data-cites="WN17">(see <a href="#ref-WN17" role="doc-biblioref">Wiedemann and Niekler</a>)</span>. <a href="https://tm4ss.github.io/docs/index.html">The tutorial</a> by Andreas Niekler and Gregor Wiedemann is more thorough, goes into more detail than this tutorial, and covers many more very useful text mining methods.</p>
+<div class="warning" style="padding:0.1em; background-color:#f2f2f2; color:#51247a">
+<span>
+<p style="margin-top:1em; text-align:center">
+<strong>Topic models aim to find topics (which are operationalized as bundles of correlating terms) in documents to see what the texts are about.</strong>
+</p>
+<p style="margin-left:1em;">
+</p>
+<p></p>
+</span></div>
+<p><br></p>
+<p>Topic models refers to a suit of methods employed to uncover latent structures within a corpus of text. These models operate on the premise of identifying abstract <em>topics</em> that recur across documents. In essence, topic models sift through the textual data to discern recurring patterns of word co-occurrence, revealing underlying semantic themes <span class="citation" data-cites="busso2022operation blei2003latent">(<a href="#ref-busso2022operation" role="doc-biblioref">Busso et al. 2022</a>; <a href="#ref-blei2003latent" role="doc-biblioref">Blei, Ng, and Jordan 2003</a>)</span>. This technique is particularly prevalent in text mining, where it serves to unveil hidden semantic structures in large volumes of textual data.</p>
+<p>Conceptually, topics can be understood as clusters of co-occurring terms, indicative of shared semantic domains within the text. The underlying assumption is that if a document pertains to a specific topic, words related to that topic will exhibit higher frequency compared to documents addressing other subjects. For example, in documents discussing dogs, terms like <em>dog</em> and <em>bone</em> are likely to feature prominently, while in documents focusing on cats, <em>cat</em> and <em>meow</em> would be more prevalent. Meanwhile, ubiquitous terms such as <em>the</em> and <em>is</em> are expected to occur with similar frequency across diverse topics, serving as noise rather than indicative signals of topic specificity.</p>
+<p>Various methods exist for determining topics within topic models. For instance, <span class="citation" data-cites="gerlach2018network">Gerlach, Peixoto, and Altmann (<a href="#ref-gerlach2018network" role="doc-biblioref">2018</a>)</span> and <span class="citation" data-cites="hyland2021multilayer">Hyland et al. (<a href="#ref-hyland2021multilayer" role="doc-biblioref">2021</a>)</span> advocate for an approach grounded in stochastic block models. However, most applications of topic models use Latent Dirichlet Allocation (LDA) <span class="citation" data-cites="blei2003latent">(<a href="#ref-blei2003latent" role="doc-biblioref">Blei, Ng, and Jordan 2003</a>)</span> or Structural Topic Modeling <span class="citation" data-cites="roberts2016navigating">(<a href="#ref-roberts2016navigating" role="doc-biblioref">Roberts, Stewart, and Tingley 2016</a>)</span>.</p>
+<p>LDA, in particular, emerges as a widely embraced technique for fitting topic models. It operates by treating each document as a blend of topics and each topic as a blend of words. Consequently, documents can exhibit content overlaps, akin to the fluidity observed in natural language usage, rather than being strictly segregated into distinct groups.</p>
+<p><span class="citation" data-cites="gillings2022interpretation">Gillings and Hardie (<a href="#ref-gillings2022interpretation" role="doc-biblioref">2022</a>)</span> state that topic modelling is based on the following key assumptions:</p>
+<ul>
+<li>The corpus comprises a substantial number of documents.<br>
+</li>
+<li>A topic is delineated as a set of words with varying probabilities of occurrence across the documents.<br>
+</li>
+<li>Each document exhibits diverse degrees of association with multiple topics.<br>
+</li>
+<li>The collection is structured by underlying topics, which are finite in number, organizing the corpus.</li>
+</ul>
+<p>Given the availability of vast amounts of textual data, topic models can help to organize and offer insights and assist in understanding large collections of unstructured text and they are widely used in natural language processing and computational text analytics. However, the use of topic modelling in discourse studies has received criticism <span class="citation" data-cites="brookes2019utility">(<a href="#ref-brookes2019utility" role="doc-biblioref">Brookes and McEnery 2019</a>)</span> due to the following issues:</p>
+<ol type="1">
+<li><p><strong>Thematic Coherence</strong>: While topic modeling can group texts into <em>topics</em>, the degree of thematic coherence varies. Some topics may be thematically coherent, but others may lack cohesion or accuracy in capturing the underlying themes present in the texts.</p></li>
+<li><p><strong>Nuanced Perspective</strong>: Compared to more traditional approaches to discourse analysis, topic modeling often provides a less nuanced perspective on the data. The automatically generated topics may overlook subtle nuances and intricacies present in the texts, leading to a less accurate representation of the discourse.</p></li>
+<li><p><strong>Distance from Reality</strong>: <span class="citation" data-cites="brookes2019utility">Brookes and McEnery (<a href="#ref-brookes2019utility" role="doc-biblioref">2019</a>)</span> suggest that the insights derived from topic modeling may not fully capture the “reality” of the texts. The topics generated by the model may not accurately reflect the complex nature of the discourse, leading to potential misinterpretations or oversimplifications of the data.</p></li>
+<li><p><strong>Utility for Discourse Analysts</strong>: While topic modeling may offer a method for organizing and studying sizable data sets, <span class="citation" data-cites="brookes2019utility">Brookes and McEnery (<a href="#ref-brookes2019utility" role="doc-biblioref">2019</a>)</span> questions the utility for discourse analysts and suggests that traditional discourse analysis methods consistently provide a more nuanced and accurate perspective on the data compared to topic modeling approaches.</p></li>
+</ol>
+<p>This criticism is certainly valid if topic modeling is solely reliant on a purely data-driven approach without human intervention. In this tutorial, we will demonstrate how to combine data-driven topic modeling with human-supervised seeded methods to arrive at more reliable and accurate topics.</p>
+<p><strong>Preparation and session set up</strong></p>
+<p>This tutorial is conducted within the R environment. If you’re new to R or haven’t installed it yet, you can find an introduction to R and further instructions on how to use it <a href="https://ladal.edu.au/intror.html">here</a>. To ensure smooth execution of the scripts provided in this tutorial, it’s necessary to install specific packages from the R library. Before proceeding to the code examples, please ensure you’ve installed these packages by running the code provided below. If you’ve already installed the required packages, feel free to skip ahead and disregard this section. To install the necessary packages, simply execute the following code. Please note that installation may take some time (usually between 1 and 5 minutes), so there’s no need to be concerned if it takes a while.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># install packages</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"dplyr"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"flextable"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"lda"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"ldatuning"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"quanteda"</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"RColorBrewer"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"reshape2"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"slam"</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"stringr"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"tidyr"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"tidytext"</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"tm"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"topicmodels"</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"wordcloud"</span>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># install klippy for copy-to-clipboard button in code chunks</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"remotes"</span>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">"rlesur/klippy"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Next, we activate the packages.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set options</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">stringsAsFactors =</span> F) <span class="co"># no automatic data transformation</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="st">"scipen"</span> <span class="ot">=</span> <span class="dv">100</span>, <span class="st">"digits"</span> <span class="ot">=</span> <span class="dv">4</span>) <span class="co"># suppress math annotation</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># load packages</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(flextable)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lda)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ldatuning)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(quanteda)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(RColorBrewer)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reshape2)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(slam)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidytext)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tm)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(topicmodels)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(wordcloud)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="co"># activate klippy for copy-to-clipboard button</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>klippy<span class="sc">::</span><span class="fu">klippy</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<script>
+  addClassKlippyTo("pre.r, pre.markdown");
+  addKlippy('left', 'top', 'auto', '1', 'Copy code', 'Copied!');
+</script>
+</div>
+</div>
+<p>Once you have installed R and RStudio and once you have initiated the session by executing the code shown above, you are good to go.</p>
+</section>
+<section id="topic-modelling" class="level1 unnumbered">
+<h1 class="unnumbered">Topic Modelling</h1>
+<p>In this tutorial, we’ll explore a two-step approach to topic modeling. Initially, we’ll employ an unsupervised method to generate a preliminary topic model, uncovering inherent topics within the data. Subsequently, we’ll introduce a human-supervised, seeded model, informed by the outcomes of the initial data-driven approach. Following this (recommended) procedure, we’ll then delve into an alternative purely data-driven approach.</p>
+<p>Our tutorial begins by gathering the necessary corpus data. We’ll be focusing on analyzing the <em>State of the Union Addresses</em> (SOTU) delivered by US presidents, with the aim of understanding how the addressed topics have evolved over time. Given the length of these addresses (amounting to 231 in total), it’s important to acknowledge that document length can influence topic modeling outcomes. In cases where texts are exceptionally short (like Twitter posts) or long (such as books), adjusting the document units for modeling purposes can be beneficial—either by combining or splitting them accordingly.</p>
+<p>To tailor our approach to the SOTU speeches, we’ve chosen to model at the paragraph level instead of analyzing entire speeches at once. This allows for a more detailed analysis, potentially leading to clearer and more interpretable topics. We’ve provided a data set named <code>sotu_paragraphs.rda</code>, which contains the speeches segmented into paragraphs for easier analysis.</p>
+<section id="human-in-the-loop-topic-modelling" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="human-in-the-loop-topic-modelling">Human-in-the-loop Topic Modelling</h2>
+<p>In this human-in-the-loop approach to topic modelling which mainly uses and combines the <code>quanteda</code> package <span class="citation" data-cites="benoit2018quanteda">(<a href="#ref-benoit2018quanteda" role="doc-biblioref">Benoit et al.</a>)</span>, the <code>topicmodels</code> package <span class="citation" data-cites="topicmodels2024package topicmodels2011pub">(<a href="#ref-topicmodels2024package" role="doc-biblioref">Grün and Hornik 2024</a>, <a href="#ref-topicmodels2011pub" role="doc-biblioref">2011</a>)</span>, and the <code>seededlda</code> package <span class="citation" data-cites="seededlda2024">(<a href="#ref-seededlda2024" role="doc-biblioref">Watanabe and Xuan-Hieu 2024</a>)</span>. Now that we have cleaned the data, we can perform the topic modelling. This consists of two steps:</p>
+<ol type="1">
+<li><p>First, we perform an unsupervised LDA. We do this to check what topics are in our corpus.</p></li>
+<li><p>Then, we perform a supervised LDA (based on the results of the unsupervised LDA) to identify meaningful topics in our data. For the supervised LDA, we define so-called <em>seed terms</em> that help in generating coherent topics.</p></li>
+</ol>
+<section id="loading-and-preparing-data" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="loading-and-preparing-data">Loading and preparing data</h3>
+<p>When preparing the data for analysis, we employ several preprocessing steps to ensure its cleanliness and readiness for analysis. Initially, we load the data and then remove punctuation, symbols, and numerical characters. Additionally, we eliminate common stop words, such as <em>the</em> and <em>and</em>, which can introduce noise and hinder the topic modeling process. To standardize the text, we convert it to lowercase and, lastly, we apply stemming to reduce words to their base form.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load data</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>txts <span class="ot">&lt;-</span> base<span class="sc">::</span><span class="fu">readRDS</span>(<span class="fu">url</span>(<span class="st">"https://slcladal.github.io/data/sotu_paragraphs.rda"</span>, <span class="st">"rb"</span>))</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>txts<span class="sc">$</span>text <span class="sc">%&gt;%</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># tokenise</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  quanteda<span class="sc">::</span><span class="fu">tokens</span>(</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">remove_punct =</span> <span class="cn">TRUE</span>, <span class="co"># remove punctuation</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">remove_symbols =</span> <span class="cn">TRUE</span>, <span class="co"># remove symbols</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">remove_number =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> <span class="co"># remove numbers</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove stop words</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  quanteda<span class="sc">::</span><span class="fu">tokens_select</span>(<span class="at">pattern =</span> <span class="fu">stopwords</span>(<span class="st">"en"</span>), <span class="at">selection =</span> <span class="st">"remove"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># stemming</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  quanteda<span class="sc">::</span><span class="fu">tokens_wordstem</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># convert to document-frequency matrix</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  quanteda<span class="sc">::</span><span class="fu">dfm</span>(<span class="at">tolower =</span> T) <span class="ot">-&gt;</span> ctxts</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># add docvars</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="fu">docvars</span>(ctxts, <span class="st">"president"</span>) <span class="ot">&lt;-</span> txts<span class="sc">$</span>president</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">docvars</span>(ctxts, <span class="st">"date"</span>) <span class="ot">&lt;-</span> txts<span class="sc">$</span>date</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">docvars</span>(ctxts, <span class="st">"speechid"</span>) <span class="ot">&lt;-</span> txts<span class="sc">$</span>speech_doc_id</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="fu">docvars</span>(ctxts, <span class="st">"docid"</span>) <span class="ot">&lt;-</span> txts<span class="sc">$</span>doc_id</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co"># clean data</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>ctxts <span class="ot">&lt;-</span> <span class="fu">dfm_subset</span>(ctxts, <span class="fu">ntoken</span>(ctxts) <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect data</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>ctxts[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Document-feature matrix of: 5 documents, 5 features (80.00% sparse) and 4 docvars.
+       features
+docs    fellow-citizen senat hous repres embrac
+  text1              1     1    1      1      0
+  text2              0     0    0      0      1
+  text3              0     0    0      0      0
+  text4              0     0    0      0      0
+  text5              0     0    0      0      0</code></pre>
+</div>
+</div>
+</section>
+<section id="initial-unsupervised-topic-model" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="initial-unsupervised-topic-model">Initial unsupervised topic model</h3>
+<p>Now that we have loaded and prepared the data for analysis, we will follow a two-step approach.</p>
+<ol type="1">
+<li><p>First, we perform an unsupervised topic model using Latent Dirichlet Allocation (LDA) to identify the topics present in our data. This initial step helps us understand the broad themes and structure within the data set.</p></li>
+<li><p>Then, based on the results of the unsupervised topic model, we conduct a supervised topic model using LDA to refine and identify more meaningful topics in our data.</p></li>
+</ol>
+<p>This combined approach allows us to leverage both data-driven insights and expert supervision to enhance the accuracy and interpretability of the topics.</p>
+<p>In the initial step that implements a unsupervised, data-driven topic model, we vary the number of topics the LDA algorithm looks for until we identify coherent topics in the data. We use the <code>LDA</code> function from the <code>topicmodels</code> package instead of the <code>textmodel_lda</code> function from the <code>seededlda</code> package because the former allows us to include a seed. Including a seed ensures that the results of this unsupervised topic model are reproducible, which is not the case if we do not seed the model, as each model will produce different results without setting a seed.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># generate model: change k to different numbers, e.g. 10 or 20 and look for consistencies in the keywords for the topics below.</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>topicmodels<span class="sc">::</span><span class="fu">LDA</span>(ctxts, <span class="at">k =</span> <span class="dv">15</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">seed =</span> <span class="dv">1234</span>)) <span class="ot">-&gt;</span> ddlda</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now that we have generated an initial data-driven model, the next step is to inspect it to evaluate its performance and understand the topics it has identified. To do this, we need to examine the terms associated with each detected topic. By analyzing these terms, we can gain insights into the themes represented by each topic and assess the coherence and relevance of the model’s output.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define number of topics</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>ntopics <span class="ot">&lt;-</span> <span class="dv">15</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># define number of terms</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>nterms <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># generate table</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>tidytext<span class="sc">::</span><span class="fu">tidy</span>(ddlda, <span class="at">matrix =</span> <span class="st">"beta"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(topic) <span class="sc">%&gt;%</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">slice_max</span>(beta, <span class="at">n =</span> nterms) <span class="sc">%&gt;%</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(topic, <span class="sc">-</span>beta) <span class="sc">%&gt;%</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">term =</span> <span class="fu">paste</span>(term, <span class="st">" ("</span>, <span class="fu">round</span>(beta, <span class="dv">3</span>), <span class="st">")"</span>, <span class="at">sep =</span> <span class="st">""</span>),</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">paste</span>(<span class="st">"topic"</span>, topic),</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">factor</span>(topic, <span class="at">levels =</span> <span class="fu">c</span>(<span class="fu">paste</span>(<span class="st">"topic"</span>, <span class="dv">1</span><span class="sc">:</span>ntopics))),</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">top =</span> <span class="fu">rep</span>(<span class="fu">paste</span>(<span class="st">"top"</span>, <span class="dv">1</span><span class="sc">:</span>nterms), <span class="fu">nrow</span>(.) <span class="sc">/</span> nterms),</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">top =</span> <span class="fu">factor</span>(top, <span class="at">levels =</span> <span class="fu">c</span>(<span class="fu">paste</span>(<span class="st">"top"</span>, <span class="dv">1</span><span class="sc">:</span>nterms)))</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>beta) <span class="sc">%&gt;%</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">spread</span>(topic, term) <span class="ot">-&gt;</span> ddlda_top_terms</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>ddlda_top_terms</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 16
+   top    `topic 1`  `topic 2` `topic 3` `topic 4` `topic 5` `topic 6` `topic 7`
+   &lt;fct&gt;  &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;chr&gt;     &lt;chr&gt;     &lt;chr&gt;     &lt;chr&gt;    
+ 1 top 1  state (0.… countri … state (0… govern (… state (0… state (0… state (0…
+ 2 top 2  countri (… upon (0.… unite (0… will (0.… countri … will (0.… upon (0.…
+ 3 top 3  will (0.0… present … congress… year (0.… will (0.… unite (0… will (0.…
+ 4 top 4  congress … war (0.0… may (0.0… unite (0… congress… govern (… congress…
+ 5 top 5  nation (0… can (0.0… treati (… law (0.0… public (… power (0… may (0.0…
+ 6 top 6  can (0.00… unite (0… citizen … may (0.0… year (0.… law (0.0… govern (…
+ 7 top 7  subject (… nation (… nation (… upon (0.… nation (… peopl (0… citizen …
+ 8 top 8  govern (0… author (… great (0… act (0.0… can (0.0… last (0.… nation (…
+ 9 top 9  land (0.0… may (0.0… territor… public (… law (0.0… duti (0.… import (…
+10 top 10 made (0.0… subject … made (0.… last (0.… import (… part (0.… great (0…
+# ℹ 8 more variables: `topic 8` &lt;chr&gt;, `topic 9` &lt;chr&gt;, `topic 10` &lt;chr&gt;,
+#   `topic 11` &lt;chr&gt;, `topic 12` &lt;chr&gt;, `topic 13` &lt;chr&gt;, `topic 14` &lt;chr&gt;,
+#   `topic 15` &lt;chr&gt;</code></pre>
+</div>
+</div>
+<p>In a real analysis, we would re-run the unsupervised model multiple times, adjusting the number of topics that the Latent Dirichlet Allocation (LDA) algorithm “looks for.” For each iteration, we would inspect the key terms associated with the identified topics to check their thematic consistency. This evaluation helps us determine whether the results of the topic model make sense and accurately reflect the themes present in the data. By varying the number of topics and examining the corresponding key terms, we can identify the optimal number of topics that best represent the underlying themes in our data set. However, we will skip re-running the model here, as this is just a tutorial intended to showcase the process rather than a comprehensive analysis.</p>
+<p>To obtain a comprehensive table of terms and their association strengths with topics (the beta values), follow the steps outlined below. This table can help verify if the data contains thematically distinct topics. Additionally, visualizations and statistical modeling can be employed to compare the distinctness of topics and determine the ideal number of topics. However, I strongly recommend not solely relying on statistical measures when identifying the optimal number of topics. In my experience, human intuition is still essential for evaluating topic coherence and consistency.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># extract topics</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>ddlda_topics <span class="ot">&lt;-</span> <span class="fu">tidy</span>(ddlda, <span class="at">matrix =</span> <span class="st">"beta"</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(ddlda_topics, <span class="dv">20</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 20 × 3
+   topic term                beta
+   &lt;int&gt; &lt;chr&gt;              &lt;dbl&gt;
+ 1     1 fellow-citizen 0.000249 
+ 2     2 fellow-citizen 0.000351 
+ 3     3 fellow-citizen 0.000416 
+ 4     4 fellow-citizen 0.0000333
+ 5     5 fellow-citizen 0.0000797
+ 6     6 fellow-citizen 0.000183 
+ 7     7 fellow-citizen 0.000445 
+ 8     8 fellow-citizen 0.000306 
+ 9     9 fellow-citizen 0.000381 
+10    10 fellow-citizen 0.000332 
+11    11 fellow-citizen 0.000187 
+12    12 fellow-citizen 0.000147 
+13    13 fellow-citizen 0.000278 
+14    14 fellow-citizen 0.000336 
+15    15 fellow-citizen 0.000205 
+16     1 senat          0.000708 
+17     2 senat          0.000477 
+18     3 senat          0.00263  
+19     4 senat          0.00118  
+20     5 senat          0.000436 </code></pre>
+</div>
+</div>
+<p>The purpose of this initial step, in which we generate data-driven unsupervised topic models, is to identify the number of coherent topics present in the data and to determine the key terms associated with these topics. These key terms will then be used as seed terms in the next step: the supervised, seeded topic model. This approach ensures that the supervised model is grounded in the actual thematic structure of the data set, enhancing the accuracy and relevance of the identified topics.</p>
+</section>
+<section id="supervised-seeded-topic-model" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="supervised-seeded-topic-model">Supervised, seeded topic model</h3>
+<p>To implement the supervised, seeded topic model, we start by creating a dictionary containing the seed terms we have identified in the first step.</p>
+<p>To check terms (to see if ), you can use the following code chunk:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ddlda_topics <span class="sc">%&gt;%</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(term) <span class="sc">%&gt;%</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unique</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(term, <span class="st">"agri"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 1
+  term               
+  &lt;chr&gt;              
+1 agricultur         
+2 agriculturist      
+3 agricultural-colleg</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># semisupervised LDA</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">dictionary</span>(<span class="fu">list</span>(</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">military =</span> <span class="fu">c</span>(<span class="st">"armi"</span>, <span class="st">"war"</span>, <span class="st">"militari"</span>, <span class="st">"conflict"</span>),</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">liberty =</span> <span class="fu">c</span>(<span class="st">"freedom"</span>, <span class="st">"liberti"</span>, <span class="st">"free"</span>),</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">nation =</span> <span class="fu">c</span>(<span class="st">"nation"</span>, <span class="st">"countri"</span>, <span class="st">"citizen"</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">law =</span> <span class="fu">c</span>(<span class="st">"law"</span>, <span class="st">"court"</span>, <span class="st">"prison"</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">treaty =</span> <span class="fu">c</span>(<span class="st">"claim"</span>, <span class="st">"treati"</span>, <span class="st">"negoti"</span>),</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">indian =</span> <span class="fu">c</span>(<span class="st">"indian"</span>, <span class="st">"tribe"</span>, <span class="st">"territori"</span>),</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">labor =</span> <span class="fu">c</span>(<span class="st">"labor"</span>, <span class="st">"work"</span>, <span class="st">"condit"</span>),</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">money =</span> <span class="fu">c</span>(<span class="st">"bank"</span>, <span class="st">"silver"</span>, <span class="st">"gold"</span>, <span class="st">"currenc"</span>, <span class="st">"money"</span>),</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">finance =</span> <span class="fu">c</span>(<span class="st">"debt"</span>, <span class="st">"invest"</span>, <span class="st">"financ"</span>),</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">wealth =</span> <span class="fu">c</span>(<span class="st">"prosper"</span>, <span class="st">"peac"</span>, <span class="st">"wealth"</span>),</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">industry =</span> <span class="fu">c</span>(<span class="st">"produc"</span>, <span class="st">"industri"</span>, <span class="st">"manufactur"</span>),</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">navy =</span> <span class="fu">c</span>(<span class="st">"navi"</span>, <span class="st">"ship"</span>, <span class="st">"vessel"</span>, <span class="st">"naval"</span>),</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">consitution =</span> <span class="fu">c</span>(<span class="st">"constitut"</span>, <span class="st">"power"</span>, <span class="st">"state"</span>),</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">agriculture =</span> <span class="fu">c</span>(<span class="st">"agricultur"</span>, <span class="st">"grow"</span>, <span class="st">"land"</span>),</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">office =</span> <span class="fu">c</span>(<span class="st">"office"</span>, <span class="st">"serv"</span>, <span class="st">"duti"</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>))</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>tmod_slda <span class="ot">&lt;-</span> seededlda<span class="sc">::</span><span class="fu">textmodel_seededlda</span>(ctxts,</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>  dict,</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">residual =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">min_termfreq =</span> <span class="dv">2</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>seededlda<span class="sc">::</span><span class="fu">terms</span>(tmod_slda)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      military   liberty   nation    law        treaty    indian     
+ [1,] "war"      "free"    "countri" "law"      "treati"  "territori"
+ [2,] "militari" "peopl"   "nation"  "court"    "claim"   "indian"   
+ [3,] "armi"     "can"     "citizen" "case"     "govern"  "tribe"    
+ [4,] "forc"     "must"    "great"   "govern"   "negoti"  "mexico"   
+ [5,] "offic"    "upon"    "us"      "person"   "unite"   "part"     
+ [6,] "servic"   "liberti" "peopl"   "upon"     "minist"  "texa"     
+ [7,] "men"      "one"     "will"    "properti" "convent" "new"      
+ [8,] "command"  "govern"  "everi"   "author"   "britain" "made"     
+ [9,] "conflict" "will"    "honor"   "justic"   "british" "boundari" 
+[10,] "arm"      "polit"   "can"     "made"     "two"     "line"     
+      labor       money      finance      wealth       industry     navy       
+ [1,] "condit"    "bank"     "year"       "peac"       "produc"     "vessel"   
+ [2,] "work"      "money"    "debt"       "govern"     "industri"   "navi"     
+ [3,] "labor"     "gold"     "amount"     "prosper"    "manufactur" "ship"     
+ [4,] "report"    "currenc"  "expenditur" "relat"      "product"    "naval"    
+ [5,] "depart"    "silver"   "treasuri"   "interest"   "import"     "port"     
+ [6,] "congress"  "govern"   "will"       "continu"    "foreign"    "commerc"  
+ [7,] "attent"    "public"   "fiscal"     "friend"     "increas"    "construct"
+ [8,] "secretari" "treasuri" "last"       "will"       "trade"      "coast"    
+ [9,] "servic"    "note"     "estim"      "intercours" "revenu"     "sea"      
+[10,] "recommend" "issu"     "revenu"     "spain"      "tariff"     "new"      
+      consitution agriculture  office     other     
+ [1,] "state"     "land"       "duti"     "congress"
+ [2,] "power"     "agricultur" "will"     "act"     
+ [3,] "constitut" "public"     "may"      "last"    
+ [4,] "unite"     "grow"       "subject"  "session" 
+ [5,] "govern"    "year"       "congress" "repres"  
+ [6,] "right"     "larg"       "consider" "presid"  
+ [7,] "union"     "improv"     "can"      "hous"    
+ [8,] "shall"     "new"        "shall"    "senat"   
+ [9,] "author"    "reserv"     "public"   "provis"  
+[10,] "exercis"   "acr"        "object"   "day"     </code></pre>
+</div>
+</div>
+<p>Now, we extract files and create a data frame of topics and documents. This shows what topic is dominant in which file in tabular form.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># generate data frame</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(tmod_slda<span class="sc">$</span>data<span class="sc">$</span>date, tmod_slda<span class="sc">$</span>data<span class="sc">$</span>president, seededlda<span class="sc">::</span><span class="fu">topics</span>(tmod_slda)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">rename</span>(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">Date =</span> <span class="dv">1</span>,</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">President =</span> <span class="dv">2</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Topic =</span> <span class="dv">3</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">Date =</span> stringr<span class="sc">::</span><span class="fu">str_remove_all</span>(Date, <span class="st">"-.*"</span>),</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">Date =</span> stringr<span class="sc">::</span><span class="fu">str_replace_all</span>(Date, <span class="st">".$"</span>, <span class="st">"0"</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate_if</span>(is.character, factor) <span class="ot">-&gt;</span> topic_df</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(topic_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      Date         President    Topic
+text1 1790 George Washington    other
+text2 1790 George Washington   nation
+text3 1790 George Washington   nation
+text4 1790 George Washington    labor
+text5 1790 George Washington military
+text6 1790 George Washington   office</code></pre>
+</div>
+</div>
+<p>Using the table (or data frame) we have just created, we can visualize the use of topics over time.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>topic_df <span class="sc">%&gt;%</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(Date, Topic) <span class="sc">%&gt;%</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">summarise</span>(<span class="at">freq =</span> <span class="fu">n</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> Date, <span class="at">y =</span> freq, <span class="at">fill =</span> Topic)) <span class="sc">+</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">"identity"</span>, <span class="at">position =</span> <span class="st">"fill"</span>, <span class="at">color =</span> <span class="st">"black"</span>) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Decade"</span>) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">rev</span>(<span class="fu">colorRampPalette</span>(<span class="fu">brewer.pal</span>(<span class="dv">8</span>, <span class="st">"RdBu"</span>))(ntopics <span class="sc">+</span> <span class="dv">1</span>))) <span class="sc">+</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">name =</span> <span class="st">"Percent of paragraphs"</span>, <span class="at">labels =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">100</span>, <span class="dv">25</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'Date'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="topic_files/figure-html/vis-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The figure illustrates the relative frequency of topics over time in the State of the Union (SOTU) texts. Notably, paragraphs discussing the topic of “office,” characterized by key terms such as <em>office</em>, <em>serv</em>, and <em>duti</em>, have become less prominent over time. This trend suggests a decreasing emphasis on this particular theme, as evidenced by the diminishing number of paragraphs dedicated to it.</p>
+</section>
+</section>
+<section id="data-driven-topic-modelling" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="data-driven-topic-modelling">Data-driven Topic Modelling</h2>
+<p>In this part of the tutorial, we show an alternative approaches for performing data-driven topic modelling using LDA.</p>
+<section id="loading-and-preparing-data-1" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="loading-and-preparing-data-1">Loading and preparing data</h3>
+<p>When readying the data for analysis, we follow consistent pre-processing steps, employing the <code>tm</code> package <span class="citation" data-cites="tm2024package tm2008pub">(<a href="#ref-tm2024package" role="doc-biblioref">Feinerer and Hornik 2024</a>; <a href="#ref-tm2008pub" role="doc-biblioref">Feinerer, Hornik, and Meyer 2008</a>)</span> for efficient data preparation and cleaning. First, we load the data and convert it into a corpus object. Next, we convert the text to lowercase, eliminating superfluous white spaces, and removing stop words. Subsequently, we proceed to strip the data of punctuation, symbols, and numerical characters. Finally, we apply stemming to standardize words to their base form, ensuring uniformity throughout the data set.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load data</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>textdata <span class="ot">&lt;-</span> base<span class="sc">::</span><span class="fu">readRDS</span>(<span class="fu">url</span>(<span class="st">"https://slcladal.github.io/data/sotu_paragraphs.rda"</span>, <span class="st">"rb"</span>))</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="co"># create corpus object</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>tm<span class="sc">::</span><span class="fu">Corpus</span>(<span class="fu">DataframeSource</span>(textdata)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># convert to lower case</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(<span class="fu">content_transformer</span>(tolower)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove superfluous white spaces</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(stripWhitespace) <span class="sc">%&gt;%</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove stop words</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(removeWords, quanteda<span class="sc">::</span><span class="fu">stopwords</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove punctuation</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(removePunctuation, <span class="at">preserve_intra_word_dashes =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove numbers</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(removeNumbers) <span class="sc">%&gt;%</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># stemming</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>  tm<span class="sc">::</span><span class="fu">tm_map</span>(stemDocument, <span class="at">language =</span> <span class="st">"en"</span>) <span class="ot">-&gt;</span> textcorpus</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect data</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(textcorpus)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Classes 'SimpleCorpus', 'Corpus'  hidden list of 3
+ $ content: Named chr [1:8833] "fellow-citizen senat hous repres" "embrac great satisfact opportun now present congratul present favor prospect public affair recent access import"| __truncated__ "resum consult general good can deriv encourag reflect measur last session satisfactori constitu novelti difficu"| __truncated__ "among mani interest object engag attent provid common defens merit particular regard prepar war one effectu mean preserv peac" ...
+  ..- attr(*, "names")= chr [1:8833] "1" "2" "3" "4" ...
+ $ meta   :List of 1
+  ..$ language: chr "en"
+  ..- attr(*, "class")= chr "CorpusMeta"
+ $ dmeta  :'data.frame':    8833 obs. of  4 variables:
+  ..$ speech_doc_id: int [1:8833] 1 1 1 1 1 1 1 1 1 1 ...
+  ..$ speech_type  : Factor w/ 1 level "State of the Union Address": 1 1 1 1 1 1 1 1 1 1 ...
+  ..$ president    : Factor w/ 23 levels "Abraham Lincoln",..: 7 7 7 7 7 7 7 7 7 7 ...
+  ..$ date         : chr [1:8833] "1790-01-08" "1790-01-08" "1790-01-08" "1790-01-08" ...</code></pre>
+</div>
+</div>
+</section>
+<section id="model-calculation" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="model-calculation">Model calculation</h3>
+<p>Here’s the improved and expanded version of the paragraph:</p>
+<p>After preprocessing, we have a clean corpus object called <code>textcorpus</code>, which we use to calculate the unsupervised Latent Dirichlet Allocation (LDA) topic model <span class="citation" data-cites="blei2003lda">(<a href="#ref-blei2003lda" role="doc-biblioref">Blei, Ng, and Jordan</a>)</span>. To perform this calculation, we first create a Document-Term Matrix (DTM) from the <code>textcorpus</code>. In this step, we ensure that only terms with a certain minimum frequency in the corpus are included (we set the minimum frequency to 5). This selection process not only speeds up the model calculation but also helps improve the model’s accuracy by focusing on more relevant and frequently occurring terms. By filtering out less common terms, we reduce noise and enhance the coherence of the topics identified by the LDA model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute document term matrix with terms &gt;= minimumFrequency</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>minimumFrequency <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>DTM <span class="ot">&lt;-</span> tm<span class="sc">::</span><span class="fu">DocumentTermMatrix</span>(textcorpus,</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">bounds =</span> <span class="fu">list</span>(<span class="at">global =</span> <span class="fu">c</span>(minimumFrequency, <span class="cn">Inf</span>)))</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect the number of documents and terms in the DTM</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(DTM)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 8833 4472</code></pre>
+</div>
+</div>
+<p>Due to vocabulary pruning, some rows in our Document-Term Matrix (DTM) may end up being empty. Latent Dirichlet Allocation (LDA) cannot handle empty rows, so we must remove these documents from both the DTM and the corresponding metadata. This step ensures that the topic modeling process runs smoothly without encountering errors caused by empty documents. Additionally, removing these empty rows helps maintain the integrity of our analysis by focusing only on documents that contain meaningful content.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>sel_idx <span class="ot">&lt;-</span> slam<span class="sc">::</span><span class="fu">row_sums</span>(DTM) <span class="sc">&gt;</span> <span class="dv">0</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>DTM <span class="ot">&lt;-</span> DTM[sel_idx, ]</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>textdata <span class="ot">&lt;-</span> textdata[sel_idx, ]</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect the number of documents and terms in the DTM</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(DTM)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 8811 4472</code></pre>
+</div>
+</div>
+<p>The output shows that we have removed 22 documents (8833 - 8811) from the DTM.</p>
+<p>As an unsupervised machine learning method, topic models are well-suited for exploring data. The primary goal of calculating topic models is to determine the proportionate composition of a fixed number of topics within the documents of a collection. Experimenting with different parameters is essential to identify the most suitable settings for your analysis needs.</p>
+<p>For parameterized models such as Latent Dirichlet Allocation (LDA), the number of topics <code>K</code> is the most critical parameter to define in advance. Selecting the optimal <code>K</code> depends on various factors. If <code>K</code> is too small, the collection is divided into a few very general semantic contexts. Conversely, if <code>K</code> is too large, the collection is divided into too many topics, leading to overlaps and some topics being barely interpretable. Finding the right balance is key to achieving meaningful and coherent topics in your analysis.</p>
+<p>An alternative to deciding on a set number of topics is to extract parameters form a models using a rage of number of topics. This approach can be useful when the number of topics is not theoretically motivated or based on closer, qualitative inspection of the data. In the example below, the determination of the optimal number of topics follows <span class="citation" data-cites="murzintcev2020idealtopics">Murzintcev (<a href="#ref-murzintcev2020idealtopics" role="doc-biblioref">n.d.</a>)</span>, but we only use two metrics (<code>CaoJuan2009</code> and <code>Deveaud2014</code>) - it is highly recommendable to inspect the results of the four metrics available for the <code>FindTopicsNumber</code> function which are <code>Griffiths2004</code> <span class="citation" data-cites="griffiths2004integrating">(see <a href="#ref-griffiths2004integrating" role="doc-biblioref">Griffiths et al. 2004</a>)</span>, <code>CaoJuan2009</code> <span class="citation" data-cites="cao2009density">(see <a href="#ref-cao2009density" role="doc-biblioref">Cao et al.</a>)</span>, <code>Arun2010</code> <span class="citation" data-cites="arun2010finding">(see <a href="#ref-arun2010finding" role="doc-biblioref">Arun et al. 2010</a>)</span>, and <code>Deveaud2014</code> <span class="citation" data-cites="deveaud2014accurate">(see <a href="#ref-deveaud2014accurate" role="doc-biblioref">Deveaud, SanJuan, and Bellot 2014</a>)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create models with different number of topics</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>result <span class="ot">&lt;-</span> ldatuning<span class="sc">::</span><span class="fu">FindTopicsNumber</span>(</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  DTM,</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">topics =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">2</span>, <span class="at">to =</span> <span class="dv">20</span>, <span class="at">by =</span> <span class="dv">1</span>),</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">metrics =</span> <span class="fu">c</span>(<span class="st">"CaoJuan2009"</span>, <span class="st">"Deveaud2014"</span>),</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"Gibbs"</span>,</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">seed =</span> <span class="dv">77</span>),</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>fit models... done.
+calculate metrics:
+  CaoJuan2009... done.
+  Deveaud2014... done.</code></pre>
+</div>
+</div>
+<p>We can now plot the results. In this case, we have only use two methods <code>CaoJuan2009</code> and <code>Griffith2004</code>. The best number of topics shows low values for <code>CaoJuan2009</code> and high values for <code>Griffith2004</code> (optimally, several methods should converge and show peaks and dips respectively for a certain number of topics).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">FindTopicsNumber_plot</span>(result)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="topic_files/figure-html/tm3c-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>For our first analysis, however, we choose a thematic “resolution” of <code>K = 20</code> topics. In contrast to a resolution of 100 or more, this number of topics can be evaluated qualitatively very easy.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># number of topics</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>K <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co"># set random number generator seed</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">9161</span>)</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the LDA model, inference via 1000 iterations of Gibbs sampling</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>topicModel <span class="ot">&lt;-</span> topicmodels<span class="sc">::</span><span class="fu">LDA</span>(DTM, K, <span class="at">method =</span> <span class="st">"Gibbs"</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">iter =</span> <span class="dv">500</span>, <span class="at">verbose =</span> <span class="dv">25</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>K = 20; V = 4472; M = 8811
+Sampling 500 iterations!
+Iteration 25 ...
+Iteration 50 ...
+Iteration 75 ...
+Iteration 100 ...
+Iteration 125 ...
+Iteration 150 ...
+Iteration 175 ...
+Iteration 200 ...
+Iteration 225 ...
+Iteration 250 ...
+Iteration 275 ...
+Iteration 300 ...
+Iteration 325 ...
+Iteration 350 ...
+Iteration 375 ...
+Iteration 400 ...
+Iteration 425 ...
+Iteration 450 ...
+Iteration 475 ...
+Iteration 500 ...
+Gibbs sampling completed!</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># save results</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>tmResult <span class="ot">&lt;-</span> <span class="fu">posterior</span>(topicModel)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="co"># save theta values</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>theta <span class="ot">&lt;-</span> tmResult<span class="sc">$</span>topics</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co"># save beta values</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> tmResult<span class="sc">$</span>terms</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="co"># reset topic names</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>topicNames <span class="ot">&lt;-</span> <span class="fu">apply</span>(<span class="fu">terms</span>(topicModel, <span class="dv">5</span>), <span class="dv">2</span>, paste, <span class="at">collapse =</span> <span class="st">" "</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Depending on the size of the vocabulary, the collection size and the number K, the inference of topic models can take a very long time. This calculation may take several minutes. If it takes too long, reduce the vocabulary in the DTM by increasing the minimum frequency in the previous step.</p>
+<p>Let’s take a look at the 10 most likely terms within the term probabilities <code>beta</code> of the inferred topics.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create a data frame from the topic model data</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>tidytext<span class="sc">::</span><span class="fu">tidy</span>(topicModel, <span class="at">matrix =</span> <span class="st">"beta"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ensure topics are factors with specific levels</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">paste0</span>(<span class="st">"topic"</span>, <span class="fu">as.character</span>(topic)),</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">factor</span>(topic, <span class="at">levels =</span> <span class="fu">paste0</span>(<span class="st">"topic"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>))</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># group the data by topic</span></span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(topic) <span class="sc">%&gt;%</span></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># arrange terms within each topic by beta value (ascending)</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(topic, <span class="sc">-</span>beta) <span class="sc">%&gt;%</span></span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># select the top 10 terms with the highest beta values for each topic</span></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">top_n</span>(<span class="dv">10</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># add beta to term</span></span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">term =</span> <span class="fu">paste0</span>(term, <span class="st">" ("</span>, <span class="fu">round</span>(beta, <span class="dv">3</span>), <span class="st">")"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># remove the beta column as it is now part of the term string</span></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>beta) <span class="sc">%&gt;%</span></span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ungroup the data frame</span></span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create an id column for each term's position within the topic</span></span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">id =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="dv">20</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>  <span class="co"># pivot the data to a wider format with topics as columns</span></span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_wider</span>(<span class="at">names_from =</span> topic, <span class="at">values_from =</span> term) <span class="ot">-&gt;</span> topterms</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Selecting by beta</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>topterms</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 21
+      id topic1  topic2 topic3 topic4 topic5 topic6 topic7 topic8 topic9 topic10
+   &lt;int&gt; &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  
+ 1     1 war (0… natio… gover… state… act (… may (… congr… new (… state… year (…
+ 2     2 forc (… count… power… const… congr… upon … subje… great… terri… amount…
+ 3     3 milita… peopl… natio… power… last … duti … recom… line … india… expend…
+ 4     4 navi (… everi… indep… repre… made … shall… consi… const… mexic… increa…
+ 5     5 armi (… prosp… princ… union… sessi… law (… atten… pacif… unit … treasu…
+ 6     6 men (0… great… right… gover… autho… time … legis… estab… part … end (0…
+ 7     7 offic … insti… polic… peopl… provi… requi… impor… compl… tribe… estim …
+ 8     8 comman… happi… war (… hous … day (… prope… upon … coast… withi… revenu…
+ 9     9 naval … honor… maint… exerc… first… neces… sugge… commu… exten… fiscal…
+10    10 servic… gener… inter… gener… effec… execu… prese… impor… texa … sum (0…
+# ℹ 10 more variables: topic11 &lt;chr&gt;, topic12 &lt;chr&gt;, topic13 &lt;chr&gt;,
+#   topic14 &lt;chr&gt;, topic15 &lt;chr&gt;, topic16 &lt;chr&gt;, topic17 &lt;chr&gt;, topic18 &lt;chr&gt;,
+#   topic19 &lt;chr&gt;, topic20 &lt;chr&gt;</code></pre>
+</div>
+</div>
+<p>For the next steps, we want to give the topics more descriptive names than just numbers. Therefore, we simply concatenate the five most likely terms of each topic to a string that represents a pseudo-name for each topic.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>topicNames <span class="ot">&lt;-</span> <span class="fu">apply</span>(<span class="fu">terms</span>(topicModel, <span class="dv">5</span>), <span class="dv">2</span>, paste, <span class="at">collapse =</span> <span class="st">" "</span>)</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect first 3 topic names</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>topicNames[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                Topic 1                                 Topic 2 
+          "war forc militari navi armi"    "nation countri peopl everi prosper" 
+                                Topic 3 
+"govern power nation independ principl" </code></pre>
+</div>
+</div>
+</section>
+<section id="visualization-of-words-and-topics" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="visualization-of-words-and-topics">Visualization of Words and Topics</h3>
+<p>Although wordclouds may not be optimal for scientific purposes they can provide a quick visual overview of a set of terms. Let’s look at some topics as wordcloud.</p>
+<p>In the following code, you can change the variable <strong>topicToViz</strong> with values between 1 and 20 to display other topics.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># visualize topics as word cloud</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="co"># choose topic of interest by a term contained in its name</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>topicToViz <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"mexico"</span>, topicNames)[<span class="dv">1</span>]</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="co"># select to 50 most probable terms from the topic by sorting the term-topic-probability vector in decreasing order</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>top50terms <span class="ot">&lt;-</span> <span class="fu">sort</span>(tmResult<span class="sc">$</span>terms[topicToViz, ], <span class="at">decreasing =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span><span class="sc">:</span><span class="dv">50</span>]</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>words <span class="ot">&lt;-</span> <span class="fu">names</span>(top50terms)</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a><span class="co"># extract the probabilities of each of the 50 terms</span></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>probabilities <span class="ot">&lt;-</span> <span class="fu">sort</span>(tmResult<span class="sc">$</span>terms[topicToViz, ], <span class="at">decreasing =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span><span class="sc">:</span><span class="dv">50</span>]</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="co"># visualize the terms as wordcloud</span></span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>mycolors <span class="ot">&lt;-</span> <span class="fu">brewer.pal</span>(<span class="dv">8</span>, <span class="st">"Dark2"</span>)</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a><span class="fu">wordcloud</span>(words, probabilities, <span class="at">random.order =</span> <span class="cn">FALSE</span>, <span class="at">color =</span> mycolors)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="topic_files/figure-html/wordcloud-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="384"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Let us now look more closely at the distribution of topics within individual documents. To this end, we visualize the distribution in 3 sample documents.</p>
+<p>Let us first take a look at the contents of three sample documents:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>exampleIds <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">100</span>, <span class="dv">200</span>)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="co"># first 400 characters of file 2</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>stringr<span class="sc">::</span><span class="fu">str_sub</span>(txts<span class="sc">$</span>text[<span class="dv">2</span>], <span class="dv">1</span>, <span class="dv">400</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "I embrace with great satisfaction the opportunity which now presents itself\nof congratulating you on the present favorable prospects of our public\naffairs. The recent accession of the important state of North Carolina to\nthe Constitution of the United States (of which official information has\nbeen received), the rising credit and respectability of our country, the\ngeneral and increasing good will "</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># first 400 characters of file 100</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>stringr<span class="sc">::</span><span class="fu">str_sub</span>(txts<span class="sc">$</span>text[<span class="dv">100</span>], <span class="dv">1</span>, <span class="dv">400</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Provision is likewise requisite for the reimbursement of the loan which has\nbeen made of the Bank of the United States, pursuant to the eleventh\nsection of the act by which it is incorporated. In fulfilling the public\nstipulations in this particular it is expected a valuable saving will be\nmade."</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="co"># first 400 characters of file 200</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>stringr<span class="sc">::</span><span class="fu">str_sub</span>(txts<span class="sc">$</span>text[<span class="dv">200</span>], <span class="dv">1</span>, <span class="dv">400</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "After many delays and disappointments arising out of the European war, the\nfinal arrangements for fulfilling the engagements made to the Dey and\nRegency of Algiers will in all present appearance be crowned with success,\nbut under great, though inevitable, disadvantages in the pecuniary\ntransactions occasioned by that war, which will render further provision\nnecessary. The actual liberation of all "</code></pre>
+</div>
+</div>
+<p>After looking into the documents, we visualize the topic distributions within the documents.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="fu">length</span>(exampleIds) <span class="co"># Number of example documents</span></span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Get topic proportions from example documents</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>topicProportionExamples <span class="ot">&lt;-</span> theta[exampleIds, ]</span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(topicProportionExamples) <span class="ot">&lt;-</span> topicNames</span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Reshape data for visualization</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>reshape2<span class="sc">::</span><span class="fu">melt</span>(</span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cbind</span>(<span class="fu">data.frame</span>(topicProportionExamples),</span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">document =</span> <span class="fu">factor</span>(<span class="dv">1</span><span class="sc">:</span>N)</span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">variable.name =</span> <span class="st">"topic"</span>,</span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">id.vars =</span> <span class="st">"document"</span></span>
+<span id="cb43-14"><a href="#cb43-14" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb43-15"><a href="#cb43-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create bar plot using ggplot2</span></span>
+<span id="cb43-16"><a href="#cb43-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(topic, value, <span class="at">fill =</span> document), <span class="at">ylab =</span> <span class="st">"Proportion"</span>) <span class="sc">+</span></span>
+<span id="cb43-17"><a href="#cb43-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># plot bars</span></span>
+<span id="cb43-18"><a href="#cb43-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb43-19"><a href="#cb43-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># rotate x-axis labels</span></span>
+<span id="cb43-20"><a href="#cb43-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb43-21"><a href="#cb43-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># flip coordinates to create horizontal bar plot</span></span>
+<span id="cb43-22"><a href="#cb43-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb43-23"><a href="#cb43-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># facet by document</span></span>
+<span id="cb43-24"><a href="#cb43-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>document, <span class="at">ncol =</span> N)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="topic_files/figure-html/vis2-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="topic-distributions" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="topic-distributions">Topic distributions</h3>
+<p>The figure above illustrates how topics are distributed within a document according to the model. In the current model, all three documents exhibit at least a small percentage of each topic.</p>
+<p>The topic distribution within a document can be controlled using the <em>alpha</em> parameter of the model. Higher alpha priors result in an even distribution of topics within a document, while lower alpha priors ensure that the inference process concentrates the probability mass on a few topics for each document.</p>
+<p>In the previous model calculation, the alpha prior was automatically estimated to fit the data, achieving the highest overall probability for the model. However, this automatic estimate may not align with the results that an analyst desires. Depending on our analysis goals, we might prefer a more concentrated (peaky) or more evenly distributed set of topics in the model.</p>
+<p>Next, let us change the alpha prior to a lower value to observe how this adjustment affects the topic distributions in the model. To do this, we first extarct the alpha value of teh previous model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="co"># see alpha from previous model</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">attr</span>(topicModel, <span class="st">"alpha"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.5</code></pre>
+</div>
+</div>
+<p>The alpha value of the previous model was <code>attr(topicModel, "alpha")</code>. So now, we set a much lower value (0.2) when we generate a new model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># generate new LDA model with low alpha</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>topicModel2 <span class="ot">&lt;-</span> <span class="fu">LDA</span>(DTM, K,</span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"Gibbs"</span>,</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">iter =</span> <span class="dv">500</span>, <span class="at">verbose =</span> <span class="dv">25</span>, <span class="at">alpha =</span> <span class="fl">0.2</span>)</span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>K = 20; V = 4472; M = 8811
+Sampling 500 iterations!
+Iteration 25 ...
+Iteration 50 ...
+Iteration 75 ...
+Iteration 100 ...
+Iteration 125 ...
+Iteration 150 ...
+Iteration 175 ...
+Iteration 200 ...
+Iteration 225 ...
+Iteration 250 ...
+Iteration 275 ...
+Iteration 300 ...
+Iteration 325 ...
+Iteration 350 ...
+Iteration 375 ...
+Iteration 400 ...
+Iteration 425 ...
+Iteration 450 ...
+Iteration 475 ...
+Iteration 500 ...
+Gibbs sampling completed!</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co"># save results</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>tmResult <span class="ot">&lt;-</span> <span class="fu">posterior</span>(topicModel2)</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="co"># save theta values</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>theta <span class="ot">&lt;-</span> tmResult<span class="sc">$</span>topics</span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a><span class="co"># save beta values</span></span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> tmResult<span class="sc">$</span>terms</span>
+<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a><span class="co"># reset topic names</span></span>
+<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a>topicNames <span class="ot">&lt;-</span> <span class="fu">apply</span>(<span class="fu">terms</span>(topicModel, <span class="dv">5</span>), <span class="dv">2</span>, paste, <span class="at">collapse =</span> <span class="st">" "</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>topicNames <span class="ot">&lt;-</span> <span class="fu">apply</span>(<span class="fu">terms</span>(topicModel, <span class="dv">5</span>), <span class="dv">2</span>, paste, <span class="at">collapse =</span> <span class="st">" "</span>)</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>topicNames</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                     Topic 1 
+               "war forc militari navi armi" 
+                                     Topic 2 
+        "nation countri peopl everi prosper" 
+                                     Topic 3 
+     "govern power nation independ principl" 
+                                     Topic 4 
+        "state constitut power repres union" 
+                                     Topic 5 
+            "act congress last made session" 
+                                     Topic 6 
+                   "may upon duti shall law" 
+                                     Topic 7 
+"congress subject recommend consider attent" 
+                                     Topic 8 
+            "new great line construct pacif" 
+                                     Topic 9 
+        "state territori indian mexico unit" 
+                                    Topic 10 
+   "year amount expenditur increas treasuri" 
+                                    Topic 11 
+       "import duti countri increas product" 
+                                    Topic 12 
+                 "land public work made use" 
+                                    Topic 13 
+      "depart report offic servic secretari" 
+                                    Topic 14 
+       "relat govern continu countri friend" 
+                                    Topic 15 
+              "object can great may without" 
+                                    Topic 16 
+            "citizen law case govern person" 
+                                    Topic 17 
+               "can must peopl everi condit" 
+                                    Topic 18 
+             "bank govern public money issu" 
+                                    Topic 19 
+            "govern treati unit state claim" 
+                                    Topic 20 
+        "state unit american commerc vessel" </code></pre>
+</div>
+</div>
+<p>Now visualize the topic distributions in the three documents again. What are the differences in the distribution structure?</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># get topic proportions form example documents</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>topicProportionExamples <span class="ot">&lt;-</span> theta[exampleIds, ]</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(topicProportionExamples) <span class="ot">&lt;-</span> topicNames</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>vizDataFrame <span class="ot">&lt;-</span> reshape2<span class="sc">::</span><span class="fu">melt</span>(</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cbind</span>(<span class="fu">data.frame</span>(topicProportionExamples),</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">document =</span> <span class="fu">factor</span>(<span class="dv">1</span><span class="sc">:</span>N)</span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">variable.name =</span> <span class="st">"topic"</span>,</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">id.vars =</span> <span class="st">"document"</span></span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a><span class="co"># plot alpha distribution</span></span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data =</span> vizDataFrame, <span class="fu">aes</span>(topic, value, <span class="at">fill =</span> document), <span class="at">ylab =</span> <span class="st">"proportion"</span>) <span class="sc">+</span></span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb51-16"><a href="#cb51-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>document, <span class="at">ncol =</span> N)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="topic_files/figure-html/vis3-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The figure above now shows that the documents are more clearly assigned to specific topics. The difference in the probability of a document belonging to a particular topic is much more distinct, indicating a stronger association between documents and their respective dominant topics.</p>
+<p>By adjusting the alpha parameter to a lower value, we have concentrated the probability mass on fewer topics for each document. This change makes the topic distribution within documents less even and more peaked, resulting in documents being more distinctly associated with specific topics.</p>
+<p>This adjustment can be particularly useful when analyzing data sets where we expect documents to focus on a few key themes rather than covering a broad range of topics. It allows for a clearer interpretation of the primary topics discussed in each document, enhancing the overall clarity and interpretability of the topic model.</p>
+</section>
+<section id="topic-ranking" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="topic-ranking">Topic ranking</h3>
+<p>Determining the defining topics within a collection is a crucial step in topic modeling, as it helps to organize and interpret the underlying themes effectively. There are several approaches to uncover these topics and arrange them in a meaningful order. Here, we present two different methods: <strong>Ordering Topics by Probability</strong> and <strong>Counting Primary Topic Appearances</strong>. These two approaches complement each other and, when used together, can provide a comprehensive understanding of the defining topics within a collection. By combining the probabilistic ranking with the frequency count of primary topics, we can achieve a more nuanced and accurate interpretation of the underlying themes in the data.</p>
+<section id="approach-1-ordering-topics-by-probability" class="level4 unnumbered">
+<h4 class="unnumbered anchored" data-anchor-id="approach-1-ordering-topics-by-probability">Approach 1: Ordering Topics by Probability</h4>
+<p>This approach involves ranking topics based on their overall probability within the given collection. By examining the distribution of words across topics and documents, we can identify which topics are more dominant and relevant. This method helps to highlight the most significant themes within the data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># mean probabilities over all paragraphs</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>topicProportions <span class="ot">&lt;-</span> <span class="fu">colSums</span>(theta) <span class="sc">/</span> <span class="fu">nDocs</span>(DTM)</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="co"># assign the topic names we created before</span></span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(topicProportions) <span class="ot">&lt;-</span> topicNames</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a><span class="co"># show summed proportions in decreased order</span></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>soP <span class="ot">&lt;-</span> <span class="fu">sort</span>(topicProportions, <span class="at">decreasing =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect ordering</span></span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a><span class="fu">paste</span>(<span class="fu">round</span>(soP, <span class="dv">5</span>), <span class="st">":"</span>, <span class="fu">names</span>(soP))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "0.06721 : congress subject recommend consider attent"
+ [2] "0.06448 : can must peopl everi condit"               
+ [3] "0.06313 : year amount expenditur increas treasuri"   
+ [4] "0.06098 : land public work made use"                 
+ [5] "0.06076 : may upon duti shall law"                   
+ [6] "0.06072 : bank govern public money issu"             
+ [7] "0.05322 : relat govern continu countri friend"       
+ [8] "0.05276 : import duti countri increas product"       
+ [9] "0.05151 : citizen law case govern person"            
+[10] "0.05042 : state constitut power repres union"        
+[11] "0.04691 : state unit american commerc vessel"        
+[12] "0.04573 : state territori indian mexico unit"        
+[13] "0.04453 : war forc militari navi armi"               
+[14] "0.04368 : new great line construct pacif"            
+[15] "0.04282 : act congress last made session"            
+[16] "0.04263 : object can great may without"              
+[17] "0.04099 : govern treati unit state claim"            
+[18] "0.03731 : nation countri peopl everi prosper"        
+[19] "0.03646 : depart report offic servic secretari"      
+[20] "0.03374 : govern power nation independ principl"     </code></pre>
+</div>
+</div>
+<p>We recognize some topics that are way more likely to occur in the corpus than others. These describe rather general thematic coherence. Other topics correspond more to specific contents.</p>
+</section>
+<section id="approach-2-counting-primary-topic-appearances" class="level4 unnumbered">
+<h4 class="unnumbered anchored" data-anchor-id="approach-2-counting-primary-topic-appearances">Approach 2: Counting Primary Topic Appearances</h4>
+<p>Another method is to count how often a topic appears as the primary topic within individual paragraphs or documents. This approach focuses on the frequency with which each topic takes precedence in the text, providing insight into which topics are most commonly addressed and therefore, potentially more important.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>countsOfPrimaryTopics <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, K)</span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(countsOfPrimaryTopics) <span class="ot">&lt;-</span> topicNames</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">nDocs</span>(DTM)) {</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  topicsPerDoc <span class="ot">&lt;-</span> theta[i, ] <span class="co"># select topic distribution for document i</span></span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># get first element position from ordered list</span></span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  primaryTopic <span class="ot">&lt;-</span> <span class="fu">order</span>(topicsPerDoc, <span class="at">decreasing =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span>]</span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a>  countsOfPrimaryTopics[primaryTopic] <span class="ot">&lt;-</span> countsOfPrimaryTopics[primaryTopic] <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a><span class="co"># sort by primary topic</span></span>
+<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>so <span class="ot">&lt;-</span> <span class="fu">sort</span>(countsOfPrimaryTopics, <span class="at">decreasing =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a><span class="co"># show ordering</span></span>
+<span id="cb54-12"><a href="#cb54-12" aria-hidden="true" tabindex="-1"></a><span class="fu">paste</span>(so, <span class="st">":"</span>, <span class="fu">names</span>(so))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "708 : year amount expenditur increas treasuri"   
+ [2] "684 : congress subject recommend consider attent"
+ [3] "630 : may upon duti shall law"                   
+ [4] "529 : bank govern public money issu"             
+ [5] "521 : can must peopl everi condit"               
+ [6] "491 : import duti countri increas product"       
+ [7] "482 : relat govern continu countri friend"       
+ [8] "472 : land public work made use"                 
+ [9] "425 : new great line construct pacif"            
+[10] "424 : citizen law case govern person"            
+[11] "389 : state unit american commerc vessel"        
+[12] "382 : state territori indian mexico unit"        
+[13] "378 : war forc militari navi armi"               
+[14] "377 : state constitut power repres union"        
+[15] "368 : act congress last made session"            
+[16] "365 : object can great may without"              
+[17] "342 : nation countri peopl everi prosper"        
+[18] "315 : govern treati unit state claim"            
+[19] "273 : depart report offic servic secretari"      
+[20] "256 : govern power nation independ principl"     </code></pre>
+</div>
+</div>
+<p>Sorting topics by the Rank-1 method highlights topics with specific thematic coherences, placing them at the upper ranks of the list. This sorting approach is valuable for several subsequent analysis steps:</p>
+<ul>
+<li><p><em>Semantic Interpretation of Topics</em>: By examining topics ranked higher in the list, researchers can gain insights into the most salient and distinctive themes present in the collection. Understanding these topics facilitates their semantic interpretation and allows for deeper exploration of the underlying content.</p></li>
+<li><p><em>Analysis of Time Series</em>: Examining the temporal evolution of the most important topics over time can reveal trends, patterns, and shifts in discourse. Researchers can track how the prominence of certain topics fluctuates over different time periods, providing valuable context for understanding changes in the subject matter.</p></li>
+<li><p><em>Filtering Based on Sub-Topics</em>: The sorted list of topics can serve as a basis for filtering the original collection to focus on specific sub-topics of interest. Researchers can selectively extract documents or passages related to particular themes, enabling targeted analysis and investigation of niche areas within the broader context.</p></li>
+</ul>
+<p>By leveraging the Rank-1 method to sort topics, researchers can enhance their understanding of the thematic landscape within the collection and facilitate subsequent analytical tasks aimed at extracting meaningful insights and knowledge.</p>
+</section>
+</section>
+<section id="filtering-documents" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="filtering-documents">Filtering documents</h3>
+<p>The inclusion of topic probabilities for each document or paragraph in a topic model enables its application for thematic filtering of a collection. This filtering process involves selecting only those documents that surpass a predetermined threshold of probability for specific topics. For instance, we may choose to retain documents containing a particular topic, such as topic ‘X’, with a probability exceeding 20 percent.</p>
+<p>In the subsequent steps, we will implement this filtering approach to select documents based on their topical content and visualize the resulting document distribution over time. This analysis will provide insights into the prevalence and distribution of specific themes within the collection, allowing for a more targeted exploration of relevant topics across different temporal intervals.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># selected by a term in the topic name (e.g. 'militari')</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>topicToFilter <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">"militari"</span>, topicNames)[<span class="dv">1</span>]</span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>topicThreshold <span class="ot">&lt;-</span> <span class="fl">0.2</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>selectedDocumentIndexes <span class="ot">&lt;-</span> <span class="fu">which</span>(theta[, topicToFilter] <span class="sc">&gt;=</span> topicThreshold)</span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>filteredCorpus <span class="ot">&lt;-</span> txts<span class="sc">$</span>text[selectedDocumentIndexes]</span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a><span class="co"># show length of filtered corpus</span></span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a><span class="fu">length</span>(filteredCorpus)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 578</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="co"># show first 5 paragraphs</span></span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(filteredCorpus, <span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "The interests of the United States require that our intercourse with other\nnations should be facilitated by such provisions as will enable me to\nfulfill my duty in that respect in the manner which circumstances may\nrender most conducive to the public good, and to this end that the\ncompensation to be made to the persons who may be employed should,\naccording to the nature of their appointments, be defined by law, and a\ncompetent fund designated for defraying the expenses incident to the\nconduct of foreign affairs."                                                                
+[2] "Your attention seems to be not less due to that particular branch of our\ntrade which belongs to the Mediterranean. So many circumstances unite in\nrendering the present state of it distressful to us that you will not think\nany deliberations misemployed which may lead to its relief and protection."                                                                                                                                                                                                                                                                                                 
+[3] "The laws you have already passed for the establishment of a judiciary\nsystem have opened the doors of justice to all descriptions of persons. You\nwill consider in your wisdom whether improvements in that system may yet be\nmade, and particularly whether an uniform process of execution on sentences\nissuing from the Federal courts be not desirable through all the States."                                                                                                                                                                                                                      
+[4] "The patronage of our commerce, of our merchants and sea men, has called for\nthe appointment of consuls in foreign countries. It seems expedient to\nregulate by law the exercise of that jurisdiction and those functions which\nare permitted them, either by express convention or by a friendly\nindulgence, in the places of their residence. The consular convention, too,\nwith His Most Christian Majesty has stipulated in certain cases the aid of\nthe national authority to his consuls established here. Some legislative\nprovision is requisite to carry these stipulations into full effect."
+[5] "\"In vain may we expect peace with the Indians on our frontiers so long as a\nlawless set of unprincipled wretches can violate the rights of hospitality,\nor infringe the most solemn treaties, without receiving the punishment they\nso justly merit.\""                                                                                                                                                                                                                                                                                                                                                  </code></pre>
+</div>
+</div>
+<p>Our filtered corpus contains 578 documents related to the topic 1 to at least 20 %.</p>
+</section>
+<section id="topic-proportions-over-time" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="topic-proportions-over-time">Topic proportions over time</h3>
+<p>In the final step, we offer a comprehensive overview of the topics present in the data across different time periods. To achieve this, we aggregate the mean topic proportions per decade for all State of the Union (SOTU) speeches. These aggregated topic proportions provide a distilled representation of the prevalent themes over time and can be effectively visualized, such as through a bar plot. This visualization offers valuable insights into the evolving discourse captured within the SOTU speeches, highlighting overarching trends and shifts in thematic emphasis across decades.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co"># append decade information for aggregation</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>textdata<span class="sc">$</span>decade <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="fu">substr</span>(textdata<span class="sc">$</span>date, <span class="dv">0</span>, <span class="dv">3</span>), <span class="st">"0"</span>)</span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a><span class="co"># get mean topic proportions per decade</span></span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a>topic_proportion_per_decade <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(theta, <span class="at">by =</span> <span class="fu">list</span>(<span class="at">decade =</span> textdata<span class="sc">$</span>decade), mean)</span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a><span class="co"># set topic names to aggregated columns</span></span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(topic_proportion_per_decade)[<span class="dv">2</span><span class="sc">:</span>(K <span class="sc">+</span> <span class="dv">1</span>)] <span class="ot">&lt;-</span> topicNames</span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a><span class="co"># reshape data frame and generate plot</span></span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a>reshape2<span class="sc">::</span><span class="fu">melt</span>(topic_proportion_per_decade, <span class="at">id.vars =</span> <span class="st">"decade"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> decade, <span class="at">y =</span> value, <span class="at">fill =</span> variable)) <span class="sc">+</span></span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat =</span> <span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Proportion"</span>, <span class="at">x =</span> <span class="st">"Decade"</span>) <span class="sc">+</span></span>
+<span id="cb60-12"><a href="#cb60-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">rev</span>(<span class="fu">colorRampPalette</span>(<span class="fu">brewer.pal</span>(<span class="dv">8</span>, <span class="st">"RdBu"</span>))(<span class="dv">20</span>))) <span class="sc">+</span></span>
+<span id="cb60-13"><a href="#cb60-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="topic_files/figure-html/vis4-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="864"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The visualization shows that topics around the relation between the federal government and the states as well as inner conflicts clearly dominate the first decades. Security issues and the economy are the most important topics of recent SOTU addresses.</p>
+</section>
+</section>
+</section>
+<section id="citation-session-info" class="level1 unnumbered">
+<h1 class="unnumbered">Citation &amp; Session Info</h1>
+<p>Schweinberger, Martin. 2024. <em>Topic Modeling with R</em>. Brisbane: The University of Queensland. url: https://slcladal.github.io/topic.html (Version 2024.05.17).</p>
+<pre><code>@manual{schweinberger2024topic,
+  author = {Schweinberger, Martin},
+  title = {Topic Modeling with R},
+  note = {https://ladal.edu.au/topic.html},
+  year = {2024},
+  organization = "The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2024.05.17}
+}</code></pre>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.1 (2024-06-14)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.6.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: Australia/Brisbane
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] wordcloud_2.6      topicmodels_0.2-17 tm_0.7-14          NLP_0.3-0         
+ [5] tidytext_0.4.2     tidyr_1.3.1        stringr_1.5.1      slam_0.1-54       
+ [9] reshape2_1.4.4     RColorBrewer_1.1-3 quanteda_4.1.0     ldatuning_1.0.2   
+[13] lda_1.5.2          ggplot2_3.5.1      flextable_0.9.7    dplyr_1.1.4       
+
+loaded via a namespace (and not attached):
+ [1] fastmatch_1.1-4         gtable_0.3.6            xfun_0.49              
+ [4] htmlwidgets_1.6.4       seededlda_1.4.1         lattice_0.22-6         
+ [7] vctrs_0.6.5             tools_4.4.1             generics_0.1.3         
+[10] stats4_4.4.1            parallel_4.4.1          klippy_0.0.0.9500      
+[13] tibble_3.2.1            fansi_1.0.6             janeaustenr_1.0.0      
+[16] tokenizers_0.3.0        pkgconfig_2.0.3         Matrix_1.7-1           
+[19] data.table_1.16.2       assertthat_0.2.1        uuid_1.2-1             
+[22] lifecycle_1.0.4         farver_2.1.2            compiler_4.4.1         
+[25] textshaping_0.4.0       munsell_0.5.1           codetools_0.2-20       
+[28] fontquiver_0.2.1        fontLiberation_0.1.0    SnowballC_0.7.1        
+[31] htmltools_0.5.8.1       pillar_1.9.0            openssl_2.2.2          
+[34] fontBitstreamVera_0.1.1 stopwords_2.3           tidyselect_1.2.1       
+[37] zip_2.3.1               digest_0.6.37           stringi_1.8.4          
+[40] purrr_1.0.2             labeling_0.4.3          fastmap_1.2.0          
+[43] grid_4.4.1              colorspace_2.1-1        cli_3.6.3              
+[46] magrittr_2.0.3          utf8_1.2.4              withr_3.0.2            
+[49] gdtools_0.4.0           scales_1.3.0            rmarkdown_2.28         
+[52] officer_0.6.7           proxyC_0.4.1            askpass_1.2.1          
+[55] ragg_1.3.3              modeltools_0.2-23       evaluate_1.0.1         
+[58] knitr_1.48              rlang_1.1.4             Rcpp_1.0.13            
+[61] glue_1.8.0              xml2_1.3.6              jsonlite_1.8.9         
+[64] R6_2.5.1                plyr_1.8.9              systemfonts_1.1.0      </code></pre>
+</div>
+</div>
+<hr>
+<p><a href="#introduction">Back to top</a></p>
+<p><a href="https://ladal.edu.au">Back to HOME</a></p>
+<hr>
+</section>
+<section id="references" class="level1 unnumbered">
+
+
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-arun2010finding" class="csl-entry" role="listitem">
+Arun, Rajkumar, Venkatasubramaniyan Suresh, CE Veni Madhavan, and MN Narasimha Murthy. 2010. <span>“On Finding the Natural Number of Topics with Latent Dirichlet Allocation: Some Observations.”</span> In <em>Advances in Knowledge Discovery and Data Mining: 14th Pacific-Asia Conference, PAKDD 2010, Hyderabad, India, June 21-24, 2010. Proceedings. Part i 14</em>, 391–402. Springer.
+</div>
+<div id="ref-benoit2018quanteda" class="csl-entry" role="listitem">
+Benoit, Kenneth, Kohei Watanabe, Haiyan Wang, Paul Nulty, Adam Obeng, Stefan Müller, and Akitaka Matsuo. <span>“Quanteda: An r Package for the Quantitative Analysis of Textual Data.”</span> <em>Journal of Open Source Software</em>.
+</div>
+<div id="ref-blei2003lda" class="csl-entry" role="listitem">
+Blei, David M., Andrew Y. Ng, and Michael I. Jordan. <span>“Latent Dirichlet Allocation.”</span> <em>Journal of Machine Learning Research</em>, 993–1022.
+</div>
+<div id="ref-blei2003latent" class="csl-entry" role="listitem">
+———. 2003. <span>“Latent Dirichlet Allocation.”</span> <em>Journal of Machine Learning Research</em> 3: 993–1022.
+</div>
+<div id="ref-brookes2019utility" class="csl-entry" role="listitem">
+Brookes, Gavin, and Tony McEnery. 2019. <span>“The Utility of Topic Modelling for Discourse Studies.”</span> <em>Discourse Studies</em> 21 (1): 3–21. <a href="https://doi.org/10.1177/14614456188140">https://doi.org/10.1177/14614456188140</a>.
+</div>
+<div id="ref-busso2022operation" class="csl-entry" role="listitem">
+Busso, Luciana, Monika Petyko, Steven Atkins, and Tim Grant. 2022. <span>“Operation Heron: Latent Topic Changes in an Abusive Letter Series.”</span> <em>Corpora</em> 17 (2): 225–58.
+</div>
+<div id="ref-cao2009density" class="csl-entry" role="listitem">
+Cao, Juan, Xia Tian, Li Jintao, Zhang Yongdong, and Tang Sheng. <span>“A Density-Based Method for Adaptive Lda Model Selection.”</span> <em>Neurocomputing – 16th European Symposium on Artificial Neural Networks 2008</em>, no. 7–9: 1775–81.
+</div>
+<div id="ref-deveaud2014accurate" class="csl-entry" role="listitem">
+Deveaud, Romain, Eric SanJuan, and Patrice Bellot. 2014. <span>“Accurate and Effective Latent Concept Modeling for Ad Hoc Information Retrieval.”</span> <em>Document Num<span>é</span>rique</em> 17 (1): 61–84.
+</div>
+<div id="ref-tm2024package" class="csl-entry" role="listitem">
+Feinerer, Ingo, and Kurt Hornik. 2024. <em>Tm: Text Mining Package</em>. <a href="https://CRAN.R-project.org/package = tm">https://CRAN.R-project.org/package = tm</a>.
+</div>
+<div id="ref-tm2008pub" class="csl-entry" role="listitem">
+Feinerer, Ingo, Kurt Hornik, and David Meyer. 2008. <span>“Text Mining Infrastructure in r.”</span> <em>Journal of Statistical Software</em> 25 (5): 1–54. <a href="https://doi.org/10.18637/jss.v025.i05">https://doi.org/10.18637/jss.v025.i05</a>.
+</div>
+<div id="ref-gerlach2018network" class="csl-entry" role="listitem">
+Gerlach, Martin, Tiago P. Peixoto, and Eduardo G. Altmann. 2018. <span>“A Network Approach to Topic Models.”</span> <em>Science Advances</em> 4: eaar1360.
+</div>
+<div id="ref-gillings2022interpretation" class="csl-entry" role="listitem">
+Gillings, Mark, and Andrew Hardie. 2022. <span>“The Interpretation of Topic Models for Scholarly Analysis: An Evaluation and Critique of Current Practice.”</span> <em>Digital Scholarship in the Humanities</em>. <a href="https://doi.org/10.1093/llc/fqac075">https://doi.org/10.1093/llc/fqac075</a>.
+</div>
+<div id="ref-griffiths2004integrating" class="csl-entry" role="listitem">
+Griffiths, Thomas, Mark Steyvers, David Blei, and Joshua Tenenbaum. 2004. <span>“Integrating Topics and Syntax.”</span> <em>Advances in Neural Information Processing Systems</em> 17.
+</div>
+<div id="ref-topicmodels2011pub" class="csl-entry" role="listitem">
+Grün, Bettina, and Kurt Hornik. 2011. <span>“<span class="nocase">topicmodels</span>: An <span>R</span> Package for Fitting Topic Models.”</span> <em>Journal of Statistical Software</em> 40 (13): 1–30. <a href="https://doi.org/10.18637/jss.v040.i13">https://doi.org/10.18637/jss.v040.i13</a>.
+</div>
+<div id="ref-topicmodels2024package" class="csl-entry" role="listitem">
+———. 2024. <em>Topicmodels: Topic Models</em>. <a href="https://CRAN.R-project.org/package = topicmodels">https://CRAN.R-project.org/package = topicmodels</a>.
+</div>
+<div id="ref-hyland2021multilayer" class="csl-entry" role="listitem">
+Hyland, Conor C., Yang Tao, Lida Azizi, Martin Gerlach, Tiago P. Peixoto, and Eduardo G. Altmann. 2021. <span>“Multilayer Networks for Text Analysis with Multiple Data Types.”</span> <em>EPJ Data Science</em> 10: 33.
+</div>
+<div id="ref-murzintcev2020idealtopics" class="csl-entry" role="listitem">
+Murzintcev, Nikita. n.d. <span>“Select Number of Topics for LDA Model.”</span> <a href="https://cran.r-project.org/web/packages/ldatuning/vignettes/topics.html">https://cran.r-project.org/web/packages/ldatuning/vignettes/topics.html</a>.
+</div>
+<div id="ref-roberts2016navigating" class="csl-entry" role="listitem">
+Roberts, Margaret E., Brandon M. Stewart, and Dustin Tingley. 2016. <span>“Navigating the Local Modes of Big Data: The Case of Topic Models.”</span> In <em>Computational Social Science: Discovery and Prediction</em>, edited by R. Michael Alvarez, 51–97. Cambridge University Press.
+</div>
+<div id="ref-silge2017text" class="csl-entry" role="listitem">
+Silge, Julia, and David Robinson. <em>Text Mining with r: A Tidy Approach</em>. " O’Reilly Media, Inc.".
+</div>
+<div id="ref-seededlda2024" class="csl-entry" role="listitem">
+Watanabe, Kohei, and Phan Xuan-Hieu. 2024. <em>Seededlda: Seeded Sequential LDA for Topic Modeling</em>. <a href="https://CRAN.R-project.org/package = seededlda">https://CRAN.R-project.org/package = seededlda</a>.
+</div>
+<div id="ref-WN17" class="csl-entry" role="listitem">
+Wiedemann, Gregor, and Andreas Niekler. <span>“Hands-on: <span>A</span> Five Day Text Mining Course for Humanists and Social Scientists in <span>R</span>.”</span> In <em>Proceedings of the Workshop on Teaching <span>NLP</span> for Digital Humanities (<span>Teach4DHGSCL 2017</span>), Berlin, Germany, September 12, 2017.</em>, 57–65. <a href="http://ceur-ws.org/Vol-1918/wiedemann.pdf">http://ceur-ws.org/Vol-1918/wiedemann.pdf</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>If you want to render the R Notebook on your machine, i.e.&nbsp;knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the <a href="https://slcladal.github.io/content/bibliography.bib"><strong>bibliography file</strong></a> and store it in the same folder where you store the Rmd file.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
