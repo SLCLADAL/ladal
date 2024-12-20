@@ -4,10 +4,10 @@
 PARENT_DIR="tutorials"
 
 # Set the start index (change this to where you want to start)
-START_INDEX=0
+START_INDEX=21
 
 # Set the stop index (set to -1 for no stop condition, meaning process all folders)
-STOP_INDEX=1
+STOP_INDEX=21
 
 # Loop through all subfolders in the tutorials folder
 count=0  # Folder counter
@@ -36,7 +36,7 @@ for folder in "$PARENT_DIR"/*/; do
 
     # Render the Quarto project with --no-cache
     echo "Rendering folder $count: $folder_name"
-    quarto render "$folder" --no-cache --quiet
+    quarto render "$folder" --no-cache
 
     # Increment the counter
     ((count++))
