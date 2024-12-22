@@ -4,10 +4,10 @@
 PARENT_DIR="tutorials"
 
 # Set the start index (change this to where you want to start)
-START_INDEX=21
+START_INDEX=0
 
 # Set the stop index (set to -1 for no stop condition, meaning process all folders)
-STOP_INDEX=21
+STOP_INDEX=0
 
 # Loop through all subfolders in the tutorials folder
 count=0  # Folder counter
