@@ -1,5 +1,5 @@
 ```{r uq1, echo=FALSE, eval = T, fig.cap="", message=FALSE, warning=FALSE, out.width='100%'}
-knitr::include_graphics("https://slcladal.github.io/images/uq1.jpg")
+knitr::include_graphics("images/uq1.jpg")
 ```
 
 # Introduction{-}
@@ -14,10 +14,40 @@ This tutorial is aimed at beginners and intermediate users of R with the aim of 
 <div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
 <span>
 <p style='margin-top:1em; text-align:center'>
-The entire R Notebook for the tutorial can be downloaded [**here**](tutorials/sentiment/sentiment.Rmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](tutorials/sentiment/bibliography.bib) and store it in the same folder where you store the Rmd file. <br><br>
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fsentiment_cb.ipynb%26branch%3Dmain)<br>
-[**Click this link to open an interactive version of this tutorial on MyBinder.org**](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Fsentiment_cb.ipynb%26branch%3Dmain). <br> This Jupyter notebook allows you to follow this tutorial interactively. This means that you can execute, change, and edit the code used in this tutorial to help you better understand how the code shown here works (make sure you run all code chunks in the order in which they appear - otherwise you will get an error). <br>
+The entire R Notebook for the tutorial can be downloaded [here](tutorials/sentiment/sentiment.qmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file. 
 </p>
+
+```{r}
+#| echo: false
+
+# Define base components
+base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
+notebook_path <- "interactive-notebooks/notebooks/sentiment_cb.ipynb"
+
+# Manually encode each parameter
+repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
+
+# Combine parameters with 'git-pull' and 'branch'
+params <- paste0(
+    "urlpath=git-pull%3F",
+    repo_param,
+    "%26",
+    notebook_param,
+    "%26branch=main"
+)
+
+# Combine into the final URL
+binder_url <- paste0(base_url, "?", params)
+```
+
+::: {.text-center}
+[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+
+Click [**here**](`r binder_url`) to to follow this tutorial interactively. This means that you can execute, change, and edit the code used in this tutorial to help you better understand how the code shown here works (make sure you run all code chunks in the order in which they appear - otherwise you will get an error).
+:::
+
 <p style='margin-left:1em;'>
 </p></span>
 </div>
@@ -29,7 +59,7 @@ SA is a cover term for approaches which extract information on emotion or opinio
 
 ## Preparation and session set up{-}
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](https://slcladal.github.io/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the packages so you do not need to worry if it takes some time).
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the packages so you do not need to worry if it takes some time).
 
 ```{r prep1, echo=T, eval = F}
 # install packages
@@ -89,10 +119,10 @@ The more fine-grained output is made possible by relying on the Word-Emotion Ass
 In the following, we will perform a SA to investigate the emotionality of five different novels. We will start with the first example and load five pieces of literature. 
 
 ```{r sa3, message=FALSE, warning=FALSE}
-darwin <- base::readRDS(url("tutorials/sentiment/data/origindarwin.rda", "rb"))
-twain <- base::readRDS(url("tutorials/sentiment/data/twainhuckfinn.rda", "rb"))
-orwell <- base::readRDS(url("tutorials/sentiment/data/orwell.rda", "rb"))
-lovecraft <- base::readRDS(url("tutorials/sentiment/data/lovecraftcolor.rda", "rb"))
+darwin <- base::readRDS("tutorials/sentiment/data/origindarwin.rda", "rb")
+twain <- base::readRDS("tutorials/sentiment/data/twainhuckfinn.rda", "rb")
+orwell <- base::readRDS("tutorials/sentiment/data/orwell.rda", "rb")
+lovecraft <- base::readRDS("tutorials/sentiment/data/lovecraftcolor.rda", "rb")
 ```
 
 ```{r ds02, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
@@ -165,7 +195,7 @@ Now, we combine the data with the *Word-Emotion Association Lexicon* [@mohammad2
 
 
 ```{r bsa1b, message=FALSE, warning=FALSE}
-nrc <- readRDS(here::here("data", "nrc.rda"))
+nrc <- readRDS(here::here("tutorials/sentiment/data", "nrc.rda"))
 novels_anno <- rbind(darwin_clean, twain_clean, orwell_clean, lovecraft_clean) %>%
     dplyr::group_by(novel) %>%
     dplyr::mutate(words = n()) %>%
@@ -559,13 +589,13 @@ If you are interested in learning more about SA in R, @silge2017text is highly r
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. (2022)` *Sentiment Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/sentiment.html (Version 2022.10.30).
+Schweinberger, Martin. (2022)` *Sentiment Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/sentiment.html (Version 2022.10.30).
 
 ```
 @manual{schweinberger2022sentiment,
   author = {Schweinberger, Martin},
   title = {Sentiment Analysis in R},
-  note = {https://ladal.edu.au/sentiment.html},
+  note = {tutorials/sentiment/sentiment.html},
   year = {2022},
   organization = {The University of Queensland, School of Languages and Cultures},
   address = {Brisbane},
@@ -582,7 +612,7 @@ sessionInfo()
 
 [Back to top](#introduction)
 
-[Back to HOME](https://ladal.edu.au)
+[Back to HOME](/)
 
 ***
 

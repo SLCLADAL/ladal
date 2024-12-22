@@ -17,10 +17,40 @@ This tutorial is aimed at intermediate and advanced users of R with the aim of s
 <div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
 <span>
 <p style='margin-top:1em; text-align:center'>
-The entire R Notebook for the tutorial can be downloaded [**here**](tutorials/tree/tree.Rmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](tutorials/tree/bibliography.bib) and store it in the same folder where you store the Rmd file. <br><br>
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Ftree_cb.ipynb%26branch%3Dmain)<br>
-[**Click this link to open an interactive version of this tutorial on MyBinder.org**](https://mybinder.org/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252FSLCLADAL%252Finteractive-notebooks%26urlpath%3Dlab%252Ftree%252Finteractive-notebooks%252Fnotebooks%252Ftree_cb.ipynb%26branch%3Dmain). <br> This interactive Jupyter notebook allows you to execute code yourself and you can also change and edit the notebook, e.g. you can change code and upload your own data. <br>
+The entire R Notebook for the tutorial can be downloaded [here](tutorials/tree/tree.qmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file.
 </p>
+
+```{r}
+#| echo: false
+
+# Define base components
+base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
+notebook_path <- "interactive-notebooks/notebooks/tree_cb.ipynb"
+
+# Manually encode each parameter
+repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
+
+# Combine parameters with 'git-pull' and 'branch'
+params <- paste0(
+    "urlpath=git-pull%3F",
+    repo_param,
+    "%26",
+    notebook_param,
+    "%26branch=main"
+)
+
+# Combine into the final URL
+binder_url <- paste0(base_url, "?", params)
+```
+
+::: {.text-center}
+[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+
+Click [**here**](`r binder_url`) to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.
+:::
+
 <p style='margin-left:1em;'>
 </p></span>
 </div>
@@ -86,8 +116,8 @@ library(dplyr)
 library(grid)
 # load data
 citdata <- read.delim("tutorials/tree/data/treedata.txt", header = T, sep = "\t") %>%
-  # convert character strings to factors
-  dplyr::mutate_if(is.character, factor)
+    # convert character strings to factors
+    dplyr::mutate_if(is.character, factor)
 # set.seed
 set.seed(111)
 dtree <- tree::tree(LikeUser ~ Age + Gender + Status, data = citdata, split = "gini")
@@ -111,7 +141,7 @@ We will now focus on how to implement tree-based models in R and continue with g
 
 **Preparation and session set up**
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](https://slcladal.github.io/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
 
 ```{r prep1, eval = F, message=FALSE, warning=FALSE}
 # install packages
@@ -184,22 +214,22 @@ In a first step, we load and inspect the data that we will use in this tutorial.
 ```{r cit4c,  message=FALSE, warning=FALSE}
 # load data
 citdata <- read.delim("tutorials/tree/data/treedata.txt", header = T, sep = "\t") %>%
-  dplyr::mutate_if(is.character, factor)
+    dplyr::mutate_if(is.character, factor)
 ```
 
 ```{r cit4d,  echo = F, message=FALSE, warning=FALSE}
 # inspect data
 citdata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata data") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata data") %>%
+    flextable::border_outer()
 ```
 
 
@@ -308,14 +338,14 @@ width <- .4
 gp <- gpar(fill = "lightgrey")
 # create boxes
 (rando <- boxGrob("Age",
-  x = midx, y = .9, box_gp = gp, width = width
+    x = midx, y = .9, box_gp = gp, width = width
 ))
 # connect boxes like this
 (g1 <- boxGrob("15-40\n NonLikeUsers  LikeUsers \n 34                  92",
-  x = leftx, y = .5, box_gp = gp, width = width
+    x = leftx, y = .5, box_gp = gp, width = width
 ))
 (g2 <- boxGrob("41-80\n  NonLikeUsers  LikeUsers \n 84                 41",
-  x = rightx, y = .5, box_gp = gp, width = width
+    x = rightx, y = .5, box_gp = gp, width = width
 ))
 connectGrob(rando, g1, "N")
 connectGrob(rando, g2, "N")
@@ -330,7 +360,7 @@ We thus move on and test if and how to split this branch.
 # 5TH NODE
 # split data according to first split (only young data)
 young <- citdata %>%
-  dplyr::filter(Age == "15-40")
+    dplyr::filter(Age == "15-40")
 # inspect distribution
 tbyounggender <- table(young$LikeUser, young$Gender)
 tbyounggender
@@ -398,16 +428,16 @@ citdata2 <- data.frame(Age, LikeUser)
 ```{r tb1, echo = F, warning=F, message=F}
 # inspect data
 citdata2 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata2 data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata2 data.") %>%
+    flextable::border_outer()
 ```
 
 
@@ -416,23 +446,23 @@ In a first step, we order the numeric variable so that we arrive at the followin
 
 ```{r citn2, echo=FALSE, message=FALSE, warning=FALSE}
 citdata2 <- citdata2 %>%
-  arrange(Age)
+    arrange(Age)
 ```
 
 
 ```{r tb2, echo = F, warning=F, message=F}
 # inspect data
 citdata2 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata2 data arranged by age.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata2 data arranged by age.") %>%
+    flextable::border_outer()
 ```
 
 Next, we calculate the means for each level of "Age".
@@ -446,16 +476,16 @@ citdata3 <- data.frame(Age, LikeUser)
 ```{r citn3b, echo = F, warning=F, message=F}
 # inspect data
 citdata3 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata3 data arranged by age.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata3 data arranged by age.") %>%
+    flextable::border_outer()
 ```
 
 Now, we calculate the Gini values for each average level of age. How this is done is shown below for the first split.
@@ -527,16 +557,16 @@ citdata3 <- data.frame(AgeSplit, Gini)
 ```{r tb3, echo = F, warning=F, message=F}
 # inspect data
 citdata3 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata3 data with Gini coefficients.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata3 data with Gini coefficients.") %>%
+    flextable::border_outer()
 ```
 
 The split at 52.5 years of age has the lowest Gini value. Accordingly, we would split the data between speakers who are younger than 52.5 and speakers who are older than 52.5 years of age. The lowest Gini value for any age split would also be the Gini value that would be compared to other variables. 
@@ -560,10 +590,10 @@ set.seed(111) # set.seed
 control <- ctree_control(mincriterion = 1 - (.05 * ncol(citdata) - 1))
 # convert character strings to factors
 citdata <- citdata %>%
-  dplyr::mutate_if(is.character, factor)
+    dplyr::mutate_if(is.character, factor)
 # create initial conditional inference tree model
 citd.ctree <- partykit::ctree(LikeUser ~ Age + Gender + Status,
-  data = citdata
+    data = citdata
 )
 plot(citd.ctree, gp = gpar(fontsize = 8)) # plot final ctree
 ```
@@ -582,48 +612,48 @@ pvals <- unlist(nodeapply(citd.ctree, ids = nodeids(citd.ctree), function(n) inf
 pvals <- pvals[pvals < .05]
 # plotting
 ggparty(citd.ctree) +
-  geom_edge() +
-  geom_edge_label() +
-  geom_node_label(
-    line_list = list(
-      aes(label = splitvar),
-      aes(
-        label = paste0(
-          "N=", nodesize, ", p",
-          ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))
+    geom_edge() +
+    geom_edge_label() +
+    geom_node_label(
+        line_list = list(
+            aes(label = splitvar),
+            aes(
+                label = paste0(
+                    "N=", nodesize, ", p",
+                    ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))
+                ),
+                size = 10
+            )
         ),
-        size = 10
-      )
-    ),
-    line_gpar = list(
-      list(size = 13),
-      list(size = 10)
-    ),
-    ids = "inner"
-  ) +
-  geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
-    ids = "terminal", nudge_y = -0.0, nudge_x = 0.01
-  ) +
-  geom_node_plot(
-    gglist = list(
-      geom_bar(aes(x = "", fill = LikeUser),
-        position = position_fill(), color = "black"
-      ),
-      theme_minimal(),
-      scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
-      scale_y_continuous(breaks = c(0, 1)),
-      xlab(""),
-      ylab("Probability"),
-      geom_text(
-        aes(
-          x = "", group = LikeUser,
-          label = stat(count)
+        line_gpar = list(
+            list(size = 13),
+            list(size = 10)
         ),
-        stat = "count", position = position_fill(), vjust = 1.1
-      )
-    ),
-    shared_axis_labels = TRUE
-  )
+        ids = "inner"
+    ) +
+    geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
+        ids = "terminal", nudge_y = -0.0, nudge_x = 0.01
+    ) +
+    geom_node_plot(
+        gglist = list(
+            geom_bar(aes(x = "", fill = LikeUser),
+                position = position_fill(), color = "black"
+            ),
+            theme_minimal(),
+            scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
+            scale_y_continuous(breaks = c(0, 1)),
+            xlab(""),
+            ylab("Probability"),
+            geom_text(
+                aes(
+                    x = "", group = LikeUser,
+                    label = stat(count)
+                ),
+                stat = "count", position = position_fill(), vjust = 1.1
+            )
+        ),
+        shared_axis_labels = TRUE
+    )
 ```
 
 
@@ -632,56 +662,56 @@ We can also use `position_dodge` (instead of `position_fill`) to display frequen
 ```{r plotctree, warning=F, message=F}
 # plotting
 ggparty(citd.ctree) +
-  geom_edge() +
-  geom_edge_label() +
-  geom_node_label(
-    line_list = list(
-      aes(label = splitvar),
-      aes(
-        label = paste0(
-          "N=", nodesize, ", p",
-          ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))
+    geom_edge() +
+    geom_edge_label() +
+    geom_node_label(
+        line_list = list(
+            aes(label = splitvar),
+            aes(
+                label = paste0(
+                    "N=", nodesize, ", p",
+                    ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))
+                ),
+                size = 10
+            )
         ),
-        size = 10
-      )
-    ),
-    line_gpar = list(
-      list(size = 13),
-      list(size = 10)
-    ),
-    ids = "inner"
-  ) +
-  geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
-    ids = "terminal", nudge_y = 0.01, nudge_x = 0.01
-  ) +
-  geom_node_plot(
-    gglist = list(
-      geom_bar(aes(x = "", fill = LikeUser),
-        position = position_dodge(), color = "black"
-      ),
-      theme_minimal(),
-      theme(
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()
-      ),
-      scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
-      scale_y_continuous(
-        breaks = seq(0, 100, 20),
-        limits = c(0, 100)
-      ),
-      xlab(""),
-      ylab("Frequency"),
-      geom_text(
-        aes(
-          x = "", group = LikeUser,
-          label = stat(count)
+        line_gpar = list(
+            list(size = 13),
+            list(size = 10)
         ),
-        stat = "count",
-        position = position_dodge(0.9), vjust = -0.7
-      )
-    ),
-    shared_axis_labels = TRUE
-  )
+        ids = "inner"
+    ) +
+    geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
+        ids = "terminal", nudge_y = 0.01, nudge_x = 0.01
+    ) +
+    geom_node_plot(
+        gglist = list(
+            geom_bar(aes(x = "", fill = LikeUser),
+                position = position_dodge(), color = "black"
+            ),
+            theme_minimal(),
+            theme(
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank()
+            ),
+            scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
+            scale_y_continuous(
+                breaks = seq(0, 100, 20),
+                limits = c(0, 100)
+            ),
+            xlab(""),
+            ylab("Frequency"),
+            geom_text(
+                aes(
+                    x = "", group = LikeUser,
+                    label = stat(count)
+                ),
+                stat = "count",
+                position = position_dodge(0.9), vjust = -0.7
+            )
+        ),
+        shared_axis_labels = TRUE
+    )
 ```
 
 ## Problems of Conditional Inference Trees{-}
@@ -710,23 +740,23 @@ Imagine, we are dealing with a very small data set to which we want to apply a R
 
 ```{r tb4, echo = F, warning=F, message=F}
 citdata <- read.delim("tutorials/tree/data/treedata.txt",
-  header = T, sep = "\t"
+    header = T, sep = "\t"
 )
 citdata <- citdata %>%
-  dplyr::mutate(Id = 1:nrow(.)) %>%
-  dplyr::select(Id, Age, Gender, Status, LikeUser)
+    dplyr::mutate(Id = 1:nrow(.)) %>%
+    dplyr::select(Id, Age, Gender, Status, LikeUser)
 # inspect data
 citdata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the citdata data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the citdata data.") %>%
+    flextable::border_outer()
 ```
 
 
@@ -765,16 +795,16 @@ rfdata <- read.delim("tutorials/tree/data/mblrdata.txt", header = T, sep = "\t")
 ```{r rf3b,  echo = F, message=FALSE, warning=FALSE}
 # inspect data
 rfdata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the rfdata data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the rfdata data.") %>%
+    flextable::border_outer()
 ```
 
 The data consists of four categorical variables (`Gender`, `Age`, `ConversationType`, and `SUFlike`). Our dependent variable is `SUFlike` which stands for speech-unit final *like* (a pragmatic marker that is common in Irish English and is used as in *A wee girl of her age, like*). While Age and Gender are pretty straight forward what they are called, *ConversationType* encodes whether a conversation has taken place between interlocutors of the same or of different genders.
@@ -784,23 +814,23 @@ Before going any further, we need to factorize the variables as tree-based model
 ```{r rf4a, message=FALSE, warning=FALSE}
 # factorize variables (rf require factors instead of character vectors)
 rfdata <- rfdata %>%
-  dplyr::mutate_if(is.character, factor) %>%
-  dplyr::select(-ID)
+    dplyr::mutate_if(is.character, factor) %>%
+    dplyr::select(-ID)
 ```
 
 ```{r rf4b,  echo = F, message=FALSE, warning=FALSE}
 # inspect data
 rfdata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the factorized rfdata data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the factorized rfdata data.") %>%
+    flextable::border_outer()
 ```
 
 We now check if the data contains missing values and remove those (if necessary).
@@ -808,7 +838,7 @@ We now check if the data contains missing values and remove those (if necessary)
 ```{r rf4c, echo=T, message=FALSE, warning=FALSE}
 # check for NAs
 natest <- rfdata %>%
-  na.omit()
+    na.omit()
 nrow(natest) # no NAs present in data (same number of rows with NAs omitted)
 ```
 
@@ -830,8 +860,8 @@ We will now generate a first random forest object and inspect its model fit. As 
 set.seed(2019120204)
 # create initial model
 rfmodel1 <- cforest(SUFlike ~ .,
-  data = rfdata,
-  controls = cforest_unbiased(ntree = 50, mtry = 3)
+    data = rfdata,
+    controls = cforest_unbiased(ntree = 50, mtry = 3)
 )
 # evaluate random forest (model diagnostics)
 rfmodel1_pred <- unlist(party::treeresponse(rfmodel1)) # [c(FALSE,TRUE)]
@@ -868,9 +898,9 @@ A few words on the parameters of the `randomForest` function: if the thing we're
 # set.seed
 set.seed(2019120205)
 rfmodel2 <- randomForest::randomForest(SUFlike ~ .,
-  data = rfdata,
-  mtry = 2,
-  proximity = TRUE
+    data = rfdata,
+    mtry = 2,
+    proximity = TRUE
 )
 # inspect model
 rfmodel2
@@ -925,11 +955,11 @@ A second type of visualization that can provide insights in the `partial` functi
 ```{r rf18, message=FALSE, warning=FALSE}
 # extract importance of individual variables
 rfmodel3 %>% # the %>% operator is read as "and then"
-  partial(pred.var = "Age") %>%
-  autoplot(smooth = TRUE, ylab = expression(f(Age))) +
-  theme_light() +
-  ggtitle("Partial Depencence Plot: Age") +
-  ylim(-20, 0)
+    partial(pred.var = "Age") %>%
+    autoplot(smooth = TRUE, ylab = expression(f(Age))) +
+    theme_light() +
+    ggtitle("Partial Depencence Plot: Age") +
+    ylim(-20, 0)
 ```
 
 You can however use the `partial` function to show how the effect of predictors interacts with other predictors (see below). 
@@ -983,16 +1013,16 @@ borutadata <- read.delim("tutorials/tree/data/ampaus05_statz.txt", header = T, s
 ```{r bo1b,  echo = F, message=FALSE, warning=FALSE}
 # inspect data
 borutadata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the borutadata data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the borutadata data.") %>%
+    flextable::border_outer()
 ```
 
 
@@ -1001,23 +1031,23 @@ As the data contains non-factorized character variables, we convert those into f
 ```{r bo2, message=FALSE, warning=FALSE}
 # factorize variables (boruta - like rf - require factors instead of character vectors)
 borutadata <- borutadata %>%
-  dplyr::filter(complete.cases(.)) %>%
-  dplyr::mutate_if(is.character, factor)
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::mutate_if(is.character, factor)
 ```
 
 ```{r bo2b,  echo = F, message=FALSE, warning=FALSE}
 # inspect data
 borutadata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the factorized borutadata data.") %>%
-  flextable::border_outer()
+    as.data.frame() %>%
+    head(10) %>%
+    flextable() %>%
+    flextable::set_table_properties(width = .75, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "First 10 rows of the factorized borutadata data.") %>%
+    flextable::border_outer()
 ```
 
 
@@ -1047,7 +1077,7 @@ The fluctuations are do not show clear upward or downward trends (which what we 
 rejected <- names(boruta1$finalDecision)[which(boruta1$finalDecision == "Rejected")]
 # update data for boruta
 borutadata <- borutadata %>%
-  dplyr::select(-rejected)
+    dplyr::select(-rejected)
 # set.seed (to store random numbers and thus make results reproducible)
 set.seed(2019120208)
 # 2nd run
@@ -1062,22 +1092,22 @@ Only adjective frequency and adjective type are confirmed as being important whi
 
 ```{r bo7, message=FALSE, warning=FALSE}
 borutadf <- as.data.frame(boruta2$ImpHistory) %>%
-  tidyr::gather(Variable, Importance, Adjective:shadowMin) %>%
-  dplyr::mutate(Type = ifelse(str_detect(Variable, "shadow"), "Control", "Predictor")) %>%
-  dplyr::mutate(
-    Type = factor(Type),
-    Variable = factor(Variable)
-  )
+    tidyr::gather(Variable, Importance, Adjective:shadowMin) %>%
+    dplyr::mutate(Type = ifelse(str_detect(Variable, "shadow"), "Control", "Predictor")) %>%
+    dplyr::mutate(
+        Type = factor(Type),
+        Variable = factor(Variable)
+    )
 ggplot(borutadf, aes(x = reorder(Variable, Importance, mean), y = Importance, fill = Type)) +
-  geom_boxplot() +
-  geom_vline(xintercept = 3.5, linetype = "dashed", color = "black") +
-  scale_fill_manual(values = c("gray80", "gray40")) +
-  theme_bw() +
-  theme(
-    legend.position = "top",
-    axis.text.x = element_text(angle = 90)
-  ) +
-  labs(x = "Variable")
+    geom_boxplot() +
+    geom_vline(xintercept = 3.5, linetype = "dashed", color = "black") +
+    scale_fill_manual(values = c("gray80", "gray40")) +
+    theme_bw() +
+    theme(
+        legend.position = "top",
+        axis.text.x = element_text(angle = 90)
+    ) +
+    labs(x = "Variable")
 ```
 
 Of the remaining variables, adjective frequency and adjective type have the strongest effect and are confirmed as being important while syntactic function fails to perform better than the best shadow variable. All other variables have only a marginal effect on the use of really as an adjective amplifier.
@@ -1085,13 +1115,13 @@ Of the remaining variables, adjective frequency and adjective type have the stro
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. `r format(Sys.time(), '%Y')`. *Tree-Based Models in R*. Brisbane: The University of Queensland. url: https://slcladal.github.io/tree.html (Version `r format(Sys.time(), '%Y.%m.%d')`).
+Schweinberger, Martin. `r format(Sys.time(), '%Y')`. *Tree-Based Models in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/tree.html (Version `r format(Sys.time(), '%Y.%m.%d')`).
 
 ```
 @manual{schweinberger`r format(Sys.time(), '%Y')`tree,
   author = {Schweinberger, Martin},
   title = {Tree-Based Models in R},
-  note = {https://slcladal.github.io/tree.html},
+  note = {tutorials/tree/tree.html},
   year = {`r format(Sys.time(), '%Y')`},
   organization = "The University of Queensland, Australia. School of Languages and Cultures},
   address = {Brisbane},
