@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Martin Schweinberger">
+
+<title>Semantic Vector Space Models in R – Language Technology and Data Analysis Laboratory (LADAL)</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script>
+    // Wait for the document to be fully loaded
+    document.addEventListener("DOMContentLoaded", function () {
+        // Create a new div element to hold the dynamic content
+        var newContainer = document.createElement("div");
+        newContainer.classList.add("custom-banner");  // You can assign a class to the new container for styling
+
+        // You can also add content inside the new container
+        newContainer.innerHTML = `
+          <div class="banner">
+              <img src="images/ladal_icon_white.png" alt="Icon" class="banner-icon">
+              <span class="banner-text">Language Technology and Data Analysis Laboratory</span>
+          </div>
+      `
+
+        // Select the header element
+        var header = document.getElementById("quarto-header");
+
+        // Select the nav element inside the header to place the new container just above it
+        var navbar = header.querySelector("nav");
+
+        // Insert the new container before the navbar element
+        header.insertBefore(newContainer, navbar);
+    });
+</script>
+<link href="../../site_libs/tabwid-1.1.3/tabwid.css" rel="stylesheet">
+<script src="../../site_libs/tabwid-1.1.3/tabwid.js"></script>
+
+
+<link rel="stylesheet" href="../../css/styles.css">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Language Technology and Data Analysis Laboratory (LADAL)</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">HOME</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html"> 
+<span class="menu-text">ABOUT</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../events.html"> 
+<span class="menu-text">EVENTS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tutorials.html"> 
+<span class="menu-text">TUTORIALS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../tools.html"> 
+<span class="menu-text">TOOLS</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../resources.html"> 
+<span class="menu-text">RESOURCES</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../contact.html"> 
+<span class="menu-text">CONTACT</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#example-similarity-among-adjective-amplifiers" id="toc-example-similarity-among-adjective-amplifiers" class="nav-link" data-scroll-target="#example-similarity-among-adjective-amplifiers">Example: Similarity among adjective amplifiers</a></li>
+  <li><a href="#citation-session-info" id="toc-citation-session-info" class="nav-link" data-scroll-target="#citation-session-info">Citation &amp; Session Info</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Semantic Vector Space Models in R</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Martin Schweinberger </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><img src="../../images/uq1.jpg" class="img-fluid" style="width:100.0%"></p>
+<section id="introduction" class="level1 unnumbered">
+<h1 class="unnumbered">Introduction</h1>
+<p>This tutorial introduces Semantic Vector Space (SVM) modeling R.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> Semantic vector space models, also known as distributional semantic models, are a type of machine learning model that represent the meaning of words or phrases as high-dimensional vectors in a mathematical space. These models are designed to capture the semantic relationships between words based on the distribution of their occurrences in large text corpora.</p>
+<p>In semantic vector space models, words or phrases are represented as vectors in a high-dimensional space, where the distance between two vectors reflects the semantic similarity between the corresponding words or phrases. These models are typically trained using unsupervised learning techniques, such as singular value decomposition (SVD) or word2vec, on large corpora of text data.</p>
+<p>One of the main advantages of semantic vector space models is that they can capture complex semantic relationships between words, including synonymy, antonymy, hypernymy, and hyponymy. These models can also be used to perform tasks such as language modeling, text classification, sentiment analysis, and information retrieval.</p>
+<p>Semantic vector space models are particularly useful in natural language processing (NLP) applications, where the ability to accurately represent the meaning of words and phrases is critical for tasks such as machine translation, text summarization, and question answering. By using semantic vector space models, NLP systems can better understand the meaning of natural language text and improve their performance on a wide range of tasks.</p>
+<p><img src="../../images/gy_chili.png" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
+<p>This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to generate and visualize results of SVMs in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with SVMs.</p>
+<div class="warning" style="padding:0.1em; background-color:#f2f2f2; color:#51247a">
+<span>
+<p style="margin-top:1em; text-align:center">
+The entire R Notebook for the tutorial can be downloaded <a href="tutorials/svm/svm.qmd">here</a>. If you want to render the R Notebook on your machine, i.e.&nbsp;knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the <a href="../../assets/bibliography.bib"><strong>bibliography file</strong></a> and store it in the same folder where you store the Rmd file.
+</p>
+<div class="text-center">
+<p><a href="https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo=https://github.com/SLCLADAL/interactive-notebooks%26urlpath=lab/tree/interactive-notebooks/notebooks/svm_cb.ipynb%26branch=main"><img src="https://mybinder.org/badge_logo.svg" class="img-fluid"></a></p>
+<p>Click <a href="https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo=https://github.com/SLCLADAL/interactive-notebooks%26urlpath=lab/tree/interactive-notebooks/notebooks/svm_cb.ipynb%26branch=main"><strong>here</strong></a> to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.</p>
+</div>
+<p style="margin-left:1em;">
+</p>
+<p></p>
+</span></div>
+<p><br></p>
+<p><strong>Preparation and session set up</strong></p>
+<p>This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R <a href="tutorials/intror/intror.html">here</a>. For this tutorials, we need to install certain <em>packages</em> from an R <em>library</em> so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># set options</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="st">"scipen"</span> <span class="ot">=</span> <span class="dv">100</span>, <span class="st">"digits"</span> <span class="ot">=</span> <span class="dv">4</span>) <span class="co"># suppress math annotation</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># install packages</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"coop"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"dplyr"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"tm"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"cluster"</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"flextable"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.</p>
+</section>
+<section id="example-similarity-among-adjective-amplifiers" class="level1 unnumbered">
+<h1 class="unnumbered">Example: Similarity among adjective amplifiers</h1>
+<p>Vector Space Models are particularly useful when dealing with language data as they provide very accurate estimates of <em>semantic</em> similarity based on <em>word embeddings</em> (or co-occurrence profiles). Word embeddings refer to the vectors which hold the frequency information about how frequently a given word has co-occurred with other words. If the ordering of co-occurring words remains constant, then the vectors can be used to determine which words have similar profiles.</p>
+<p>To show how vector space models work, we will follow the procedure described in <span class="citation" data-cites="levshina2015linguistics">Levshina</span>. However, we will not use her <code>Rling</code> package, which is not supported my R version 4.0.2, to calculate cosine similarities but rather the <code>coop</code> package <span class="citation" data-cites="coop">(see <a href="#ref-coop" role="doc-biblioref">Schmidt and Heckendorf</a>)</span>. In this tutorial, we investigate similarities among amplifiers based on their co-occurrences (word embeddings) with adjectives. Adjective amplifiers are elements such as those in 1. to 5.</p>
+<ol type="1">
+<li>The <em>very</em><sub>amplifier</sub> <em>nice</em><sub>adjective</sub> man.</li>
+<li>A <em>truely</em><sub>amplifier</sub> <em>remarkable</em><sub>adjective</sub> woman.</li>
+<li>He was <em>really</em><sub>amplifier</sub> <em>hesitant</em><sub>adjective</sub>.</li>
+<li>The child was <em>awefully</em><sub>amplifier</sub> <em>loud</em><sub>adjective</sub>.</li>
+<li>The festival was <em>so</em><sub>amplifier</sub> <em>amazing</em><sub>adjective</sub>!</li>
+</ol>
+<p>The similarity among adjective amplifiers can then be used to find clusters or groups of amplifiers that “behave” similarly and are interchangeable. To elaborate, adjective amplifiers are interchangeable with some variants but not with others (consider 6. to 8.; the question mark signifies that the example is unlikely to be used or grammatically not acceptable by L1 speakers of English).</p>
+<ol start="6" type="1">
+<li>The <em>very</em><sub>amplifier</sub> <em>nice</em><sub>adjective</sub> man.</li>
+<li>The <em>really</em><sub>amplifier</sub> <em>nice</em><sub>adjective</sub> man.</li>
+<li><sup>?</sup>The <em>completely</em><sub>amplifier</sub> <em>nice</em><sub>adjective</sub> man.</li>
+</ol>
+<p>We start by loading the required packages, the data, and then displaying the data which is called “vsmdata” and consist of 5,000 observations of adjectives and contains two columns: one column with the adjectives (Adjectives) and another column which has the amplifiers (“0” means that the adjective occurred without an amplifier).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load packages</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(coop)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tm)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(cluster)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(flextable)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># load data</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>vsmdata <span class="ot">&lt;-</span> <span class="fu">read.delim</span>(<span class="st">"tutorials/svm/data/vsmdata.txt"</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">sep =</span> <span class="st">"</span><span class="sc">\t</span><span class="st">"</span>, <span class="at">header =</span> T</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div class="tabwid"><style>.cl-0680a3e4{table-layout:auto;width:75%;}.cl-067cd444{font-family:'Helvetica';font-size:12pt;font-weight:bold;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-067cd44e{font-family:'Helvetica';font-size:12pt;font-weight:normal;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-067e3e38{margin:0;text-align:center;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-067e4cca{background-color:rgba(207, 207, 207, 1.00);vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 1pt solid rgba(102, 102, 102, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4ccb{background-color:rgba(207, 207, 207, 1.00);vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 1pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cd4{background-color:rgba(239, 239, 239, 1.00);vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cd5{background-color:rgba(239, 239, 239, 1.00);vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cd6{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cd7{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cde{background-color:transparent;vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-067e4cdf{background-color:transparent;vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}</style><table data-quarto-disable-processing="true" class="cl-0680a3e4"><thead><tr style="overflow-wrap:break-word;"><th class="cl-067e4cca"><p class="cl-067e3e38"><span class="cl-067cd444">Amplifier</span></p></th><th class="cl-067e4ccb"><p class="cl-067e3e38"><span class="cl-067cd444">Adjective</span></p></th></tr></thead><tbody><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd4"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd5"><p class="cl-067e3e38"><span class="cl-067cd44e">serious</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd6"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd7"><p class="cl-067e3e38"><span class="cl-067cd44e">sure</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd4"><p class="cl-067e3e38"><span class="cl-067cd44e">so</span></p></td><td class="cl-067e4cd5"><p class="cl-067e3e38"><span class="cl-067cd44e">many</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd6"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd7"><p class="cl-067e3e38"><span class="cl-067cd44e">many</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd4"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd5"><p class="cl-067e3e38"><span class="cl-067cd44e">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd6"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd7"><p class="cl-067e3e38"><span class="cl-067cd44e">much</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd4"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd5"><p class="cl-067e3e38"><span class="cl-067cd44e">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd6"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd7"><p class="cl-067e3e38"><span class="cl-067cd44e">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cd4"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cd5"><p class="cl-067e3e38"><span class="cl-067cd44e">last</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-067e4cde"><p class="cl-067e3e38"><span class="cl-067cd44e">0</span></p></td><td class="cl-067e4cdf"><p class="cl-067e3e38"><span class="cl-067cd44e">nice</span></p></td></tr></tbody></table></div>
+</div>
+</div>
+<p>For this tutorial, we remove adjectives that were not amplified (as well as adjectives modified by <em>much</em> or <em>many</em>) and collapse all adjectives that occur less than 10 times into a bin category (<em>other</em>).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># simplify data</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>vsmdata_simp <span class="ot">&lt;-</span> vsmdata <span class="sc">%&gt;%</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># remove non-amplifier adjectives</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        Amplifier <span class="sc">!=</span> <span class="dv">0</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        Adjective <span class="sc">!=</span> <span class="st">"many"</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        Adjective <span class="sc">!=</span> <span class="st">"much"</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># collapse infrequent adjectives</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">group_by</span>(Adjective) <span class="sc">%&gt;%</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">AdjFreq =</span> dplyr<span class="sc">::</span><span class="fu">n</span>()) <span class="sc">%&gt;%</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">Adjective =</span> <span class="fu">ifelse</span>(AdjFreq <span class="sc">&gt;</span> <span class="dv">10</span>, Adjective, <span class="st">"other"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">filter</span>(Adjective <span class="sc">!=</span> <span class="st">"other"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>AdjFreq)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div class="tabwid"><style>.cl-068e3dba{table-layout:auto;width:75%;}.cl-068ad990{font-family:'Helvetica';font-size:12pt;font-weight:bold;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-068ad99a{font-family:'Helvetica';font-size:12pt;font-weight:normal;font-style:normal;text-decoration:none;color:rgba(0, 0, 0, 1.00);background-color:transparent;}.cl-068c6f44{margin:0;text-align:center;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);padding-bottom:5pt;padding-top:5pt;padding-left:5pt;padding-right:5pt;line-height: 1;background-color:transparent;}.cl-068c7c8c{background-color:rgba(207, 207, 207, 1.00);vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 1pt solid rgba(102, 102, 102, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7c8d{background-color:rgba(207, 207, 207, 1.00);vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 1pt solid rgba(102, 102, 102, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7c96{background-color:rgba(239, 239, 239, 1.00);vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7c97{background-color:rgba(239, 239, 239, 1.00);vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7c98{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7c99{background-color:transparent;vertical-align: middle;border-bottom: 0 solid rgba(0, 0, 0, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7ca0{background-color:transparent;vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 1pt solid rgba(102, 102, 102, 1.00);border-right: 0 solid rgba(0, 0, 0, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}.cl-068c7ca1{background-color:transparent;vertical-align: middle;border-bottom: 1pt solid rgba(102, 102, 102, 1.00);border-top: 0 solid rgba(0, 0, 0, 1.00);border-left: 0 solid rgba(0, 0, 0, 1.00);border-right: 1pt solid rgba(102, 102, 102, 1.00);margin-bottom:0;margin-top:0;margin-left:0;margin-right:0;}</style><table data-quarto-disable-processing="true" class="cl-068e3dba"><thead><tr style="overflow-wrap:break-word;"><th class="cl-068c7c8c"><p class="cl-068c6f44"><span class="cl-068ad990">Amplifier</span></p></th><th class="cl-068c7c8d"><p class="cl-068c6f44"><span class="cl-068ad990">Adjective</span></p></th></tr></thead><tbody><tr style="overflow-wrap:break-word;"><td class="cl-068c7c96"><p class="cl-068c6f44"><span class="cl-068ad99a">very</span></p></td><td class="cl-068c7c97"><p class="cl-068c6f44"><span class="cl-068ad99a">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c98"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7c99"><p class="cl-068c6f44"><span class="cl-068ad99a">nice</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c96"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7c97"><p class="cl-068c6f44"><span class="cl-068ad99a">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c98"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7c99"><p class="cl-068c6f44"><span class="cl-068ad99a">bad</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c96"><p class="cl-068c6f44"><span class="cl-068ad99a">very</span></p></td><td class="cl-068c7c97"><p class="cl-068c6f44"><span class="cl-068ad99a">nice</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c98"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7c99"><p class="cl-068c6f44"><span class="cl-068ad99a">nice</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c96"><p class="cl-068c6f44"><span class="cl-068ad99a">very</span></p></td><td class="cl-068c7c97"><p class="cl-068c6f44"><span class="cl-068ad99a">hard</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c98"><p class="cl-068c6f44"><span class="cl-068ad99a">bloody</span></p></td><td class="cl-068c7c99"><p class="cl-068c6f44"><span class="cl-068ad99a">good</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7c96"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7c97"><p class="cl-068c6f44"><span class="cl-068ad99a">nice</span></p></td></tr><tr style="overflow-wrap:break-word;"><td class="cl-068c7ca0"><p class="cl-068c6f44"><span class="cl-068ad99a">really</span></p></td><td class="cl-068c7ca1"><p class="cl-068c6f44"><span class="cl-068ad99a">good</span></p></td></tr></tbody></table></div>
+</div>
+</div>
+<p>In a next step, we create a matrix from this data frame which maps how often a given amplifier co-occurred with a given adjective. In text mining, this format is called a text-document matrix or tdm.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tabulate data (create term-document matrix)</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>tdm <span class="ot">&lt;-</span> <span class="fu">ftable</span>(vsmdata_simp<span class="sc">$</span>Adjective, vsmdata_simp<span class="sc">$</span>Amplifier)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># extract amplifiers and adjectives</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>amplifiers <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">unlist</span>(<span class="fu">attr</span>(tdm, <span class="st">"col.vars"</span>)[<span class="dv">1</span>]))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>adjectives <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">unlist</span>(<span class="fu">attr</span>(tdm, <span class="st">"row.vars"</span>)[<span class="dv">1</span>]))</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># attach row and column names to tdm</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(tdm) <span class="ot">&lt;-</span> adjectives</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(tdm) <span class="ot">&lt;-</span> amplifiers</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect data</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>tdm[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          abundantly bloody completely enormously extremely
+bad                0      0          0          0         0
+big                0      0          0          0         0
+clear              1      0          0          0         0
+different          0      0          4          0         0
+difficult          0      0          0          1         3</code></pre>
+</div>
+</div>
+<p>Now that we have a term document matrix, we want to remove adjectives that were never amplified. Note however that if we were interested in classifying adjectives (rather than amplifiers) according to their co-occurrence with amplifiers, we would, of course, not do this, as not being amplified would be a relevant feature for adjectives. But since we are interested in classifying amplifiers, not amplified adjectives do not have any information value.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># convert frequencies greater than 1 into 1</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>tdm <span class="ot">&lt;-</span> <span class="fu">t</span>(<span class="fu">apply</span>(tdm, <span class="dv">1</span>, <span class="cf">function</span>(x) {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ifelse</span>(x <span class="sc">&gt;</span> <span class="dv">1</span>, <span class="dv">1</span>, x)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>}))</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># remove adjectives that we never amplified</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>tdm <span class="ot">&lt;-</span> tdm[<span class="fu">which</span>(<span class="fu">rowSums</span>(tdm) <span class="sc">&gt;</span> <span class="dv">1</span>), ]</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect data</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>tdm[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           
+            abundantly bloody completely enormously extremely
+  bad                0      0          0          0         0
+  big                0      0          0          0         0
+  clear              1      0          0          0         0
+  different          0      0          1          0         0
+  difficult          0      0          0          1         1</code></pre>
+</div>
+</div>
+<p>In a next step, we extract the expected values of the co-occurrences if the amplifiers were distributed homogeneously and calculate the <em>Pointwise Mutual Information</em> (PMI) score and use that to then calculate the <em>Positive Pointwise Mutual Information</em> (PPMI) scores. According to <span class="citation" data-cites="levshina2015linguistics">Levshina</span> 327 - referring to <span class="citation" data-cites="bullinaria2007extracting">Bullinaria and Levy</span> - PPMI perform better than PMI as negative values are replaced with zeros. In a next step, we calculate the cosine similarity which will for the bases for the subsequent clustering.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute expected values</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>tdm.exp <span class="ot">&lt;-</span> <span class="fu">chisq.test</span>(tdm)<span class="sc">$</span>expected</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in chisq.test(tdm): Chi-squared approximation may be incorrect</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate PMI and PPMI</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>PMI <span class="ot">&lt;-</span> <span class="fu">log2</span>(tdm <span class="sc">/</span> tdm.exp)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>PPMI <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(PMI <span class="sc">&lt;</span> <span class="dv">0</span>, <span class="dv">0</span>, PMI)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate cosine similarity</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>cosinesimilarity <span class="ot">&lt;-</span> <span class="fu">cosine</span>(PPMI)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect cosine values</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>cosinesimilarity[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           abundantly bloody completely enormously extremely
+abundantly          1      0          0  0.0000000 0.0000000
+bloody              0      1          0  0.0000000 0.0000000
+completely          0      0          1  0.0000000 0.0000000
+enormously          0      0          0  1.0000000 0.6628518
+extremely           0      0          0  0.6628518 1.0000000</code></pre>
+</div>
+</div>
+<p>As we have now obtained a similarity measure, we can go ahead and perform a cluster analysis on these similarity values. However, as we have to extract the maximum values in the similarity matrix that is not 1 as we will use this to create a distance matrix. While we could also have simply subtracted the cosine similarity values from 1 to convert the similarity matrix into a distance matrix, we follow the procedure proposed by <span class="citation" data-cites="levshina2015linguistics">Levshina</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># find max value that is not 1</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>cosinesimilarity.test <span class="ot">&lt;-</span> <span class="fu">apply</span>(cosinesimilarity, <span class="dv">1</span>, <span class="cf">function</span>(x) {</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(x <span class="sc">==</span> <span class="dv">1</span>, <span class="dv">0</span>, x)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>maxval <span class="ot">&lt;-</span> <span class="fu">max</span>(cosinesimilarity.test)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="co"># create distance matrix</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>amplifier.dist <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (cosinesimilarity <span class="sc">/</span> maxval)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>clustd <span class="ot">&lt;-</span> <span class="fu">as.dist</span>(amplifier.dist)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>In a next step, we want to determine the optimal number of clusters. This has two reasons: firstly, we need to establish that we have reason to assume that the data is not homogeneous (this would occur if the optimal number of clusters were 1), and, secondly, we want check how many meaningful clusters there are in our data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># find optimal number of clusters</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>asw <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">unlist</span>(<span class="fu">sapply</span>(<span class="dv">2</span><span class="sc">:</span><span class="fu">ncol</span>(tdm) <span class="sc">-</span> <span class="dv">1</span>, <span class="cf">function</span>(x) <span class="fu">pam</span>(clustd, <span class="at">k =</span> x)<span class="sc">$</span>silinfo<span class="sc">$</span>avg.width)))</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># determine the optimal number of clusters (max width is optimal)</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>optclust <span class="ot">&lt;-</span> <span class="fu">which</span>(asw <span class="sc">==</span> <span class="fu">max</span>(asw)) <span class="co"># optimal number of clusters</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect clustering with optimal number of clusters</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>amplifier.clusters <span class="ot">&lt;-</span> <span class="fu">pam</span>(clustd, optclust)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="co"># inspect cluster solution</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>amplifier.clusters<span class="sc">$</span>clustering</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  abundantly       bloody   completely   enormously    extremely particularly 
+           1            1            2            3            3            3 
+      pretty         real       really           so      totally         very 
+           2            1            2            2            2            2 </code></pre>
+</div>
+</div>
+<p>In a next step, we visualize the results of the semantic vector space model as a dendrogram.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create cluster object</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>cd <span class="ot">&lt;-</span> <span class="fu">hclust</span>(clustd, <span class="at">method =</span> <span class="st">"ward.D"</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot cluster object</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(cd, <span class="at">main =</span> <span class="st">""</span>, <span class="at">sub =</span> <span class="st">""</span>, <span class="at">yaxt =</span> <span class="st">"n"</span>, <span class="at">ylab =</span> <span class="st">""</span>, <span class="at">xlab =</span> <span class="st">""</span>, <span class="at">cex =</span> .<span class="dv">8</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># add colored rectangles around clusters</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">rect.hclust</span>(cd, <span class="at">k =</span> optclust, <span class="at">border =</span> <span class="st">"gray60"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="svm_files/figure-html/vsm8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The clustering solution shows that,</p>
+<ul>
+<li><em>really</em>, <em>so</em>, and <em>very</em><br>
+</li>
+<li><em>completely</em> and <em>totally</em><br>
+</li>
+<li>all other amplifiers.</li>
+</ul>
+<p>form clusters and are thus more similar in their collocational profile to each other compared to amplifiers in different clusters. Also, this suggests that amplifiers in the same cluster are more interchangable compared with amplifiers in different clusters.</p>
+<p>It is important to note though that the data set is of rather moderate size which means that differences are unlikely to be detected due to the relative rarity of the amplifier (which is the reason why there is one umbrella cluster). Also, the amplifiers <em>very</em>, <em>so</em>, and <em>really</em> form a cluster together probably due to the fact that <em>really</em>, <em>very</em>, and <em>so</em> are the most frequent “variants” and because they co-occur with the most variety of adjectives. The results can be interpreted to suggest that <em>really</em>, <em>so</em>, and <em>very</em> are “default” amplifiers that lack distinct semantic profiles.</p>
+<p>There are many more useful methods for classifying and grouping data and the <a href="https://gederajeg.github.io/vector_space_model_indonesian/">tutorial by Gede Primahadi Wijaya Rajeg, Karlina Denistia, and Simon Musgrave</a> <span class="citation" data-cites="rajeg2020semvec">(<a href="#ref-rajeg2020semvec" role="doc-biblioref">Rajeg, Denistia, and Musgrave</a>)</span> highly recommended to get a better understanding of SVM but this should suffice to get you started.</p>
+</section>
+<section id="citation-session-info" class="level1 unnumbered">
+<h1 class="unnumbered">Citation &amp; Session Info</h1>
+<p>Schweinberger, Martin. 2023. <em>Semantic Vector Space Models in R</em>. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/svm.html (Version 2023.02.16).</p>
+<pre><code>@manual{schweinberger2023svm,
+  author = {Schweinberger, Martin},
+  title = {Semantic Vector Space Models in R},
+  note = {tutorials/svm/svm.html},
+  year = {2023},
+  organization = "The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2023.02.16}
+}</code></pre>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.1 (2024-06-14)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sonoma 14.6.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: Australia/Brisbane
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] flextable_0.9.7 cluster_2.1.6   tm_0.7-14       NLP_0.3-0      
+[5] dplyr_1.1.4     coop_0.6-3     
+
+loaded via a namespace (and not attached):
+ [1] jsonlite_1.8.9          compiler_4.4.1          zip_2.3.1              
+ [4] tidyselect_1.2.1        Rcpp_1.0.13             slam_0.1-54            
+ [7] xml2_1.3.6              parallel_4.4.1          fontquiver_0.2.1       
+[10] textshaping_0.4.0       systemfonts_1.1.0       uuid_1.2-1             
+[13] yaml_2.3.10             fastmap_1.2.0           R6_2.5.1               
+[16] gdtools_0.4.0           generics_0.1.3          knitr_1.48             
+[19] htmlwidgets_1.6.4       tibble_3.2.1            openssl_2.2.2          
+[22] pillar_1.9.0            rlang_1.1.4             utf8_1.2.4             
+[25] xfun_0.49               cli_3.6.3               withr_3.0.2            
+[28] magrittr_2.0.3          digest_0.6.37           grid_4.4.1             
+[31] askpass_1.2.1           lifecycle_1.0.4         vctrs_0.6.5            
+[34] evaluate_1.0.1          glue_1.8.0              data.table_1.16.2      
+[37] officer_0.6.7           fontLiberation_0.1.0    ragg_1.3.3             
+[40] codetools_0.2-20        fontBitstreamVera_0.1.1 fansi_1.0.6            
+[43] rmarkdown_2.28          tools_4.4.1             pkgconfig_2.0.3        
+[46] htmltools_0.5.8.1      </code></pre>
+</div>
+</div>
+<hr>
+<p><a href="#introduction">Back to top</a></p>
+<p><a href="../..">Back to HOME</a></p>
+<hr>
+</section>
+<section id="references" class="level1 unnumbered">
+
+
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-bullinaria2007extracting" class="csl-entry" role="listitem">
+Bullinaria, J. A., and J. P. Levy. <span>“Extracting Semantic Representations from Word Co-Occurrence Statistics: A Computational Study.”</span> <em>Behavior Research Methods</em>, 510–26.
+</div>
+<div id="ref-levshina2015linguistics" class="csl-entry" role="listitem">
+Levshina, Natalia. <em>How to Do Linguistics with r: Data Exploration and Statistical Analysis</em>. Amsterdam: John Benjamins Publishing Company.
+</div>
+<div id="ref-rajeg2020semvec" class="csl-entry" role="listitem">
+Rajeg, Gede Primahadi Wijaya, Karlina Denistia, and Simon Musgrave. <span>“R Markdown Notebook for Vector Space Model and the Usage Patterns of Indonesian Denominal Verbs.”</span> <a href="https://doi.org/10.6084/m9.figshare.9970205.v1">https://doi.org/10.6084/m9.figshare.9970205.v1</a>.
+</div>
+<div id="ref-coop" class="csl-entry" role="listitem">
+Schmidt, Drew, and Christian Heckendorf. <em>Coop: Co-Operation: Fast Covariance, Correlation, and CosineSimilarity Operations</em>. <a href="https://CRAN.R-project.org/package = coop">https://CRAN.R-project.org/package = coop</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>I am indebted to Paul Warren who kindly pointed out some errors in a previous version of this tutorial.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

@@ -5,22 +5,26 @@ PARENT_DIR="."
 
 echo "$(realpath "$PARENT_DIR")"
 
-runall=true
+runone=false
 usecache=true
-usethis="postag"
+usethis="whyr"
+exclude_list=("./tutorials/postag/postag.qmd")
 
+if runone; then
+  > logs/all.log
+fi
 # the following tutorials need to first be built without cache (no idea why!)
 # regression, postag
 
-if $runall && $usecache; then
-    echo "Running all tasks (CACHE)."
-    quarto render --execute-dir $PARENT_DIR > logs/main.log 2>&1
-    exit 0
-elif $runall; then
-    echo "Running all tasks (NO CACHE)."
-    quarto render --no-cache --execute-dir $PARENT_DIR > logs/main.log 2>&1
-    exit 0
-fi
+# if $runall && $usecache; then
+#     echo "Running all tasks (CACHE)."
+#     quarto render --execute-dir $PARENT_DIR --exclude ./tutorials/postag/postag.qmd > logs/main.log 2>&1
+#     exit 0
+# elif $runall; then
+#     echo "Running all tasks (NO CACHE)."
+#     quarto render --no-cache --execute-dir $PARENT_DIR > logs/main.log 2>&1
+#     exit 0
+# fi
 
 
 # Set the start index (change this to where you want to start)
@@ -32,9 +36,9 @@ STOP_INDEX=-1
 # Loop through all subfolders in the tutorials folder
 count=0  # Folder counter
 
-for folder in "$PARENT_DIR/tutorials"/*/; do
+find "$PARENT_DIR" -type f -name "*.qmd" | sort | while read -r file; do
+  # echo "$file"
   # Check if it's a directory (just a safety check)
-  if [ -d "$folder" ]; then
     # Skip folders before the start index
     if [ $count -lt $START_INDEX ]; then
       ((count++))
@@ -49,22 +53,34 @@ for folder in "$PARENT_DIR/tutorials"/*/; do
 
     # Optional: You can add additional skipping logic here, like checking folder names
     # Example: Skip folders named "skip_this_folder"
-    folder_name=$(basename "$folder")
-    if [ "$folder_name" != "$usethis" ]; then
+    if $runone && [ "$file" != "./tutorials/$usethis/$usethis.qmd" ]; then
       # echo "Skipping folder: $folder_name"
       continue
     fi
     
     if $usecache; then
-        # echo "Rendering $(realpath "$folder") with cache."
-        echo "Rendering "$folder_name" (CACHE)."
-        quarto render tutorials/${folder_name} --execute-dir $PARENT_DIR > logs/log_${folder_name}.log 2>&1
+      # Loop through the exclude list
+      skip=false
+      for exclude in "${exclude_list[@]}"; do
+          if [ "$file" == "$exclude" ]; then
+              skip=true
+              break  # Exit the loop once a match is found
+          fi
+      done
+
+      # If a match was found, skip this file
+      if [ "$skip" == true ]; then
+          echo "Skipping file: $file"
+          continue
+      fi
+      # echo "Rendering $(realpath "$folder") with cache."
+      echo "Rendering $count "$file" (CACHE)."
+      quarto render ${file} --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee logs/all.log
     else
-        echo "Rendering "$folder_name" (NO CACHE)."
-        quarto render tutorials/${folder_name} --no-cache --execute-dir $PARENT_DIR > logs/log_${folder_name}.log 2>&1
+        echo "Rendering $count "$file" (NO CACHE)."
+        quarto render ${file} --no-cache --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee logs/all.log
     fi
 
     # Increment the counter
     ((count++))
-    fi
 done
