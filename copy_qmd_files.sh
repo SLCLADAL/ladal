@@ -4,6 +4,7 @@
 PROJECT_ROOT=$(pwd)
 OUTPUT_ROOT="$PROJECT_ROOT/_site"
 
+echo "Running post render script"
 # Find and copy .qmd files under tutorials subfolders
 find "$PROJECT_ROOT/tutorials" -type f -name "*.qmd" | while read -r file; do
   # Get the relative path

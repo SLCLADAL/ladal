@@ -5,10 +5,10 @@ PARENT_DIR="."
 
 echo "$(realpath "$PARENT_DIR")"
 
-runone=false
+runone=true
 usecache=true
 usethis="whyr"
-exclude_list=("./tutorials/postag/postag.qmd")
+exclude_list=("./tutorials/postag/postag.qmd ./tutorials/regression/regression.qmd")
 
 if runone; then
   > logs/all.log
@@ -70,17 +70,27 @@ find "$PARENT_DIR" -type f -name "*.qmd" | sort | while read -r file; do
 
       # If a match was found, skip this file
       if [ "$skip" == true ]; then
-          echo "Skipping file: $file"
+          echo "Skipping file: $file => Render with no cache"
+          quarto render ${file} --no-cache --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee -a logs/all.log > /dev/null
           continue
+      else
+        # echo "Rendering $(realpath "$folder") with cache."
+        echo "Rendering $count "$file" (CACHE)"
+        quarto render ${file} --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee -a logs/all.log > /dev/null
       fi
-      # echo "Rendering $(realpath "$folder") with cache."
-      echo "Rendering $count "$file" (CACHE)."
-      quarto render ${file} --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee logs/all.log
+
     else
         echo "Rendering $count "$file" (NO CACHE)."
-        quarto render ${file} --no-cache --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee logs/all.log
+        quarto render ${file} --no-cache --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee -a logs/all.log > /dev/null
     fi
 
     # Increment the counter
     ((count++))
 done
+
+if [ "$runone" == "false" ]; then
+  echo "Running the copy_qmd_files script because runone is false."
+  ./copy_qmd_files.sh
+else
+  echo "Not running the copy_qmd_files script because runone is true."
+fi

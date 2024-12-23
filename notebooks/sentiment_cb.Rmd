@@ -1,0 +1,348 @@
+![An interactive LADAL notebook](https://slcladal.github.io/images/uq1.jpg)
+
+
+# Sentiment Analysis
+
+
+This tutorial is the interactive Jupyter notebook accompanying the [*Language Technology and Data Analysis Laboratory* (LADAL) tutorial *Sentiment Analysis in R*](https://ladal.edu.au/sentiment.html). 
+
+
+**Preparation and session set up**
+
+We set up our session by activating the packages we need for this tutorial. 
+
+```{r prep2, message=FALSE, warning=FALSE}
+# activate packages
+library(dplyr)
+library(stringr)
+library(tibble)
+library(ggplot2)
+library(tidytext)
+library(textdata)
+library(Hmisc)
+```
+
+Once you have initiated the session by executing the code shown above, you are good to go.
+
+If you are using this notebook on your own computer and you have not already installed the R packages listed above, you need to install them. You can install them by replacing the `library` command with `install.packages` and putting the name of the package into quotation marks like this: `install.packages("dplyr")`. Then, you simply run this command and R will install the package you specified.
+
+
+## Loading data
+
+In the following, we will perform a SA to investigate the emotionality of five different novels. We will start with the first example and load five pieces of literature. 
+
+```{r sa3, message=FALSE, warning=FALSE}
+darwin <- base::readRDS(url("https://slcladal.github.io/data/origindarwin.rda", "rb"))
+twain <- base::readRDS(url("https://slcladal.github.io/data/twainhuckfinn.rda", "rb"))
+orwell <- base::readRDS(url("https://slcladal.github.io/data/orwell.rda", "rb"))
+lovecraft <- base::readRDS(url("https://slcladal.github.io/data/lovecraftcolor.rda", "rb"))
+# inspect data
+darwin %>%
+  as.data.frame() %>%
+  head() 
+```
+
+
+
+## Using your own data
+
+While the tutorial uses data from the LADAL website, you can also use your own data. You can see below what you need to do to upload and use your own data.
+
+The code chunk below allows you to upload two files from your own computer. To be able to load your own data, you need to click on the folder symbol to the left of the screen:
+
+![Binder Folder Symbol](https://slcladal.github.io/images/binderfolder.JPG)
+
+
+Then, when the menu has unfolded, click on the smaller folder symbol (encircled in red in the picture below).
+
+![Small Binder Folder Symbol](https://slcladal.github.io/images/upload2.png)
+
+
+Now, you are in the main menu and can click on the 'MyData' folder.
+
+![MyData Folder Symbol](https://slcladal.github.io/images/upload3.png)
+
+Now, that you are in the MyData folder, you can click on the upload symbol.
+
+![Binder Upload Symbol](https://slcladal.github.io/images/binderupload.JPG)
+
+Select and upload the files you want to analyze (**IMPORTANT: here, we assume that you upload some form of text data - not tabular data! You can upload only txt and docx files!**). When you then execute the code chunk below, you will upload your own data and you can then use it in this notebook.
+
+```{r}
+myfiles <- list.files(here::here("MyData"), # path to the corpus data
+                          # full paths - not just the names of the files
+                          full.names = T) 
+# load colt files
+mytext <- sapply(myfiles, function(x){
+  x <- scan(x, 
+            what = "char", 
+            sep = "", 
+            quote = "", 
+            quiet = T, 
+            skipNul = T)
+  x <- paste0(x, sep = " ", collapse = " ")
+  x <- stringr::str_squish(x)
+})
+# inspect
+str(mytext)
+```
+
+
+**Keep in mind though that you need to adapt the names of the texts in the code chunks below so that the code below work on your own texts!**
+
+***
+
+
+## Data Processing
+
+We now write function to clean data. 
+
+```{r sa5, cmessage=FALSE, warning=FALSE}
+txtclean <- function(x, title){
+  require(dplyr)
+  require(stringr)
+  require(tibble)
+  x <- x %>%
+    iconv(to = "UTF-8") %>%     # convert to UTF-8
+    base::tolower() %>%         # convert to lower case
+    paste0(collapse = " ") %>%  # collapse into single text
+    stringr::str_squish()%>%    # remove superfluous white spaces
+    stringr::str_split(" ") %>% # split into individual words
+    unlist() %>%                # unlist
+    tibble::tibble() %>%        # convert into a table
+    dplyr::select(word = 1, everything()) %>%
+    dplyr::mutate(novel = title) %>%
+    dplyr::anti_join(stop_words) %>%  # remove function words
+    dplyr::mutate(word = str_remove_all(word, "\\W")) %>% # remove non-word symbols
+    dplyr::filter(word != "")         # remove empty elements
+}
+```
+
+Process and clean texts.
+
+```{r sa7, message=FALSE, warning=FALSE}
+# process text data
+darwin_clean <- txtclean(darwin, "darwin")
+lovecraft_clean <- txtclean(lovecraft, "lovecraft")
+orwell_clean <- txtclean(orwell, "orwell")
+twain_clean <- txtclean(twain, "twain")
+# inspect cleaned darwin text
+darwin_clean %>%
+  as.data.frame() %>%
+  head()
+```
+
+
+# Basic Sentiment Analysis
+
+In a next step, download Mohammad and Turney's (2013) *Word-Emotion Association Lexicon*.
+
+```{r bsa1, message=FALSE, warning=FALSE}
+nrc <- base::readRDS(url("https://slcladal.github.io/data/nrc.rda", "rb"))
+```
+
+Now, we combine the data with the *Word-Emotion Association Lexicon*. 
+
+```{r bsa1b, message=FALSE, warning=FALSE}
+novels_anno <- rbind(darwin_clean, twain_clean, orwell_clean, lovecraft_clean) %>%
+  dplyr::group_by(novel) %>%
+  dplyr::mutate(words = n()) %>%
+  dplyr::left_join(nrc) %>%
+  dplyr::mutate(novel = factor(novel),
+         sentiment = factor(sentiment))
+# inspect data
+novels_anno %>%
+  as.data.frame() %>%
+  head() 
+```
+
+
+
+We will now summarize the results of the SA and calculate the percentages of the prevalence of emotions across the books.
+
+```{r bsa3, message=FALSE, warning=FALSE}
+novels <- novels_anno %>%
+  dplyr::group_by(novel) %>%
+  dplyr::group_by(novel, sentiment) %>%
+  dplyr::summarise(sentiment = unique(sentiment),
+                   sentiment_freq = n(),
+                   words = unique(words)) %>%
+  dplyr::filter(is.na(sentiment) == F) %>%
+  dplyr::mutate(percentage = round(sentiment_freq/words*100, 1))
+# inspect data
+novels %>%
+  as.data.frame() %>%
+  head()
+```
+
+
+
+
+
+After performing the SA, visualize the results and show the scores fro each core emotion by book.
+
+```{r bsa5, message=FALSE, warning=FALSE}
+novels %>%
+  dplyr::filter(sentiment != "positive",
+                sentiment != "negative") %>%
+  ggplot(aes(sentiment, percentage, fill = novel)) +    
+  geom_bar(stat="identity",  
+           position=position_dodge()) + 
+  scale_fill_manual(name = "", values=c("orange", "gray70", "red", "grey30")) +
+  theme_bw() +
+  theme(legend.position = "top")
+```
+
+We can also display the emotions by book and re-level sentiment so that the different core emotions are ordered from more negative (*red*) to more positive (*blue*).
+
+```{r bsa7, message=FALSE, warning=FALSE}
+novels %>%
+  dplyr::filter(sentiment != "positive",
+                sentiment != "negative") %>%
+  dplyr::mutate(sentiment = factor(sentiment, 
+                            levels = c("anger", "fear", "disgust", "sadness",
+                                       "surprise", "anticipation", "trust", "joy"))) %>%
+  ggplot(aes(novel, percentage, fill = sentiment)) +    
+  geom_bar(stat="identity", position=position_dodge()) + 
+  scale_fill_brewer(palette = "RdBu") +
+  theme_bw() +
+  theme(legend.position = "right") +
+  coord_flip()
+```
+
+
+# Identifying important emotives
+
+We now check, which words have contributed to the emotionality scores. In other words, we investigate, which words are most important for the emotion scores within each novel. For the sake of interpretability, we will remove several core emotion categories and also the polarity.
+
+```{r contribsa1, message=FALSE, warning=FALSE}
+novels_impw <- novels_anno %>%
+  dplyr::filter(!is.na(sentiment),
+         sentiment != "anticipation",
+         sentiment != "surprise",
+         sentiment != "disgust",
+         sentiment != "negative",
+         sentiment != "sadness",
+         sentiment != "positive") %>%
+  dplyr::mutate(sentiment = factor(sentiment, levels = c("anger", "fear",  "trust", "joy"))) %>%
+  dplyr::group_by(novel) %>%
+  dplyr::count(word, sentiment, sort = TRUE) %>%
+  dplyr::group_by(novel, sentiment) %>%
+  dplyr::top_n(4) %>%
+  dplyr::mutate(score = n/sum(n))
+# inspect data
+novels_impw %>%
+  as.data.frame() %>%
+  head()
+```
+
+
+
+We can now visualize the top four words for the remaining core emotion categories. 
+
+```{r contribsa2, message=FALSE, warning=FALSE}
+novels_impw %>%
+  dplyr::group_by(novel) %>%
+  slice_max(score, n = 20) %>%
+  dplyr::arrange(desc(score)) %>%
+  dplyr::ungroup() %>%
+  ggplot(aes(x = reorder(word, score), y = score, fill = word)) +
+  facet_wrap(novel~sentiment, ncol = 4, scales = "free_y") +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(x = "Words")
+```
+
+
+# Calculating and dispalying polarity
+
+Now, we visualize the polarity of each book, i.e. the ratio of the number of positive emotion words divided by the number of negative words.
+
+
+```{r pol1, message=FALSE, warning=FALSE}
+novels %>%
+  dplyr::filter(sentiment == "positive" | sentiment == "negative") %>%
+  dplyr::select(-percentage, -words) %>%
+  dplyr::mutate(sentiment_sum = sum(sentiment_freq),
+         positive = sentiment_sum-sentiment_freq) %>%
+  dplyr::filter(sentiment != "positive") %>%
+  dplyr::rename(negative = sentiment_freq) %>%
+  dplyr::select(novel, positive, negative) %>%
+  dplyr::group_by(novel) %>%
+  dplyr::summarise(polarity = positive/negative) %>%
+  ggplot(aes(reorder(novel, polarity, mean), polarity, fill = novel)) +    
+  geom_bar(stat = "identity") + 
+  geom_text(aes(y = polarity-0.1, label = round(polarity, 2)), 
+            color = "white", size = 4) + 
+  theme_bw() +
+  labs(y = "Polarity\n(ration of positive to negative emitives)",
+       x = "") +
+  coord_cartesian(y= c(0,2)) +
+  scale_y_continuous(breaks = seq(0,2,1),
+                     labels = c("more negative", "neutral", "more positive")) +
+  theme(legend.position = "none")
+```
+
+Overall, all books are in the positive range (the polarity score is not negative) and we see that *lovecraft* is the book with the most negative emotion words while *darwin* is the most positive book as it has the highest average polarity ratio.
+
+# Calculating and dispalying changes in polarity
+
+There are two main methods for tracking changes in polarity: binning and moving averages. binning splits the data up into sections and calculates the polarity ration within each bin. Moving averages calculate the mean within windows that are then shifted forward. We begin with an exemplification of binning and then move on to calculating moving averages. 
+
+## Binning
+
+The following code chunk uses binning to determine the polarity and subsequently displaying changes in polarity across the development of the novels' plots.
+
+```{r bin1, message=FALSE, warning=FALSE}
+novels_bin <- novels_anno %>%
+  dplyr::group_by(novel) %>%
+  dplyr::filter(is.na(sentiment) | sentiment == "negative" | sentiment == "positive") %>%
+  dplyr::mutate(sentiment = as.character(sentiment),
+         sentiment = case_when(is.na(sentiment) ~ "0", 
+                               TRUE ~ sentiment),
+         sentiment= case_when(sentiment == "0" ~ 0,
+                              sentiment == "positive" ~ 1,
+                              TRUE ~ -1),
+         id = 1:n(),
+         index = as.numeric(Hmisc::cut2(id, m=100))) %>%
+  dplyr::group_by(novel, index) %>%
+  dplyr::summarize(index = unique(index),
+                   polarity = mean(sentiment))
+# inspect data
+novels_bin %>%
+  as.data.frame() %>%
+  head()
+```
+
+
+
+
+We now have an average polarity for each bin and can plot this polarity over the development of the story.
+
+```{r bin5, message=FALSE, warning=FALSE}
+ggplot(novels_bin, aes(index, polarity)) + 
+  facet_wrap(vars(novel), scales="free_x") +
+  geom_smooth(se = F, col = "black") + 
+  theme_bw() +
+  labs(y = "polarity ratio (mean by bin)",
+       x = "index (bin)")
+```
+
+
+If you are interested in learning more about SA in R, Silge and Robinson (2017) is highly recommended as it goes more into detail and offers additional information.
+
+# References
+
+Mohammad, Saif M, and Peter D Turney. 2013. Crowdsourcing a Word-Emotion Association Lexicon. *Computational Intelligence* 29 (3): 436–65.
+
+Silge, Julia and David Robinson. 2017. Text Mining with R: A Tidy Approach. O’Reilly Media, Inc.
+
+
+***
+
+[Back to LADAL](https://ladal.edu.au/sentiment.html)
+
+***
+
+
+
