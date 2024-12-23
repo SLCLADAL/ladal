@@ -6,11 +6,11 @@ PARENT_DIR="."
 echo "$(realpath "$PARENT_DIR")"
 
 runone=true
-usecache=true
-usethis="whyr"
+usecache=false
+usethis="basicquant_cb"
 exclude_list=("./tutorials/postag/postag.qmd ./tutorials/regression/regression.qmd")
 
-if runone; then
+if $runone; then
   > logs/all.log
 fi
 # the following tutorials need to first be built without cache (no idea why!)
@@ -51,9 +51,11 @@ find "$PARENT_DIR" -type f -name "*.qmd" | sort | while read -r file; do
       break
     fi
 
+    # echo $file
+
     # Optional: You can add additional skipping logic here, like checking folder names
     # Example: Skip folders named "skip_this_folder"
-    if $runone && [ "$file" != "./tutorials/$usethis/$usethis.qmd" ]; then
+    if $runone && [ "$file" != "./tutorials/$usethis/$usethis.qmd" ] && [ "$file" != "./notebooks/$usethis.qmd" ]; then
       # echo "Skipping folder: $folder_name"
       continue
     fi
@@ -92,5 +94,6 @@ if [ "$runone" == "false" ]; then
   echo "Running the copy_qmd_files script because runone is false."
   ./copy_qmd_files.sh
 else
-  echo "Not running the copy_qmd_files script because runone is true."
+  # echo "Not running the copy_qmd_files script because runone is true."
+  echo ""
 fi

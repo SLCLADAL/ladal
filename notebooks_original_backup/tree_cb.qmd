@@ -1,0 +1,423 @@
+![An interactive LADAL notebook](https://slcladal.github.io/images/uq1.jpg)
+
+
+# Tree-Based Models in R
+
+This tutorial is the interactive Jupyter notebook accompanying the [*Language Technology and Data Analysis Laboratory* (LADAL) tutorial *Tree-Based Models in R*](https://ladal.edu.au/tree.html). 
+
+**Preparation and session set up**
+
+We set up our session by activating the packages we need for this tutorial. 
+
+```{r prep2, message=FALSE, warning=FALSE}
+# load packages
+library(openxlsx)
+library(partykit)
+library(dplyr)
+library(ggparty)
+library(party)
+library(Hmisc)
+library(randomForest)
+library(caret)
+library(pdp)
+library(Boruta)
+library(stringr)
+library(vip)
+```
+
+
+Once you have initiated the session by executing the code shown above, you are good to go.
+
+If you are using this notebook on your own computer and you have not already installed the R packages listed above, you need to install them. You can install them by replacing the `library` command with `install.packages` and putting the name of the package into quotation marks like this: `install.packages("dplyr")`. Then, you simply run this command and R will install the package you specified.
+
+
+
+***
+
+## Using your own data
+
+While the tutorial uses data from the LADAL website, you can also use your own data. You can see below what you need to do to upload and use your own data.
+
+The code chunk below allows you to upload two files from your own computer. To be able to load your own data, you need to click on the folder symbol to the left of the screen:
+
+![Binder Folder Symbol](https://slcladal.github.io/images/binderfolder.JPG)
+
+
+Then on the upload symbol.
+
+![Binder Upload Symbol](https://slcladal.github.io/images/binderupload.JPG)
+
+Next, upload the files you want to analyze and then the respective files names in the file argument of the scan function. When you then execute the code (like to code chunk below, you will upload your own data.
+
+```{r loadown, eval = F}
+mytable1 <- openxlsx::read.xlsx("testdata1.xlsx", sheet = 1)
+# inspect
+mytable1
+```
+
+
+**Keep in mind though that you need to adapt the names of the texts in the code chunks below so that the code below work on your own texts!**
+
+***
+
+
+
+# Conditional Inference Trees
+
+Conditional Inference Trees (CITs) are much better at determining the *true* effect of a predictor, i.e. the effect of a predictor if all other effects are simultaneously considered. In contrast to CARTs, CITs use p-values to determine splits in the data. Below is a conditional inference tree which shows how and what factors contribute to the use of discourse *like*. In conditional inference trees predictors are only included if the predictor is significant (i.e. if these predictors are necessary). 
+
+```{r cit1b, message=FALSE, warning=FALSE}
+# load data
+citdata <- read.delim("https://slcladal.github.io/data/treedata.txt", header = T, sep = "\t")
+# set.seed (so the result is reproducible)
+set.seed(111)        
+# apply bonferroni correction (1 minus alpha multiplied by n of predictors)
+control = ctree_control(mincriterion = 1-(.05*ncol(citdata)-1))
+# convert character strings to factors
+citdata <- citdata %>%
+  dplyr::mutate_if(is.character, factor)
+# create initial conditional inference tree model
+citd.ctree <- partykit::ctree(LikeUser ~ Age + Gender + Status,
+                    data = citdata)
+# plot final ctree
+plot(citd.ctree, gp = gpar(fontsize = 8)) 
+```
+
+
+## Prettifying your CIT tree
+
+The easiest and most common way to visualize CITs is to simply use the `plot` function from `base R`. However, using this function does not allow to adapt and customize the visualization except for some very basic parameters. The `ggparty` function allows to use the `ggplot` syntax to customize CITs which allows more adjustments and is more aesthetically pleasing.
+
+To generate this customized CIT, we activate the `ggparty` package and extract the significant p-values from the CIT object. We then plot the CIT and define the nodes, edges, and text elements as shown below. 
+
+
+```{r pretty, warning=F, message=F}
+# extract p-values
+pvals <- unlist(nodeapply(citd.ctree, ids = nodeids(citd.ctree), function(n) info_node(n)$p.value))
+pvals <- pvals[pvals <.05]
+# plotting
+ggparty(citd.ctree) +
+  geom_edge() +
+  geom_edge_label() +
+  geom_node_label(line_list = list(aes(label = splitvar),
+                                   aes(label = paste0("N=", nodesize, ", p", 
+                                                      ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))), 
+                                       size = 10)),
+                  line_gpar = list(list(size = 13), 
+                                   list(size = 10)), 
+                  ids = "inner") +
+  geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
+    ids = "terminal", nudge_y = -0.0, nudge_x = 0.01) +
+  geom_node_plot(gglist = list(
+    geom_bar(aes(x = "", fill = LikeUser),
+             position = position_fill(), color = "black"),
+      theme_minimal(),
+      scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
+      scale_y_continuous(breaks = c(0, 1)),
+    xlab(""), 
+    ylab("Probability"),
+    geom_text(aes(x = "", group = LikeUser,
+                  label = stat(count)),
+              stat = "count", position = position_fill(), vjust = 1.1)),
+    shared_axis_labels = TRUE)
+```
+
+We  can save the figure using the `ggsave` command as shown below.
+
+```{r ggsave}
+ggsave(here::here("tree.png"))
+```
+
+We can also use `position_dodge` (instead of `position_fill`) to display frequencies rather than probabilities as shown below. 
+
+```{r plotctree, warning=F, message=F}
+# plotting
+ggparty(citd.ctree) +
+  geom_edge() +
+  geom_edge_label() +
+  geom_node_label(line_list = list(aes(label = splitvar),
+                                   aes(label = paste0("N=", nodesize, ", p", 
+                                                      ifelse(pvals < .001, "<.001", paste0("=", round(pvals, 3)))), 
+                                       size = 10)),
+                  line_gpar = list(list(size = 13), 
+                                   list(size = 10)), 
+                  ids = "inner") +
+  geom_node_label(aes(label = paste0("Node ", id, ", N = ", nodesize)),
+    ids = "terminal", nudge_y = 0.01, nudge_x = 0.01) +
+  geom_node_plot(gglist = list(
+    geom_bar(aes(x = "", fill = LikeUser),
+             position = position_dodge(), color = "black"),
+      theme_minimal(),
+    theme(panel.grid.major = element_blank(), 
+            panel.grid.minor = element_blank()),
+      scale_fill_manual(values = c("gray50", "gray80"), guide = FALSE),
+      scale_y_continuous(breaks = seq(0, 100, 20),
+                         limits = c(0, 100)),
+    xlab(""), 
+    ylab("Frequency"),
+      geom_text(aes(x = "", group = LikeUser,
+                    label = stat(count)),
+                stat = "count", 
+                position = position_dodge(0.9), vjust = -0.7)),
+    shared_axis_labels = TRUE)
+```
+
+## Problems of Conditional Inference Trees
+
+Like other tree-based methods, CITs are very intuitive, multivariate, non-parametric, they do not require large data sets, and they are easy to implement. Despite these obvious advantages, they have at least one major short coming compared to other, more sophisticated tree-structure models (in addition to the general issues that tree-structure models exhibit as discussed above: they are prone to **overfitting** which means that they fit the observed data very well but preform much worse when being applied to new data.
+
+An extension which remedies this problem is to use a so-called ensemble method which grows many varied trees. The most common ensemble method is called a *Random Forest Analysis* and will have a look at how Random Forests work and how to implement them in R in the next section. 
+
+#  Random Forests
+
+Random Forests (RFs) are an extension of Conditional Inference Trees [@breiman2001random]. Like Conditional Inference Trees, Random Forests represent a multivariate, non-parametric partitioning method that is particularly useful when dealing with relatively small sample sizes and many predictors (including interactions) and they are insensitive to multicollinearity (if two predictors strongly correlate with the dependent variable AND are highly correlated or collinear, RFs will report both variables as highly important - the ordering in which they were included into the model is irrelevant). The latter point is a real advantage over regression models in particular. Also, RFs outperform CITs in that they are substantially less prone to overfitting and they perform much better when applied to new data. However, random forests have several issues:
+
+* RFs only show variable importance but not if the variable is positively or negatively correlated with the dependent variable;
+
+* RFs do not report if a variable is important as a main effect or as part of an interactions 
+
+* RFs do not indicate in which significant interactions a variable is involved.
+
+Therefore, Random Forest analyses are ideal for classification, imputing missing values, and - though to a lesser degree - as a variable selection procedure but they do not lend themselves for drawing inferences about the relationships of predictors and dependent variables. 
+
+In a first step, we load and inspect the data.
+
+```{r rf3, echo=T, message=FALSE, warning=FALSE}
+# load random forest data
+rfdata <- read.delim("https://slcladal.github.io/data/mblrdata.txt", header = T, sep = "\t")
+# inspect data
+rfdata %>%
+  as.data.frame() %>%
+  str()
+```
+
+The data consists of four categorical variables (`Gender`, `Age`, `ConversationType`, and `SUFlike`). Our dependent variable is `SUFlike` which stands for speech-unit final *like* (a pragmatic marker that is common in Irish English and is used as in *A wee girl of her age, like*). While Age and Gender are pretty straight forward what they are called, *ConversationType* encodes whether a conversation has taken place between interlocutors of the same or of different genders.
+
+Before going any further, we need to factorize the variables as tree-based models require factors instead of character variables (but they can, of course, handle numeric and ordinal variables). In addition, we will check if the data contains missing values (NAs; NA stands for *not available*).
+
+```{r rf4a, message=FALSE, warning=FALSE}
+# factorize variables (rf require factors instead of character vectors)
+rfdata <- rfdata %>%
+  dplyr::mutate_if(is.character, factor) %>%
+  dplyr::select(-ID)
+# inspect data
+rfdata %>%
+  as.data.frame() %>%
+  head(10) 
+```
+
+We now check if the data contains missing values and remove those (if necessary).
+
+```{r rf4c, echo=T, message=FALSE, warning=FALSE}
+# check for NAs
+natest <- rfdata %>%
+  na.omit()
+nrow(natest) # no NAs present in data (same number of rows with NAs omitted)
+```
+
+In our case, the data does not contain missing values. Random Forests offer a very nice way to deal with missing data though. If NAs are present, they can either be deleted OR their values for any missing values can be imputed using proximities. 
+
+We will now generate a first random forest object and inspect its model fit. As random forests rely on re-sampling, we set a seed so that we arrive at the same estimations.
+
+```{r rf6, message=FALSE, warning=FALSE}
+# set.seed
+set.seed(2019120204)
+# create initial model
+rfmodel1 <- cforest(SUFlike ~ .,  data = rfdata, 
+                    controls = cforest_unbiased(ntree = 50, mtry = 3))
+# evaluate random forest (model diagnostics)
+rfmodel1_pred <- unlist(party::treeresponse(rfmodel1))#[c(FALSE,TRUE)]
+somers2(rfmodel1_pred, as.numeric(rfdata$SUFlike))
+```
+
+The model parameters are good but not excellent: remember that if the C-value is 0.5, the predictions are random, while the predictions are perfect if the C-value is 1. C-values above 0.8 indicate real predictive capacity [@baayen2008analyzing 204]. Somers' D~xy~ is a value that represents a rank correlation between predicted probabilities and observed responses. Somers' D~xy~ values range between 0, which indicates complete randomness, and 1, which indicates perfect prediction [@baayen2008analyzing 204].
+
+In a next step, we extract the variable importance `conditional=T` adjusts for correlations between predictors).
+
+```{r rf7, message=FALSE, warning=FALSE}
+# extract variable importance based on mean decrease in accuracy
+rfmodel1_varimp <- varimp(rfmodel1, conditional = T) 
+# show variable importance
+rfmodel1_varimp
+```
+
+We can also calculate more robust variable importance using the `varimpAUC` function from the `party` package which calculates importance statistics that are corrected towards class imbalance, i.e.  differences in the number of instances per category. The variable importance is easily visualized using the `dotplot` function from base R.
+
+```{r rf8, message=FALSE, warning=FALSE}
+# extract more robust variable importance 
+rfmodel1_robustvarimp <- party::varimp(rfmodel1)  
+# plot result
+dotchart(sort(rfmodel1_robustvarimp), pch = 20, main = "Conditional importance of variables")
+```
+
+The plot shows that Age is the most important predictor and that Priming is not really important as a predictor for speech-unit final like. Gender and ConversationType are equally important but both much less so than Age.
+
+We will now use an alternative way to calculate RFs which allows us to use different diagnostics and pruning techniques by using the `randomForest` rather than the `cforest` function. 
+
+A few words on the parameters of the `randomForest` function: if the thing we're trying to predict is a numeric variable, the `randomForest` function will set  `mtry` (the number of variables  considered at each step) to the total number of variables divided by 3 (rounded down), or to 1 if the division results in a value less than 1.  If the thing we're trying to predict is a "factor" (i.e. either "yes/no"  or "ranked"), then `randomForest()` will set `mtry` to  the square root of the number of variables (rounded down to the next  integer value).Again, we start by setting a seed  to store random numbers and thus make results reproducible.
+
+```{r rf9, message=FALSE, warning=FALSE}
+# set.seed
+set.seed(2019120205)
+rfmodel2 <- randomForest::randomForest(SUFlike ~ ., 
+                                       data = rfdata, 
+                                       mtry = 2,
+                                       proximity = TRUE)
+# inspect model
+rfmodel2 
+```
+
+The output tells us that the model explains less than 15 percent of the variance. It is recommendable to check if changing parameters causes and increase in the amount of variance that is explained by a model (which is desirable). In this case, we can try different values for `mtry` and for `ntree` as shown below and then compare the performance of the random forest models by inspecting the amount of variance that they explain. Again, we begin by setting a seed and then continue by specifying the random forest model.
+
+```{r rf12, message=FALSE, warning=FALSE}
+# set.seed (to store random numbers and thus make results reproducible)
+set.seed(2019120206)
+# create a new model with fewer trees and that takes 2 variables at a time
+rfmodel3 <- randomForest(SUFlike ~ ., data=rfdata, 
+                         ntree = 30, 
+                         mtry = 4, 
+                         proximity = TRUE)
+# inspect model
+rfmodel3
+```
+
+Despite optimization, the results have not changed but it may be very useful for other data. To evaluate the tree, we create a confusion matrix.
+
+```{r rf13, message=FALSE, warning=FALSE}
+# save what the model predicted in a new variable
+rfdata$Probability <- predict(rfmodel3, rfdata)
+rfdata$Prediction <- ifelse(rfdata$Probability >=.5, 1, 0)
+# create confusion matrix to check accuracy
+confusionMatrix(as.factor(rfdata$Prediction), as.factor(rfdata$SUFlike))  
+```
+
+The RF performs significantly better than a no-information base-line model but the base-line model already predicts 78.18 percent of cases correctly (compared to the RF with a prediction accuracy of 82.5 percent). 
+
+Unfortunately, we cannot easily compute robust variable importance for RF models nor C or Somers’ D~xy~ which is why it is advisable to create analogous models using both the `cforest` and the `randomForest` functions. In a last step, we can now visualize the results of the optimized RF.
+
+```{r rf15, message=FALSE, warning=FALSE}
+# plot variable importance
+varImpPlot(rfmodel3, main = "", pch = 20)
+```
+
+Here is an alternative way of plotting variable importance using the `vip` function from the `vip` package.
+
+```{r rf16, message=FALSE, warning=FALSE}
+# generate vip plot
+vip::vip(rfmodel3, geom = "point", horizontal = FALSE)
+```
+
+Using the `vip` package, you can also generate variable importance barplots.
+
+```{r rf17, message=FALSE, warning=FALSE}
+# generate vip plot
+vip::vip(rfmodel3, horizontal = FALSE)
+```
+
+A second type of visualization that can provide insights in the `partial` function from the `pdp` package which shows how the effect of predictors interacts with other predictors (see below). 
+
+```{r rf19, message=F, warning=F}
+partial(rfmodel3, pred.var = c("Age", "Gender"), plot = TRUE, plot.engine = "ggplot2")
+```
+
+
+
+
+
+# Boruta
+
+Boruta [@kursa2010feature] is a variable selection procedure and it represents an extension of random forest analyses [@breiman2001random]. The name *Boruta* is derived from a demon in Slavic mythology who dwelled in pine forests. Boruta is an alternative to regression modeling that is better equipped to handle small data sets because it uses a distributional approach during which hundreds of (random) forests are grown from permuted data sets. 
+
+We begin by loading and inspecting the data.
+
+```{r bo1, message=FALSE, warning=FALSE}
+# load data
+borutadata <- read.delim("https://slcladal.github.io/data/ampaus05_statz.txt", header = T, sep = "\t")
+# inspect data
+borutadata %>%
+  as.data.frame() %>%
+  str()
+```
+
+
+As the data contains non-factorized character variables, we convert those into factors.
+
+```{r bo2, message=FALSE, warning=FALSE}
+# factorize variables (boruta - like rf - require factors instead of character vectors)
+borutadata <- borutadata %>%
+  dplyr::filter(complete.cases(.)) %>%
+  dplyr::mutate_if(is.character, factor)
+# inspect data
+borutadata %>%
+  as.data.frame() %>%
+  head(10)
+```
+
+
+We can now create our initial Boruta model and set a seed for reproducibility.
+
+```{r bo3, message=FALSE, warning=FALSE}
+# set.seed 
+set.seed(2019120207)
+# initial run
+boruta1 <- Boruta(really~.,data=borutadata)
+print(boruta1)
+
+# extract decision
+getConfirmedFormula(boruta1)
+```
+
+In a next step, we inspect the history to check if any of the variables shows drastic fluctuations in their importance assessment.
+
+```{r bo5, message=FALSE, warning=FALSE}
+plotImpHistory(boruta1)
+```
+
+The fluctuations are do not show clear upward or downward trends (which what we want). If predictors do perform worse than the shadow variables, then these variables should be excluded and the Boruta analysis should be re-run on the data set that does no longer contain the superfluous variables. Tentative variables can remain but they are unlikely to have any substantial effect. We thus continue by removing variables that were confirmed as being unimportant, then setting a new seed, re-running the Boruta on the reduced data set, and again inspecting the decisions.
+
+```{r bo6, message=FALSE, warning=FALSE}
+# remove irrelevant variables
+rejected <- names(boruta1$finalDecision)[which(boruta1$finalDecision == "Rejected")]
+# update data for boruta
+borutadata <- borutadata %>%
+  dplyr::select(-rejected)
+# set.seed (to store random numbers and thus make results reproducible)
+set.seed(2019120208)
+# 2nd run
+boruta2 <- Boruta(really~.,data=borutadata)
+print(boruta2)
+
+# extract decision
+getConfirmedFormula(boruta2)
+
+```
+
+Only adjective frequency and adjective type are confirmed as being important while all other variables are considered tentative. However, no more variables need to be removed as all remaining variables are not considered unimportant. In a last step, we visualize the results of the Boruta analysis.
+
+```{r bo7, message=FALSE, warning=FALSE}
+borutadf <- as.data.frame(boruta2$ImpHistory) %>%
+  tidyr::gather(Variable, Importance, Adjective:shadowMin) %>%
+  dplyr::mutate(Type = ifelse(str_detect(Variable, "shadow"), "Control", "Predictor")) %>%
+  dplyr::mutate(Type = factor(Type),
+                Variable = factor(Variable))
+ggplot(borutadf, aes(x = reorder(Variable, Importance, mean), y = Importance, fill = Type)) + 
+  geom_boxplot() +
+  geom_vline(xintercept=3.5, linetype="dashed", color = "black") +
+  scale_fill_manual(values = c("gray80", "gray40")) +
+  theme_bw() + 
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle=90)) +
+  labs(x = "Variable")
+```
+
+Of the remaining variables, adjective frequency and adjective type have the strongest effect and are confirmed as being important while syntactic function fails to perform better than the best shadow variable. All other variables have only a marginal effect on the use of really as an adjective amplifier.
+
+***
+
+[Back to LADAL](https://ladal.edu.au/tree.html)
+
+***
+
+
+
+

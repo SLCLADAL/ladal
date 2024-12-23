@@ -3,7 +3,7 @@ import json
 import re
 
 # Define the parent folder
-parent_folder = 'tutorials'
+parent_folder = 'notebooks'
 
 # Dictionary to store the results
 results = {}
@@ -22,8 +22,8 @@ def extract_urls_from_qmd(file_path, url_pattern):
 # Walk through all subdirectories of the parent folder
 for root, dirs, files in os.walk(parent_folder):
     for file in files:
-        # if file != 'lex.qmd':
-        #     continue
+        if file != 'basicquant_cb.qmd':
+            continue
 
         if file.endswith('.qmd'):  # Process only .qmd files
             qmd_file_path = os.path.join(root, file)

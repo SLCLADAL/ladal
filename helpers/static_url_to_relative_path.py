@@ -4,11 +4,31 @@ import re
 from pathlib import Path
 import shutil
 
-def move_file(src, dest):
+def copy_file(src, dest, current_tutorial):
     try:
         # Move the file from the source to the destination
         shutil.copy(src, dest)
-        print(f"File moved successfully from {src} to {dest}")
+        print(f"File copied successfully from {src} to {dest}")
+    except Exception as e:
+        print(f"Error: {e}")
+        print('HERE', current_tutorial)
+        quit()
+
+def copy_data(src, dest):
+    try:
+        # Create the destination folder if it doesn't exist
+        dest_folder = os.path.dirname(dest)
+        if not os.path.exists(dest_folder):
+            os.makedirs(dest_folder)
+            print(f"Created destination folder: {dest_folder}")
+        # Copy the file from the source to the destination
+        # shutil.copy(src, dest)
+        # print(f"Data copied successfully from {src} to {dest}")
+        with open('helpers/data_files.txt', mode='a', encoding='utf8') as fh:
+            print(dest,file=fh)
+            print(src,file=fh)
+            return
+
     except Exception as e:
         print(f"Error: {e}")
 
@@ -18,7 +38,7 @@ def move_file(src, dest):
 # No pvd tutorial
 # URLS will be replaced with dummy tutorials/ paths
 
-
+original_content_path = "/Users/laurenceanthony/Documents/projects/LADAL/"
 tutorials = [f for f in os.listdir('tutorials') 
         if os.path.isdir(os.path.join('tutorials', f))]
 
@@ -117,37 +137,52 @@ def replace_url_with_relative_path(qmd_file_path, urls):
                     if new_url == matching_url:
                         new_url = replaced_url
 
+                    if '_cb' in current_tutorial:
+                        data_destination = "notebooks"
+                        sp = new_url.replace('"', '').replace('`', '').replace("'", '').replace('(', '').replace(')', '')
+                        sp = sp.replace(f"{site}/data", f"{original_content_path}/data")
+                        dp = f"notebooks/{current_tutorial}/data"
+                    else:
+                        data_destination = "tutorials"
+                        
                     if f"`{site}/data" in new_url:
-                        new_url = new_url.replace(f"`{site}/data", f"`tutorials/{current_tutorial}/data")
+                        new_url = new_url.replace(f"`{site}/data", f"`{data_destination}/{current_tutorial}/data")
+                        if data_destination == "notebooks":
+                            copy_data(sp, dp)
 
                     if f"\"{site}/data" in new_url:
-                        new_url = new_url.replace(f"\"{site}/data", f"\"tutorials/{current_tutorial}/data")
-
-                    if f"\"{site}/images" in new_url:
-                        new_url = new_url.replace(f"\"{site}/images", f"\"images")
-                        source_path = os.path.join("/Users/laurenceanthony/Documents/projects/LADAL_refactored/old_content/old_non_content_files", new_url.replace('"', ''))
-                        destination_path = "/Users/laurenceanthony/Documents/projects/@projects_misc/LADALQ_TEMP/images"
-                        print(source_path)
-                        print(destination_path)
-                        move_file(source_path, destination_path)
-
-                    if f"\"{site}/rscripts" in new_url:
-                        new_url = new_url.replace(f"\"{site}/rscripts", f"\"rscripts")
-
-                    if f"\"{site}/rscripts" in new_url:
-                        new_url = new_url.replace(f"\"{site}/rscripts", f"\"rscripts")
+                        new_url = new_url.replace(f"\"{site}/data", f"\"{data_destination}/{current_tutorial}/data")
+                        if data_destination == "notebooks":
+                            copy_data(sp, dp)
 
                     if f"({site}/data" in new_url:
-                        new_url = new_url.replace(f"({site}/data", f"(tutorials/{current_tutorial}/data")
+                        new_url = new_url.replace(f"({site}/data", f"({data_destination}/{current_tutorial}/data")
+                        if data_destination == "notebooks":
+                            copy_data(sp, dp)
+
+                    
+                    if f"\"{site}/images" in new_url:
+                        new_url = new_url.replace(f"\"{site}/images", f"\"images")
+                        source_path = os.path.join(original_content_path, new_url.replace('"', ''))
+                        destination_path = "images"
+                        # print(source_path)
+                        # print(destination_path)
+                        copy_file(source_path, destination_path, current_tutorial)
+
 
                     if f"({site}/images" in new_url:
                         new_url = new_url.replace(f"({site}/images", f"(images")
-                        source_path = os.path.join("/Users/laurenceanthony/Documents/projects/LADAL_refactored/old_content/old_non_content_files", new_url.replace('(', '').replace(')', ''))
-                        destination_path = "/Users/laurenceanthony/Documents/projects/@projects_misc/LADALQ_TEMP/images"
+                        source_path = os.path.join(original_content_path, new_url.replace('(', '').replace(')', ''))
+                        destination_path = "images"
                         print(source_path)
                         print(destination_path)
-                        move_file(source_path, destination_path)
-        
+                        copy_file(source_path, destination_path, current_tutorial)
+
+                    if f"\"{site}/rscripts" in new_url:
+                        new_url = new_url.replace(f"\"{site}/rscripts", f"\"rscripts")
+
+                    if f"\"{site}/rscripts" in new_url:
+                        new_url = new_url.replace(f"\"{site}/rscripts", f"\"rscripts")
 
                     if new_url == f"({site}/{tutorial}.html)":
                         new_url = f"(tutorials/{tutorial}.html)"
@@ -159,31 +194,6 @@ def replace_url_with_relative_path(qmd_file_path, urls):
                         new_url = f"(/)"        
 
         updated_urls.append(new_url)
-
-        
-
-    # # Get the parent folder path of the QMD file
-    # parent_folder = os.path.dirname(qmd_file_path)
-    
-    # # Iterate over the URLs and replace the matching part with the relative path
-    # for url in urls:
-    #     relative_path = os.path.relpath(parent_folder, start=os.getcwd())
-
-    #     # Check if the URL contains the target base URL
-    #     # if url == "https://ladal.edu.au":
-    #     #     new_url = url.replace("https://ladal.edu.au", "/")
-    #     #     updated_urls.append(new_url)
-    #     if "https://slcladal.github.io/content/" in url:
-    #         new_url = url.replace("https://slcladal.github.io/content/", relative_path + "/")
-    #         updated_urls.append(new_url)
-    #     elif "https://slcladal.github.io/data" in url:
-    #         new_url = url.replace("https://slcladal.github.io/data/", 'data/')
-    #         updated_urls.append(new_url)
-    #     elif "https://ladal.edu.au/data" in url:
-    #         new_url = url.replace("https://ladal.edu.au/data/", relative_path + "/" + 'data/')
-    #         updated_urls.append(new_url)
-    #     else:
-    #         updated_urls.append(url)
     
     return updated_urls
 
@@ -209,6 +219,8 @@ def process_json_and_update_urls(json_file):
         #     print('>', url)
         # for url in updated_urls:
         #     print('<', url)
+
+        # continue
 
         # print(updated_urls)
 
