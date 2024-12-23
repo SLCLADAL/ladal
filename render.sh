@@ -92,7 +92,7 @@ done
 
 if [ "$runone" == "false" ]; then
   echo "Running the copy_qmd_files script because runone is false."
-  ./copy_qmd_files.sh
+  ./helpers/copy_qmd_files.sh
 else
   # echo "Not running the copy_qmd_files script because runone is true."
   echo ""
