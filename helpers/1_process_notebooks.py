@@ -231,6 +231,33 @@ def replace_error_in_content(folder_name, parent_folder="tools"):
                 after = """text <- loadkeytxts("notebooks/Target", "notebooks/Reference")"""
                 content = content.replace(before, after)
 
+            elif folder_name == "topictool":
+                before = """clean_dfm[1:5, 1:5]"""
+                after = """"""
+                content = content.replace(before, after)
+
+                before = """```{r eval = F}"""
+                after = """```{r eval = T}"""
+                content = content.replace(before, after)
+
+                before = """terms(tmod_slda)"""
+                after = """tmod_slda$theta"""
+                content = content.replace(before, after)
+
+                before = r'files <- stringr::str_replace_all(names(topics(tmod_slda)), ".*/(.*?).txt", "\\1")'
+                after = """files <- rownames(clean_dfm)"""
+                content = content.replace(before, after)
+
+                before = """topics <- topics(tmod_slda)"""
+                after = """topics <- apply(tmod_slda$theta, 1, which.max)"""
+                content = content.replace(before, after)
+
+                before = """write_xlsx(dfp,"""
+                after = """write_xlsx(df,"""
+                content = content.replace(before, after)
+
+                
+                
         # Write the updated content back to the file
         with open(qmd_file_path, "w") as file:
             file.write(content)
