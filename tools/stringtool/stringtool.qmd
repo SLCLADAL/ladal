@@ -1,0 +1,159 @@
+
+![An interactive LADAL notebook](/images/uq1.jpg)
+
+# Corpus-Cleaning Tool
+
+This notebook-based tool accompanies the [*Language Technology and Data Analysis Laboratory* (LADAL) tutorial *String Processing in R*](tutorials/string/string.html). 
+
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>The code chunks below allow you to remove and replace words, tags, and other elements from the text data that you upload. </b> 
+<br>
+<br>
+<b>IMPORTANT: make sure you are familiar with [regular expressions](tutorials/regex/regex.html) to be able to make the best out of this notebook tool!</b>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+
+
+## Using your own data
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+To <b>use your own data</b>, click on the folder called <b>`MyTexts`</b> (it is in the menu to the left of the screen) and then simply drag and drop your txt-files into the folder. <br>When you then execute the code chunk below, you will upload your own data and you can then use it in this notebook.<br>You can upload <b>only txt-files</b> (simple unformatted files created in or saved by a text editor)! <br>The notebook assumes that you upload some form of text data - not tabular data! 
+<br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+```{r}
+# load function that helps loading texts
+source("tools/stringtool/rscripts/loadtxts.R")
+# load texts
+text <- loadtxts("notebooks/MyTexts")
+# inspect the structure of the text object
+str(text)
+```
+
+## Reformatting
+
+Now, we convert the text(s) into a data frame. 
+
+```{r}
+# load function that helps loading texts
+source("tools/stringtool/rscripts/formattext.R")
+# load texts
+text_df <- formattext(text)
+# inspect the structure of the text object
+str(text_df)
+```
+
+
+## Cleaning
+
+Now that we've organized the data into a tabular format, the cleaning process becomes straightforward. We work with the data frame, employing `str_remove_all` and `str_replace_all` to eliminate undesired text sequences from the column contents. The distinction lies in their usage:
+
++ `str_remove_all` requires specifying the column to clean and indicating what to remove.  
+
++ `str_replace_all` additionally needs information on the replacement pattern for the specified pattern.  
+
+To further clean your data, simply copy the commands and paste them into the code (. Pay attention to the column you are working on! If you want to clean the *clean-text* column, then do not define *text* as the column you want to clean (assuming that the *clean-text* column has been created).
+
+```{r}
+# create a data frame with 'file' and 'text' columns
+text_df %>%
+  
+  # create a new column called 'text_clean'
+  # clean 'text' column by removing "<.*?>"
+  dplyr::mutate(text_clean = stringr::str_remove_all(text, "<.*?>"),
+                
+                # replace strings of white spaces with a single white space
+                text_clean = stringr::str_replace_all(text_clean, " {2,}", " "),
+                
+                # PASTE YOUR CLEANING INSTRUCTIONS BELOW 
+                # USE ONE OF THE TWO FORMATS: 
+                # text_clean = stringr::str_replace_all(text_clean, "TO BE REPLACED", "REPLACEMENT"),
+                # OR
+                # text_clean = stringr::str_remove_all(text_clean, "TO BE REMOVED"),
+                
+                
+                # convert clean text to lower case)
+                text_clean = tolower(text_clean)) -> clean_df  # assign the result to 'clean_df'
+  
+# inspect the first 10 rows of the cleaned data frame
+str(clean_df)
+```
+
+## Extract text
+
+Now, we aggregate the cleaned texts from the 'text_clean' column by file, ensuring we obtain a single consolidated clean text for each file and save the result as `ctext`.
+
+```{r}
+# load function that helps loading texts
+source("tools/stringtool/rscripts/extracttext.R")
+# load texts
+ctext <- extracttext(clean_df)
+# inspect the structure of the text object
+str(ctext)
+```
+
+## Saving to MyOutput
+
+As a concluding step, we save the outcomes – the three files housing our cleaned texts – in the 'MyOutput' folder, conveniently visible on the left side of the screen.
+
+```{r}
+# load function that helps loading texts
+source("tools/stringtool/rscripts/savetxts.R")
+savetxts(ctext)
+```
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>You will find the txt-files in the `MyOutput` folder (located on the left side of the screen).</b> <br><br>Simply double-click the `MyOutput` folder icon, then highlight the files, and choose *Download* from the dropdown menu to download the files. <br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+
+***
+
+# Citation & Session Info
+
+Schweinberger, Martin. (2024)` *LADAL Corpus-Cleaning Tool*. Brisbane: The University of Queensland. url: tools.html (Version 2024.04.21).
+
+```
+@manual{schweinberger2024stringtool,
+  author = {Schweinberger, Martin},
+  title = {LADAL Corpus-Cleaning Tool},
+  note = {tools.html},
+  year = {2024},
+  organization = {The University of Queensland, School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2024.04.21}
+}
+```
+
+[Back to LADAL](tutorials/string/string.html)
+
+***
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,186 @@
+
+![An interactive LADAL notebook](/images/uq1.jpg)
+
+# Keyword Tool 
+
+This notebook-based tool accompanies the [Language Technology and Data Analysis Laboratory (LADAL) tutorial *Analyzing Collocations, N-grams, and Keywords in R*](tutorials/coll/coll.html). 
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>The code chunks below calculate keyness statistics that represent how characteristic words are for a text or corpus. </b>! 
+<br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+
+
+## Using your own data
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b> You need to upload file(s) into both the `Target` and the `Reference` folders.</b> <br>
+Click on the folder called <b>`Target`</b> (it is in the menu to the left of the screen) and then simply drag and drop the txt-file(s) containing your target data into the folder. <br>
+click on the folder called <b>`Reference`</b> (it is in the menu to the left of the screen) and then simply drag and drop the txt-file(s) containing your reference data into the folder. <br>
+<br>
+<br>When you then execute the code chunk below, you will upload your own data and you can then use it in this notebook.<br>You can upload <b>only txt-files</b> (simple unformatted files created in or saved by a text editor)! <br>The notebook assumes that you upload some form of text data - not tabular data! 
+<br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+```{r}
+# load function that helps loading texts
+source("tools/keytool/rscripts/loadkeytxts.R")
+# load texts
+text <- loadkeytxts("notebooks/Target", "notebooks/Reference")
+# inspect the structure of the text object
+str(text)
+```
+
+After loading the target and reference, we prepare the data for analysis.
+
+```{r}
+# load function that helps loading texts
+source("tools/keytool/rscripts/prepkeydat.R")
+# prepare texts
+keystb <- prepkeydat(text)
+# inspect the structure of the text object
+head(keystb)
+```
+
+Now, we extract the keyness measures (if the table has many rows, this may take a few minutes).
+
+```{r}
+# load function that extract keyness measures (default ordering by G2)
+source("tools/keytool/rscripts/keystats.R")
+# load texts
+keys <- keystats(keystb)
+# inspect first 10 rows of the data
+head(keys, 10)
+```
+
+
+For information about the different keyness statsitics (what they mean and how they are calculated), please visit the LADAL tutorial on [Keyword Analysis](tutorials/key/key.html).
+
+## Exporting the keyword table
+
+To export the table with the keyness measures as an MS Excel spreadsheet, we use `write_xlsx`. Be aware that we use the `here` function to  save the file in the current working directory.
+
+```{r eval = F, warning=F, message=F}
+# save data for MyOutput folder
+write_xlsx(keys, here::here("notebooks/MyOutput/keys.xlsx"))
+```
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>You will find the generated MS Excel spreadsheet named *keys.xlsx* in the `MyOutput` folder (located on the left side of the screen).</b> <br><br>Simply double-click the `MyOutput` folder icon, then right-click on the *keys.xlsx* file, and choose Download from the dropdown menu to download the file. <br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+## Visualising keywords
+
+Here we will use a simple bar plot to visualize the 10 top keywords of both texts. The bar plot uses the *G2* value but you are welcome to visualize another keyness measure (simply replace `G2` with the measure you want to use).
+
+```{r}
+# get top 10 keywords for text 1
+top <- keys %>% dplyr::ungroup() %>% dplyr::slice_head(n = 10)
+# get top 10 keywords for text 2
+bot <- keys %>% dplyr::ungroup() %>% dplyr::slice_tail(n = 10)
+# combine into table
+rbind(top, bot) %>%
+  # create a ggplot
+  ggplot(aes(x = reorder(token, G2, mean), y = G2, label = G2, fill = type)) +
+  # add a bar plot using the 'phi' values
+  geom_bar(stat = "identity") +
+  # add text labels above the bars with rounded 'phi' values
+  geom_text(aes(y = ifelse(G2 > 0, G2 - 1, G2 + 1), 
+                label = round(G2, 1)), color = "white", size = 3) + 
+  # flip the coordinates to have horizontal bars
+  coord_flip() +
+  # set the theme to a basic white and black theme
+  theme_bw() +
+  # remove legend
+  theme(legend.position = "none") +
+    # define colors
+  scale_fill_manual(values = c("mediumblue", "orange")) +
+  # set the x-axis label to "Token" and y-axis label to "Keyness statistic"
+  labs(title = "Top 10 keywords for target and reference", x = "Keyword", y = "Keyness statistic")
+```
+
+
+## Exporting images
+
+To export network graph as an png-file, we use `ggsave`. Be aware that we use the `here` function to save the file in the `MyOutput` folder.
+
+The `ggsave` function has the following main arguments:
+
++ `filename`: File name to create on disk.    
++ `device`: Device to use. Can either be a device function (e.g. png), or one of "eps", "ps", "tex" (pictex), "pdf", "jpeg", "tiff", "png", "bmp", "svg" or "wmf" (windows only). If NULL (default), the device is guessed based on the filename extension  
++ `path`: Path of the directory to save plot to: path and filename are combined to create the fully qualified file name. Defaults to the working directory.  
++ `width, height`: Plot size in units expressed by the units argument. If not supplied, uses the size of the current graphics device.  
++ `units`: One of the following units in which the width and height arguments are expressed: "in", "cm", "mm" or "px".  
++ `dpi`: Plot resolution. Also accepts a string input: "retina" (320), "print" (300), or "screen" (72). Applies only to raster output types.  
++ `bg`: Background colour. If NULL, uses the plot.background fill value from the plot theme.  
+
+
+```{r eval = F, warning=F, message=F}
+# save network graph for MyOutput folder
+ggsave(here::here("notebooks/MyOutput/image_01.png"), bg = "white")
+```
+
+<div class="warning" style='padding:0.1em; background-color: rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>You will find the image-file named *image_01.png* in the `MyOutput` folder (located on the left side of the screen).</b> <br><br>Simply double-click the `MyOutput` folder icon, then right-click on the *image_01.png* file, and choose Download from the dropdown menu to download the file. <br>
+</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+
+***
+
+# Citation & Session Info
+
+Schweinberger, Martin. (2024)` *LADAL Keyword Tool*. Brisbane: The University of Queensland. url: tools.html (Version 2024.04.21).
+
+```
+@manual{schweinberger2024keytool,
+  author = {Schweinberger, Martin},
+  title = {LADAL Keyword Tool},
+  note = {tools.html},
+  year = {2024},
+  organization = {The University of Queensland, School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2024.04.21}
+}
+```
+
+[LADAL tutorial on Keyword Analysis](tutorials/key/key.html)
+
+***
+
+```{r}
+sessionInfo()
+```
+
+

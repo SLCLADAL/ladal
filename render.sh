@@ -7,7 +7,8 @@ echo "$(realpath "$PARENT_DIR")"
 
 runone=true
 usecache=false
-usethis="basicquant_cb"
+usethis="topictool"
+parentfolder="tools"
 exclude_list=("./tutorials/postag/postag.qmd ./tutorials/regression/regression.qmd")
 
 if $runone; then
@@ -55,7 +56,7 @@ find "$PARENT_DIR" -type f -name "*.qmd" | sort | while read -r file; do
 
     # Optional: You can add additional skipping logic here, like checking folder names
     # Example: Skip folders named "skip_this_folder"
-    if $runone && [ "$file" != "./tutorials/$usethis/$usethis.qmd" ] && [ "$file" != "./notebooks/$usethis.qmd" ]; then
+    if $runone && [ "$file" != "./$parentfolder/$usethis/$usethis.qmd" ]; then
       # echo "Skipping folder: $folder_name"
       continue
     fi
