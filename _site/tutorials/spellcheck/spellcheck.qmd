@@ -1,0 +1,372 @@
+---
+title: "Spell checking text data with R"
+author: "Martin Schweinberger"
+---
+
+![](/images/uq1.jpg){ width=100% }
+
+
+# Introduction{-}
+
+This tutorial focuses on spell checking and shows how to perform spell checking in R. This tutorial builds heavily on (the documentation site of the `hunspell` package)[https://cran.r-project.org/web/packages/hunspell/vignettes/intro.html] [@hunspell].  
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to perform spell checking of textual data  using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful aspects of spell checking. 
+
+
+<div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+The entire R Notebook for the tutorial can be downloaded [here](tutorials/spellcheck/spellcheck.qmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file.
+</p>
+
+```{r}
+#| echo: false
+
+# Define base components
+base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
+notebook_path <- "interactive-notebooks/notebooks/spellcheck_cb.ipynb"
+
+# Manually encode each parameter
+repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
+
+# Combine parameters with 'git-pull' and 'branch'
+params <- paste0(
+    "urlpath=git-pull%3F",
+    repo_param,
+    "%26",
+    notebook_param,
+    "%26branch=main"
+)
+
+# Combine into the final URL
+binder_url <- paste0(base_url, "?", params)
+```
+
+::: {.text-center}
+[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+
+Click [**here**](`r binder_url`) to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.
+:::
+
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+<br>
+
+# What is spell checking? {-}
+
+Spell checking is the process of checking for and identifying spelling errors in a piece of text. It works by comparing each word in the text against a dictionary of correctly spelled words, and marking any words that are not found in the dictionary as potentially misspelled.
+
+Spell checking is used in a variety of applications, including word processors, email clients, and online text editors, to help users produce error-free written material. The goal of spell checking is to improve the accuracy and readability of written text by catching and correcting spelling errors before they are published or sent.
+
+Spell checking of textual data consists of the following steps:
+
+* First, the text in a document is tokenized, i.e. the text is broken down into individual words.
+* Each word is then broken down in it’s root (stemming) and affix(es)
+* Next, it i checked if the word (plus affix combination) occurs in a dictionary
+* Optionally, for words (or combinations), corrections are suggested based on similar words in the dictionary
+
+# Spell checking in R with hunspell {-}
+
+The `hunspell` package provides access to Hunspell which is a spell checker library used in various software applications such as OpenOffice, Mozilla Firefox, or RStudio. In addition to simple spell checking, the `hunspell` package also provides additional funtionalities like tokenization or stemming and and its spell checking capabilities encompass almost any language or alphabet. Tokenization and stemming are part of the `hunspell` package in order to split texts into individual words but also to extract text from several file formats such as basic text, html, pdf, or xml.
+
+The `hunspell` package checks if words occur in a given dictionary with  the (default) dictionary being "en_US". However each function can be used in another language by setting a custom dictionary in the `dict` parameter. 
+
+**Preparation and session set up**
+
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the packages so you do not need to worry if it takes some time).
+
+```{r prep1, echo=T, eval = F}
+# install packages
+install.packages("dplyr")
+install.packages("stringr")
+install.packages("quanteda")
+install.packages("hunspell")
+install.packages("flextable")
+# install klippy for copy-to-clipboard button in code chunks
+install.packages("remotes")
+remotes::install_github("rlesur/klippy")
+```
+
+
+Now that we have installed the packages, we activate them as shown below.
+
+```{r prep2, message=FALSE, warning=FALSE, class.source='klippy'}
+# activate packages
+library(dplyr)
+library(stringr)
+library(quanteda)
+library(hunspell)
+library(flextable)
+# activate klippy for copy-to-clipboard button
+klippy::klippy()
+```
+
+
+Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
+
+In the following, we will perform spell checking and explore several useful functions associated with spell checking in the `hunspell` package.
+
+## Checking individual words {-}
+
+We start by checking a vector of individual words.
+
+
+```{r sp1, message=FALSE, warning=FALSE}
+words <- c("analyze", "langauge", "data")
+correct <- hunspell_check(words)
+print(correct)
+```
+
+The output shows that the second word was not found in the dictionary, i.e., it is identified as being incorrect. Next, we can ask for suggestions, i.e. the correct form of the word.
+
+```{r sp3, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
+hunspell_suggest(words[!correct])
+```
+
+In this case, there are two words that are deemed as potential alternatives.
+
+## Checking documents {-}
+
+Since we rarely want to check individual words, we will now focus on spell checking full texts rather than individual vectors with words.
+
+First, we load a text (in this case an explanation of what grammer is that is taken from Wikipedia).
+
+
+```{r sp5, cmessage=FALSE, warning=FALSE}
+# read in text
+exampletext <- base::readRDS("tutorials/spellcheck/data/tx1.rda", "rb")
+# inspect
+exampletext
+```
+
+We now use the `hunspell` function to find incorrect words (or, more precisely, words that are not in the default dictionary). The output shows that *organisation* is considered an error as it follows British spelling conventions (more about this in the section on setting a language).
+
+
+```{r sp7, cmessage=FALSE, warning=FALSE}
+errors <- hunspell(exampletext)
+errors[[1]]
+```
+
+We check what suggestions we get for these words.
+
+```{r sp11, message=FALSE, warning=FALSE}
+hunspell_suggest(errors[[1]])
+```
+
+In our case, the words are not errors but simply terms that do not occur in the dictionary, either because they are specialist terminology (*componential*), they follow British spelling conventions (*organisation*), or they represent an uncommon proper name (*Noam*). Thus, so we will not replace them.
+
+## Stemming Words {-}
+
+The `hunspell_stem` looks up words from the dictionary which match the root of the given word (sometimes multiple items are returned if there are multiple matches in the dictionary).
+
+```{r sp13, message=FALSE, warning=FALSE}
+toks <- c("love", "loving", "lovingly", "loved", "lover", "lovely")
+hunspell_stem(toks)
+```
+
+The `hunspell_stem` function can be very useful when trying to find the stems of words in a corpusto see, e.g., how many word types a text contains.
+
+
+## Working with texts {-}
+
+It is quite common that we work with texts rather than individual  word vectors. As such, in the following, we will go through a workflow that resembles what one might use spell checking for in their research. 
+
+```{r sp15}
+texttable <- quanteda::tokens("Noam said he loves to analyze langauge and collors.") %>%
+    unlist() %>%
+    as.data.frame() %>%
+    dplyr::rename(words = 1) %>%
+    dplyr::mutate(
+        id = 1:nrow(.),
+        error = hunspell::hunspell_check(words)
+    ) %>%
+    dplyr::relocate(id)
+```
+
+
+```{r prep5, echo = F}
+# inspect data
+texttable %>%
+    as.data.frame() %>%
+    flextable::flextable() %>%
+    flextable::set_table_properties(width = .95, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "") %>%
+    flextable::border_outer()
+```
+
+The output shows the original word and if it was identified as an errors (i.e., it did not occur in the dictionary). Next, we extract suggestions for the words that were identified as errors.
+
+```{r sp17}
+texttable2 <- texttable %>%
+    # add suggestions
+    dplyr::mutate(
+        suggestions = ifelse(error == F,
+            paste0(hunspell_suggest(words), ", "),
+            ""
+        ),
+        # clean suggestions
+        suggestions = stringr::str_remove_all(suggestions, fixed("c(")),
+        suggestions = stringr::str_remove_all(suggestions, fixed(")")),
+        suggestions = stringr::str_remove_all(suggestions, ", {0,1}$")
+    )
+```
+
+```{r prep6, echo = F}
+# inspect data
+texttable2 %>%
+    as.data.frame() %>%
+    flextable::flextable() %>%
+    flextable::set_table_properties(width = .95, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "") %>%
+    flextable::border_outer()
+```
+
+We now want to replace the errors with the correct words but aso retain words that are erroneously regraded as errors. 
+
+
+```{r sp19}
+texttable3 <- texttable2 %>%
+    # replace errors with the first suggestion
+    dplyr::mutate(corrected = dplyr::case_when(
+        error == T ~ words,
+        error == F ~ stringr::str_remove_all(suggestions, '\\", .*'),
+        T ~ words
+    )) %>%
+    # clean the corrected words
+    dplyr::mutate(corrected = stringr::str_remove_all(corrected, '^\\"')) %>%
+    # insert words where we do not want the suggestions but the original word
+    dplyr::mutate(corrected = dplyr::case_when(
+        words == "Noam" ~ words,
+        T ~ corrected
+    ))
+```
+
+```{r prep7, echo = F}
+# inspect data
+texttable3 %>%
+    as.data.frame() %>%
+    flextable::flextable() %>%
+    flextable::set_table_properties(width = .95, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "") %>%
+    flextable::border_outer()
+```
+
+We can now check how many errors there are in our text.
+
+```{r sp21}
+texttable4 <- texttable3 %>%
+    dplyr::summarise(
+        tokens = nrow(.),
+        types = length(names(table(tolower(words)))),
+        errors_n = sum(ifelse(corrected == words, 0, 1)),
+        errors_percent = errors_n / tokens * 100
+    )
+```
+
+```{r prep9, echo = F}
+# inspect data
+texttable4 %>%
+    as.data.frame() %>%
+    flextable::flextable() %>%
+    flextable::set_table_properties(width = .95, layout = "autofit") %>%
+    flextable::theme_zebra() %>%
+    flextable::fontsize(size = 12) %>%
+    flextable::fontsize(size = 12, part = "header") %>%
+    flextable::align_text_col(align = "center") %>%
+    flextable::set_caption(caption = "") %>%
+    flextable::border_outer()
+```
+
+Finally, we can put the corrected text back together. 
+
+```{r sp23}
+correctedtext <- paste0(texttable3$corrected, collapse = " ") %>%
+    stringr::str_replace_all(" \\.", ".")
+correctedtext
+```
+
+
+## Setting a Language {-}
+
+By default, the `hunspell` package includes dictionaries for `en_US` and `en_GB` which means that you can easily switch from US American to British English spelling. As a default, `hunspell` uses the `en_US` dictionary but we can easily switch to British English instead as shown below.
+
+First, we use the default `en_US` dictionary which returns *LADAL* as well as the British spellings of *analyse* and *colours* as errors. 
+
+```{r sp25, message=FALSE, warning=FALSE}
+hunspell("At LADAL we like to analyse language and colours.")
+```
+
+If we switch to the `en_GB` dictionary, only *LADAL* is identified as not occuring in the dictionary.
+
+
+```{r sp27, message=FALSE, warning=FALSE}
+hunspell("At LADAL we like to analyse language and colours.", dict = "en_GB")
+```
+
+![](/images/InstallLanguages.png){ width=40% style="float:right; padding:10px" }
+
+If you want to use another language you need to make sure that the dictionary is available in your system so that RStudio can access the dictionary. You can install dictionaries very easily in RStudio. Simply go to `Tools` > `Global options` > `Spelling` and then under `Main dictionary language` select `Install More Languages` from the drop-down menu. Once the additional languages are installed, their dictionaries are available to the `hunspell` package in RStudio.
+
+However, you may want to install dictionaries directly, e.g., into your working directory so that you can use the dictionary when working with text data either on your computer or in a cloud environment. In this case, you can go to the [wooorm dictionary GitHub repository](https://github.com/wooorm/dictionaries), which has dict and aff files (i.e., the files that are needed to create a dictionary) for many different languages, and install the dict and aff files manually.  In our case, I downloaded the dict and aff files from the German dictionary, stored them together with the other dictionary files in the `hunspell` package library, and renamed the files as `de.dict` and `de.aff`.
+
+
+If you then want to use the dictionary, you simply specify the `dict` argument as shown below for a German sentence.
+
+```{r sp31, message=FALSE, warning=FALSE}
+hunspell("Im LADAL analysieren wir Sprachen und Farben.", dict = "de")
+```
+
+This is the end of this short tutorial on spell checking with R. If you want to go deeper, please check out the documentation site of the `hunspell` package)[https://cran.r-project.org/web/packages/hunspell/vignettes/intro.html] [@hunspell].  
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. (2023)` *Spell checking text data with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/spellcheck.html (Version 2023.02.08).
+
+```
+@manual{schweinberger2023spellcheck,
+  author = {Schweinberger, Martin},
+  title = {Spell checking text data with R},
+  note = {tutorials/spellcheck/spellcheck.html},
+  year = {2022},
+  organization = {The University of Queensland, School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2023.02.08}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+
+***
+
+[Back to top](#introduction)
+
+[Back to HOME](/)
+
+***
+
+
+# References{-}
+
+
+

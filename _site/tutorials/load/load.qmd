@@ -1,0 +1,488 @@
+---
+title: "Loading, saving, and generating data in R"
+author: "Martin Schweinberger"
+---
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction{-}
+
+The data we work with comes in many formats and types. Therefore, this tutorial shows how you can load and save different types of data when working with R and we will have a brief look at how to generate data in R.
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+
+This tutorial is aimed at beginners  with the aim of showcasing how to load and save different type of data and data structures in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify how to load and save the most common types of data in R. 
+
+
+<div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+To be able to follow this tutorial, we suggest you check out and familiarize yourself with the content of the following **R Basics** tutorials:<br>
+</p>
+<p style='margin-top:1em; text-align:left'>
+<ul>
+  <li>[Getting started with R](tutorials/intror.html) </li>
+</ul>
+</p>
+<p style='margin-top:1em; text-align:center'>
+Click [here](tutorials/load/load.qmd)^[If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file.] to download the **entire R Notebook** for this tutorial.<br>
+</p>
+</span>
+</div>
+
+<br>
+
+
+## Preparation and session set up{-}
+
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the packages so you do not need to worry if it takes some time).
+
+```{r prep1, eval = F, message=FALSE, warning=FALSE}
+# install packages
+install.packages("xlsx")
+install.packages("dplyr")
+install.packages("stringr")
+install.packages("tidyr")
+install.packages("flextable")
+install.packages("openxlsx")
+install.packages("here")
+install.packages("faux")
+install.packages("data.tree")
+# install klippy for copy-to-clipboard button in code chunks
+remotes::install_github("rlesur/klippy")
+```
+
+Now that we have installed the packages, we can activate them as shown below.
+
+```{r prep2, message=FALSE, warning=FALSE} 
+# load packages
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(flextable)
+library(xlsx)
+library(openxlsx)
+library(here)
+library(data.tree)
+# activate klippy for copy-to-clipboard button
+klippy::klippy()
+```
+
+Once you have installed RStudio and initiated the session by executing the code shown above, you are good to go.
+
+
+***
+
+<div class="warning" style='padding:0.1em; background-color:#51247a; color:#f2f2f2'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<b>NOTE</b><br><br>
+This tutorial assumes that you will be loading data from your own computer, as is often the case.  
+<br>
+This tutorial assumes that you have a designated subfolder named `data` within the directory where your R project (the Rproj file) is located. It is assumed that your data sets are stored in this data subfolder. Additionally, we provide guidance on how to load multiple text files into R, a common scenario when working with corpora. These multiple texts are expected to be situated within a folder named `textcorpus`, which is located within the data subfolder.  
+<br>
+If you have a different setup, you will need to adjust the path to the data in order for the tutorial to function correctly on your own computer. It is worth mentioning that the `here` function is utilized to create paths that originate from the directory where the Rproj is located.</p>
+<p style='margin-left:1em;'>
+</p></span>
+</div>
+
+***
+
+In other words, your directory should have the structure as shown below.
+
+```{r echo = F, message=F, warning = F, comment=NA}
+path <- c(
+    "myproject/Rproj",
+    "myproject/load.Rmd",
+    "myproject/data/testdat.csv",
+    "myproject/data/testdat2.csv",
+    "myproject/data/testdat.xlsx",
+    "myproject/data/testdat.txt",
+    "myproject/data/testdat.rda",
+    "myproject/data/english.rda",
+    "myproject/data/testcorpus/linguistics01.txt",
+    "myproject/data/testcorpus/linguistics02.txt",
+    "myproject/data/testcorpus/linguistics03.txt",
+    "myproject/data/testcorpus/linguistics04.txt",
+    "myproject/data/testcorpus/linguistics05.txt",
+    "myproject/data/testcorpus/linguistics06.txt",
+    "myproject/data/testcorpus/linguistics07.txt"
+)
+data.tree::as.Node(data.frame(pathString = path))
+```
+
+
+
+The data used in this tutorial can be downloaded using the links below:
+
+* [testdat.csv](tutorials/load/data/testdat.csv)
+* [testdat2.csv](tutorials/load/data/testdat2.csv)
+* [testdat.xlsx](tutorials/load/data/testdat.xlsx)
+* [testdat.txt](tutorials/load/data/testdat.txt)
+* [testdat.rda](tutorials/load/data/testdat.rda)
+* [english.txt](tutorials/load/data/english.txt)
+  * [linguistics01.txt](tutorials/load/data/testcorpus/linguistics01.txt)
+  * [linguistics02.txt](tutorials/load/data/testcorpus/linguistics02.txt)
+  * [linguistics03.txt](tutorials/load/data/testcorpus/linguistics03.txt)
+  * [linguistics04.txt](tutorials/load/data/testcorpus/linguistics04.txt)
+  * [linguistics05.txt](tutorials/load/data/testcorpus/linguistics05.txt)
+  * [linguistics06.txt](tutorials/load/data/testcorpus/linguistics06.txt)
+  * [linguistics07.txt](tutorials/load/data/testcorpus/linguistics07.txt)
+
+# Tabulated data {-}
+
+
+In R, there are multiple functions available for reading comma-separated (csv) and other Excel files. Once we cover these functions, we will briefly explore the process of generating data from scratch, without relying on loading pre-existing data files.
+
+
+
+## CSV {-} 
+
+A common data type when working with tabulated data are comma separated files (csv). To load such files, we can use the `read.csv` function as shown below.
+
+```{r lcsv1, message=FALSE, warning=FALSE}
+# load csv file
+datcsv <- read.csv(here::here("tutorials/load/data", "testdat.csv"),
+    # indicate the data has column names
+    header = TRUE
+)
+# inspect first 6 rows using the head() function
+head(datcsv)
+```
+
+The data is not spectacular and consist of a table with 2 columns (`Variable1`, and `Variable2`).
+
+Sometimes, csv files are actually not comma-separated but use a semi-colon as a separator. In such cases, we can use the `read.delim` function to load the csv and specify that the separator (`sep`) is ";".
+
+```{r lcsv2}
+# load csv with ; as the separator
+datcsv2 <- read.delim(here::here("tutorials/load/data", "testdat2.csv"),
+    # define separator
+    sep = ";",
+    # indicate the the data has column names
+    header = TRUE
+)
+# inspect data
+head(datcsv2)
+```
+
+To save a data set as a csv on your computer (here it is saved within the `data` folder within the folder where the Rproj is located).
+
+```{r scsv1, eval = F, message=FALSE, warning=FALSE}
+# save data as a csv without row names
+write.csv(datcsv, here::here("tutorials/load/data", "testdat.csv"), row.names = F)
+```
+
+
+## XLSX {-}
+
+To load excel data, you can use the `read.xlsx` function from the `openxlsx` package. We have activated the `openxlsx` package in the session preparation so we do not need to activate it again here. If you get an error message telling you that R did not find the `read.xlsx` function, you need to activate the `openxlsx` package by running the `library(openxlsx)`.
+
+```{r lxlsx, message=FALSE, warning=FALSE}
+# load data
+datxlsx <- openxlsx::read.xlsx(
+    # define path where data is stored
+    here::here("tutorials/load/data", "testdat.xlsx"),
+    # define spreadsheet to load
+    sheet = 1
+)
+# inspect first 6 rows using the head() function
+head(datxlsx)
+```
+
+To save xlsx files, we can use the `write.xlsx` from the `openxlsx` package as shown below.
+
+```{r sxlsx, eval = F, message=FALSE, warning=FALSE}
+write.xlsx(
+    # define object to be stored
+    datxlsx,
+    # define path where data should be stored
+    here::here("tutorials/load/data", "testdat.xlsx")
+)
+```
+
+## TXT (tabulated) {-}
+
+If  the data is tabular and stored as a txt-file, there are various functions to read in the data. The most common functions are `read.delim` and `read.table`. The read.delim function is very flexible and allows you to specify the separator and inform R that the first row contains column headers rather than data points (if the data does not contain column headers, then you do not need to specify `header = T` because `header = F` is the default).
+
+```{r ltxt1, eval = F, message=FALSE, warning=FALSE}
+# load tab txt 1
+dattxt <- read.delim(here::here("tutorials/load/data", "testdat.txt"),
+    sep = "\t", header = TRUE
+)
+# inspect data
+head(dattxt)
+```
+
+The `read.table` function is very similar and can also be used to load various types of tabulated data. Again, we let R know that the first row contains column headers rather than data points.
+
+```{r ltxt2, eval = F, message=FALSE, warning=FALSE}
+# load tab txt
+dattxt2 <- read.table(here::here("tutorials/load/data", "testdat.txt"), header = TRUE)
+# inspect
+head(dattxt2)
+```
+
+
+To save tabulated txt files, we use the `write.table` function. In the  `write.table` function we define the separator (in this case we write a tab-separated file) and inform R to not add row names (i.e, that R should not number rows and store this information in a separate column).
+
+```{r ltxt, eval = F, message=FALSE, warning=FALSE}
+# save txt
+write.table(dattxt, here::here("tutorials/load/data", "testdat.txt"), sep = "\t", row.names = F)
+```
+
+
+# Unstructured data {-}
+
+## TXT {-}
+
+Unstructured data (most commonly data representing raw text) is also very common - particularly when working with corpus data.
+
+To load text data into R (here in the form of a txt file), we can use the `scan` function. Reading in texts using the `scan` function will result in loading vectors of stings where each string represents a separate word.
+
+```{r ltext1, message=F, warning=F}
+testtxt <- scan(here::here("tutorials/load/data", "english.txt"), what = "char")
+# inspect
+testtxt
+```
+
+In contract, the `readLines` function will read in complete lines  and result in a vector of strings representing lines (if the entire text is in 1 line, the the entire text will be loaded as a single string).
+
+```{r ltext2, message=F, warning=F}
+testtxt2 <- readLines(here::here("tutorials/load/data", "english.txt"))
+# inspect
+testtxt2
+```
+
+To save text data, we can use the `writeLines` function as shown below.
+
+```{r stext1, eval = F, message=FALSE, warning=FALSE}
+writeLines(text2, here::here("tutorials/load/data", "english.txt"))
+```
+
+## Multiple TXTs {-}
+
+When dealing with text data, it is quite common to encounter scenarios where we need to load multiple files containing texts. In such cases, we typically begin by storing the file locations in an object (referred to as `fls` in this context) and then proceed to load the files using the `sapply` function, which allows for looping. Within the `sapply` function, we have the option to utilize either `scan` or `writeLines` for reading the text. In the example below, we employ `scan` and subsequently merge the individual elements into a single text using the `paste` function. The output demonstrates the successful loading of 7 txt files from the `testcorpus` located within the `data` folder.
+
+```{r lmulttexts, message=FALSE, warning=FALSE}
+# extract file paths
+fls <- list.files(here::here("tutorials/load/data", "testcorpus"), pattern = "txt", full.names = T)
+# load files
+txts <- sapply(fls, function(x) {
+    x <- scan(x, what = "char") %>%
+        paste0(collapse = " ")
+})
+# inspect
+str(txts)
+```
+
+To save multiple txt files, we follow a similar procedure and first determine the paths that define where R will store the files and then loop over the files and store them in the `testcorpus` folder.
+
+```{r smulttexts, eval = F, message=FALSE, warning=FALSE}
+# define where to save each file
+outs <- file.path(paste(here::here(), "/", "data/testcorpus", "/", "text", 1:7, ".txt", sep = ""))
+# save the files
+lapply(seq_along(txts), function(i) {
+    writeLines(txts[[i]],
+        con = outs[i]
+    )
+})
+```
+
+
+# R data objects {-}
+
+When working withR in RStudio, it makes sense to save data as R data objects as this requires minimal storage space and allows to load and save data very quickly. R data objects can have any format (structured, unstructured, lists, etc.). Here, we use the `readRDS` function to load R data objects (which can represent any form or type of data). 
+
+```{r rda, message=FALSE, warning=FALSE}
+# load data
+rdadat <- readRDS(here::here("tutorials/load/data", "testdat.rda"))
+# inspect
+head(rdadat)
+```
+
+To save R data objects, we use the `saveRDS` function as shown below.
+
+```{r srda1, eval = F, message=FALSE, warning=FALSE}
+saveRDS(rdadat, file = here::here("tutorials/load/data", "testdat.rda"))
+```
+
+
+# Web data {-}
+
+You can load all types of data discussed above from the web. the only thing you need to do is to change the path. Instead of defining a path on your own computer, simply replace it with a url with thin the `url` function nd the additional argument `"rb"`.
+
+So loading the `testdat.rda` from the LADAL github data repo would require the following path specification:
+
+`url("tutorials/load/data/testdat.rda", "rb")`
+
+compared to the data repo in the current Rproj:
+
+`here::here("tutorials/load/data", "testdat.rda")`
+
+
+See below how you can load, e.g., an `rda` object from the LADAL data repo on GitHub.
+
+```{r lweb, message=FALSE, warning=FALSE}
+webdat <- base::readRDS("tutorials/load/data/testdat.rda", "rb")
+# inspect
+head(webdat)
+```
+
+
+We can then store this data as shown in the sections above.
+
+
+
+# Generating data {-}
+
+In this section, we will briefly have a look at how to generate data in R.
+
+## Creating tabular data {-}
+
+To create a simple data frame, we can simply generate the columns and then bind them together using the `data.frame` function as shown below. 
+
+```{r gd1, message=FALSE, warning=FALSE}
+# create a data frame from scratch
+age <- c(25, 30, 56)
+gender <- c("male", "female", "male")
+l1 <- c("english", "german", "english")
+mydat <- data.frame(age, gender, l1)
+# inspect
+head(mydat)
+```
+
+You can also generate more complex data sets where columns or variables correlate with each other. Below, we will generate a data set with 4 correlated variables: *Proficiency* (the proficiency of a speaker), *Abroad* (whether or not subjects have been abroad), *University* (if they went to a standard or excellent university), and *PluralError* (if they produced a number marking error in a test sentence).
+
+We start by setting seed so the generated data will be the same each time we generate the data.
+
+```{r gd2, message=FALSE, warning=FALSE}
+set.seed(678)
+```
+
+Next, we create a correlation matrix, Here, we will create 4 variables and for each of these variables we have to determine  how strongly each variable should be correlated with each other variable. The diagonal values are 1 as each variable correlates perfectly with itself.
+
+```{r gd3, message=FALSE, warning=FALSE}
+cmat <- c(
+    1.00, 0.05, 0.05, -0.5,
+    0.05, 1.00, 0.05, -0.3,
+    0.05, 0.05, 1.00, -0.1,
+    -0.50, -0.30, -0.10, 1.0
+)
+```
+
+Next, we generate the data using the `rnorm_multi` function. In this function, we need to specify:
+
+* how many data points the data set should consist of (`n`)  
+* the number of variables (`vars`)  
+* the means (`mu`)  
+* the standard deviation (`sd`)  
+* the correlations (here we specify the correlation matrix we defined above)  
+* the names of the variables (`varnames`).  
+
+If all variables should have the same mean, then we only need to provide a singe value but we need to provide 4 values, if we want the variables to have different means).
+
+
+```{r gd4, message=FALSE, warning=FALSE}
+dat <- faux::rnorm_multi(
+    n = 400, vars = 4, mu = 1, sd = 1, cmat,
+    varnames = c("Proficiency", "Abroad", "University", "PluralError")
+)
+# inspect
+head(dat)
+```
+
+If you want to generate numeric data, then this would be all you need to do. If you want to generate categorical variables, however, we need to convert these numeric values into factors. In the example below, we convert all values higher than 1 (the mean) into one level, and all other values into a second level. 
+
+
+```{r gd5, message=FALSE, warning=FALSE}
+# modify data
+dat <- dat %>%
+    dplyr::mutate(
+        Proficiency = ifelse(Proficiency > 1, "Advanced", "Intermediate"),
+        Abroad = ifelse(Abroad > 1, "Abroad", "Home"),
+        University = ifelse(University > 1, "Excellent", "Standard"),
+        PluralError = ifelse(PluralError > 1, "Error", "Correct")
+    )
+# inspect
+head(dat)
+```
+
+
+And again, we could then save this data on our computer as shown in the sections above. For instance, we could save it as an MS Excel file as shown below.
+
+```{r gd6, eval = F, message=FALSE, warning=FALSE}
+write.xlsx(dat, here::here("tutorials/load/data", "dat.xlsx"))
+```
+
+## Creating text data {-}
+
+You may also want to create textual data (e.g., to create sample sentences or short test texts). Thus, we will briefly focus on how to create textual data in R.
+
+The easiest way to generate text data is to simply create strings and combine them as shown below.
+
+```{r ct1, message=FALSE, warning=FALSE}
+text <- c("This is an example sentence.", "This is a second example sentence")
+# inspect
+text
+```
+
+
+If you need to generate many sentences that have a standard format, you can make use of the paste function.
+
+```{r ct2, message=FALSE, warning=FALSE}
+num <- 1:4
+start <- "This is sentence number "
+end <- "."
+texts <- paste(start, num, end, sep = "")
+# inspect
+texts
+```
+
+Or, you can combine these text snippets into a single string.
+
+```{r ct4, message=FALSE, warning=FALSE}
+onetext <- paste(start, num, end, sep = "", collapse = " ")
+# inspect
+onetext
+```
+
+The text can then be saved using the `writeLines` function as shown below.
+
+```{r ct5, eval = F, message=FALSE, warning=FALSE}
+writeLines(onetext, here::here("tutorials/load/data", "onetext.txt"))
+```
+
+This is all for this tutorial. We hope it is useful and that you have a better idea about how to load, save and generate data now.
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2022. *Loading, saving, and generating data in R*. Brisbane: The University of Queensland. URL: https://ladal.edu.au/load.html (Version 2022.11.08).
+
+
+```
+@manual{schweinberger2022loadr,
+  author = {Schweinberger, Martin},
+  title = {Loading, saving, and generating data in R},
+  note = {tutorials/load/load.html},
+  year = {2022},
+  organization = "The University of Queensland, School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2022.11.08}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+
+***
+
+[Back to top](#introduction)
+
+[Back to HOME](/)
+
+***
+

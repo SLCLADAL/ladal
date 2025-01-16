@@ -5,10 +5,10 @@ PARENT_DIR="."
 
 echo "$(realpath "$PARENT_DIR")"
 
-runone=true
-usecache=false
-usethis="topictool"
-parentfolder="tools"
+runone=false
+usecache=true
+usethis="basicstatz"
+parentfolder="tutorials"
 exclude_list=("./tutorials/postag/postag.qmd ./tutorials/regression/regression.qmd")
 
 if $runone; then
