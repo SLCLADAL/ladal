@@ -63,17 +63,17 @@ find "$PARENT_DIR" -type f -name "*.qmd" | sort | while read -r file; do
     
     if $usecache; then
       # Loop through the exclude list
-      skip=false
+      use_nocache=false
       for exclude in "${exclude_list[@]}"; do
           if [ "$file" == "$exclude" ]; then
-              skip=true
+              use_nocache=true
               break  # Exit the loop once a match is found
           fi
       done
 
-      # If a match was found, skip this file
-      if [ "$skip" == true ]; then
-          echo "Skipping file: $file => Render with no cache"
+      # If a match was found, use_nocache this file
+      if [ "$use_nocache" == true ]; then
+          echo "Nocache file: $file => Render with no cache"
           quarto render ${file} --no-cache --execute-dir $PARENT_DIR 2>&1 | tee logs/log_${usethis}.log | tee -a logs/all.log > /dev/null
           continue
       else
