@@ -5,9 +5,9 @@ PARENT_DIR="."
 
 echo "$(realpath "$PARENT_DIR")"
 
-runone=false
-usecache=true
-usethis="basicstatz"
+runone=true
+usecache=false
+usethis="regression"
 parentfolder="tutorials"
 exclude_list=("./tutorials/postag/postag.qmd ./tutorials/regression/regression.qmd")
 
