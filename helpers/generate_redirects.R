@@ -65,7 +65,6 @@ template_end <- ".html\");
 
 for (folder in to_redirect) {
 
-	print(folder)
 	output_path <- paste("docs/", folder, ".html", sep="")
 	output_content <- paste(template_start, folder, template_end, sep="")
 
