@@ -654,7 +654,7 @@ The model diagnostics we are dealing with here are partly identical to the diagn
 **EXCURSION**
 <br>
 A note on sample size and power
-
+<br>
 A brief note on minimum necessary sample or data set size appears necessary here. Although there appears to be a general assumption that 25 data points per group are sufficient, this is not necessarily correct (it is merely a general rule of thumb that is actually often incorrect). Such rules of thumb are inadequate because the required sample size depends on the number of variables in a given model, the size of the effect and the variance of the effect - in other words, the minimum necessary sample size relates to *statistical power* (see [here](tutorials/pwr/pwr.html) for a tutorial on power). If a model contains many variables, then this requires a larger sample size than a model which only uses very few predictors. 
 
 Also, to detect an effect with a very minor effect size, one needs a substantially larger sample compared to cases where the effect is very strong. In fact, when dealing with small effects, model require a minimum of 600 cases to reliably detect these effects. Finally, effects that are very robust and do not vary much require a much smaller sample size compared with effects that are spurious and vary substantially. Since the sample size depends on the effect size and variance as well as the number of variables, there is no final one-size-fits-all answer to what the best sample size is.
@@ -1576,7 +1576,7 @@ To check whether the final minimal model contains predictors that correlate with
 <div class="warning">
 <span>
 <p style='margin-top:1em; text-align:center'>
-<b>NOTE</b>
+**NOTE**
 <br>
 However, (multi-)collinearity is only an issue if one is interested in interpreting regression results!  If the interpretation is irrelevant because what is relevant is prediction(!), then it does not matter if the model contains collinear predictors! See @gries2021statistics or the excursion below for a more elaborate explanation.
 </p>
@@ -1591,38 +1591,22 @@ However, (multi-)collinearity is only an issue if one is interested in interpret
 <div class="warning">
 <span>
 <p style='margin-top:1em; text-align:center'>
-<b>EXCURSION</b>
-</p>
-</span>
-</div>
+**EXCURSION**
 
-<div class="question">` 
+<br>
 
-What is multicollinearity?<br>
 
-<details>
-  <summary>Answer</summary>
+What is multicollinearity?
+<br>
+During the workshop on mixed-effects modeling, we talked about (multi-)collinearity and someone asked if collinearity reflected shared variance (what I thought) or predictability of variables (what the other person thought). Both answers are correct! We will see below why...
   
-  <br>
-  
-  During the workshop on mixed-effects modeling, we talked about (multi-)collinearity and someone asked if collinearity reflected shared variance (what I thought) or predictability of variables (what the other person thought). Both answers are correct! We will see below why...
-  
-  ***
-  
-  <div class="warning">
-  <span>
-  <p style='margin-top:1em; text-align:center'>
-  (Multi-)collinearity reflects the predictability of predictors based on the values of other predictors!
-  </p>
-  </span>
-  </div>
+*(Multi-)collinearity reflects the predictability of predictors based on the values of other predictors!*
 
+<br>
+
+To test this, I generate a data set with 4 independent variables `a`, `b`, `c`, and `d` as well as two potential response variables `r1` (which is random) and `r2` (where the first 50 data points are the same as in `r1` but for the second 50 data points I have added a value of 50 to the data points 51 to 100 from `r1`). This means that the predictors `a` and `d` should both strongly correlate with `r2`. 
   
-  ***
-  
-  To test this, I generate a data set with 4 independent variables `a`, `b`, `c`, and `d` as well as two potential response variables `r1` (which is random) and `r2` (where the first 50 data points are the same as in `r1` but for the second 50 data points I have added a value of 50 to the data points 51 to 100 from `r1`). This means that the predictors `a` and `d` should both strongly correlate with `r2`. 
-  
-  ```{r prep2, warning=F, message=F}
+```{r prep2, warning=F, message=F}
   # load packages
   library(dplyr)
   library(rms)
@@ -1639,99 +1623,100 @@ What is multicollinearity?<br>
   d <- c(rep("1", 47), rep ("0", 3), rep ("0", 47), rep ("1", 3))
   # create data set
   df <- data.frame(r1, r2, a, b, c, d)
-  ```
+```
   
   
-  ```{r data1, echo = F, message=FALSE, warning=FALSE}
+```{r data1, echo = F, message=FALSE, warning=FALSE}
   # inspect data
   df %>%
     head(10) %>%
     kable(caption = "First 10 rows of df data.") %>%
     kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
                               full_width = F)
-  ```
+```
   
   
   Here are the visualizations of r1 and r2
   
-  ```{r data2, echo = F, message=FALSE, warning=FALSE}
+```{r data2, echo = F, message=FALSE, warning=FALSE}
   plot(r1, pch = 20)
   plot(r2, pch = 20)
-  ```
+```
   
-  **Fit first model**
+**Fit first model**
   
-  Now, I fit a first model. As the response is random, we do not expect any of the predictors to have a significant effect and we expect the R^2^ to be rather low.
+Now, I fit a first model. As the response is random, we do not expect any of the predictors to have a significant effect and we expect the R^2^ to be rather low.
   
-  ```{r}
+```{r}
   m1 <- lm(r1 ~ a + b + c + d, data = df)
   # inspect model
   summary(m1)
-  ```
+```
   
-  We now check for (multi-)collinearity using the `vif` function from the `rms` package [@rms]. Variables `a` and `d` should have high variance inflation factor values (vif-values) because they overlap very much!
+We now check for (multi-)collinearity using the `vif` function from the `rms` package [@rms]. Variables `a` and `d` should have high variance inflation factor values (vif-values) because they overlap very much!
   
-  ```{r}
+```{r}
   # extract vifs
   rms::vif(m1)
-  ```
+```
   
-  Variables `a` and `d` do indeed have high vif-values.
+Variables `a` and `d` do indeed have high vif-values.
   
-  **Fit second model**
+**Fit second model**
   
-  We now fit a second model to the response which has higher values for the latter part of the response. Both `a` and `d` strongly correlate with the response. **But** because `a` and `d` are collinear, `d` should not be reported as being significant by the model. The R^2^ of the model should be rather high (given the correlation between the response r2 and `a` and `d`).
+We now fit a second model to the response which has higher values for the latter part of the response. Both `a` and `d` strongly correlate with the response. **But** because `a` and `d` are collinear, `d` should not be reported as being significant by the model. The R^2^ of the model should be rather high (given the correlation between the response r2 and `a` and `d`).
   
-  ```{r}
+```{r}
   m2 <- lm(r2 ~ a + b + c + d, data = df)
   # inspect model
   summary(m2)
-  ```
+```
   
-  Again, we extract the vif-values.
-  
-  ```{r}
+Again, we extract the vif-values.
+
+```{r}
   # extract vifs
   rms::vif(m2)
-  ```
+```
   
-  The vif-values are identical which shows that what matters is if the variables are predictable. To understand how we arrive at vif-values, we inspect the model matrix.
+The vif-values are identical which shows that what matters is if the variables are predictable. To understand how we arrive at vif-values, we inspect the model matrix.
   
-  ```{r}
-  # inspect model matrix
+```{r}
+# inspect model matrix
   mm <- model.matrix(m2)
-  ```
+```
   
-  ```{r mm2, echo = F, message=FALSE, warning=FALSE}
+```{r mm2, echo = F, message=FALSE, warning=FALSE}
   # inspect data
   mm %>%
     head(15) %>%
     kable(caption = "First 15 rows of the model matrix.") %>%
     kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
                               full_width = F)
-  ```
+```
   
-  We now fit a linear model in which we predict `d` from the other predictors in the model matrix.
+We now fit a linear model in which we predict `d` from the other predictors in the model matrix.
   
-  ```{r}
+```{r}
   mt <- lm(mm[,5] ~ mm[,1:4])
   summary(mt)$r.squared
-  ```
-  The R^2^ shows that the values of `d` are explained to 78.4 percent by the values of the other predictors in the model.
+```
+
+The R^2^ shows that the values of `d` are explained to 78.4 percent by the values of the other predictors in the model.
   
-  Now, we can write a function [taken from @gries2021statistics] that converts this R^2^ value 
+Now, we can write a function [taken from @gries2021statistics] that converts this R^2^ value 
   
-  ```{r}
+```{r}
   R2.to.VIF <- function(some.modelmatrix.r2) {
   return(1/(1-some.modelmatrix.r2)) } 
   R2.to.VIF(0.784)
-  ```
+```
   
-  The function outputs the vif-value of `d`. This shows that the vif-value of `d` represents its predictability from the other predictors in the model matrix which represents the amount of shared variance between `d` and the other predictors in the model.
+The function outputs the vif-value of `d`. This shows that the vif-value of `d` represents its predictability from the other predictors in the model matrix which represents the amount of shared variance between `d` and the other predictors in the model.
   
-</details>
-
-</div>`
+</p>
+</span>
+</div>
 
 ***
 
