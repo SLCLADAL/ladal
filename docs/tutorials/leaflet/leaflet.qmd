@@ -1,0 +1,201 @@
+---
+title: "How to create a typological map in R with leaflet"
+author: "Ludovic De Cuypere"
+---
+
+![](/images/uq1.jpg){ width=100% }
+
+
+# Introduction {#introduction .unnumbered}
+
+This document represents an empty R Quarto file (or qmd file) for a LADAL tutorial. The R Quarto document for this tutorial can be downloaded [here](https://slcladal.github.io/content/base.Rmd).
+
+You will also have to download the bibliography file from https://slcladal.github.io/content/references.bib for the tutorial to be knitted correctly. Although the knitted (or rendered) html file will look different from the LADAL design (because we have modified the theme for the LADAL page), it will be just like a proper LADAL tutorial once we have knitted the Rmd file on our machines and integrated your tutorial into the LADAL website.
+
+**Preparation and session set up**
+
+This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](https://slcladal.github.io/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+
+```{r}
+#| label: prep1
+#| echo: TRUE
+#| eval: FALSE
+#| message: FALSE
+#| warning: FALSE
+# set options
+options(stringsAsFactors = F)         # no automatic data transformation
+options("scipen" = 100, "digits" = 4) # suppress math annotation
+# install packages
+install.packages("tidyverse")
+install.packages("flextable")
+install.packages("leaflet")
+```
+
+Next, we activate the packages.
+
+```{r}
+#| label: prep2
+#| message: FALSE
+#| warning: FALSE
+library(tidyverse)
+library(flextable)
+library(leaflet)
+```
+
+Once you have installed R, RStudio, and have also initiated the session by executing the code shown above, you are good to go.
+
+## Typological data
+
+The objective of this tutorial is to use R to create a typological map as in the World Atlas of Linguistic Structures (WALS)[@wals]. The WALS is a large database that documents the structural features of languages around the world. It provides information on a wide range of linguistic characteristics, from phonological traits to grammatical structures. A typical WALS dataset includes information about various languages and specific linguistic features. Each row in the dataset represents a single language, and the columns contain metadata about the language and data about its structural features.
+
+For instance, Comrie [-@Comrie-1998] contains typological information about the "Order of Subject and Verb", with three levels: "SV", "VS", and "No dominant order". The related typological map can be found [here](https://wals.info/feature/82A#2/18.0/152.9).
+
+To create a typological map, you need a dataset with four variables/columns, as illustrated in @tbl-type:
+
+```{r}
+data <- data.frame(
+  Language = c("Tiranige", "Amharic", "Hungarian", "Vietnamese", "Indonesian", "..."),
+  Longitude = c(3.70, 39.54, 19.66, 105.77, 109.72, NA),
+  Latitude = c(14.76, 11.71, 46.91, 20.68, -7.33, NA),
+  Feature = c("absent", "other", "absent", "absent", "other", "...")
+)
+```
+
+```{r}
+#| label: tbl-type
+#| tbl-cap: "The first five rows of a WALS-like typological dataset"
+ft <- flextable(data) |> set_header_labels(
+    Language = "Language",
+    Longitude = "Longitude",
+    Latitude = "Latitude",
+    Feature = "Feature"
+  ) |>
+  set_table_properties(width = .5, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 12) |>
+  fontsize(size = 12, part = "header") |>
+  align_text_col(align = "center") |>
+  border_outer()
+ft
+```
+
+The dataset should contain a column/variable with the languages, two columns/variables with the geographical coordinates for each language, i.e., Longitude and Latitude (in decimal numbers, not degrees!), and a columns/variable with the typological feature under analysis.
+
+## A mock dataset
+
+Here we create a mock dataset with twenty languages (rows), their geographical coordinates and one hypothetical `Feature` with three levels: "present", "absent" and "other".
+
+```{r}
+Language <- c("Tiranige", "Amharic", "Hungarian", "Vietnamese", "Indonesian",
+               "Kalaallisut (West Greenlandic)", "Magdalena Peñasco Mixtec", "Cayuga",
+               "Laz", "Japanese", "Buwal", "Yucatec Maya", "Manx", "Forest Enets",
+               "Lopit", "Mojeño Trinitario", "Ulwa (Yaul)", "Japhug",
+               "West Circassian", "Kuuk Thayorre")
+Longitude <- c(-3.70, 39.54, 19.66, 105.77, 109.72, -52.86, -97.54, -76.60,
+                41.91, 135.00, 10.62, -88.96, -4.45, 86.50, 32.75, -65.41,
+                143.99, 102.36, 39.33, 142.03)
+Latitude <- c(14.76, 11.71, 46.91, 20.68, -7.33, 69.38, 17.28, 42.41,
+               41.50, 35.00, 13.88, 18.78, 54.26, 68.60, 4.70, -15.33,
+               -4.40, 32.10, 44.00, -14.82)
+Feature <- c("absent", "other", "absent", "absent", "other", "absent", "absent", 
+              "present", "other", "absent", "present", "present", "present", 
+              "present", "present", "absent", "other", "present", "present", "present")
+typ <- data.frame(Language, Longitude, Latitude, Feature)
+typ$Feature <- as.factor(typ$Feature)
+```
+
+Check the first rows:
+
+```{r}
+head(typ) |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "")  |>
+  flextable::border_outer()
+
+```
+
+## Create map
+
+First, we define a WALS-like colour palette (other colour palettes can be used):
+
+```{r}
+col <- c("#0000dd", # colour for "present"
+         "#dd0000", # colour for "absent"
+         "#ff66ff") # colour for "other"
+# at this stage the colours are not yet assigned to the levels of Feature!
+```
+
+We use `leaflet::colorFactor` to map the colour palette to the levels of the variable `Feature`.
+
+```{r}
+color_pal_WALS <- colorFactor(palette = col, 
+                         levels = c("present", "absent", "other"))
+
+```
+
+We are now ready to create a leaflet map.
+
+```{r}
+leaflet(typ) |>           # <1>
+  addTiles()  |>          # <2>
+  addCircleMarkers(       # <3>
+    ~Longitude, ~Latitude, 
+    fillColor = ~color_pal_WALS(Feature),
+    color = "white", 
+    radius = 8,      
+    fillOpacity = 1, 
+    stroke = TRUE,   
+    weight = 1,       
+    label = ~Language, 
+    popup = ~paste("<strong>Language:</strong>", Language,
+                   "<br><strong>Coexpression:</strong>", Feature)
+  ) |>
+  addLegend("topright",    # <4>
+            pal = color_pal_WALS, 
+            values = ~Feature, 
+            title = "Feature",
+            opacity = 0.9)
+```
+
+1.  create a leaflet object
+
+2.  add Open streetmap tile
+
+3.  Set option for the visualisation of the markers (points) on the map. We set the following options: `~Longitude, ~Latitude`: based on the coordinate variables in the dataset, `fillColor`: apply the defined color palette, `color` the color of the border of the circles, `radius:` changes the width of the circles, `fillOpacity`: changes the opacity, with 1 removing the transparency completely, `stroke = TRUE`: adds a circle around the circles, `weight`: the width of the circles, `label = ~Language`: adds the languages as labels to the circles on the map, which appear when hovering over the circles, `popup`: what appears when hovering over the circles.
+
+4.  Adds a legend on the upper left corner, with the correct labels (languages) and specified colours.
+
+# Citation & Session Info {.unnumbered}
+
+De Cuypere, Ludovic. `r format(Sys.time(), '%Y')`. *How to Create a typological map in R with leaflet*. Vrije Universiteit Brussel, Ghent University. url: https://slcladal.github.io/TypologicalmapsinR.html (Version `r format(Sys.time(), '%Y.%m.%d')`).
+
+```         
+@manual{DeCuypere`r format(Sys.time(), '%Y')`net,
+  author = {De Cuypere, Ludovic},
+  title = {How to Create a typological map in R with leaflet},
+  note = {https://slcladal.github.io/TypologicalmapsinR.html},
+  year = {`r format(Sys.time(), '%Y')`},
+  organization = {Vrije Universiteit Brussel & Ghent University},
+  address = {Pleinlaan 2, 1050 Brussel (Elsene)},
+  edition = {`r format(Sys.time(), '%Y.%m.%d')`}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+------------------------------------------------------------------------
+
+[Back to top](#introduction)
+
+[Back to HOME](https://slcladal.github.io/index.html)
+
+------------------------------------------------------------------------
+
+# References {.unnumbered}
