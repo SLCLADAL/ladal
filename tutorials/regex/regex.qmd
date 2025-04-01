@@ -1,4 +1,9 @@
 ---
+title: "Untitled"
+editor: visual
+---
+
+---
 title: "Regular Expressions in R"
 author: "Martin Schweinberger"
 ---
@@ -102,7 +107,112 @@ klippy::klippy()
 
 Once you have installed RStudio and have initiated the session by executing the code shown above, you are good to go.
 
-# Getting started with Regular Expressions
+# Common Regex Patterns and Examples
+
+We start by using a very simply example, the sentence (string) *The cat sat on the mat.* that we use in the overview of regular expressions.
+---
+
+```{r}
+text <- "the cat sat on the mat."
+```
+
+---
+
+
+But before we delve into using regular expressions, we will have a look at common regular expression patters that can be used in R and check what they stand for. Below is an overview of differnt types of regular expressions that can be used in R.
+
+## 1. Basic Characters
+
+Basic Characters  match specific characters in a string, including individual letters and wildcard characters like . that can match any character except a newline.
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `a` | Matches the character 'a' | `str_detect(text, "a")` → `TRUE` |
+| `.` | Matches any character except newline | `str_detect(text, "c.t")` → `TRUE` |
+
+## 2. Anchors
+
+Anchors are used to match positions within a string, such as the start (^) or end ($), ensuring that patterns only match in specific locations.
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `^` | Start of the string | `str_detect(text, "^The")` → `TRUE` |
+| `$` | End of the string | `str_detect(text, "mat.$")` → `TRUE` |
+
+## 3. Character Classes
+
+Character Classes define sets of characters that can match at a given position, including predefined ranges (e.g., [a-z] for lowercase letters) and negated classes ([^abc] to exclude certain characters).
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `[abc]` | Matches 'a', 'b', or 'c' | `str_detect(text, "[abc]")` → `TRUE` |
+| `[^abc]` | Matches any character except 'a', 'b', or 'c' | `str_detect(text, "[^abc]")` → `TRUE` |
+| `[a-z]` | Matches any lowercase letter | `str_detect(text, "[a-z]")` → `TRUE` |
+| `[A-Z]` | Matches any uppercase letter | `str_detect(text, "[A-Z]")` → `TRUE` |
+| `[0-9]` | Matches any digit | `str_detect(text, "[0-9]")` → `FALSE` |
+
+## 4. Quantifiers
+
+Quantifiers specify how many times a character or group should appear, ranging from zero or more (*), one or more (+), optional (?), or exact ({n,m}).
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `*` | 0 or more occurrences | `str_detect(text, "a*")` → `TRUE` |
+| `+` | 1 or more occurrences | `str_detect(text, "a+")` → `TRUE` |
+| `?` | 0 or 1 occurrence | `str_detect(text, "a?")` → `TRUE` |
+| `{n}` | Exactly `n` occurrences | `str_detect(text, "a{2}")` → `FALSE` |
+| `{n,}` | `n` or more occurrences | `str_detect(text, "a{1,}")` → `TRUE` |
+| `{n,m}` | Between `n` and `m` occurrences | `str_detect(text, "a{1,2}")` → `TRUE` |
+
+## 5. Groups and Alternation
+
+Groups and Alternation enable advanced pattern matching with capturing groups () to extract portions of a match and the | operator to specify alternative matches.
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `()` | Capturing group | `str_replace_all(text, "(cat)", "dog")` → `"The dog sat on the mat."` |
+| `|` | OR operator | `str_detect(text, "cat|dog")` → `TRUE` |
+
+## 6. Character Classes
+
+Character class shortcuts provide an efficient way to match groups of characters, such as digits, letters, punctuation, and spaces. These predefined classes help simplify regex patterns and improve readability when searching for specific types of characters in text data. The table below outlines commonly used character classes and their meanings.
+
+| RegEx Symbol/Sequence | Explanation |
+|----------------------|-------------|
+| `[ab]` | lower case a and b |
+| `[a-z]` | all lower case characters from a to z |
+| `[AB]` | upper case A and B |
+| `[A-Z]` | all upper case characters from A to Z |
+| `[12]` | digits 1 and 2 |
+| `[0-9]` | digits: 0 1 2 3 4 5 6 7 8 9 |
+| `[:digit:]` | digits: 0 1 2 3 4 5 6 7 8 9 |
+| `[:lower:]` | lower case characters: a–z |
+| `[:upper:]` | upper case characters: A–Z |
+| `[:alpha:]` | alphabetic characters: a–z and A–Z |
+| `[:alnum:]` | digits and alphabetic characters |
+| `[:punct:]` | punctuation characters: . , ; etc. |
+| `[:graph:]` | graphical characters: [:alnum:] and [:punct:] |
+| `[:blank:]` | blank characters: Space and tab |
+| `[:space:]` | space characters: Space, tab, newline, and other space characters |
+
+
+## 7. Special Escape Sequences
+
+Special Escape Sequences provide shorthand for common patterns, such as \d for digits, \s for whitespace, and \w for word characters, improving regex readability and efficiency. The upper case variants (\W in contrast to \w) represent the negations of the lower case variants, i.e. \W means non-word characters while \w refers to word-characters (alphanumeric characters).
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `\w` | Word characters: `[[:alnum:]_]` | `str_detect(text, "\w")` → `TRUE` |
+| `\W` | No word characters: `[^[:alnum:]_]` | `str_detect(text, "\W")` → `TRUE` |
+| `\s` | Space characters: `[[:blank:]]` | `str_detect(text, "\s")` → `TRUE` |
+| `\S` | No space characters: `[^[:blank:]]` | `str_detect(text, "\S")` → `TRUE` |
+| `\d` | Digits: `[[:digit:]]` | `str_detect(text, "\d")` → `FALSE` |
+| `\D` | No digits: `[^[:digit:]]` | `str_detect(text, "\D")` → `TRUE` |
+| `\b` | Word edge | `str_detect(text, "\bcat\b")` → `TRUE` |
+| `\B` | No word edge | `str_detect(text, "\Bcat\B")` → `FALSE` |
+
+
+# Practice
 
 To put regular expressions into practice, we need some text that we will perform our searches on. In this tutorial, we will use texts from Wikipedia about grammar.
 
@@ -124,124 +234,7 @@ set <- str_split(et, " ") %>%
 head(set)
 ```
 
-Before we delve into using regular expressions, we will have a look at the regular expressions that can be used in R and check what they stand for.
-
-There are three basic types of regular expressions:
-
-* regular expressions that stand for individual symbols and determine frequencies
-
-* regular expressions that stand for classes of symbols
-
-* regular expressions that stand for structural properties
-
-The regular expressions below show the first type of regular expressions, i.e. regular expressions that stand for individual symbols and determine frequencies.
-
-```{r regex05, echo=FALSE, eval = T}
-symbols1 <- c(fixed("?"), fixed("*"), fixed("+"), "{n}", "{n,}", "{n,m}")
-explanation1 <- c("The preceding item is optional and will be matched at most once", "The preceding item will be matched zero or more times", "The preceding item will be matched one or more times", "The preceding item is matched exactly n times", "The preceding item is matched n or more times", "The preceding item is matched at least n times, but not more than m times")
-example1 <- c(
-    "walk[a-z]? = walk, walks",
-    "walk[a-z]* = walk, walks, walked, walking",
-    "walk[a-z]+ = walks, walked, walking",
-    "walk[a-z]{2} = walked",
-    "walk[a-z]{2,} = walked, walking",
-    "walk[a-z]{2,3} = walked, walking"
-)
-df_regex <- data.frame(symbols1, explanation1, example1)
-colnames(df_regex) <- c("RegEx Symbol/Sequence", "Explanation", "Example")
-df_regex %>%
-    as.data.frame() %>%
-    #   tibble::rownames_to_column("Hedge") %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Regular expressions that stand for individual symbols and determine frequencies.") %>%
-    flextable::border_outer()
-```
-
-The regular expressions below show the second type of regular expressions, i.e. regular expressions that stand for classes of symbols.
-
-```{r regex03, echo=FALSE, eval = T}
-symbols2 <- c("[ab]", "[a-z]", "[AB]", "[A-Z]", "[12]", "[0-9]", "[:digit:]", "[:lower:]", "[:upper:]", "[:alpha:]", "[:alnum:]", "[:punct:]", "[:graph:]", "[:blank:]", "[:space:]", "[:print:]")
-explanations2 <- c(
-    "lower case a and b",
-    "all lower case characters from a to z",
-    "upper case a and b",
-    "all upper case characters from A to Z",
-    "digits 1 and 2",
-    "digits: 0 1 2 3 4 5 6 7 8 9",
-    "digits: 0 1 2 3 4 5 6 7 8 9",
-    "lower case characters: a–z",
-    "upper case characters: A–Z",
-    "alphabetic characters: a–z and A–Z",
-    "digits and alphabetic characters",
-    "punctuation characters: . , ; etc.",
-    "graphical characters: [:alnum:] and [:punct:]",
-    "blank characters: Space and tab",
-    "space characters: Space, tab, newline, and other space characters",
-    "printable characters: [:alnum:], [:punct:] and [:space:]"
-)
-df_regex <- data.frame(symbols2, explanations2)
-colnames(df_regex) <- c("RegEx Symbol/Sequence", "Explanation")
-df_regex %>%
-    as.data.frame() %>%
-    #   tibble::rownames_to_column("Hedge") %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Regular expressions that stand for classes of symbols.") %>%
-    flextable::border_outer()
-```
-
-The regular expressions that denote classes of symbols are enclosed in `[]` and `:`. The last type of regular expressions, i.e. regular expressions that stand for structural properties, are shown below.
-
-```{r regex09, echo=FALSE, eval = T}
-symbols3 <- c(
-    fixed("\\\\w"), fixed("\\\\W"), fixed("\\\\s"), fixed("\\\\S"),
-    fixed("\\\\d"), fixed("\\\\D"), fixed("\\\\b"), fixed("\\\\B"),
-    fixed("<"), fixed(">"), fixed("^"), fixed("$")
-)
-explanations3 <- c(
-    "Word characters: [[:alnum:]_]",
-    "No word characters: [^[:alnum:]_]",
-    "Space characters: [[:blank:]]",
-    "No space characters: [^[:blank:]]",
-    "Digits: [[:digit:]]",
-    "No digits: [^[:digit:]]",
-    "Word edge",
-    "No word edge",
-    "Word beginning",
-    "Word end",
-    "Beginning of a string",
-    "End of a string"
-)
-df_regex <- data.frame(symbols3, explanations3)
-colnames(df_regex) <- c("RegEx Symbol/Sequence", "Explanation")
-df_regex %>%
-    as.data.frame() %>%
-    #   tibble::rownames_to_column("Hedge") %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Regular expressions that stand for structural properties.") %>%
-    flextable::border_outer()
-```
-
-# Practice
-
-In this section, we will explore how to use regular expressions. At the end, we will go through some exercises to help you understand how you can best utilise regular expressions.
+We now put regular expressions into practice and explore how to use regular expressions in functions from the `stringr` package which are often used when processing text data. 
 
 Show all words in the split example text that contain `a` or `n`.
 
@@ -322,7 +315,7 @@ str_view_all(et, ".n.")
 
 ***
 
-<div class="warning" style='padding:0.1em; background-color:#51247a; color:#f2f2f2'>
+<div class="warning">
 <span>
 <p style='margin-top:1em; text-align:center'>
 <b>EXERCISE TIME!</b></p>
@@ -332,33 +325,105 @@ str_view_all(et, ".n.")
 
 <div class="question">` 
 
-1. What regular expression can you use to extract all forms of *walk* from a text?
+1. What regular expression can you use to extract all forms of *walk* from a tokenised text?
 
 <details>
   <summary>Answer</summary>
-  `[Ww][Aa][Ll][Kk].*`
+  `text[stringr::str_detect(text, "[Ww][Aa][Ll][Kk].*")`
 </details>
 
-More exercises will follow - bear with us ;)
+<div class="question">
+
+2. What regular expression can you use to extract all words that start with "un" in a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b[Uu][Nn]\\w*")]`
+</details>
+
+
+3. What regular expression can you use to find all occurrences of numbers in a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b\\d+\\b")]`
+</details>
+
+
+4. What regular expression can you use to extract all words ending in "ing" from a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b\\w+[Ii][Nn][Gg]\\b")]`
+</details>
+
+
+5. What regular expression can you use to extract email addresses from a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")]`
+</details>
+
+
+6. What regular expression can you use to identify words that contain at least one digit?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\w*\\d\\w*")]`
+</details>
+
+7. What regular expression can you use to extract all words that contain a hyphen (e.g., "well-being") from a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b\\w+-\\w+\\b")]`
+</details>
+
+
+8. What regular expression can you use to find all capitalized words (e.g., proper nouns) in a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b[A-Z][a-z]+\\b")]`
+</details>
+
+
+9. What regular expression can you use to extract all sentences that end with a question mark from a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, ".*\\?$")]`
+</details>
+
+
+10. What regular expression can you use to find all words that contain double vowels (e.g., "book", "agree") in a tokenised text?
+
+<details>
+  <summary>Answer</summary>
+  `text[stringr::str_detect(text, "\\b\\w*[aeiouAEIOU]{2}\\w*\\b")]`
+</details>
 
 </div>
 
 ***
 
+Regular expressions are a powerful tool for handling text data in R. Mastering them allows for efficient pattern matching, data extraction, and text transformation. Experiment with different patterns and functions from the `stringr` package to become proficient in regex for data science and text analysis in R.
+
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2022. *Regular Expressions in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/regex.html (Version 2022.11.17).
+Schweinberger, Martin. 2025. *Regular Expressions in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/regex/regex.html (Version 2025.04.01).
 
 ```
-@manual{schweinberger2022regex,
+@manual{schweinberger2025regex,
   author = {Schweinberger, Martin},
   title = {Regular Expressions in R},
   note = {tutorials/regex/regex.html},
-  year = {2022},
+  year = {2025},
   organization = {The University of Queensland, School of Languages and Cultures},
   address = {Brisbane},
-  edition = {2022.11.17}
+  edition = {2025.04.01}
 }
 ```
 
@@ -377,3 +442,5 @@ sessionInfo()
 ***
 
 # References {-}
+
+---
