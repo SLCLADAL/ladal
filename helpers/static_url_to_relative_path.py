@@ -70,43 +70,43 @@ def replace_url_with_relative_path(qmd_file_path, urls):
             new_url = new_url.replace("[here](\"https://slcladal.github.io/content/atap_docclass.Rmd\")", "[here](https://slcladal.github.io/content/atap_docclass.Rmd)")
             new_url = new_url.replace("note = {https://ladal.edu.au/ATAP_DocClass_Markdown.html}", "note = {https://ladal.edu.au/atap_docclass.html}")
             new_url = new_url.replace("(https://slcladal.github.io/content/bibliography.bib)", "(/assets/bibliography.bib)")
-            new_url = new_url.replace("(https://ladal.edu.au/clust.html#2_Correspondence_Analysis)", "(tutorials/clust/clust.html#2_Correspondence_Analysis)")
-            new_url = new_url.replace("(https://slcladal.github.io/content//pdf2txt.Rmd)", "(tutorials/pdf2txt/pdf2txt.Rmd)")
-            new_url = new_url.replace("(https://slcladal.github.io/content/surveys.Rmd)", "(tutorials/surveys/surveys.Rmd)")
-            new_url = new_url.replace("(https://slcladal.github.io/regression.html#Multicollinearity)", "(tutorials/regression/regression.html#Multicollinearity)")
+            new_url = new_url.replace("(https://ladal.edu.au/clust.html#2_Correspondence_Analysis)", "(/tutorials/clust/clust.html#2_Correspondence_Analysis)")
+            new_url = new_url.replace("(https://slcladal.github.io/content//pdf2txt.Rmd)", "(/tutorials/pdf2txt/pdf2txt.Rmd)")
+            new_url = new_url.replace("(https://slcladal.github.io/content/surveys.Rmd)", "(/tutorials/surveys/surveys.Rmd)")
+            new_url = new_url.replace("(https://slcladal.github.io/regression.html#Multicollinearity)", "(/tutorials/regression/regression.html#Multicollinearity)")
             # print(tutorial)
             # print('>', url)
             for value in ['here', 'this tutorial to R', '**bibliography file**', 'this tutorial']:
                 for site in ['https://slcladal.github.io', 'https://ladal.edu.au']:
 
                     matching_url = f'[{value}]({site}/{tutorial}.html)'
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.html)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.html)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
                     matching_url = f'[{value}]({site}/{tutorial}.html#16_Robust_Regression)'
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.html#16_Robust_Regression)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.html#16_Robust_Regression)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
                     matching_url = f'[{value}]({site}/{tutorial}.html#Example_2:_Teaching_Styles)'
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.html#Example_2:_Teaching_Styles)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.html#Example_2:_Teaching_Styles)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
                     matching_url = f'[{value}]({site}/{tutorial}.html#Working_with_text)'
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.html#Working_with_text)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.html#Working_with_text)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
                     matching_url = f'[{value}]({site}/{tutorial}.html#11_Simple_Linear_Regression)'
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.html#11_Simple_Linear_Regression)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.html#11_Simple_Linear_Regression)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
                     matching_url = f'[{value}]({site}/content/{tutorial}.Rmd)'
                     
-                    replaced_url = f'[{value}](tutorials/{tutorial}/{tutorial}.qmd)'
+                    replaced_url = f'[{value}](/tutorials/{tutorial}/{tutorial}.qmd)'
                     if new_url == matching_url:
                         new_url = replaced_url
 
@@ -185,7 +185,7 @@ def replace_url_with_relative_path(qmd_file_path, urls):
                         new_url = new_url.replace(f"\"{site}/rscripts", f"\"rscripts")
 
                     if new_url == f"({site}/{tutorial}.html)":
-                        new_url = f"(tutorials/{tutorial}.html)"
+                        new_url = f"(/tutorials/{tutorial}.html)"
 
                     if new_url == f"{site}/{tutorial}.html":
                         new_url = f"tutorials/{tutorial}.html"
