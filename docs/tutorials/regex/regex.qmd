@@ -8,34 +8,43 @@ title: "Regular Expressions in R"
 author: "Martin Schweinberger"
 ---
 
-![](/images/uq1.jpg){ width=100% }
+![](/images/uq1.jpg){width="100%"}
 
-
-# Introduction
+# Introduction {#introduction}
 
 This tutorial introduces regular expressions and how they can be used when working with language data. Regular expressions are powerful tools used to search and manipulate text patterns. They provide a way to find specific sequences of characters within larger bodies of text. Think of them as search patterns on steroids. Regular expressions are useful for tasks like extracting specific words, finding patterns, or replacing text in bulk. They offer a concise and flexible way to describe complex text patterns using symbols and special characters. Regular expressions have applications in linguistics and humanities research, aiding in tasks such as text analysis, corpus linguistics, and language processing. Understanding regular expressions can unlock new possibilities for exploring and analysing textual data.
 
+![](/images/gy_chili.png){width="15%" style="float:right; padding:10px"}
 
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to use regular expression (or wild cards) in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful functions and methods associated with regular expressions.
 
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to use regular expression (or wild cards) in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful functions and methods associated with regular expressions. 
-
-
-
-<div class="warning">
+:::: warning
 <span>
-<p style='margin-top:1em; text-align:center'>
+
+<p style="margin-top:1em; text-align:center">
+
 To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
+
 </p>
-<p style='margin-top:1em; text-align:left'>
+
+<p style="margin-top:1em; text-align:left">
+
 <ul>
-  <li>[Getting started with R](/tutorials/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load.html) </li>
-  <li>[String Processing in R](/tutorials/string.html) </li>
+
+<li>[Getting started with R](/tutorials/intror/intror.html)</li>
+
+<li>[Loading, saving, and generating data in R](/tutorials/load/load.html)</li>
+
+<li>[String Processing in R](/tutorials/string.html)</li>
+
 </ul>
+
 </p>
-<p style='margin-top:1em; text-align:center'>
-Click [**here**](/tutorials/regex/regex.qmd)^[If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file.] to download the **entire R Notebook** for this tutorial.
+
+<p style="margin-top:1em; text-align:center">
+
+Click [**here**](/tutorials/regex/regex.qmd)[^1] to download the **entire R Notebook** for this tutorial.
+
 </p>
 
 ```{r}
@@ -63,21 +72,26 @@ params <- paste0(
 binder_url <- paste0(base_url, "?", params)
 ```
 
-::: {.text-center}
-[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+::: text-center
+[![](https://mybinder.org/badge_logo.svg)](%60r%20binder_url%60)
 
-Click [**here**](`r binder_url`) to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.
+Click [**here**](%60r%20binder_url%60) to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.
 :::
 
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+<p style="margin-left:1em;">
+
+</p>
+
+</span>
+::::
+
+[^1]: If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](/assets/bibliography.bib) and store it in the same folder where you store the Rmd file.
 
 <br>
 
-How can you search texts for complex patterns or combinations of patterns? This question will be answered in this tutorial and at the end you will be able to perform very complex searches yourself. The key concept of this tutorial is that of a regular expression. A regular expression (in short also called *regex* or *regexp*) is a special sequence of characters (or string) for describing a search pattern. You can think of regular expressions as very powerful combinations of wildcards or as wildcards on steroids. 
+How can you search texts for complex patterns or combinations of patterns? This question will be answered in this tutorial and at the end you will be able to perform very complex searches yourself. The key concept of this tutorial is that of a regular expression. A regular expression (in short also called *regex* or *regexp*) is a special sequence of characters (or string) for describing a search pattern. You can think of regular expressions as very powerful combinations of wildcards or as wildcards on steroids.
 
-If you would like to get deeper into regular expressions, I can recommend @friedl2006mastering and, in particular, chapter 17 of @peng2016r for further study (although the latter uses base R rather than tidyverse functions, but this does not affect the utility of the discussion of regular expressions in any major or meaningful manner). Also, [here](https://rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf) is a so-called *cheatsheet* about regular expressions written by  Ian Kopacka and provided by RStudio. Nick Thieberger has also recorded a very nice [*Introduction to Regular Expressions*](https://www.youtube.com/watch?v=8ILToE0CNpM) for humanities scholars, which is available on YouTube.
+If you would like to get deeper into regular expressions, I can recommend @friedl2006mastering and, in particular, chapter 17 of @peng2016r for further study (although the latter uses base R rather than tidyverse functions, but this does not affect the utility of the discussion of regular expressions in any major or meaningful manner). Also, [here](https://rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf) is a so-called *cheatsheet* about regular expressions written by Ian Kopacka and provided by RStudio. Nick Thieberger has also recorded a very nice [*Introduction to Regular Expressions*](https://www.youtube.com/watch?v=8ILToE0CNpM) for humanities scholars, which is available on YouTube.
 
 **Preparation and session set up**
 
@@ -109,42 +123,40 @@ Once you have installed RStudio and have initiated the session by executing the 
 
 # Common Regex Patterns and Examples
 
-We start by using a very simply example, the sentence (string) *The cat sat on the mat.* that we use in the overview of regular expressions.
----
+## We start by using a very simply example, the sentence (string) *The cat sat on the mat.* that we use in the overview of regular expressions.
 
 ```{r}
 text <- "the cat sat on the mat."
 ```
 
----
-
+------------------------------------------------------------------------
 
 But before we delve into using regular expressions, we will have a look at common regular expression patters that can be used in R and check what they stand for. Below is an overview of differnt types of regular expressions that can be used in R.
 
 ## 1. Basic Characters
 
-Basic Characters  match specific characters in a string, including individual letters and wildcard characters like . that can match any character except a newline.
+Basic Characters match specific characters in a string, including individual letters and wildcard characters like . that can match any character except a newline.
 
 | Pattern | Meaning | Example |
-|---------|---------|---------|
+|------------------------|------------------------|------------------------|
 | `a` | Matches the character 'a' | `str_detect(text, "a")` → `TRUE` |
 | `.` | Matches any character except newline | `str_detect(text, "c.t")` → `TRUE` |
 
 ## 2. Anchors
 
-Anchors are used to match positions within a string, such as the start (^) or end ($), ensuring that patterns only match in specific locations.
+Anchors are used to match positions within a string, such as the start (\^) or end (\$), ensuring that patterns only match in specific locations.
 
-| Pattern | Meaning | Example |
-|---------|---------|---------|
-| `^` | Start of the string | `str_detect(text, "^The")` → `TRUE` |
-| `$` | End of the string | `str_detect(text, "mat.$")` → `TRUE` |
+| Pattern | Meaning             | Example                              |
+|---------|---------------------|--------------------------------------|
+| `^`     | Start of the string | `str_detect(text, "^The")` → `TRUE`  |
+| `$`     | End of the string   | `str_detect(text, "mat.$")` → `TRUE` |
 
 ## 3. Character Classes
 
-Character Classes define sets of characters that can match at a given position, including predefined ranges (e.g., [a-z] for lowercase letters) and negated classes ([^abc] to exclude certain characters).
+Character Classes define sets of characters that can match at a given position, including predefined ranges (e.g., \[a-z\] for lowercase letters) and negated classes (\[\^abc\] to exclude certain characters).
 
 | Pattern | Meaning | Example |
-|---------|---------|---------|
+|------------------------|------------------------|------------------------|
 | `[abc]` | Matches 'a', 'b', or 'c' | `str_detect(text, "[abc]")` → `TRUE` |
 | `[^abc]` | Matches any character except 'a', 'b', or 'c' | `str_detect(text, "[^abc]")` → `TRUE` |
 | `[a-z]` | Matches any lowercase letter | `str_detect(text, "[a-z]")` → `TRUE` |
@@ -153,10 +165,10 @@ Character Classes define sets of characters that can match at a given position, 
 
 ## 4. Quantifiers
 
-Quantifiers specify how many times a character or group should appear, ranging from zero or more (*), one or more (+), optional (?), or exact ({n,m}).
+Quantifiers specify how many times a character or group should appear, ranging from zero or more (\*), one or more (+), optional (?), or exact ({n,m}).
 
 | Pattern | Meaning | Example |
-|---------|---------|---------|
+|------------------------|------------------------|------------------------|
 | `*` | 0 or more occurrences | `str_detect(text, "a*")` → `TRUE` |
 | `+` | 1 or more occurrences | `str_detect(text, "a+")` → `TRUE` |
 | `?` | 0 or 1 occurrence | `str_detect(text, "a?")` → `TRUE` |
@@ -166,10 +178,10 @@ Quantifiers specify how many times a character or group should appear, ranging f
 
 ## 5. Groups and Alternation
 
-Groups and Alternation enable advanced pattern matching with capturing groups () to extract portions of a match and the | operator to specify alternative matches.
+Groups and Alternation enable advanced pattern matching with capturing groups () to extract portions of a match and the \| operator to specify alternative matches.
 
 | Pattern | Meaning | Example |
-|---------|---------|---------|
+|------------------------|------------------------|------------------------|
 | `()` | Capturing group | `str_replace_all(text, "(cat)", "dog")` → `"The dog sat on the mat."` |
 | `|` | OR operator | `str_detect(text, "cat|dog")` → `TRUE` |
 
@@ -178,7 +190,7 @@ Groups and Alternation enable advanced pattern matching with capturing groups ()
 Character class shortcuts provide an efficient way to match groups of characters, such as digits, letters, punctuation, and spaces. These predefined classes help simplify regex patterns and improve readability when searching for specific types of characters in text data. The table below outlines commonly used character classes and their meanings.
 
 | RegEx Symbol/Sequence | Explanation |
-|----------------------|-------------|
+|---------------------------------------------|---------------------------|
 | `[ab]` | lower case a and b |
 | `[a-z]` | all lower case characters from a to z |
 | `[AB]` | upper case A and B |
@@ -191,17 +203,16 @@ Character class shortcuts provide an efficient way to match groups of characters
 | `[:alpha:]` | alphabetic characters: a–z and A–Z |
 | `[:alnum:]` | digits and alphabetic characters |
 | `[:punct:]` | punctuation characters: . , ; etc. |
-| `[:graph:]` | graphical characters: [:alnum:] and [:punct:] |
+| `[:graph:]` | graphical characters: \[:alnum:\] and \[:punct:\] |
 | `[:blank:]` | blank characters: Space and tab |
 | `[:space:]` | space characters: Space, tab, newline, and other space characters |
-
 
 ## 7. Special Escape Sequences
 
 Special Escape Sequences provide shorthand for common patterns, such as \d for digits, \s for whitespace, and \w for word characters, improving regex readability and efficiency. The upper case variants (\W in contrast to \w) represent the negations of the lower case variants, i.e. \W means non-word characters while \w refers to word-characters (alphanumeric characters).
 
 | Pattern | Meaning | Example |
-|---------|---------|---------|
+|------------------------|------------------------|------------------------|
 | `\w` | Word characters: `[[:alnum:]_]` | `str_detect(text, "\w")` → `TRUE` |
 | `\W` | No word characters: `[^[:alnum:]_]` | `str_detect(text, "\W")` → `TRUE` |
 | `\s` | Space characters: `[[:blank:]]` | `str_detect(text, "\s")` → `TRUE` |
@@ -210,7 +221,6 @@ Special Escape Sequences provide shorthand for common patterns, such as \d for d
 | `\D` | No digits: `[^[:digit:]]` | `str_detect(text, "\D")` → `TRUE` |
 | `\b` | Word edge | `str_detect(text, "\bcat\b")` → `TRUE` |
 | `\B` | No word edge | `str_detect(text, "\Bcat\B")` → `FALSE` |
-
 
 # Practice
 
@@ -234,7 +244,7 @@ set <- str_split(et, " ") %>%
 head(set)
 ```
 
-We now put regular expressions into practice and explore how to use regular expressions in functions from the `stringr` package which are often used when processing text data. 
+We now put regular expressions into practice and explore how to use regular expressions in functions from the `stringr` package which are often used when processing text data.
 
 Show all words in the split example text that contain `a` or `n`.
 
@@ -312,110 +322,138 @@ Now, we include . which stands for any symbol (except a new line symbol).
 str_view_all(et, ".n.")
 ```
 
+------------------------------------------------------------------------
 
-***
-
-<div class="warning">
+::: warning
 <span>
-<p style='margin-top:1em; text-align:center'>
-<b>EXERCISE TIME!</b></p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
 
-<div class="question">` 
+<p style="margin-top:1em; text-align:center">
 
-1. What regular expression can you use to extract all forms of *walk* from a tokenised text?
+<b>EXERCISE TIME!</b>
 
-<details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "[Ww][Aa][Ll][Kk].*")`
-</details>
+</p>
 
-<div class="question">
+<p style="margin-left:1em;">
 
-2. What regular expression can you use to extract all words that start with "un" in a tokenised text?
+</p>
 
-<details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b[Uu][Nn]\\w*")]`
-</details>
+</span>
+:::
 
+::: question
+\`
 
-3. What regular expression can you use to find all occurrences of numbers in a tokenised text?
+1.  What regular expression can you use to extract all forms of *walk* from a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b\\d+\\b")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "[Ww][Aa][Ll][Kk].*")`
+
 </details>
 
 
-4. What regular expression can you use to extract all words ending in "ing" from a tokenised text?
+2.  What regular expression can you use to extract all words that start with "un" in a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b\\w+[Ii][Nn][Gg]\\b")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b[Uu][Nn]\\w*")]`
+
 </details>
 
-
-5. What regular expression can you use to extract email addresses from a tokenised text?
+3.  What regular expression can you use to find all occurrences of numbers in a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b\\d+\\b")]`
+
 </details>
 
-
-6. What regular expression can you use to identify words that contain at least one digit?
+4.  What regular expression can you use to extract all words ending in "ing" from a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\w*\\d\\w*")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b\\w+[Ii][Nn][Gg]\\b")]`
+
 </details>
 
-7. What regular expression can you use to extract all words that contain a hyphen (e.g., "well-being") from a tokenised text?
+5.  What regular expression can you use to extract email addresses from a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b\\w+-\\w+\\b")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}")]`
+
 </details>
 
-
-8. What regular expression can you use to find all capitalized words (e.g., proper nouns) in a tokenised text?
+6.  What regular expression can you use to identify words that contain at least one digit?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b[A-Z][a-z]+\\b")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\w*\\d\\w*")]`
+
 </details>
 
-
-9. What regular expression can you use to extract all sentences that end with a question mark from a tokenised text?
+7.  What regular expression can you use to extract all words that contain a hyphen (e.g., "well-being") from a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, ".*\\?$")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b\\w+-\\w+\\b")]`
+
 </details>
 
+8.  What regular expression can you use to find all capitalized words (e.g., proper nouns) in a tokenised text?
+
+<details>
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b[A-Z][a-z]+\\b")]`
+
+</details>
+
+9.  What regular expression can you use to extract all sentences that end with a question mark from a tokenised text?
+
+<details>
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, ".*\\?$")]`
+
+</details>
 
 10. What regular expression can you use to find all words that contain double vowels (e.g., "book", "agree") in a tokenised text?
 
 <details>
-  <summary>Answer</summary>
-  `text[stringr::str_detect(text, "\\b\\w*[aeiouAEIOU]{2}\\w*\\b")]`
+
+<summary>Answer</summary>
+
+`text[stringr::str_detect(text, "\\b\\w*[aeiouAEIOU]{2}\\w*\\b")]`
+
 </details>
+:::
 
-</div>
-
-***
+------------------------------------------------------------------------
 
 Regular expressions are a powerful tool for handling text data in R. Mastering them allows for efficient pattern matching, data extraction, and text transformation. Experiment with different patterns and functions from the `stringr` package to become proficient in regex for data science and text analysis in R.
 
-
-# Citation & Session Info {-}
+# Citation & Session Info {.unnumbered}
 
 Schweinberger, Martin. 2025. *Regular Expressions in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/regex/regex.html (Version 2025.04.01).
 
-```
+```         
 @manual{schweinberger2025regex,
   author = {Schweinberger, Martin},
   title = {Regular Expressions in R},
@@ -427,20 +465,18 @@ Schweinberger, Martin. 2025. *Regular Expressions in R*. Brisbane: The Universit
 }
 ```
 
-
 ```{r fin}
 sessionInfo()
 ```
 
-
-***
+------------------------------------------------------------------------
 
 [Back to top](#introduction)
 
 [Back to LADAL home](/)
 
-***
+------------------------------------------------------------------------
 
-# References {-}
+# References {.unnumbered}
 
----
+
