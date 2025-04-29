@@ -61,8 +61,11 @@ install.packages("PMCMRplus")
 install.packages("rstantools")
 install.packages("EnvStats")
 install.packages("vip")
-install.packages("remotes")
 install.packages("gridExtra")
+install.packages("devtools")
+install.packages("remotes")
+# install ggflags to be able to use flag geoms
+devtools::install_github("jimjam-slam/ggflags")
 # install klippy for copy-to-clipboard button in code chunks
 remotes::install_github("rlesur/klippy")
 ```
@@ -85,6 +88,7 @@ library(rstantools)
 library(PMCMRplus)
 library(vip)
 library(gridExtra)
+library(ggflags)
 # activate klippy for copy-to-clipboard button
 klippy::klippy()
 ```
@@ -972,6 +976,79 @@ ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux)) +
   theme_bw() +
   theme(legend.position = "none")
 ```
+
+# Flags {-}
+
+When visualizing country-level data, figures can be made more engaging and informative by incorporating national flags. In this tutorial, we demonstrate how to include flags in R-based visualizations using a practical example. Specifically, we will recreate a figure inspired by @schweinberger2025lingua, which illustrates the distribution of vulgar language in online discourse across 20 English-speaking regions.
+
+```{r flags1}
+# Create a dataframe with the given data
+flagsdf <- data.frame(
+  Region = c("Australia", "Bangladesh", "Canada", "Ghana", "Great Britain", 
+             "Hong Kong", "India", "Ireland", "Jamaica", "Kenya", "Malaysia", 
+             "New Zealand", "Nigeria", "Pakistan", "Philippines", "Singapore",
+             "South Africa", "Sri Lanka", "Tanzania", "United States"),
+  Percent = c(0.022, 0.007, 0.017, 0.008, 0.025, 0.009, 0.010, 0.019, 0.017, 
+              0.011, 0.019, 0.020, 0.016, 0.010, 0.015, 0.021, 0.012, 0.012, 
+              0.008, 0.036),
+  Kachru = c("Inner circle", "outer circle", "Inner circle", "outer circle", 
+             "Inner circle", "outer circle", "outer circle", "Inner circle", 
+             "outer circle", "outer circle", "outer circle", "Inner circle", 
+             "outer circle", "outer circle", "outer circle", "outer circle", 
+             "outer circle", "outer circle", "outer circle", "Inner circle"),
+  country = c("au", "bd", "ca", "gh", "gb", "hk", "in", "ie", "jm", "ke", "my",
+              "nz", "ng", "pk", "ph", "sg", "za", "lk", "tz", "us"),
+  stringsAsFactors = FALSE
+)
+```
+
+
+```{r flags2, echo = F}
+options(scipen = 999)
+# inspect data
+flagsdf %>%
+  flextable::flextable() %>%
+  flextable::set_table_properties(width = .95, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "First 15 rows of the pdat data.") %>%
+  flextable::border_outer()
+```
+
+The dataset consists of 20 observations and includes the following four variables:
+
+* Region: Names of 20 English-speaking regions, such as Australia, Bangladesh, Canada, and 17 others.  
+* Percent: Numeric values representing relative frequencies (e.g., of vulgar language use). Summary statistics:n = 20, Mean = 0.020, SD = 0.00712, Median = 0.020, MAD = 0.0074, Range = [0.007, 0.036]
+* Kachru: Categorical variable indicating the sociolinguistic classification of English use based on Kachru's model, with two levels:
+  * Outer circle (n = 14)
+  * Inner circle (n = 6)
+* country: Two-letter ISO 3166-1 alpha-2 country codes corresponding to each region, such as au (Australia), bd (Bangladesh), and ca (Canada).
+
+Next, we create a bar graph using `geom_bar()` and add country flags using `geom_flag()` from the `ggflags` package [@ggflags]. Note that `geom_flag()` requires a variable named country containing lowercase ISO 3166-1 alpha-2 codes for each observation.
+
+```{r flags3, warning=F, message=F}
+flagsdf %>%
+  ggplot(aes(x = reorder(Region, Percent), 
+             y = Percent, 
+             country = country, 
+             label = Percent, 
+             fill = Kachru)) +
+  geom_bar(stat = "identity") +
+  ggflags::geom_flag(size = 4) +
+   geom_text(hjust = -1.1, color = "black", size = 3)+
+  coord_flip(ylim = c(0, 0.05)) +
+  scale_fill_manual(values = c("gray90", "gray70")) +
+  theme_bw() +
+  labs(xlab = "", ylab = "Percent") +
+  theme(legend.position = c(0.8, 0.5),
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        axis.title.y=element_blank())
+```
+
 
 # Word clouds{-}
 
