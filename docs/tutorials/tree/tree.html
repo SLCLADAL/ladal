@@ -278,7 +278,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Tree-Based Models in R</h1>
+<div class="quarto-title-block"><div><h1 class="title">Tree-Based Models in R</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source" data-quarto-source-url="https://github.com/SLCLADAL/ladal/blob/main/tutorials/tree/tree.qmd"><i class="bi"></i> Download This Notebook</button></div></div>
 </div>
 
 
@@ -307,20 +307,6 @@ window.Quarto = {
 <p>This tutorial focuses on tree-based models and their implementation in R. For the more advanced, a recommendable resource for tree-based modeling is <span class="citation" data-cites="prasad2006newer">Prasad, Iverson, and Liaw (<a href="#ref-prasad2006newer" role="doc-biblioref">2006</a>)</span>, <span class="citation" data-cites="strobl2009tree">Strobl, Malley, and Tutz (<a href="#ref-strobl2009tree" role="doc-biblioref">2009</a>)</span> and <span class="citation" data-cites="breiman2001modeling">Breiman (<a href="#ref-breiman2001modeling" role="doc-biblioref">2001b</a>)</span>. A very good paper dealing with many critical issues related to tree-based models is <span class="citation" data-cites="gries2021statistics">Gries (<a href="#ref-gries2021statistics" role="doc-biblioref">2021</a>)</span>.</p>
 <p><img src="../../images/yr_chili.jpg" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
 <p>This tutorial is aimed at intermediate and advanced users of R with the aim of showcasing how to perform tree-based modeling and classification using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify how to implement and perform basic tree-based modeling and classification using R.</p>
-<div class="warning">
-<span>
-<p style="margin-top:1em; text-align:center">
-The entire R Notebook for the tutorial can be downloaded <a href="../../tutorials/tree/tree.html">here</a>. If you want to render the R Notebook on your machine, i.e.&nbsp;knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the <a href="../../assets/bibliography.bib"><strong>bibliography file</strong></a> and store it in the same folder where you store the Rmd file.
-</p>
-<div class="text-center">
-<p><a href="https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo=https://github.com/SLCLADAL/interactive-notebooks%26urlpath=lab/tree/interactive-notebooks/notebooks/tree_cb.ipynb%26branch=main"><img src="https://mybinder.org/badge_logo.svg" class="img-fluid"></a></p>
-<p>Click <a href="https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo=https://github.com/SLCLADAL/interactive-notebooks%26urlpath=lab/tree/interactive-notebooks/notebooks/tree_cb.ipynb%26branch=main"><strong>here</strong></a> to open an interactive Jupyter notebook that allows you execute, change, and edit the code as well as upload your own data.</p>
-</div>
-<p style="margin-left:1em;">
-</p>
-<p></p>
-</span></div>
-<p><br></p>
 <p>Tree-structure models fall into the machine-learning rather than the inference statistics category as they are commonly used for classification and prediction tasks rather than explanation of relationships between variables. The tree structure represents recursive partitioning of the data to minimize residual deviance that is based on iteratively splitting the data into two subsets.</p>
 <p>The most basic type of tree-structure model is a decision tree which is a type of classification and regression tree (CART). A more elaborate version of a CART is called a Conditional Inference Tree (CIT). The difference between a CART and a CIT is that CITs use significance tests, e.g.&nbsp;the p-values, to select and split variables rather than some information measures like the Gini coefficient <span class="citation" data-cites="gries2021statistics">(<a href="#ref-gries2021statistics" role="doc-biblioref">Gries 2021</a>)</span>.</p>
 <p>Like random forests, inference trees are non-parametric and thus do not rely on distributional requirements (or at least on fewer).</p>
@@ -1519,6 +1505,57 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       container: window.document.getElementById('quarto-embedded-source-code-modal')
     });
     clipboardModal.on('success', onCopySuccess);
+  }
+  const viewSource = window.document.getElementById('quarto-view-source') ||
+                     window.document.getElementById('quarto-code-tools-source');
+  if (viewSource) {
+    const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+    viewSource.addEventListener("click", function(e) {
+      if (sourceUrl) {
+        // rstudio viewer pane
+        if (/\bcapabilities=\b/.test(window.location)) {
+          window.open(sourceUrl);
+        } else {
+          window.location.href = sourceUrl;
+        }
+      } else {
+        const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+        modal.show();
+      }
+      return false;
+    });
+  }
+  function toggleCodeHandler(show) {
+    return function(e) {
+      const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+      for (let i=0; i<detailsSrc.length; i++) {
+        const details = detailsSrc[i].parentElement;
+        if (show) {
+          details.open = true;
+        } else {
+          details.removeAttribute("open");
+        }
+      }
+      const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+      const fromCls = show ? "hidden" : "unhidden";
+      const toCls = show ? "unhidden" : "hidden";
+      for (let i=0; i<cellCodeDivs.length; i++) {
+        const codeDiv = cellCodeDivs[i];
+        if (codeDiv.classList.contains(fromCls)) {
+          codeDiv.classList.remove(fromCls);
+          codeDiv.classList.add(toCls);
+        } 
+      }
+      return false;
+    }
+  }
+  const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+  if (hideAllCode) {
+    hideAllCode.addEventListener("click", toggleCodeHandler(false));
+  }
+  const showAllCode = window.document.getElementById("quarto-show-all-code");
+  if (showAllCode) {
+    showAllCode.addEventListener("click", toggleCodeHandler(true));
   }
     var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
     var mailtoRegex = new RegExp(/^mailto:/);
