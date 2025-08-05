@@ -773,19 +773,25 @@ survey %>%
   gglikert() 
 ```
 
-The `ggplikert` function is interesting becasue it allows us to modify the visualisation quite easily using ggplot-syntax. For example, below, we will use facets and use a different color palette.
+The `ggplikert` function is interesting becasue it allows us to modify the visualisation quite easily using ggplot-syntax. For example, below, we will only look at the first 4 questions, remove labels, split the data into groups (facets), and use a different color palette.
 
 
-```{r gglikert02}
+```{r gglikert02, warning=F, message=F}
 survey %>%
-  # select only columns that represent questions or groups
-  dplyr::select(matches("Q|G"))  %>%
-  # define that we want to use all columns with Q for visialisation
-  gglikert(matches("Q"),
-           # define that we want to group by the Group column
-           facet_rows = vars("Group"),
+  # define that we want to use columns in which 01, 02, 03, or 04 occur in the column header
+  gglikert(matches("01|02|03|04"),
            # reduce label size
-           labels_size = 3)
+           labels_size = 3,
+           # remove labels
+           add_labels = FALSE,
+           # split into facets
+           facet_rows = vars(Group))  +
+  # add title and subtitle
+  ggtitle("A Likert-type items plot", 
+          subtitle = "generated with gglikert()") +
+  scale_fill_brewer(palette = "RdBu")
+# saving
+ggsave(here::here("images/my_gglikert_plot.png"), width = 24, height = 12, units = "cm")
 ```
 
 
@@ -804,7 +810,7 @@ survey_p1 <- plot(likert(survey[, 3:12]), ordered = F, wrap = 60)
 # save plot
 cowplot::save_plot(here("images", "stu_p1.png"), # where to save the plot
   survey_p1, # object to plot
-  base_asp = 1.5, # ratio of space fro questions vs space for plot
+  base_asp = 1.5, # ratio of space for questions vs space for plot
   base_height = 8
 ) # size! higher for smaller font size
 ```
