@@ -50,6 +50,7 @@ install.packages("scales")
 install.packages("vcd")
 install.packages("tm")
 install.packages("ggridges")
+install.packages("ggstats")
 install.packages("tidyr")
 install.packages("flextable")
 install.packages("hexbin")
@@ -78,6 +79,7 @@ library(flextable)
 library(hexbin)
 library(gridExtra)
 library(ggflags)
+library(ggstats)
 ```
 
 
@@ -725,7 +727,7 @@ As you can see, we need to clean and adapt the column names. To do this, we will
 
 ```{r likert7}
 # clean column names
-colnames(sdat)[3:ncol(sdat)] <- paste0("Q ", str_pad(1:10, 2, "left", "0"), ": ", colnames(sdat)[3:ncol(sdat)]) %>%
+colnames(sdat)[3:ncol(sdat)] <- paste0("Q", str_pad(1:10, 2, "left", "0"), ": ", colnames(sdat)[3:ncol(sdat)]) %>%
   stringr::str_replace_all("\\.", " ") %>%
   stringr::str_squish() %>%
   stringr::str_replace_all("$", "?")
@@ -761,11 +763,35 @@ survey %>%
   flextable::border_outer()
 ```
 
-Now, we can use the `plot` and the `likert` function to visualize the survey data.
+
+We can now use the [`gglikert`](https://cran.r-project.org/web/packages/ggstats/vignettes/gglikert.html) from the `ggstats` package to visualise the data.
+
+```{r gglikert01}
+survey %>%
+  # select only columns that represent questions
+  dplyr::select(matches("Q"))  %>%
+  gglikert() 
+```
+
+The `ggplikert` function is interesting becasue it allows us to modify the visualisation quite easily using ggplot-syntax. For example, below, we will use facets and use a different color palette.
+
+
+```{r gglikert02}
+survey %>%
+  # select only columns that represent questions or groups
+  dplyr::select(matches("Q|G"))  %>%
+  # define that we want to use all columns with Q for visialisation
+  gglikert(matches("Q"),
+           # define that we want to group by the Group column
+           facet_rows = vars("Group"),
+           # reduce label size
+           labels_size = 3)
+```
+
+
+Alternatively, we can use the `plot` and the `likert` function from the `likert` package to visualize the survey data.
 
 ```{r likert13}
-# load package
-library(likert)
 # generate plot
 plot(likert(survey[, 3:12]), ordered = F, wrap = 60)
 ```
@@ -1203,7 +1229,7 @@ The dendrogram on the top shows that documents from 1600 and 1700 as well as doc
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2025. *Data Visualization with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/dviz/dviz.html (Version 2025.04.01).
+Schweinberger, Martin. 2025. *Data Visualization with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/dviz/dviz.html (Version 2025.08.05).
 
 ```
 @manual{schweinberger2025dviz,
@@ -1213,7 +1239,7 @@ Schweinberger, Martin. 2025. *Data Visualization with R*. Brisbane: The Universi
   year = {2025},
   organization = {The University of Queensland, School of Languages and Cultures},
   address = {Brisbane},
-  edition = {2025.04.01}
+  edition = {2025.08.05}
 }
 ```
 
