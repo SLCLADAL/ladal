@@ -1,0 +1,365 @@
+---
+title: "Reproducibility with R"
+author: "Martin Schweinberger"
+---
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {-}
+
+This tutorial covers best practices for organising projects in R and RStudio. It will cover concerns surrounding reproducible and efficient workflows, RStudio session management, and adherence to formatting conventions for R code. It will also offer guidance on optimising workflows and enhancing research practices to foster transparency, efficiency, and reproducibility.
+ 
+This tutorial is aimed at beginner and intermediate users of R.
+
+```{r rwf, echo=FALSE, message=FALSE, warning=FALSE}
+# load packages for website
+library(knitr) 
+library(kableExtra) 
+library(DT)
+```
+
+<div class="warning">
+<span>
+<p style='margin-top:1em; text-align:center'>
+To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
+</p>
+<p style='margin-top:1em; text-align:left'>
+<ul>
+  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
+  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
+  <li>[String Processing in R](/tutorials/string/string.html) </li>
+  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>
+  <li>[Handling Tables in R](/tutorials/table/table.html) </li>
+  <li>[Concepts in Reproducible Research](/tutorials/repro/repro.html) </li>
+</ul>
+</p>
+</span>
+</div>
+
+<br>
+
+# Rproj{-}
+
+If you're utilising RStudio, you can create a new R project, which is essentially a working directory identified by a `.RProj` file. When you open a project (either through 'File/Open Project' in RStudio or by double-clicking on the `.RProj` file outside of R), the working directory is automatically set to the location of the `.RProj` file.
+
+![](/images/rproj.png){ width=40% style="float:right; padding:10px" }
+
+I highly recommend creating a new R project at the outset of each research endeavour. Upon creating a new R project, promptly organise your directory by establishing folders to house your R code, data files, notes, and other project-related materials. This can be done outside of R on your computer or within the Files window of RStudio. For instance, consider creating an 'R' folder for your R code and a 'data' folder for your datasets.
+
+Prior to adopting R projects, I used `setwd()` to set my working directory. However, this method has drawbacks as it requires specifying an absolute file path, which can lead to broken scripts and hinder collaboration and reproducibility efforts. Consequently, reliance on `setwd()` impedes the sharing and transparency of analyses and projects. By contrast, utilising R projects streamlines workflow management and facilitates reproducibility and collaboration.
+
+
+
+# Reproducible reports and notebooks {-}
+
+Notebooks seamlessly combine formatted text with executable code (e.g., R or Python) and display the resulting outputs, enabling researchers to trace and understand every step of a code-based analysis. This integration is facilitated by markdown, a lightweight markup language that blends the functionalities of conventional text editors like Word with programming interfaces. Jupyter notebooks [@perez2015jupyter] and R notebooks [@xie2015r] exemplify this approach, allowing researchers to interleave explanatory text with code snippets and visualise outputs within the same document. This cohesive presentation enhances research reproducibility and transparency by providing a comprehensive record of the analytical process, from code execution to output generation.
+
+![](/images/notebook_raw.png){ width=100% style="float:right; padding:10px" }
+
+
+Notebooks offer several advantages for facilitating transparent and reproducible research in corpus linguistics. They have the capability to be rendered into PDF format, enabling easy sharing with reviewers and fellow researchers. This allows others to scrutinise the analysis process step by step. Additionally, the reporting feature of notebooks permits other researchers to replicate the same analysis with minimal effort, provided that the necessary data is accessible. As such, notebooks provide others with the means to thoroughly understand and replicate an analysis at the click of a button [@msch2025repro].
+
+![](/images/notebook_rendered.png){ width=100% style="float:right; padding:10px" }
+
+
+
+Furthermore, while notebooks are commonly used for documenting quantitative and computational analyses, recent studies have demonstrated their efficacy in rendering qualitative and interpretative work in corpus pragmatics [@msch2025repro] and corpus-based discourse analysis [see @msch2024corpus] more transparent. Notebooks, particularly interactive notebooks, enhance accountability by facilitating data exploration and enabling others to verify the reliability and accuracy of annotation schemes.
+
+Sharing notebooks offers an additional advantage compared to sharing files containing only code. While code captures the logic and instructions for analysis, it lacks the output generated by the code, such as visualisations or statistical models. Reproducing analyses solely from code necessitates specific coding expertise and replicating the software environment used for the original analysis. This process can be challenging, particularly for analyses reliant on diverse software applications, versions, and libraries, especially for researchers lacking strong coding skills. In contrast, rendered notebooks display both the analysis steps and the corresponding code output, eliminating the need to recreate the output locally. Moreover, understanding the code in the notebook typically requires only basic comprehension of coding concepts, enabling broader accessibility to the analysis process.
+
+
+
+# Dependency Control (renv) {-}
+
+![](/images/renv.png){ width=40% style="float:right; padding:10px" }
+
+The `renv` package introduces a novel approach to enhancing the independence of R projects by eliminating external dependencies. This package works by creating a dedicated library within your project, ensuring that your R project operates autonomously from your personal library. Consequently, when sharing your project, the associated packages are automatically included.
+
+`renv` aims to provide a robust and stable alternative to the `packrat` package, which, in my experience, fell short of expectations. Having utilised `renv` myself, I found it to be user-friendly and reliable. Although the initial generation of the local library may require some time, it seamlessly integrates into workflows without causing any disruptions. Overall, `renv` is highly recommended for simplifying the sharing of R projects, thereby enhancing transparency and reproducibility.
+
+One of `renv`'s core principles is to preserve existing workflows, ensuring that they function as before while effectively isolating the R dependencies of your project, including package versioning.
+
+For more information on `renv` and its functionalities, as well as guidance on its implementation, refer to the [official documentation](https://rstudio.github.io/renv/articles/renv.html).
+
+
+# Version Control with Git{-}
+
+![](/images/gitgithub.png){ width=40% style="float:right; padding:10px" }
+
+## Getting started with Git{-}
+
+To connect your Rproject with GitHub, **you need to have Git installed** (if you have not yet downloaded and installed Git, simply search for `download git` in your favourite search engine and follow the instructions) and **you need to have a GitHub account**. If you do not have a GitHub account, [here](https://www.youtube.com/watch?v=pYTifWe6M8I) is a video tutorial showing how you can do this. If you have trouble with this, you can also check out *Happy Git and GitHub for the useR* at `happygitwithr.com`. 
+
+
+![](/images/gitdownload.png){ width=40% style="float:right; padding:10px" }
+
+
+Just as a word of warning: when I set up my connection to Git and GitHub things worked very differently, so things may be a bit different on your machine. In any case, I highly recommend [this YouTube tutorial](https://www.youtube.com/watch?v=r5_v5f6128M) which shows how to connect to Git and GitHub using the `usethis` package or [this, slightly older, YouTube  tutorial](https://www.youtube.com/watch?v=kL6L2MNqPHg&t=716s) on how to get going with Git and GitHub when working with RStudio.
+
+## Old school{-}
+
+While many people use the `usethis` package to connect RStudio to GitHub, I still use a somewhat *old school* way to connect my projects with GitHub. I have decided to show you how to connect RStudio to GitHub using this method, as I actually think it is easier once you have installed Git and created a gitHub account.
+
+Before you can use Git with R, you need to tell RStudio that you want to use Git. To do this, go to `Tools`, then `Global Options` and then to `Git/SVN` and make sure that the box labelled `Enable version control interface for RStudio projects.` is checked. You need to then browse to the Git executable file (for Window's users this is called the `Git.exe` file). 
+
+<br>
+
+![](/images/globaloptionsr.png){ width=95% style="float:right; padding:10px" }
+
+
+<br>
+
+Now, we can connect our project to Git (not to GitHub yet). To do this, go to `Tools`, then to `Project Options...` and in the `Git/SVN` tab, change `Version Control System` to `Git` (from `None`). Once you have accepted these changes, a new tab called `Git` appears in the upper right pane of RStudio (*you may need to / be asked to restart RStudio at this point*).  You can now commit files and changes in files to Git. 
+
+![](/images/globaloptionsgit.png){ width=50% style="float:right; padding:10px" }
+
+To commit files, go to the Git tab and check the boxes next to the files you would like to commit (this is called *staging*, and it means that these files are now ready to be committed). Then, click on `Commit` and enter a message in the pop-up window that appears. Finally, click on the `commit` button under the message window.
+
+
+## Connecting your Rproj with GitHub{-}
+
+To integrate your R project with GitHub, start by navigating to your GitHub page and create a new repository (repo). You can name it anything you like; for instance, let's call it `test`. To create a new repository on GitHub, simply click on the `New` icon and then select `New Repository`. While creating the repository, I recommend checking the option to 'Add a README', where you can provide a brief description of the contents, although it's not mandatory.
+
+Once you've created the GitHub repo, the next step is to connect it to your local computer. This is achieved by 'cloning' the repository. Click on the green `Code` icon on your GitHub repository page, and from the dropdown menu that appears, copy the URL provided under the `clone with HTTPS` section.
+
+Now, open your terminal (located between `Console` and `Jobs` in RStudio) and navigate to the directory where you want to store your project files. Use the `cd` command to change directories if needed. Once you're in the correct directory, include the URL you copied from the git repository after the command `git remote add origin`. This sets up the connection between your local directory and the GitHub repository.
+
+Next, execute the command `git branch -M main` to rename the default branch to `main`. This step is necessary to align with recent changes in GitHub's naming conventions, merging the previous `master` and `main` branches.
+
+Finally, push your local files to the remote GitHub repository by using the command `git push -u origin main`. This command uploads your files to GitHub, making them accessible to collaborators and ensuring version control for your project.
+
+Following these steps ensures seamless integration between your R project and GitHub, facilitating collaboration, version control, and project management.
+
+```{r init_git4, eval = F}
+# initiate the upstream tracking of the project on the GitHub repo
+git remote add origin https://github.com/YourGitHUbUserName/YouGitHubRepositoryName.git
+# set main as main branch (rather than master)
+git branch -M main
+# push content to main
+git push -u origin main
+```
+
+We can then commit changes and push them to the remote GitHub repo.
+
+You can then go to your GitHub repo and check if the documents that we pushed are now in the remote repo.
+
+From now on, you can simply commit all changes that you make to the GitHub repo associated with that Rproject. Other projects can, of course, be connected and pushed to other GitHub repos.
+
+
+# Solving path issues: here {-}
+
+The primary objective of the here package is to streamline file referencing within project-oriented workflows. Unlike the conventional approach of using setwd(), which is susceptible to fragility and heavily reliant on file organisation, here leverages the top-level directory of a project to construct file paths effortlessly.
+
+This approach significantly enhances the robustness of your projects, ensuring that file paths remain functional even if the project is relocated or accessed from a different computer. Moreover, the here package mitigates compatibility issues when transitioning between different operating systems, such as Mac and Windows, which traditionally require distinct path specifications.
+
+
+```{r here_01}
+# define path
+example_path_full <- "D:\\Uni\\Konferenzen\\ISLE\\ISLE_2021\\isle6_reprows/repro.Rmd"
+# show path
+example_path_full
+```
+
+With the `here` package, the path starts in the folder where the Rproj file is. As the Rmd file is in the same folder, we only need to specify the Rmd file and the `here` package will add the rest.
+
+```{r here_02, message=F, warning=F}
+# load package
+library(here)
+# define path using here
+example_path_here <- here::here("repro.Rmd")
+#show path
+example_path_here
+```
+
+
+# Reproducible randomness: set.seed{-}
+
+The `set.seed` function in R sets the seed of R‘s random number generator, which is useful for creating simulations or random objects that can be reproduced. This means that when you call a function that uses some form of randomness (e.g. when using random forests), using the `set.seed` function allows you to replicate results. 
+
+Below is an example of what I mean. First, we generate a random sample from a vector.
+
+
+```{r random 1}
+numbers <- 1:10
+randomnumbers1 <- sample(numbers, 10)
+randomnumbers1
+```
+
+We now draw another random sample using the same `sample` call. 
+
+```{r random 2}
+randomnumbers2 <- sample(numbers, 10)
+randomnumbers2
+```
+
+As you can see, we now have a different string of numbers although we used the same call. However, when we set the seed and then generate a string of numbers as shown below, we create a reproducible random sample.
+
+```{r random 3}
+set.seed(123)
+randomnumbers3 <- sample(numbers, 10)
+randomnumbers3
+```
+
+To show that we can reproduce this sample, we call the same seed and then generate another random sample which will be the same as the previous one because we have set the seed.
+
+```{r random 4}
+set.seed(123)
+randomnumbers4 <- sample(numbers, 10)
+randomnumbers4
+```
+
+
+# Tidy data principles{-}
+
+The same (underlying) data can be represented in multiple ways. The following three tables show the same data but in different ways.
+
+```{r introcmp01, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
+install.packages(tidyr)
+install.packages(gapminder)
+```
+
+```{r introcmp02, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyr)
+library(tidyverse)
+library(gapminder)
+data(gapminder)
+countries <- c("Afghanistan", "Australia", "China", "Germany", "Tanzania")
+Table <- gapminder %>%
+  dplyr::select(country, year, continent, lifeExp) %>%
+  dplyr::filter(year == 2007 | year == 2002,
+                country %in% countries)
+```
+
+
+```{r introcmp03, eval = T, echo=FALSE, message=FALSE, warning=FALSE}
+Table1 <- Table %>%
+  tidyr::spread(year, lifeExp)
+```
+
+```{r tb1, echo=FALSE, message=FALSE, warning=FALSE}
+# inspect data
+Table1 %>%
+  kable(caption = "Table 1.") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                            full_width = F)
+```
+
+
+```{r introcmp04, eval = T, echo=FALSE, message=FALSE, warning=FALSE}
+Table2 <- Table %>%
+  dplyr::mutate(country = paste(country, " (", continent, ")", sep = "")) %>%
+  dplyr::select(-continent) %>%
+  tidyr::spread(country, lifeExp)
+```
+
+```{r tb2, echo=FALSE, message=FALSE, warning=FALSE}
+# inspect data
+Table2 %>%
+  kable(caption = "Table 2.") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                            full_width = F)
+```
+
+
+```{r introcmp05, eval = T, echo=FALSE, message=FALSE, warning=FALSE}
+Table3 <- Table
+```
+
+
+```{r tb3, echo=FALSE, message=FALSE, warning=FALSE}
+# inspect data
+Table3 %>%
+  kable(caption = "Table 3.") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), 
+                            full_width = F)
+```
+
+Table 3 should be the easiest to parse and understand. This is because only Table 3 is *tidy*. Unfortunately, however, most data that you will encounter will be untidy. There are two main reasons:
+
+* Most people aren’t familiar with the principles of tidy data, and it’s hard to derive them yourself unless you spend a lot of time working with data.
+
+* Data is often organised to facilitate some use other than analysis. For example, data is often organised to make entry as easy as possible.
+
+This means that for most real analyses, you’ll need to do some tidying. The first step is always to figure out what the variables and observations are. Sometimes this is easy; other times you’ll need to consult with the people who originally generated the data. The second step is to resolve one of two common problems:
+
+* One variable might be spread across multiple columns.
+
+* One observation might be scattered across multiple rows.
+
+To avoid structuring data in ways that make it harder to parse, there are three interrelated principles which make a data set tidy:
+
+* Each variable must have its own column.
+
+* Each observation must have its own row.
+
+* Each value must have its own cell.
+
+An additional advantage of tidy data is that is can be transformed more easily into any other format when needed.
+
+## How to minimise storage space{-}
+
+Most people use or rely on data that comes in spreadsheets and use software such as Microsoft Excel or OpenOffice Calc. However, spreadsheets produced by these software applications take up a lot of storage space. 
+
+One way to minimise the space, that your data takes up, is to copy the data and paste it into a simple editor or txt-file. The good thing about txt files is that they take up only very little space and they can be viewed easily so that you can open the file to see what the data looks like. You could then delete the spread sheet because you can copy and paste the content of the txt file right back into a spread sheet when you need it. 
+
+If you work with R, you may also consider saving your data as .rda files which is a very efficient way of saving and storing data in an R environment.
+
+Below is an example for how you can load, process, and save your data as .rda in RStudio.
+
+```{r dt_01, message=F, warning=F}
+# load data
+lmm <- read.delim("tutorials/repro/data/lmmdata.txt", header = TRUE)
+# convert strings to factors
+lmm <- lmm %>%
+  mutate(Genre = factor(Genre),
+         Text = factor(Text),
+         Region = factor(Region))
+# save data
+base::saveRDS(lmm, file = here::here("tutorials/repro/data", "lmm_out.rda"))
+# remove lmm object
+rm(lmm)
+# load .rda data
+lmm  <- base::readRDS(file = here::here("tutorials/repro/data", "lmm_out.rda"))
+# or from web
+lmm  <- base::readRDS("tutorials/repro/data/lmm.rda", "rb")
+# inspect data
+str(lmm)
+```
+
+
+To compare, the `lmmdata.txt` requires 19.2KB while the `lmmdata.rda` only requires 5.2KB (and only 4.1KB with *xz* compression). If stored as an Excel spreadsheet, the same file requires 28.6KB.
+
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2024. *Reproducibility with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/repro.html (Version 2025.08.01).
+
+```
+@manual{schweinberger2025repro,
+  author = {Schweinberger, Martin},
+  title = {Reproducibility with R},
+  note = {tutorials/repro/repro.html},
+  year = {2025},
+  organization = {The University of Queensland, School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2025.08.01}
+}
+```
+
+
+
+```{r fin}
+sessionInfo()
+```
+
+
+***
+
+[Back to top](#introduction)
+
+[Back to HOME](/)
+
+***
+
+
+
