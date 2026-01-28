@@ -1,5 +1,5 @@
 ---
-title: "Concordancing with R"
+title: "Finding Words in Text: Concordancing"
 author: "Martin Schweinberger"
 ---
 
@@ -7,41 +7,19 @@ author: "Martin Schweinberger"
 
 # Introduction{-}
 
-This tutorial introduces concordancing and keyword-in-context (KWIC) displays with R using the `quanteda` package [@quanteda2018package]. 
+Have you ever wondered how researchers find patterns in large collections of text — whether in tweets, news articles, or novels? 
+
+One powerful technique is concordancing: searching for specific words or phrases and viewing them in their surrounding context. When your search term appears highlighted in the middle of each line, with words before and after it neatly aligned, you're looking at a keyword-in-context (KWIC) display. These displays reveal patterns invisible to casual reading—showing how words are actually used and what meanings emerge from their contexts. This tutorial will show you how to find words and phrases in text(s) and how to create KWIC concordances using R and the `quanteda` package [@quanteda2018package]. 
 
 <div class="warning">
 <span>
 <p style='margin-top:1em; text-align:center'>
-Please cite as: <br>Schweinberger, Martin. 2024. *Concordancing with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: tutorials/kwics.html (Version 2024.05.07).<br>
-</p>
-</span>
-</div>
-
-
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
-
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to extract words and phrases from textual data and how to process the resulting concordances using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with concordancing. 
-
-
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-  <li>[String Processing in R](/tutorials/string/string.html) </li>
-  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>
-</ul>
+Please cite as: <br>Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: tutorials/kwics.html (Version 2026.01.30).<br>
 </p>
 </span>
 </div>
 
 <br>
-
 
 <div class="warning">
 <span>
@@ -86,9 +64,13 @@ Click [**here**](`r binder_url`) to open a notebook-based tool <br>that allows y
 
 <br>
 
-Concordancing is a fundamental tool in language sciences, involving the extraction of words from a given text or texts [@lindquist2009corpus 5]. Typically, these extractions are displayed through keyword-in-context displays (KWICs), where the search term, also referred to as the *node word*, is showcased within its surrounding context, comprising both preceding and following words. Concordancing serves as a cornerstone for textual analyses, often serving as the initial step towards more intricate examinations of language data [@stafanowitsch2020corpus]. Their significance lies in their capacity to provide insights into how words or phrases are utilised, their frequency of occurrence, and the contexts in which they appear. By facilitating the examination of a word or phrase's contextual usage and offering frequency data, concordances empower researchers to delve into collocations or the collocational profiles of words and phrases [@stafanowitsch2020corpus 50-51]. 
+Concordancing is a fundamental tool in language sciences, involving the extraction of words from a given text or texts [@lindquist2009corpus 5]. Typically, the extracted words or phrases are displayed through keyword-in-context displays (KWICs), where the search term, also referred to as the *node word*, is showcased within its surrounding context, containing both preceding and following words.
 
-Examples of concordancing applications:
+Concordancing serves as a cornerstone for many analyses involving text(s), often being the initial step leading towards more detailed examinations of language data [@stafanowitsch2020corpus]. The significance of concordancing lies in its capacity to provide insights into how words or phrases are used, their frequency of occurrence, and the contexts in which they appear. By making it possible to examine a word's or a phrase's contextual use and offering frequency data, concordances empower researchers to better understand usag patterns, surrounding words (collocations), or the collocational profiles of words and phrases [@stafanowitsch2020corpus 50-51]. 
+
+## Examples of concordancing applications{-}
+
+Finding and extracting words from text (concordancing) has a broad avriety of uses. Below, we provide some examples of how and why concordancing can be useful as a method to probe text(s).
 
 1. **Linguistic Research**: Linguists often use concordances to explore the usage patterns of specific words or phrases in different contexts. For instance, researchers might use concordancing to analyse the various meanings and connotations of a polysemous word across different genres of literature.
 
@@ -145,9 +127,34 @@ By addressing these key limitations, R emerges as a robust and versatile platfor
 
 The Replication Crisis, which has affected various fields since the early 2010s [@fanelli2009fraud], underscores the importance of transparent and replicable research practices. R's capability to document workflows comprehensively in scripts or Notebooks addresses this challenge directly. Researchers can readily share their scripts or Notebooks with others, enabling full transparency and facilitating replication of analyses. This emphasis on transparency and replicability aligns closely with best practices in scientific research, ensuring that findings can be scrutinised, validated, and built upon by the broader research community.
 
+# Practice: Concordancing with R{-}
+
+This practice part of the tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to extract words and phrases from textual data and how to process the resulting concordances using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with concordancing. 
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+<div class="warning">
+<span>
+<p style='margin-top:1em; text-align:center'>
+To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
+</p>
+<p style='margin-top:1em; text-align:left'>
+<ul>
+  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
+  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
+  <li>[String Processing in R](/tutorials/string/string.html) </li>
+  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>
+</ul>
+</p>
+</span>
+</div>
+
+<br>
+
+
 **Preparation and session set up**
 
-This tutorial is conducted within the R environment. If you're new to R or haven't installed it yet, you can find an introduction to R and further instructions on how to use it [here](/tutorials/intror/intror.html). To ensure smooth execution of the scripts provided in this tutorial, you'll need to install some packages from the R library. To install the necessary packages, simply execute the following code. This may take up to 5 minutes, so don't worry if it takes a while.
+As indicated above, this practical part of the tutorial is conducted within the R environment. If you're new to R or haven't installed it yet, you can find an introduction to R and further instructions on how to use it [here](/tutorials/intror/intror.html). To ensure smooth execution of the scripts provided in this tutorial, you'll need to install some packages from the R library. To install the necessary packages, simply execute the following code. This may take up to 5 minutes, so don't worry if it takes a while.
 
 ```{r prep1, echo=T, eval = F}
 # install packages
@@ -1145,18 +1152,18 @@ You can go ahead and modify the customised concordance function to suit your nee
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2024. *Concordancing with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: tutorials/kwics.html (Version 2024.05.07).
+Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: tutorials/kwics.html (Version 2026.01.30).
 
 
 ```
-@manual{schweinberger2024kwics,
+@manual{schweinberger2026kwics,
   author = {Schweinberger, Martin},
-  title = {Concordancing with R},
+  title = {Finding Words in Text: Concordancing},
   note = {tutorials/kwics/kwics.html},
-  year = {2024},
+  year = {2026},
   organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
   address = {Brisbane},
-  edition = {2024.05.07}
+  edition = {2026.01.30}
 }
 ```
 
