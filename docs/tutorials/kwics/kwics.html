@@ -237,7 +237,13 @@ gtag('config', 'G-VSGK4KYDQZ', { 'anonymize_ip': true});
   <ul class="collapse">
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a>
   <ul class="collapse">
+  <li><a href="#what-is-concordancing" id="toc-what-is-concordancing" class="nav-link" data-scroll-target="#what-is-concordancing">What is concordancing?</a></li>
+  <li><a href="#why-concordancing-matters" id="toc-why-concordancing-matters" class="nav-link" data-scroll-target="#why-concordancing-matters">Why concordancing matters</a></li>
+  <li><a href="#from-observation-to-analysis" id="toc-from-observation-to-analysis" class="nav-link" data-scroll-target="#from-observation-to-analysis">From observation to analysis</a></li>
   <li><a href="#examples-of-concordancing-applications" id="toc-examples-of-concordancing-applications" class="nav-link" data-scroll-target="#examples-of-concordancing-applications">Examples of concordancing applications</a></li>
+  <li><a href="#concordancing-tools" id="toc-concordancing-tools" class="nav-link" data-scroll-target="#concordancing-tools">Concordancing tools</a></li>
+  <li><a href="#why-use-r-for-concordancing" id="toc-why-use-r-for-concordancing" class="nav-link" data-scroll-target="#why-use-r-for-concordancing">Why use R for concordancing?</a></li>
+  <li><a href="#what-youll-learn-in-this-tutorial" id="toc-what-youll-learn-in-this-tutorial" class="nav-link" data-scroll-target="#what-youll-learn-in-this-tutorial">What you’ll learn in this tutorial</a></li>
   </ul></li>
   <li><a href="#practice-concordancing-with-r" id="toc-practice-concordancing-with-r" class="nav-link" data-scroll-target="#practice-concordancing-with-r">Practice: Concordancing with R</a>
   <ul class="collapse">
@@ -294,14 +300,20 @@ gtag('config', 'G-VSGK4KYDQZ', { 'anonymize_ip': true});
 <h1 class="unnumbered">Introduction</h1>
 <p>Have you ever wondered how researchers find patterns in large collections of text — whether in tweets, news articles, or novels?</p>
 <p>One powerful technique is concordancing: searching for specific words or phrases and viewing them in their surrounding context. When your search term appears highlighted in the middle of each line, with words before and after it neatly aligned, you’re looking at a keyword-in-context (KWIC) display. These displays reveal patterns invisible to casual reading—showing how words are actually used and what meanings emerge from their contexts. This tutorial will show you how to find words and phrases in text(s) and how to create KWIC concordances using R and the <code>quanteda</code> package <span class="citation" data-cites="quanteda2018package">(<a href="#ref-quanteda2018package" role="doc-biblioref">Benoit et al. 2018</a>)</span>.</p>
-<div class="warning">
-<span>
-<p style="margin-top:1em; text-align:center">
-Please cite as: <br>Schweinberger, Martin. 2026. <em>Finding Words in Text: Concordancing</em>. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: tutorials/kwics.html (Version 2026.01.30).<br>
-</p>
-<p></p>
-</span></div>
-<p><br></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If you use this tutorial, please cite as:<br>
+Schweinberger, Martin. 2026. <em>Finding Words in Text: Concordancing</em>. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/kwics/kwics.html (version 2026.01.30)</p>
+</div>
+</div>
 <div class="warning">
 <span>
 <p style="margin-top:1em; text-align:center">
@@ -316,46 +328,122 @@ Please cite as: <br>Schweinberger, Martin. 2026. <em>Finding Words in Text: Conc
 <p></p>
 </span></div>
 <p><br></p>
-<p>Concordancing is a fundamental tool in language sciences, involving the extraction of words from a given text or texts <span class="citation" data-cites="lindquist2009corpus">(<a href="#ref-lindquist2009corpus" role="doc-biblioref">Lindquist 2009, 104:5</a>)</span>. Typically, the extracted words or phrases are displayed through keyword-in-context displays (KWICs), where the search term, also referred to as the <em>node word</em>, is showcased within its surrounding context, containing both preceding and following words.</p>
-<p>Concordancing serves as a cornerstone for many analyses involving text(s), often being the initial step leading towards more detailed examinations of language data <span class="citation" data-cites="stafanowitsch2020corpus">(<a href="#ref-stafanowitsch2020corpus" role="doc-biblioref">Stefanowitsch 2020</a>)</span>. The significance of concordancing lies in its capacity to provide insights into how words or phrases are used, their frequency of occurrence, and the contexts in which they appear. By making it possible to examine a word’s or a phrase’s contextual use and offering frequency data, concordances empower researchers to better understand usag patterns, surrounding words (collocations), or the collocational profiles of words and phrases <span class="citation" data-cites="stafanowitsch2020corpus">(<a href="#ref-stafanowitsch2020corpus" role="doc-biblioref">Stefanowitsch 2020, 50–51</a>)</span>.</p>
+<section id="what-is-concordancing" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="what-is-concordancing">What is concordancing?</h2>
+<p>Concordancing is a fundamental tool in language sciences, involving the extraction of words or phrases from a given text or collection of texts <span class="citation" data-cites="lindquist2009corpus">(<a href="#ref-lindquist2009corpus" role="doc-biblioref">Lindquist 2009, 104:5</a>)</span>. At its core, concordancing allows researchers to search through large amounts of text and retrieve every instance of a particular word or phrase, displaying each occurrence within its immediate linguistic environment. This seemingly simple operation has profound implications for how we understand language use.</p>
+<p>Typically, the extracted words or phrases are displayed through keyword-in-context displays (KWICs), where the search term—also referred to as the node word—is showcased within its surrounding context, containing both preceding and following words. The power of this display format lies in its ability to present multiple instances of a word simultaneously, allowing patterns to emerge that would be impossible to detect through traditional close reading alone.</p>
+<p>Consider, for example, the word “fast.” Reading through a novel, you might encounter it a dozen times without recognizing any systematic patterns. But a concordance instantly reveals whether the author uses it primarily as an adjective (“fast car”), an adverb (“run fast”), or a verb (“to fast”), and what words consistently appear nearby. This bird’s-eye view of lexical behavior forms the foundation for deeper linguistic investigation.</p>
+</section>
+<section id="why-concordancing-matters" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="why-concordancing-matters">Why concordancing matters</h2>
+<p>Concordancing serves as a cornerstone for many analyses involving text(s), often being the initial step leading towards more detailed examinations of language data <span class="citation" data-cites="stafanowitsch2020corpus">(<a href="#ref-stafanowitsch2020corpus" role="doc-biblioref">Stefanowitsch 2020</a>)</span>. The significance of concordancing lies in its capacity to provide insights into how words or phrases are used, their frequency of occurrence, and the contexts in which they appear.</p>
+<p>By making it possible to examine a word’s or phrase’s contextual use and offering frequency data, concordances empower researchers to better understand usage patterns, collocations (words that frequently appear together), and the collocational profiles of words and phrases <span class="citation" data-cites="stafanowitsch2020corpus">(<a href="#ref-stafanowitsch2020corpus" role="doc-biblioref">Stefanowitsch 2020, 50–51</a>)</span>. Rather than relying on intuition or selective examples, concordancing provides systematic, evidence-based insights into actual language use.</p>
+<p>Moreover, concordancing addresses a fundamental challenge in language research: the gap between our intuitions about how language works and how it actually functions in practice. Native speakers often have strong beliefs about word meanings and usage, but these beliefs can be surprisingly inaccurate when confronted with corpus evidence. Concordancing allows us to ground our claims in observable data, making linguistic analysis more rigorous and empirical.</p>
+</section>
+<section id="from-observation-to-analysis" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="from-observation-to-analysis">From observation to analysis</h2>
+<p>The beauty of concordancing lies not just in what it shows, but in what it enables. Once you have extracted concordance lines, you can:</p>
+<ul>
+<li>Identify semantic patterns: Observe the different senses of polysemous words and how context disambiguates meaning<br>
+</li>
+<li>Discover collocations: Find words that habitually co-occur, revealing lexical relationships<br>
+</li>
+<li>Track language change: Compare concordances from different time periods to see how usage evolves<br>
+</li>
+<li>Explore register variation: Examine how the same word behaves differently across genres or text types<br>
+</li>
+<li>Validate linguistic theories: Test hypotheses about grammatical patterns or semantic categories against real usage data</li>
+</ul>
+<p>In essence, concordancing transforms texts from objects to be read linearly into databases to be queried systematically. This shift in perspective has revolutionized how we study language.</p>
+</section>
 <section id="examples-of-concordancing-applications" class="level2 unnumbered">
 <h2 class="unnumbered anchored" data-anchor-id="examples-of-concordancing-applications">Examples of concordancing applications</h2>
-<p>Finding and extracting words from text (concordancing) has a broad avriety of uses. Below, we provide some examples of how and why concordancing can be useful as a method to probe text(s).</p>
-<ol type="1">
-<li><p><strong>Linguistic Research</strong>: Linguists often use concordances to explore the usage patterns of specific words or phrases in different contexts. For instance, researchers might use concordancing to analyse the various meanings and connotations of a polysemous word across different genres of literature.</p></li>
-<li><p><strong>Language Teaching</strong>: Concordancing can be a valuable tool in language teaching. Educators can create concordances to illustrate how vocabulary words are used in authentic contexts, helping students grasp their usage nuances and collocational patterns.</p></li>
-<li><p><strong>Stylistic Analysis</strong>: Literary scholars use concordances to conduct stylistic analyses of texts. By examining how certain words or phrases are employed within a literary work, researchers can gain insights into the author’s writing style, thematic concerns, and narrative techniques.</p></li>
-<li><p><strong>Translation Studies</strong>: Concordancing is also applied in translation studies to analyse the usage of specific terms or expressions in source and target languages. Translators use concordances to identify appropriate equivalents and ensure accurate translation of idiomatic expressions and collocations.</p></li>
-<li><p><strong>Lexicography</strong>: Lexicographers employ concordances to compile and refine dictionaries. By examining the contexts in which words appear, lexicographers can identify common collocations and usage patterns, informing the creation of more comprehensive and accurate lexical entries.</p></li>
-</ol>
-<p>These examples underscore the usefulness of concordancing across various disciplines within the language sciences, showcasing its role in facilitating nuanced analyses and insights into language usage.</p>
-<p><img src="../..\images/AntConcConcordance.png" class="img-fluid" style="width:100.0%"></p>
-<p>There are many great software packages that can be used to create concordances. These include:</p>
+<p>Finding and extracting words from text has a broad variety of uses across multiple disciplines. Below, we provide examples of how and why concordancing can be valuable as a method to probe text(s).</p>
+<p><strong>Linguistic Research</strong>: Linguists use concordances to explore the usage patterns of specific words or phrases across different contexts. For instance, researchers might use concordancing to analyse the various meanings and connotations of a polysemous word across different genres of literature, or to investigate how grammatical constructions vary between spoken and written language. Concordancing has been instrumental in corpus linguistics studies examining phenomena from verb complementation patterns to the grammaticalization of discourse markers.</p>
+<p><strong>Language Teaching</strong>: Concordancing can be a valuable tool in language education, particularly in data-driven learning approaches. Educators can create concordances to illustrate how vocabulary words are used in authentic contexts, helping students grasp their usage nuances and collocational patterns. Rather than memorizing isolated word definitions, learners can observe how native speakers actually employ words in real texts, developing a more intuitive understanding of appropriate usage. This approach has proven particularly effective for teaching phrasal verbs, prepositions, and other notoriously difficult aspects of second language acquisition.</p>
+<p><strong>Stylistic Analysis</strong>: Literary scholars use concordances to conduct stylistic analyses of texts. By examining how certain words or phrases are employed within a literary work, researchers can gain insights into the author’s writing style, thematic concerns, and narrative techniques. Concordancing can reveal, for example, how an author’s use of color terms evolves across their oeuvre, or how dialogue differs systematically from narration in their prose. This quantitative approach complements traditional close reading, offering empirical support for interpretive claims.</p>
+<p><strong>Translation Studies</strong>: Concordancing is widely applied in translation studies to analyse the usage of specific terms or expressions in source and target languages. Translators use concordances to identify appropriate equivalents and ensure accurate translation of idiomatic expressions and collocations. Parallel concordancers, which align source and target texts, allow translators to see how professional translators have handled similar challenges in the past, building translation memory and maintaining consistency across large projects.</p>
+<p><strong>Lexicography</strong>: Lexicographers employ concordances extensively to compile and refine dictionaries. By examining the contexts in which words appear, lexicographers can identify common collocations, usage patterns, and subtle meaning distinctions that inform the creation of more comprehensive and accurate lexical entries. Modern dictionaries increasingly rely on corpus evidence obtained through concordancing rather than the lexicographer’s intuition alone, resulting in more representative and usage-based definitions.</p>
+<p><strong>Content Analysis and Digital Humanities</strong>: Beyond traditional language research, concordancing has found applications in content analysis, sentiment analysis, and digital humanities projects. Researchers use concordancing to track how specific concepts or entities are discussed across large document collections, to identify bias or framing in news coverage, or to analyse historical discourses and their evolution over time.</p>
+<p>These examples underscore the usefulness of concordancing across various disciplines within the language sciences and beyond, showcasing its role in facilitating nuanced analyses and insights into language usage.</p>
+</section>
+<section id="concordancing-tools" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="concordancing-tools">Concordancing tools</h2>
+<p>There are many excellent software tools available for concordancing, ranging from simple to sophisticated, each suited to different needs and skill levels. The landscape of concordancing tools can be broadly divided into three categories: standalone desktop applications, web-based interfaces, and programming-based solutions. Understanding the strengths and typical use cases of each can help you choose the right tool for your research needs.</p>
+<section id="standalone-desktop-applications" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="standalone-desktop-applications">Standalone desktop applications</h3>
+<p>Desktop concordancing applications offer powerful functionality combined with graphical user interfaces that don’t require programming knowledge. These tools are typically installed on your computer and allow you to work with your own text collections.</p>
+<p><strong>AntConc</strong>, developed by Laurence Anthony, is perhaps the most popular free concordancing tool in language research and teaching. Its widespread adoption stems from its combination of power and accessibility—it provides sophisticated search capabilities, collocate analysis, and frequency lists while remaining intuitive enough for beginners. AntConc runs on Windows, Mac, and Linux systems, and its interface presents concordance lines in a clean, readable format that makes pattern recognition straightforward. The tool also includes cluster analysis and n-gram generation, making it suitable for research beyond basic concordancing.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../..\images/AntConcConcordance.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>AntConc Keyword-in-Context display (concordance lines) of the term “language” in the BROWN corpus.</figcaption>
+</figure>
+</div>
+<p><strong>WordSmith Tools</strong> is a commercial package that has long been the professional standard for corpus linguistics research. While it requires purchase, it offers extensive features including detailed statistical analyses, dispersion plots showing where terms appear across texts, and sophisticated keyword analysis that identifies words characteristic of your corpus compared to a reference corpus. WordSmith’s strength lies in its comprehensive suite of interconnected tools that support the entire research workflow from exploration to publication-ready visualizations.</p>
+<p><strong>SketchEngine</strong> represents a hybrid approach, offering both a desktop application and web-based access. It provides not only concordancing but also automated corpus processing, terminology extraction, and “word sketches” that summarize a word’s grammatical and collocational behavior at a glance. SketchEngine is particularly strong for working with multiple languages and includes access to pre-loaded corpora in dozens of languages, making it valuable for comparative and cross-linguistic research.</p>
+</section>
+<section id="specialized-concordancing-software" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="specialized-concordancing-software">Specialized concordancing software</h3>
+<p>Several other tools cater to more specialized needs:</p>
 <ul>
-<li><a href="https://www.laurenceanthony.net/software/antconc/"><em>AntConc</em></a> <span class="citation" data-cites="anthony2004antconc">(<a href="#ref-anthony2004antconc" role="doc-biblioref">Anthony 2004</a>)</span></li>
-<li><a href="https://www.sketchengine.eu/"><em>SketchEngine</em></a> <span class="citation" data-cites="kilgarriff2004itri">(<a href="#ref-kilgarriff2004itri" role="doc-biblioref">Kilgarriff et al. 2004</a>)</span></li>
-<li><a href="https://www.monoconc.com/"><em>MONOCONC</em></a> <span class="citation" data-cites="barlow1999monoconc">(<a href="#ref-barlow1999monoconc" role="doc-biblioref">Barlow 1999</a>)</span></li>
-<li><a href="https://paraconc.com/"><em>ParaConc</em></a>) <span class="citation" data-cites="barlow2002paraconc">(<a href="#ref-barlow2002paraconc" role="doc-biblioref">Barlow 2002</a>)</span></li>
+<li><a href="https://www.laurenceanthony.net/software/antconc/"><em>AntConc</em></a> <span class="citation" data-cites="anthony2004antconc">(<a href="#ref-anthony2004antconc" role="doc-biblioref">Anthony 2004</a>)</span>- Free, cross-platform, ideal for teaching and research</li>
+<li><a href="https://www.sketchengine.eu/"><em>SketchEngine</em></a> <span class="citation" data-cites="kilgarriff2004itri">(<a href="#ref-kilgarriff2004itri" role="doc-biblioref">Kilgarriff et al. 2004</a>)</span> - Commercial/academic licenses, extensive pre-loaded corpora</li>
+<li><a href="https://www.lexically.net/wordsmith/"><em>WordSmith</em></a> <span class="citation" data-cites="sardinha1996wordsmith">(<a href="#ref-sardinha1996wordsmith" role="doc-biblioref">Sardinha 1996</a>)</span></li>
+<li>Commercial, comprehensive statistical analysis</li>
+<li><a href="https://www.monoconc.com/"><em>MONOCONC</em></a> <span class="citation" data-cites="barlow1999monoconc">(<a href="#ref-barlow1999monoconc" role="doc-biblioref">Barlow 1999</a>)</span>- Focused on monolingual concordancing</li>
+<li><a href="https://paraconc.com/"><em>ParaConc</em></a>) <span class="citation" data-cites="barlow2002paraconc">(<a href="#ref-barlow2002paraconc" role="doc-biblioref">Barlow 2002</a>)</span> - Specialized for parallel texts and translation studies</li>
 <li><a href="https://lextutor.ca/conc/"><em>Web Concordancers</em></a></li>
-<li><a href="https://corpusmate.com/"><em>CorpusMate</em></a> <span class="citation" data-cites="corpusmate">(<a href="#ref-corpusmate" role="doc-biblioref">Crosthwaite and Baisa 2024</a>)</span></li>
+<li><a href="https://corpusmate.com/"><em>CorpusMate</em></a> <span class="citation" data-cites="corpusmate">(<a href="#ref-corpusmate" role="doc-biblioref">Crosthwaite and Baisa 2024</a>)</span> - Web-based with collaborative features</li>
 </ul>
-<p>In addition, many corpora that are available online, such as the <a href="https://corpus.byu.edu/overview.asp">BYU corpora</a>, can be accessed via web interfaces that have in-built concordancing functions.</p>
-<p><img src="../..\images/KwicCocaLanguage.png" class="img-fluid" style="width:100.0%"> Online concordances extracted from the COCA corpus that is part of the BYU corpora.</p>
-<p>While many concordance software packages boast user-friendly interfaces and additional functionalities, their inherent limitations make R a compelling alternative. These shortcomings include:</p>
+<p><strong>ParaConc</strong> deserves special mention for translation studies, as it’s specifically designed to handle parallel texts—source texts aligned with their translations. This makes it invaluable for translators and translation researchers examining how specific terms or constructions are rendered across languages.</p>
+</section>
+<section id="web-based-concordancers-and-corpus-interfaces" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="web-based-concordancers-and-corpus-interfaces">Web-based concordancers and corpus interfaces</h3>
+<p>Many corpora available online can be accessed via web interfaces with built-in concordancing functions, eliminating the need to download software or compile your own text collections. These platforms provide immediate access to massive, professionally curated corpora.</p>
+<p>The BYU corpora, created by Mark Davies, represent one of the most significant resources for English corpus linguistics. This suite includes the Corpus of Contemporary American English (COCA) with over one billion words, the Corpus of Historical American English (COHA) spanning 200 years, and numerous other specialized corpora. Their web interfaces allow sophisticated concordancing with filters for genre, date, and other metadata—making it possible to track language change or compare usage across different text types.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../..\images/KwicCocaLanguage.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>Keyword-in-Context display (concordance lines) of the term “language” in the Corpus of Contemporary American English.</figcaption>
+</figure>
+</div>
+<p><strong>Web concordancers</strong> like those available at Lextutor provide quick access to concordancing without any software installation. These are particularly useful for exploratory searches, classroom demonstrations, or situations where you need to quickly check how a word or phrase is used without setting up a full analytical environment.</p>
+<p>The advantage of web-based platforms is their accessibility—anyone with a browser can begin exploring language immediately. However, you’re limited to searching the corpora provided by these platforms and typically cannot upload your own texts or customize analyses beyond the options the interface provides.</p>
+</section>
+<section id="programming-based-solutions" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="programming-based-solutions">Programming-based solutions</h3>
+<p>For researchers requiring maximum flexibility, reproducibility, and integration with other analytical tools, programming languages like R and Python offer unmatched power. The quanteda package in R, which we’ll use throughout this tutorial, exemplifies this approach by providing comprehensive text analysis capabilities within a scriptable, reproducible framework. Similarly, Python’s Natural Language Toolkit (NLTK) and other packages offer concordancing alongside machine learning and natural language processing tools.</p>
+</section>
+<section id="choosing-the-right-tool" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="choosing-the-right-tool">Choosing the right tool</h3>
+<p>The “best” concordancing tool depends entirely on your specific needs:</p>
 <ul>
-<li><p><strong>Lack of Transparency</strong>: Traditional concordance software often operate as black boxes, leaving researchers without full control or insight into the inner workings of the software. This opacity can compromise the reproducibility and transparency of analyses, as researchers are unable to fully understand or document the analytical process.</p></li>
-<li><p><strong>Closed Source</strong>: The proprietary nature of many concordance software packages restricts access to their source code, hindering collaborative development and innovation within the research community. In contrast, R’s open-source framework encourages transparency, collaboration, and customisation, empowering researchers to tailor analyses to their specific needs.</p></li>
-<li><p><strong>Replication Challenges</strong>: Replicating analyses conducted using traditional concordance software can be time-consuming and labour-intensive, particularly when compared to analyses documented in Notebooks. R’s integrated scripting environment facilitates reproducibility by allowing researchers to document their entire workflow in a clear, executable format, streamlining the replication process and enhancing research transparency.</p></li>
-<li><p><strong>Cost and Restrictions</strong>: Many concordance software packages are not free-of-charge or impose usage restrictions, limiting accessibility for researchers with budget constraints or specific licensing requirements. While exceptions like <em>AntConc</em> exist, the prevalence of cost barriers or usage restrictions underscores the importance of open-source alternatives like R, which offer greater accessibility and flexibility for researchers across diverse settings.</p></li>
+<li>For teaching and learning: AntConc or web concordancers provide immediate, accessible entry points<br>
+</li>
+<li>For quick exploratory analyses: Web-based corpus interfaces or AntConc offer fast results without setup overhead<br>
+</li>
+<li>For translation work: ParaConc’s parallel text handling is purpose-built for this application<br>
+</li>
+<li>For comprehensive corpus linguistic research: WordSmith Tools or SketchEngine provide extensive professional features<br>
+</li>
+<li>For reproducible research workflows: R or Python allow documentation and sharing of complete analytical procedures<br>
+</li>
+<li>For large-scale or custom analyses: Programming-based solutions offer the necessary flexibility and power</li>
 </ul>
-<p>By addressing these key limitations, R emerges as a robust and versatile platform for concordancing, offering researchers greater transparency, flexibility, and accessibility. As such, R offers a compelling alternative to off-the-shelf concordancing applications for several reasons:</p>
-<ul>
-<li><p><strong>Flexibility</strong>: R provides unparalleled flexibility, allowing researchers to conduct their entire analysis within a single environment. This versatility enables users to tailor their analysis precisely to their research needs, incorporating custom functions and scripts as required.</p></li>
-<li><p><strong>Transparency and Documentation</strong>: One of R’s strengths lies in its capacity for full transparency and documentation. Analyses can be documented and presented in R Notebooks, providing a comprehensive record of the analytical process. This transparency ensures that every step of the analysis is clearly documented, enhancing the reproducibility of research findings.</p></li>
-<li><p><strong>Version Control</strong>: R offers robust version control measures, enabling researchers to track and trace specific versions of software and packages used in their analysis. This ensures that analyses are conducted using consistent software environments, minimising the risk of discrepancies or errors due to software updates or changes.</p></li>
-<li><p><strong>Replicability</strong>: Replicability is paramount in scientific research, particularly in light of the ongoing Replication Crisis <span class="citation" data-cites="atlantic2018psychology fivethirtyeight2018replication noba2019replication physorg2018replication sciencealert2018replication">(<a href="#ref-atlantic2018psychology" role="doc-biblioref">Yong 2018</a>; <a href="#ref-fivethirtyeight2018replication" role="doc-biblioref">Aschwanden 2018</a>; <a href="#ref-noba2019replication" role="doc-biblioref">Diener and Biswas-Diener 2019</a>; <a href="#ref-physorg2018replication" role="doc-biblioref">Velasco 2019</a>; <a href="#ref-sciencealert2018replication" role="doc-biblioref">McRae 2018</a>)</span>. By conducting analyses within R and documenting the entire workflow in scripts or Notebooks, researchers facilitate easy replication of their analyses by others. This not only enhances the credibility and robustness of research findings but also fosters greater collaboration and transparency within the scientific community.</p></li>
-</ul>
-<p>The Replication Crisis, which has affected various fields since the early 2010s <span class="citation" data-cites="fanelli2009fraud">(<a href="#ref-fanelli2009fraud" role="doc-biblioref">Fanelli 2009</a>)</span>, underscores the importance of transparent and replicable research practices. R’s capability to document workflows comprehensively in scripts or Notebooks addresses this challenge directly. Researchers can readily share their scripts or Notebooks with others, enabling full transparency and facilitating replication of analyses. This emphasis on transparency and replicability aligns closely with best practices in scientific research, ensuring that findings can be scrutinised, validated, and built upon by the broader research community.</p>
+<p>Many researchers maintain familiarity with multiple tools, selecting the most appropriate one for each specific task. As you develop your concordancing skills, you may find yourself moving between different tools depending on whether you’re conducting exploratory analysis, teaching, or preparing reproducible research for publication.</p>
+</section>
+</section>
+<section id="why-use-r-for-concordancing" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="why-use-r-for-concordancing">Why use R for concordancing?</h2>
+<p>Traditional concordancing tools like AntConc and Sketch Engine remain excellent choices for many research tasks, offering intuitive interfaces and immediate results without programming knowledge. They’re particularly valuable for exploratory analyses, teaching contexts, and straightforward concordancing tasks. However, R provides complementary advantages that make it worth considering for certain applications.</p>
+<p>Reproducibility and transparency: R scripts document your entire analytical workflow, allowing you to share exact methodologies with colleagues and reproduce results precisely—increasingly important for research transparency. Flexibility for complex projects: R allows deep customization of search patterns, context windows, and filtering criteria, which becomes invaluable when traditional tools’ preset options don’t quite fit your needs.</p>
+<p>Integration and scalability: R seamlessly integrates concordancing with statistical analysis, visualization, and machine learning within a single environment. It also handles massive datasets that might challenge graphical tools, and all its packages—including quanteda—are free and open-source.</p>
+<p>R does require learning basic programming concepts, but this investment pays dividends across your research career. The choice between R and traditional tools often comes down to your specific project needs: traditional tools excel for quick analyses and teaching, while R shines for reproducible research, complex workflows, and large-scale projects.</p>
+</section>
+<section id="what-youll-learn-in-this-tutorial" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="what-youll-learn-in-this-tutorial">What you’ll learn in this tutorial</h2>
+<p>This tutorial will guide you through the practical steps of concordancing using R and the quanteda package. You’ll learn how to load texts, create concordances with different search patterns, customize your KWIC displays, and extract insights from concordance data. By the end, you’ll have the skills to conduct your own concordancing analyses on any text collection that interests you—whether that’s social media posts, literary works, news articles, or any other textual data. Let’s begin by setting up our R environment and loading some example texts.</p>
 </section>
 </section>
 <section id="practice-concordancing-with-r" class="level1 unnumbered">
@@ -387,7 +475,7 @@ To be able to follow this tutorial, we suggest you check out and familiarise you
 </span></div>
 <p><br></p>
 <p><strong>Preparation and session set up</strong></p>
-<p>As indicated above, this practical part of the tutorial is conducted within the R environment. If you’re new to R or haven’t installed it yet, you can find an introduction to R and further instructions on how to use it <a href="../..\tutorials/intror/intror.html">here</a>. To ensure smooth execution of the scripts provided in this tutorial, you’ll need to install some packages from the R library. To install the necessary packages, simply execute the following code. This may take up to 5 minutes, so don’t worry if it takes a while.</p>
+<p>As indicated above, this practical part of the tutorial is conducted within the R environment. If you’re new to R or haven’t installed it yet, you can find an introduction to R and further instructions on how to use it <a href="../..\tutorials/intror/intror.html">here</a>. To ensure smooth execution of the code used in this tutorial, you’ll need to install some packages from the R library. To install the necessary packages, simply execute the following code. This may take up to 5 minutes, so don’t worry if it takes a while.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># install packages</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">"quanteda"</span>)</span>
@@ -412,7 +500,7 @@ To be able to follow this tutorial, we suggest you check out and familiarise you
 <h2 class="unnumbered anchored" data-anchor-id="loading-and-processing-text">Loading and Processing Text</h2>
 <p>For this tutorial, we will use Lewis Carroll’s classic novel <em>Alice’s Adventures in Wonderland</em> as our primary text dataset. This whimsical tale follows the adventures of Alice as she navigates a fantastical world filled with peculiar characters and surreal landscapes.</p>
 <p><strong>Loading Text (from Project Gutenberg)</strong></p>
-<p>To access the text within R, you can use the following code snippet, ensuring you have an active internet connection:</p>
+<p>To load the text of <em>Alice’s Adventures in Wonderland</em> into R, you can use the following code snippet, ensuring you have an active internet connection:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load Alice's Adventures in Wonderland text into R</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>rawtext <span class="ot">&lt;-</span> <span class="fu">readLines</span>(<span class="st">"https://www.gutenberg.org/files/11/11-0.txt"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1233,9 +1321,6 @@ loaded via a namespace (and not attached):
 <div id="ref-anthony2004antconc" class="csl-entry" role="listitem">
 Anthony, Laurence. 2004. <span>“AntConc: A Learner and Classroom Friendly, Multi-Platform Corpus Analysis Toolkit.”</span> <em>Proceedings of IWLeL</em>, 7–13.
 </div>
-<div id="ref-fivethirtyeight2018replication" class="csl-entry" role="listitem">
-Aschwanden, Christie. 2018. <span>“Psychology’s Replication Crisis Has Made the Field Better.”</span> <a href="https://fivethirtyeight.com/features/psychologys-replication-crisis-has-made-the-field-better/">https://fivethirtyeight.com/features/psychologys-replication-crisis-has-made-the-field-better/</a>.
-</div>
 <div id="ref-barlow1999monoconc" class="csl-entry" role="listitem">
 Barlow, Michael. 1999. <span>“Monoconc 1.5 and Paraconc.”</span> <em>International Journal of Corpus Linguistics</em> 4 (1): 173–84. https://doi.org/<a href="https://doi.org/10.1075/ijcl.4.1.09bar">https://doi.org/10.1075/ijcl.4.1.09bar</a>.
 </div>
@@ -1248,29 +1333,17 @@ Benoit, Kenneth, Kohei Watanabe, Haiyan Wang, Paul Nulty, Adam Obeng, Stefan Mü
 <div id="ref-corpusmate" class="csl-entry" role="listitem">
 Crosthwaite, Peter, and Vít Baisa. 2024. <span>“A User-Friendly Corpus Tool for Disciplinary Data-Driven Learning: Introducing CorpusMate.”</span> <em>International Journal of Corpus Linguistics</em>, April. <a href="https://doi.org/10.1075/ijcl.23056.cro">https://doi.org/10.1075/ijcl.23056.cro</a>.
 </div>
-<div id="ref-noba2019replication" class="csl-entry" role="listitem">
-Diener, Edward, and Robert Biswas-Diener. 2019. <span>“The Replication Crisis in Psychology.”</span> <a href="https://nobaproject.com/modules/the-replication-crisis-in-psychology">https://nobaproject.com/modules/the-replication-crisis-in-psychology</a>.
-</div>
-<div id="ref-fanelli2009fraud" class="csl-entry" role="listitem">
-Fanelli, Daniele. 2009. <span>“How Many Scientists Fabricate and Falsify Research? A Systematic Review and Meta-Analysis of Survey Data.”</span> <em>PLoS One</em> 4: e5738. https://doi.org/<a href="https://doi.org/10.1371/journal.pone.0005738">https://doi.org/10.1371/journal.pone.0005738</a>.
-</div>
 <div id="ref-kilgarriff2004itri" class="csl-entry" role="listitem">
 Kilgarriff, Adam, Pavel Rychly, Pavel Smrz, and David Tugwell. 2004. <span>“Itri-04-08 the Sketch Engine.”</span> <em>Information Technology</em> 105: 116.
 </div>
 <div id="ref-lindquist2009corpus" class="csl-entry" role="listitem">
 Lindquist, Hans. 2009. <em>Corpus Linguistics and the Description of English</em>. Vol. 104. Edinburgh: Edinburgh University Press.
 </div>
-<div id="ref-sciencealert2018replication" class="csl-entry" role="listitem">
-McRae, Mike. 2018. <span>“Science’s ’Replication Crisis’ Has Reached Even the Most Respectable Journals, Report Shows.”</span> <a href="https://www.sciencealert.com/replication-results-reproducibility-crisis-science-nature-journals">https://www.sciencealert.com/replication-results-reproducibility-crisis-science-nature-journals</a>.
+<div id="ref-sardinha1996wordsmith" class="csl-entry" role="listitem">
+Sardinha, AP Berber. 1996. <span>“WordSmith Tools.”</span> <em>Computers &amp; Texts 12 (1996)</em>.
 </div>
 <div id="ref-stafanowitsch2020corpus" class="csl-entry" role="listitem">
 Stefanowitsch, Anatol. 2020. <em>Corpus Linguistics. A Guide to the Methodology</em>. Textbooks in Language Sciences. Berlin: Language Science Press. https://doi.org/<a href="https://doi.org/10.5281/zenodo.3735822">https://doi.org/10.5281/zenodo.3735822</a>.
-</div>
-<div id="ref-physorg2018replication" class="csl-entry" role="listitem">
-Velasco, Emily. 2019. <span>“Researcher Discusses the the Science Replication Crisis.”</span> <a href="https://phys.org/news/2018-11-discusses-science-replication-crisis.html">https://phys.org/news/2018-11-discusses-science-replication-crisis.html</a>.
-</div>
-<div id="ref-atlantic2018psychology" class="csl-entry" role="listitem">
-Yong, Ed. 2018. <span>“Psychology’s Replication Crisis Is Running Out of Excuses. Another Big Project Has Found That Only Half of Studies Can Be Repeated. And This Time, the Usual Explanations Fall Flat.”</span> <a href="https://www.theatlantic.com/science/archive/2018/11/psychologys-replication-crisis-real/576223/">https://www.theatlantic.com/science/archive/2018/11/psychologys-replication-crisis-real/576223/</a>.
 </div>
 </div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
