@@ -1,0 +1,1080 @@
+---  
+title: "Regression Analysis: Conceptual Foundations"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    theme: cosmo  
+---  
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(tidyverse)  
+library(cowplot)  
+options(stringsAsFactors = FALSE)  
+```  
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+This tutorial introduces **regression analysis** — one of the most widely used statistical methods in linguistics, psychology, and the language sciences. Regression models allow us to assess whether and how predictor variables (independent variables) correlate with an outcome variable (dependent variable), while controlling for the effects of other predictors [@field2012discovering; @gries2021statistics; @winter2019statistics].  
+  
+![](/images/yr_chili.jpg){ width=15% style="float:right; padding:10px" }  
+  
+::: {.callout-note}  
+## Tutorial Scope and Structure  
+  
+This is **Regression Analysis: Conceptual Foundations**. It covers regression theory without R code.  
+  
+**Regression Analysis: Implementation in R** (separate tutorial) shows how to run, diagnose, and report regressions using modern R packages.  
+  
+**Prerequisites:**  
+  
+- [Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html)  
+- [Descriptive Statistics with R](/tutorials/dstats/dstats.html)  
+  
+**What this tutorial covers:**  
+  
+1. What is regression and how does it work?  
+2. Types of regression models  
+3. Model assumptions and when they matter  
+4. Interpreting coefficients, p-values, and R²  
+5. Categorical predictors and interactions  
+6. Model fitting strategies  
+7. Sample size and power  
+8. Multicollinearity  
+9. Effect sizes  
+10. Reporting standards  
+  
+**What this does NOT cover:**  
+  
+- R implementation (see Part II)  
+- Mixed-effects models (see [separate tutorial](/tutorials/mixedmodel/mixedmodel.html))  
+- Causal inference (regression ≠ causation)  
+:::  
+  
+---  
+  
+## Why Regression? {-}  
+  
+Regression models are popular because they:  
+  
+1. **Handle multiple predictors simultaneously** — test the effect of one predictor while controlling for all others (multivariate analysis)  
+2. **Are extremely flexible** — can handle numeric, categorical, ordinal, and count outcomes  
+3. **Produce interpretable output** — coefficients, p-values, confidence intervals, effect sizes  
+4. **Are conceptually accessible** — mathematically simpler than many machine learning methods  
+5. **Are widely reported** — facilitates comparison across studies and meta-analysis  
+  
+---  
+  
+# What Is Regression? {#whatisregression}  
+  
+At its core, **regression** is a method for modeling the relationship between:  
+  
+- One or more **predictor variables** (independent variables, IVs, explanatory variables)  
+- A single **outcome variable** (dependent variable, DV, response variable)  
+  
+The fundamental regression equation is:  
+  
+$$\text{Outcome} = \text{Intercept} + \text{Coefficient} \times \text{Predictor} + \text{Error}$$  
+  
+Or in standard notation:  
+  
+$$y = \alpha + \beta x + \epsilon$$  
+  
+Where:  
+  
+- $y$ = the outcome we want to predict  
+- $\alpha$ (alpha) = **intercept** — the predicted value of $y$ when all predictors = 0  
+- $\beta$ (beta) = **coefficient** (slope) — how much $y$ changes for a 1-unit increase in $x$  
+- $x$ = predictor variable  
+- $\epsilon$ (epsilon) = **residual** (error) — the difference between observed and predicted $y$  
+  
+## A Concrete Example {-}  
+  
+Suppose we want to predict **weight** (kg) from **height** (cm). The regression equation might be:  
+  
+$$\text{Weight} = -93.77 + 0.98 \times \text{Height}$$  
+  
+**Interpretation:**  
+  
+- **Intercept (−93.77)**: A person with height = 0 cm would weigh −93.77 kg. (Nonsensical! This is why centering predictors matters — more later.)  
+- **Coefficient (0.98)**: For every 1 cm increase in height, weight increases by 0.98 kg on average.  
+- **Prediction**: A person who is 180 cm tall is predicted to weigh: $-93.77 + 0.98 \times 180 = 82.63$ kg.  
+  
+The **residual** for this person is the difference between their *actual* weight and the predicted 82.63 kg.  
+  
+---  
+  
+# The Geometry of Regression: Finding the Best Line {#geometry}  
+  
+Regression aims to find the **line of best fit** — the line that minimizes the sum of squared residuals (the vertical distances between observed data points and the regression line). This is called **ordinary least squares (OLS) regression**.  
+  
+```{r geom_example, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=3.5}  
+set.seed(42)  
+Height <- c(173, 169, 176, 166, 161, 164, 160, 158, 180, 187)  
+Weight <- c(80, 68, 72, 75, 70, 65, 62, 60, 85, 92)  
+df_geom <- data.frame(Height, Weight) |>  
+  dplyr::mutate(Pred = predict(lm(Weight ~ Height)))  
+  
+p_scatter <- ggplot(df_geom, aes(Height, Weight)) +  
+  geom_point(size = 3, color = "steelblue") +  
+  theme_bw() +  
+  labs(title = "Scatterplot:\nObserved data",  
+       x = "Height (cm)", y = "Weight (kg)") +  
+  theme(panel.grid.minor = element_blank())  
+  
+p_line <- ggplot(df_geom, aes(Height, Weight)) +  
+  geom_point(size = 3, color = "steelblue") +  
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1) +  
+  theme_bw() +  
+  labs(title = "Regression line\nminimizes residuals",  
+       x = "Height (cm)", y = "Weight (kg)") +  
+  theme(panel.grid.minor = element_blank())  
+  
+p_resid <- ggplot(df_geom, aes(Height, Weight)) +  
+  geom_point(size = 3, color = "steelblue") +  
+  geom_smooth(method = "lm", se = FALSE, color = "red", linewidth = 1) +  
+  geom_segment(aes(xend = Height, yend = Pred), color = "darkred", alpha = 0.6) +  
+  theme_bw() +  
+  labs(title = "Residuals\n(red lines)",  
+       x = "Height (cm)", y = "Weight (kg)") +  
+  theme(panel.grid.minor = element_blank())  
+  
+plot_grid(p_scatter, p_line, p_resid, nrow = 1, rel_widths = c(1, 1, 1))  
+```  
+  
+**Key insight**: The regression line is positioned such that the **sum of squared residuals** is minimized. No other line through the data would have a smaller total squared error.  
+  
+---  
+  
+# Types of Regression Models {#types}  
+  
+The type of regression you use depends on the **measurement scale of your outcome variable**:  
+  
+| Outcome variable type | Regression type | Example |  
+|---|---|---|  
+| **Continuous (numeric)**, normally distributed, no extreme outliers | **Simple/Multiple Linear Regression** | Predicting reaction time (ms) from word frequency |  
+| **Binary** (two categories: yes/no, success/failure) | **Logistic Regression** | Predicting whether a speaker uses *-er* vs. *more* |  
+| **Ordinal** (ordered categories, e.g., Likert scale: strongly disagree → strongly agree) | **Ordinal Regression** | Predicting acceptability ratings (1–7 scale) |  
+| **Count** (non-negative integers: 0, 1, 2, ...) of rare events | **Poisson Regression** | Predicting number of discourse particles per utterance |  
+| **Continuous with outliers** that cannot be removed | **Robust Regression** | Predicting word frequency with extreme high-frequency function words |  
+  
+::: {.callout-important}  
+## Fixed-Effects vs. Mixed-Effects Regression  
+  
+**Fixed-effects regression** (this tutorial) assumes:  
+  
+- All data points are **independent**  
+- No hierarchical structure (no nesting: e.g., students within classes, words within speakers)  
+  
+**Mixed-effects regression** (separate tutorial) is required when:  
+  
+- Data points are **nested** or **grouped** (e.g., multiple observations per participant)  
+- You need **random effects** to model subject/item variability  
+  
+If your data has repeated measures or hierarchical structure, see the [mixed-effects tutorial](/tutorials/mixedmodel/mixedmodel.html).  
+:::  
+  
+---  
+  
+# Model Assumptions {#assumptions}  
+  
+Regression models rest on mathematical assumptions. Violating these assumptions can produce unreliable results.  
+  
+## Assumptions for Linear Regression {-}  
+  
+1. **Linearity**: The relationship between predictors and outcome is linear  
+2. **Independence**: Observations are independent (no autocorrelation, no nesting)  
+3. **Homoscedasticity**: Residuals have constant variance across all levels of predictors  
+4. **Normality of residuals**: Residuals are approximately normally distributed  
+5. **No perfect multicollinearity**: Predictors are not perfectly correlated with each other  
+6. **No influential outliers**: Extreme data points do not dominate the model fit  
+  
+**When assumptions are violated:**  
+  
+| Violation | Solution |  
+|---|---|  
+| Non-linearity | Transform variables (log, sqrt) or use non-linear models |  
+| Non-independence | Use mixed-effects models or account for clustering |  
+| Heteroscedasticity | Use robust standard errors or transform outcome |  
+| Non-normal residuals | For large samples (n > 30–50), Central Limit Theorem provides protection; otherwise transform or use non-parametric methods |  
+| Multicollinearity | Remove redundant predictors or use regularization |  
+| Outliers | Use robust regression or remove outliers with strong justification |  
+  
+## Assumptions for Logistic/Ordinal/Poisson Regression {-}  
+  
+Non-linear regressions (logistic, ordinal, Poisson) do **not** assume:  
+  
+- Normality of the outcome  
+- Homoscedasticity  
+  
+But they **do** assume:  
+  
+- **Independence** of observations  
+- **No multicollinearity** among predictors  
+- **Linearity of the logit** (for logistic regression: the log-odds are linear in the predictors)  
+- **No complete separation** (for logistic: if a predictor perfectly predicts the outcome, the model breaks)  
+  
+---  
+  
+# Interpreting Regression Output {#interpretation}  
+  
+A regression model produces several key statistics. Here's what they mean:  
+  
+## Coefficients (β) {-}  
+  
+**Interpretation depends on regression type:**  
+  
+| Regression type | Coefficient interpretation |  
+|---|---|  
+| Linear | A 1-unit increase in $x$ is associated with a $\beta$-unit change in $y$ |  
+| Logistic | A 1-unit increase in $x$ multiplies the **odds** of the outcome by $e^\beta$ |  
+| Ordinal | A 1-unit increase in $x$ changes the **log-odds** of being in a higher category by $\beta$ |  
+| Poisson | A 1-unit increase in $x$ multiplies the **expected count** by $e^\beta$ |  
+  
+## Standard Error (SE) {-}  
+  
+The SE tells us how much the coefficient would vary if we repeated the study many times with different samples from the same population. **Smaller SE = more precise estimate.**  
+  
+$$\text{SE} = \frac{SD}{\sqrt{n}}$$  
+  
+## t-value (linear) or z-value (logistic/Poisson) {-}  
+  
+$$t = \frac{\text{Coefficient}}{\text{SE}}$$  
+  
+The t- or z-value measures how many standard errors the coefficient is away from zero. Larger absolute values → stronger evidence against H₀: β = 0.  
+  
+## p-value {-}  
+  
+The probability of observing a coefficient this large (or larger) *if the true effect were zero*. **p < .05** is the conventional threshold for "statistical significance."  
+  
+::: {.callout-warning}  
+## p-values ≠ Effect Size  
+  
+A tiny, practically meaningless effect can be "significant" with a large enough sample. A large, important effect can be "non-significant" with a small sample. **Always report effect sizes alongside p-values.**  
+:::  
+  
+## R² (for linear regression) {-}  
+  
+**R²** = proportion of variance in the outcome explained by the model.  
+  
+- R² = 0: Model explains no variance (useless)  
+- R² = 0.10: 10% of variance explained (weak but possibly meaningful in social sciences)  
+- R² = 0.50: 50% of variance explained (strong)  
+- R² = 1: Perfect fit (only possible with measurement error = 0)  
+  
+**Adjusted R²** penalizes models for including many predictors. It is always ≤ R² and prevents overfitting.  
+  
+$$R^2_{\text{adjusted}} = 1 - \frac{(1 - R^2)(n - 1)}{n - k - 1}$$  
+  
+where *k* = number of predictors.  
+  
+## AIC and BIC (model comparison) {-}  
+  
+**Akaike Information Criterion (AIC)** and **Bayesian Information Criterion (BIC)** balance model fit against complexity. **Lower values = better models.**  
+  
+$$\text{AIC} = -2 \times \text{LogLikelihood} + 2k$$  
+  
+$$\text{BIC} = -2 \times \text{LogLikelihood} + k \times \log(n)$$  
+  
+Use AIC/BIC to compare models fit on the same data:  
+  
+- ΔAIC < 2: Models are essentially equivalent  
+- ΔAIC = 2–7: Moderate evidence for the model with lower AIC  
+- ΔAIC > 10: Strong evidence for the model with lower AIC  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Regression Basics  
+:::  
+  
+**Q1. What does the intercept (α) in a regression represent?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q1"  
+check_question("The predicted value of the outcome when all predictors equal zero",  
+               options = c(  
+                 "The predicted value of the outcome when all predictors equal zero",  
+                 "The slope of the regression line",  
+                 "The strength of the correlation between predictors and outcome",  
+                 "The p-value of the model"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The intercept is the value of y when x = 0. This is why centering predictors (subtracting the mean) is often helpful: the intercept then represents the predicted outcome at the *mean* value of predictors, which is more interpretable than at x = 0.",  
+               wrong = "Think about where the regression line crosses the y-axis. What is the value of x at that point?")  
+```  
+  
+---  
+  
+**Q2. A logistic regression reports a coefficient β = 0.693 for a predictor. What is the odds ratio (OR)?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q2"  
+check_question("OR = 2.0 (= e^0.693)",  
+               options = c(  
+                 "OR = 2.0 (= e^0.693)",  
+                 "OR = 0.693 (same as β)",  
+                 "OR = 1.693 (= 1 + β)",  
+                 "OR = 0.5 (= 1/2)"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! OR = e^β = e^0.693 ≈ 2.0. This means a 1-unit increase in the predictor *doubles* the odds of the outcome. The coefficient β = 0.693 is the *log-odds*; exponentiating converts it to the odds ratio.",  
+               wrong = "Remember: OR = e^β. What is e^0.693?")  
+```  
+  
+---  
+  
+**Q3. Which regression assumption is VIOLATED if residuals increase in variance as the predicted values increase (forming a funnel shape in a residuals plot)?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q3"  
+check_question("Homoscedasticity (constant variance of residuals)",  
+               options = c(  
+                 "Homoscedasticity (constant variance of residuals)",  
+                 "Normality of residuals",  
+                 "Independence of observations",  
+                 "Linearity"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A funnel-shaped pattern in a residuals vs. fitted plot indicates *heteroscedasticity* — the variance of residuals is not constant across the range of predicted values. Solutions include transforming the outcome variable (e.g., log transformation) or using robust standard errors.",  
+               wrong = "A funnel shape in residuals means the variance changes across predicted values. Which assumption requires *constant* variance?")  
+```  
+  
+---  
+  
+**Q4. A researcher reports: 'Our model explains 45% of the variance (R² = 0.45).' What does this mean?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q4"  
+check_question("45% of the variability in the outcome is accounted for by the predictors in the model",  
+               options = c(  
+                 "45% of the variability in the outcome is accounted for by the predictors in the model",  
+                 "The model makes correct predictions 45% of the time",  
+                 "45% of the data points fall exactly on the regression line",  
+                 "There is a 45% probability that the model is correct"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q4",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! R² = 0.45 means that 45% of the variance in the outcome variable is explained by the predictors. The remaining 55% is unexplained (residual variance). Whether R² = 0.45 is 'good' depends on the field — in social sciences, this is often considered strong; in hard sciences, it might be considered weak.",  
+               wrong = "R² measures the proportion of *variance* explained. What does 'variance' refer to?")  
+```  
+  
+---  
+  
+# Categorical Predictors in Regression {#categorical}  
+  
+So far we have discussed regression with continuous predictors (e.g., year, height, test scores). But regression can also handle **categorical predictors** (e.g., gender, experimental condition, language variety).  
+  
+When a categorical predictor enters a regression, R automatically converts it into **dummy variables** (also called indicator variables or contrast coding).  
+  
+## How Dummy Coding Works {-}  
+  
+Suppose we have a predictor `Group` with three levels: A, B, C. R creates dummy variables:  
+  
+| Group | Dummy_B | Dummy_C |  
+|---|---|---|  
+| A | 0 | 0 |  
+| B | 1 | 0 |  
+| C | 0 | 1 |  
+  
+The regression equation becomes:  
+  
+$$y = \alpha + \beta_1 \times \text{Dummy\_B} + \beta_2 \times \text{Dummy\_C} + \epsilon$$  
+  
+**Interpretation:**  
+  
+- **α (Intercept)**: Mean of the **reference group** (Group A)  
+- **β₁**: Difference between Group B and Group A  
+- **β₂**: Difference between Group C and Group A  
+  
+::: {.callout-note}  
+## Changing the Reference Level  
+  
+By default, R uses **alphabetical ordering** to determine the reference level. You can change this with:  
+  
+```r  
+data$Group <- relevel(data$Group, ref = "B")  # Set B as reference  
+```  
+  
+Always check which level is the reference when interpreting categorical predictors!  
+:::  
+  
+## Example: Gender as a Predictor {-}  
+  
+If `Gender` has levels "Female" and "Male" (alphabetically, Female is first):  
+  
+$$\text{Outcome} = \alpha + \beta \times \text{Male}$$  
+  
+Where:  
+  
+- α = mean outcome for **females** (reference group)  
+- β = difference between males and females (Male mean − Female mean)  
+  
+If β = 15 and p < .05, males score 15 points higher on average than females.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Categorical Predictors  
+:::  
+  
+**Q1. A regression with predictor `Condition` (3 levels: A, B, C) produces two dummy variables: `Condition_B` and `Condition_C`. What is the reference level?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CAT_Q1"  
+check_question("A (the level not represented by a dummy variable)",  
+               options = c(  
+                 "A (the level not represented by a dummy variable)",  
+                 "B (the first dummy variable)",  
+                 "C (the last dummy variable)",  
+                 "There is no reference level — all are equally represented"  
+               ),  
+               type = "radio",  
+               q_id = "CAT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The reference level is the one *not* represented by a dummy variable. With k levels, you create k−1 dummy variables. Level A is the reference; the coefficients for Condition_B and Condition_C represent differences from A.",  
+               wrong = "For a k-level categorical predictor, you create k−1 dummies. Which level is left out?")  
+```  
+  
+---  
+  
+**Q2. In a model with `Gender` (Female, Male) as a predictor, the intercept = 50 and the coefficient for Male = −10. What is the predicted outcome for females?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CAT_Q2"  
+check_question("50 (the intercept = mean of the reference group)",  
+               options = c(  
+                 "50 (the intercept = mean of the reference group)",  
+                 "40 (= 50 − 10)",  
+                 "60 (= 50 + 10)",  
+                 "Cannot be determined without more information"  
+               ),  
+               type = "radio",  
+               q_id = "CAT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Female is the reference group (alphabetically first). The intercept (50) represents the mean for females. The Male coefficient (−10) means males score 10 points *lower* than females, so males = 50 − 10 = 40.",  
+               wrong = "The intercept always represents the reference group. Which gender is alphabetically first?")  
+```  
+  
+---  
+  
+# Interactions in Regression {#interactions}  
+  
+An **interaction** occurs when the effect of one predictor depends on the level of another predictor. Interactions are **non-additive** effects.  
+  
+## Additive vs. Interactive Effects {-}  
+  
+**Additive model** (no interaction):  
+  
+$$y = \alpha + \beta_1 x_1 + \beta_2 x_2$$  
+  
+The effect of $x_1$ is the same regardless of $x_2$.  
+  
+**Interactive model**:  
+  
+$$y = \alpha + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \times x_2)$$  
+  
+The effect of $x_1$ *changes* depending on the value of $x_2$.  
+  
+## Example: Teaching Method × Prior Knowledge {-}  
+  
+Imagine:  
+  
+- **Predictor 1**: Teaching method (traditional vs. innovative)  
+- **Predictor 2**: Prior knowledge (low vs. high)  
+- **Outcome**: Test score  
+  
+**Additive model** predicts:  
+  
+- Innovative method adds 10 points for everyone  
+- High prior knowledge adds 15 points for everyone  
+- A high-knowledge student in the innovative method scores: baseline + 10 + 15 = 25 points above baseline  
+  
+**Interactive model** might find:  
+  
+- Innovative method helps low-knowledge students (+15 points) but not high-knowledge students (+2 points)  
+- This is an interaction: the effect of teaching method *depends on* prior knowledge  
+  
+**In regression output**, the interaction coefficient tests: "Is the effect of $x_1$ significantly different across levels of $x_2$?"  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Interactions  
+:::  
+  
+**Q1. In a model with interaction A × B, predictor A is non-significant but the interaction is significant. Should you remove predictor A from the model?**  
+  
+```{r}  
+#| echo: false  
+#| label: "INT_Q1"  
+check_question("No — you must retain both main effects if their interaction is included",  
+               options = c(  
+                 "No — you must retain both main effects if their interaction is included",  
+                 "Yes — non-significant predictors should always be removed",  
+                 "Yes — the interaction fully explains the effect of A",  
+                 "It depends on the AIC value"  
+               ),  
+               type = "radio",  
+               q_id = "INT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! This is the **principle of marginality**: if an interaction (A × B) is in the model, both main effects (A and B) must be retained, even if one or both are non-significant. Removing A would make the interaction term uninterpretable and mathematically meaningless.",  
+               wrong = "When an interaction is present, what happens to the interpretation of the main effects?")  
+```  
+  
+---  
+  
+**Q2. A significant interaction between Condition (2 levels) and Gender (2 levels) means:**  
+  
+```{r}  
+#| echo: false  
+#| label: "INT_Q2"  
+check_question("The effect of Condition is different for males vs. females (or vice versa)",  
+               options = c(  
+                 "The effect of Condition is different for males vs. females (or vice versa)",  
+                 "Both Condition and Gender have significant main effects",  
+                 "The model explains more than 50% of the variance",  
+                 "Males and females differ in the outcome variable"  
+               ),  
+               type = "radio",  
+               q_id = "INT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! An interaction means the effect of one predictor varies across levels of the other. Perhaps Condition A > B for females, but B > A for males. The effect is not additive — you cannot simply add the main effects to get the combined effect.",  
+               wrong = "An interaction is a *non-additive* effect. What does that mean for how the predictors combine?")  
+```  
+  
+---  
+  
+# Model Fitting and Selection {#modelfitting}  
+  
+**Model fitting** (also called model selection) is the process of deciding which predictors to include in the final model. The goal: find a model that explains the data well without including unnecessary predictors.  
+  
+## The Principle of Parsimony {-}  
+  
+**Occam's Razor**: Among competing models, prefer the simplest one that explains the data adequately. Including too many predictors:  
+  
+- Increases the risk of **overfitting** (the model fits the sample but not the population)  
+- Makes interpretation harder  
+- Reduces statistical power  
+  
+## Model Fitting Strategies {-}  
+  
+1. **Theory-driven (recommended)**: Include predictors based on theory and prior research. Test the full theoretically motivated model.  
+  
+2. **Stepwise procedures (use with caution)**:  
+   - **Forward selection**: Start with no predictors; add predictors one at a time based on improvement in fit  
+   - **Backward elimination**: Start with all predictors; remove non-significant predictors one at a time  
+   - **Automated stepwise**: Algorithm adds/removes predictors based on AIC or BIC  
+  
+::: {.callout-warning}  
+## Problems with Automated Stepwise Selection  
+  
+Automated stepwise procedures are **convenient but problematic**:  
+  
+- High risk of overfitting  
+- Capitalize on chance (spurious correlations)  
+- Ignore theoretical considerations  
+- p-values and confidence intervals are no longer trustworthy  
+- Different orderings of predictors can yield different "final" models  
+  
+**Best practice**: Use theory to guide model specification. If you must use stepwise, treat it as **exploratory** and validate findings in an independent dataset.  
+:::  
+  
+## Comparing Models: Nested Model Comparison {-}  
+  
+To test whether a predictor (or set of predictors) significantly improves the model:  
+  
+1. Fit a **full model** with the predictor(s)  
+2. Fit a **reduced model** without the predictor(s)  
+3. Use **ANOVA** (for linear models) or **likelihood ratio test** (for GLMs) to compare  
+  
+If the full model significantly outperforms the reduced model, retain the predictor.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Model Fitting  
+:::  
+  
+**Q1. A researcher reports: 'We used automated stepwise regression (backward elimination) and retained predictors with p < .05.' What is the main problem with this approach?**  
+  
+```{r}  
+#| echo: false  
+#| label: "FIT_Q1"  
+check_question("Stepwise procedures capitalize on chance, inflate Type I error, and ignore theory",  
+               options = c(  
+                 "Stepwise procedures capitalize on chance, inflate Type I error, and ignore theory",  
+                 "Backward elimination should start with no predictors, not all predictors",  
+                 "p < .05 is too strict — should use p < .10 for model selection",  
+                 "Stepwise regression is the gold standard and has no problems"  
+               ),  
+               type = "radio",  
+               q_id = "FIT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Automated stepwise procedures have many problems: they capitalize on sampling error (spurious correlations become 'significant'), ignore theoretical considerations, inflate Type I error (the p-values are no longer valid), and can produce different 'final' models depending on the order in which predictors are tested. The resulting model often does not replicate in new samples. Theory-driven model building is far superior.",  
+               wrong = "Stepwise procedures are convenient but highly problematic. What happens when an algorithm tests many models and picks the 'best' one by chance?")  
+```  
+  
+---  
+  
+**Q2. You compare two nested models using ANOVA. Model 1 has 3 predictors (R² = 0.25); Model 2 has 5 predictors (R² = 0.27). The ANOVA p-value is .18. What should you conclude?**  
+  
+```{r}  
+#| echo: false  
+#| label: "FIT_Q2"  
+check_question("Retain Model 1 (the simpler model) — the additional predictors do not significantly improve fit",  
+               options = c(  
+                 "Retain Model 1 (the simpler model) — the additional predictors do not significantly improve fit",  
+                 "Retain Model 2 — it has higher R²",  
+                 "Both models are equally good — use either one",  
+                 "p > .05 means neither model is significant"  
+               ),  
+               type = "radio",  
+               q_id = "FIT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The ANOVA tests whether the extra predictors in Model 2 significantly improve the fit. p = .18 > .05 means they do not. By the principle of parsimony, prefer the simpler Model 1. The slight R² increase (0.25 → 0.27) is within sampling error.",  
+               wrong = "The ANOVA p-value tests whether the *difference* between models is significant. What does p = .18 tell you?")  
+```  
+  
+---  
+  
+# Sample Size and Statistical Power {#samplesize}  
+  
+## How Much Data Do You Need? {-}  
+  
+Following @green1991many and @field2012discovering, here are rules of thumb for linear regression:  
+  
+Let **k** = number of predictors (for categorical predictors with > 2 levels, count each dummy variable).  
+  
+- **For overall model fit (R²)**: $n \geq 50 + 8k$  
+- **For testing individual predictors**: $n \geq 104 + k$  
+- **If interested in both**: Use the larger value  
+  
+**Example**: A model with 5 predictors testing both overall fit and individual coefficients requires:  
+  
+$$n \geq \max(50 + 8 \times 5, 104 + 5) = \max(90, 109) = 109$$  
+  
+You need at least **109 observations**.  
+  
+::: {.callout-note}  
+## Why These Rules?  
+  
+These are based on achieving **80% statistical power** to detect **medium-sized effects** (Cohen's *f*² = 0.15) at α = .05.   
+  
+If your expected effects are smaller, you need *more* data. If effects are larger, you might get away with less — but it's safer to err on the side of larger samples.  
+:::  
+  
+## What If Your Sample Is Too Small? {-}  
+  
+Options:  
+  
+1. **Collect more data** (ideal but often impractical)  
+2. **Reduce the number of predictors** (test only the most important ones)  
+3. **Report the analysis as exploratory** and note the limited power  
+4. **Conduct a power analysis** to estimate your actual statistical power given your sample size  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Sample Size  
+:::  
+  
+**Q1. You fit a model with 8 predictors and n = 75. According to Green's (1991) rule, is your sample size adequate for testing individual predictors?**  
+  
+```{r}  
+#| echo: false  
+#| label: "POW_Q1"  
+check_question("No — you need n ≥ 104 + 8 = 112",  
+               options = c(  
+                 "No — you need n ≥ 104 + 8 = 112",  
+                 "Yes — n > 50 + 8k = 114",  
+                 "Yes — 75 observations is always sufficient",  
+                 "No — you need at least 200 observations for any regression"  
+               ),  
+               type = "radio",  
+               q_id = "POW_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! For testing individual predictors, Green's rule requires n ≥ 104 + k. With k = 8, you need 112 observations. With only 75, the model is underpowered: you risk missing real effects (β errors) and the coefficients may be unstable. Consider reducing the number of predictors or collecting more data.",  
+               wrong = "Green's rule for testing individual predictors: n ≥ 104 + k. What is 104 + 8?")  
+```  
+  
+---  
+  
+**Q2. A colleague says: 'I have 200 participants, which is plenty for any regression.' Is this correct?**  
+  
+```{r}  
+#| echo: false  
+#| label: "POW_Q2"  
+check_question("Not necessarily — it depends on the number of predictors and expected effect size",  
+               options = c(  
+                 "Not necessarily — it depends on the number of predictors and expected effect size",  
+                 "Yes — 200 is always sufficient for regression",  
+                 "No — you always need at least 500 participants",  
+                 "Yes — as long as you use stepwise selection"  
+               ),  
+               type = "radio",  
+               q_id = "POW_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Sample size requirements depend on (1) the number of predictors, (2) the expected effect size, and (3) whether you want to test the overall model or individual coefficients. n = 200 might be sufficient for a model with 3 predictors and medium effects, but insufficient for a model with 15 predictors or small effects.",  
+               wrong = "Sample size requirements are not one-size-fits-all. What factors determine the necessary sample size?")  
+```  
+  
+---  
+  
+# Multicollinearity {#multicollinearity}  
+  
+**Multicollinearity** occurs when predictors in a regression model are highly correlated with each other. This is a problem because it inflates standard errors and makes coefficients unstable.  
+  
+## Why Is Multicollinearity a Problem? {-}  
+  
+When two predictors are highly correlated:  
+  
+- They share variance in explaining the outcome  
+- The model cannot distinguish their unique contributions  
+- Coefficients become unreliable: small changes in the data produce large changes in estimates  
+- Standard errors inflate → p-values become untrustworthy  
+  
+**Example**: If you include both "height in cm" and "height in inches" as predictors, they are perfectly collinear. The model cannot tell which is "responsible" for predicting the outcome.  
+  
+## Detecting Multicollinearity: VIF {-}  
+  
+The **Variance Inflation Factor (VIF)** quantifies how much the variance of a coefficient is inflated due to collinearity.  
+  
+$$\text{VIF} = \frac{1}{1 - R^2_j}$$  
+  
+where $R^2_j$ is the R² from a regression predicting predictor $j$ from all other predictors.  
+  
+**Interpretation:**  
+  
+| VIF value | Interpretation | Action |  
+|---|---|---|  
+| VIF = 1 | No collinearity | ✓ No problem |  
+| VIF < 3 | Low collinearity | ✓ Acceptable |  
+| VIF = 3–5 | Moderate collinearity | ⚠ Concerning |  
+| VIF = 5–10 | High collinearity | ⚠ Problematic — consider removing |  
+| VIF > 10 | Severe collinearity | ✗ Remove predictor |  
+  
+**Mean VIF**: The average VIF across all predictors should be close to 1. A mean VIF >> 1 suggests overall collinearity issues.  
+  
+## Solutions to Multicollinearity {-}  
+  
+1. **Remove one of the correlated predictors** (keep the most theoretically important one)  
+2. **Combine correlated predictors** into a single composite variable (e.g., via PCA or averaging)  
+3. **Center predictors** (reduces collinearity in models with interactions)  
+4. **Collect more data** (in some cases, collinearity is a sample-specific artifact)  
+  
+::: {.callout-important}  
+## When Multicollinearity Doesn't Matter  
+  
+If your goal is **prediction** (not interpretation), multicollinearity is less problematic. You care about accurate predictions, not about which predictor is "responsible."  
+  
+Multicollinearity is a serious issue only when you want to **interpret** individual coefficients.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Multicollinearity  
+:::  
+  
+**Q1. A model includes predictors A, B, and C. Predictor B has VIF = 8.5. What should you do?**  
+  
+```{r}  
+#| echo: false  
+#| label: "COLL_Q1"  
+check_question("Consider removing predictor B, as VIF > 5 indicates problematic multicollinearity",  
+               options = c(  
+                 "Consider removing predictor B, as VIF > 5 indicates problematic multicollinearity",  
+                 "Nothing — VIF < 10 is always acceptable",  
+                 "Remove predictors A and C instead",  
+                 "Transform predictor B to reduce VIF"  
+               ),  
+               type = "radio",  
+               q_id = "COLL_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! VIF > 5 indicates problematic multicollinearity. VIF = 8.5 means predictor B can be predicted from the other predictors with R² = 1 − (1/8.5) ≈ 0.88 — very high shared variance. This inflates standard errors and makes the coefficient unreliable. You should remove B (or remove one of the predictors it correlates with) unless B is theoretically essential.",  
+               wrong = "VIF values above 5 indicate problematic collinearity. What does VIF = 8.5 tell you about predictor B?")  
+```  
+  
+---  
+  
+**Q2. Why does multicollinearity inflate standard errors?**  
+  
+```{r}  
+#| echo: false  
+#| label: "COLL_Q2"  
+check_question("The model cannot distinguish which predictor is responsible for the shared variance, creating uncertainty",  
+               options = c(  
+                 "The model cannot distinguish which predictor is responsible for the shared variance, creating uncertainty",  
+                 "Collinear predictors cancel each other out mathematically",  
+                 "The sample size effectively decreases when predictors are correlated",  
+                 "Multicollinearity violates the independence assumption"  
+               ),  
+               type = "radio",  
+               q_id = "COLL_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! When predictors are highly correlated, they explain overlapping variance in the outcome. The model is uncertain about how to attribute this shared variance — is it due to predictor A? Predictor B? Both equally? This uncertainty manifests as inflated standard errors for both predictors, making their coefficients less precise and p-values less trustworthy.",  
+               wrong = "Multicollinearity creates uncertainty about which predictor is doing the explaining. How does this uncertainty affect coefficient estimates?")  
+```  
+  
+---  
+  
+# Effect Sizes for Regression {#effectsizes}  
+  
+## Cohen's *f*² for Linear Regression {-}  
+  
+Cohen's *f*² measures the **unique contribution** of a predictor (or set of predictors) to R²:  
+  
+$$f^2 = \frac{R^2_{\text{full}} - R^2_{\text{reduced}}}{1 - R^2_{\text{full}}}$$  
+  
+| *f*² value | Interpretation |  
+|---|---|  
+| 0.02 | Small effect |  
+| 0.15 | Medium effect |  
+| 0.35 | Large effect |  
+  
+## Odds Ratios (OR) for Logistic Regression {-}  
+  
+For logistic regression, **exponentiated coefficients** = odds ratios:  
+  
+$$\text{OR} = e^\beta$$  
+  
+| OR value | Interpretation |  
+|---|---|  
+| OR = 1 | No effect (predictor does not change odds) |  
+| OR = 1.5 | Small effect (50% increase in odds) |  
+| OR = 2 | Predictor **doubles** the odds |  
+| OR = 3 | Medium effect (200% increase in odds) |  
+| OR = 0.5 | Predictor **halves** the odds |  
+| OR < 1 | Negative effect (decreases odds) |  
+| OR > 1 | Positive effect (increases odds) |  
+  
+## Incidence Rate Ratios (IRR) for Poisson Regression {-}  
+  
+For Poisson regression, **exponentiated coefficients** = incidence rate ratios:  
+  
+$$\text{IRR} = e^\beta$$  
+  
+Interpretation is identical to odds ratios, but applied to expected counts rather than odds.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Effect Sizes  
+:::  
+  
+**Q1. A linear regression adds 3 predictors to a baseline model. R²~baseline~ = 0.10, R²~full~ = 0.25. What is Cohen's *f*² for the added predictors?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ES_Q1"  
+check_question("f² = 0.20 (= (0.25 − 0.10) / (1 − 0.25)) — a medium effect",  
+               options = c(  
+                 "f² = 0.20 (= (0.25 − 0.10) / (1 − 0.25)) — a medium effect",  
+                 "f² = 0.15 (= 0.25 − 0.10)",  
+                 "f² = 0.35 (a large effect)",  
+                 "Cannot be calculated without knowing n"  
+               ),  
+               type = "radio",  
+               q_id = "ES_Q1",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! Cohen's f² = (R²_full − R²_reduced) / (1 − R²_full) = (0.25 − 0.10) / (1 − 0.25) = 0.15 / 0.75 = 0.20. This is above the 'medium' threshold (0.15), indicating the added predictors have a moderate effect.",  
+               wrong = "Use the formula: f² = (R²_full − R²_reduced) / (1 − R²_full). What do you get?")  
+```  
+  
+---  
+  
+**Q2. A logistic regression reports β = −0.511 for predictor X. What is the odds ratio, and how do you interpret it?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ES_Q2"  
+check_question("OR = 0.60 (= e^−0.511) — predictor X reduces the odds by 40%",  
+               options = c(  
+                 "OR = 0.60 (= e^−0.511) — predictor X reduces the odds by 40%",  
+                 "OR = −0.511 (same as β)",  
+                 "OR = 1.67 (= 1 / 0.60) — predictor X increases the odds by 67%",  
+                 "OR = 0.40 (= 1 − 0.60) — predictor X reduces the odds to 40%"  
+               ),  
+               type = "radio",  
+               q_id = "ES_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! OR = e^β = e^−0.511 ≈ 0.60. OR < 1 means the predictor *decreases* the odds. OR = 0.60 means the odds are reduced to 60% of what they would be without the predictor — a 40% reduction. Example: if baseline odds = 0.50, then with X the odds become 0.50 × 0.60 = 0.30.",  
+               wrong = "OR = e^β. What is e^−0.511? And what does an OR below 1 mean?")  
+```  
+  
+---  
+  
+# Reporting Regression Results {#reporting}  
+  
+## What to Include in a Regression Report {-}  
+  
+A complete regression analysis report includes:  
+  
+1. **Model specification**: Which predictors were included and why  
+2. **Sample size**: Total n and n per group (if categorical predictors)  
+3. **Model diagnostics**: Statement that assumptions were checked (and how)  
+4. **Overall model fit**: F-statistic (linear) or χ² (GLM), p-value, R² (linear) or pseudo-R² (GLM)  
+5. **Coefficients table**: β, SE, t/z, p, 95% CI for each predictor  
+6. **Effect sizes**: Cohen's *f*² (linear), odds ratios (logistic), etc.  
+7. **Interpretation**: What do the significant predictors mean in practical terms?  
+  
+## APA-Style Regression Table {-}  
+  
+A well-formatted table should include:  
+  
+| Predictor | *B* | SE | 95% CI | β (std.) | *t* | *p* |  
+|---|---|---|---|---|---|---|  
+| Intercept | 50.23 | 2.14 | [46.02, 54.44] | — | 23.47 | < .001 |  
+| Age | 1.45 | 0.32 | [0.82, 2.08] | 0.28 | 4.53 | < .001 |  
+| Gender (Male) | −5.12 | 1.87 | [−8.79, −1.45] | −0.17 | −2.74 | .006 |  
+  
+**Caption**: Regression coefficients predicting test scores. Standardized coefficients (β) are provided for continuous predictors. Gender reference level: Female. n = 200, R² = .18, F(2, 197) = 21.6, p < .001.  
+  
+## Example Write-Up {-}  
+  
+> A multiple linear regression was conducted to predict test scores from age and gender (n = 200). Diagnostic plots indicated that model assumptions were met. The overall model was significant, F(2, 197) = 21.6, p < .001, and explained 18% of the variance in test scores (R² = .18, adjusted R² = .17). Age was a significant positive predictor (β = 1.45, SE = 0.32, 95% CI [0.82, 2.08], t = 4.53, p < .001, β~std~ = 0.28): each additional year of age was associated with a 1.45-point increase in test scores. Gender was also significant (β = −5.12, SE = 1.87, 95% CI [−8.79, −1.45], t = −2.74, p = .006, β~std~ = −0.17): males scored 5.12 points lower than females on average. Effect sizes were small to moderate (Cohen's *f*² = 0.22).  
+  
+---  
+  
+# Quick Reference {#quickref .unnumbered}  
+  
+## Choosing the Right Regression Model {-}  
+  
+| Outcome variable | Regression type | Key assumptions |  
+|---|---|---|  
+| Continuous, normal, no outliers | Linear | Linearity, independence, homoscedasticity, normality of residuals |  
+| Binary (2 categories) | Logistic | Independence, linearity of logit, no complete separation |  
+| Ordinal (ordered categories) | Ordinal | Independence, proportional odds |  
+| Count (rare events) | Poisson | Independence, mean = variance |  
+| Continuous with outliers | Robust | Same as linear, but robust to outliers |  
+  
+---  
+  
+## Model Diagnostics Checklist {-}  
+  
+| Diagnostic | What to look for |  
+|---|---|  
+| Overall model quality | All diagnostic panels acceptable |  
+| Linearity | Residuals vs. Fitted: random scatter (no pattern) |  
+| Homoscedasticity | Scale-Location: horizontal line (no funnel) |  
+| Normality of residuals | Q-Q plot: points on diagonal line |  
+| Outliers | Cook's distance: no points beyond threshold |  
+| Multicollinearity | VIF < 3 (ideally); < 5 (acceptable); < 10 (maximum) |  
+| Independence | Durbin-Watson test: p > .05 (no autocorrelation) |  
+  
+---  
+  
+## Effect Size Guidelines {-}  
+  
+**Linear regression (Cohen's *f*²):**  
+  
+| *f*² | Interpretation |  
+|---|---|  
+| 0.02 | Small |  
+| 0.15 | Medium |  
+| 0.35 | Large |  
+  
+**Logistic regression (Odds Ratio):**  
+  
+| OR | Interpretation |  
+|---|---|  
+| OR = 1 | No effect |  
+| OR = 1.5 | Small effect (50% increase in odds) |  
+| OR = 3.0 | Medium effect (200% increase in odds) |  
+| OR = 6.0 | Large effect (500% increase in odds) |  
+  
+---  
+  
+## Sample Size Requirements {-}  
+  
+Following @green1991many, for medium effect sizes (80% power, α = .05):  
+  
+| Goal | Minimum n |  
+|---|---|  
+| Testing overall model | 50 + 8k |  
+| Testing individual predictors | 104 + k |  
+| Both | Take the larger value |  
+  
+where k = number of predictors (count each dummy variable separately).  
+  
+---  
+  
+## Common Mistakes to Avoid {-}  
+  
+1. **Ignoring assumptions** — Always check diagnostics before interpreting results  
+2. **Treating p < .05 as proof** — Statistical significance ≠ practical importance  
+3. **Not reporting effect sizes** — Coefficients alone are insufficient  
+4. **Using automated stepwise selection uncritically** — Theory should guide model building  
+5. **Removing the intercept without justification** — The intercept is almost always needed  
+6. **Not centering continuous predictors in interaction models** — Leads to multicollinearity  
+7. **Confusing correlation with causation** — Regression shows association, not causation  
+8. **Not checking for multicollinearity** — Can silently invalidate results  
+9. **Overfitting** — Including too many predictors for the sample size  
+10. **Not validating findings** — Replication in independent data is essential  
+  
+---  
+  
+# Citation & Session Info {-}  
+  
+Schweinberger, Martin. 2026. *Regression Analysis: Conceptual Foundations*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/regression_concepts/regression_concepts.html (Version 2026.02.16).  
+  
+```  
+@manual{schweinberger2026regression_concepts,  
+  author = {Schweinberger, Martin},  
+  title = {Regression Analysis: Conceptual Foundations},  
+  note = {https://ladal.edu.au/tutorials/regression_concepts/regression_concepts.html},  
+  year = {2026},  
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
+  address = {Brisbane},  
+  edition = {2026.02.16}  
+}  
+```  
+  
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to HOME](/)  
+  
+---  
+  
+# References {-}  
