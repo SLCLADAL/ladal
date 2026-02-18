@@ -1,0 +1,334 @@
+---  
+title: "Speech Processing in R: From Audio to Linguistic Features"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    code-tools: true  
+    theme: cosmo  
+---  
+
+![](/images/uq1.jpg){ width=100% }  
+
+# Welcome to Speech Processing! {.unnumbered}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+::: {.callout-tip}
+## What You'll Learn
+
+By the end of this tutorial, you will be able to:
+
+- Load and inspect `.wav` audio files in R  
+- Visualize waveforms and spectrograms  
+- Split audio into smaller chunks  
+- Perform automatic speech recognition (ASR) using Whisper  
+- Extract time-aligned transcription information  
+- Perform forced alignment (conceptually and practically)  
+- Extract acoustic features such as vowel formants  
+- Visualize vowel space (F1–F2 plots)  
+- Combine acoustic and lexical information for linguistic analysis  
+:::
+
+---
+
+## What Is Speech Processing?
+
+**Speech processing** refers to computational methods for analyzing spoken language.  
+
+Instead of starting with text, we begin with **raw acoustic signals** and extract:
+
+- Linguistic structure (words, segments)
+- Temporal alignment
+- Acoustic features (formants, pitch, intensity)
+- Speaker characteristics
+
+---
+
+## Why Speech Processing Matters
+
+### Linguistic Applications
+
+| Research Area | Application |
+|--------------|------------|
+| **Phonetics** | Measure vowel formants |
+| **Sociophonetics** | Compare speakers or groups |
+| **Prosody research** | Extract pitch and intensity |
+| **Corpus linguistics** | Align speech with transcripts |
+| **Forensic linguistics** | Speaker identification |
+| **Language acquisition** | Analyze pronunciation development |
+
+### From Signal to Structure
+
+Speech processing typically follows this pipeline:
+
+```
+Audio (.wav)
+   ↓
+Segmentation
+   ↓
+Automatic Speech Recognition
+   ↓
+Forced Alignment
+   ↓
+Feature Extraction
+   ↓
+Statistical Analysis
+```
+
+---
+
+::: {.callout-note}
+## Tutorial Citation
+
+Schweinberger, Martin. 2026. *Speech Processing in R: From Audio to Linguistic Features*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL).
+:::
+
+---
+
+## Prerequisites
+
+<div class="warning" style='padding:0.5em; background-color:rgba(215,209,204,.3); color:#51247a'>
+<span>
+<p style='margin-top:1em; text-align:center'>
+<strong>Before starting, familiarize yourself with:</strong><br>
+</p>
+<p style='margin-top:1em; text-align:left'>
+<ul>
+  <li>Getting started with R</li>
+  <li>Basic signal processing concepts</li>
+  <li>Basic statistics</li>
+  <li>Installing Python packages (for Whisper)</li>
+</ul>
+</p>
+</span>
+</div>
+
+---
+
+# 1. Setup
+
+## Install and Load Required Packages
+
+```{r}
+# install.packages(c("tuneR", "seewave", "reticulate", "dplyr", "ggplot2"))
+
+library(tuneR)
+library(seewave)
+library(reticulate)
+library(dplyr)
+library(ggplot2)
+```
+
+---
+
+# 2. Loading and Inspecting Audio
+
+## Load a WAV File
+
+The wav file is taken from https://doi.org/10.17866/rd.salford.7857770
+
+```{r}
+audio_path <- here::here("tutorials/speechprocessing/data/sample.wav")
+
+wav <- readWave(audio_path)
+
+wav
+```
+
+## Basic Properties
+
+```{r}
+duration <- length(wav@left) / wav@samp.rate
+sampling_rate <- wav@samp.rate
+
+duration
+sampling_rate
+```
+
+---
+
+# 3. Visualizing the Signal
+
+## Waveform
+
+```{r}
+plot(wav, main = "Waveform")
+```
+
+## Spectrogram
+
+```{r}
+spectro(wav, main = "Spectrogram")
+```
+
+Waveforms show amplitude over time.  
+Spectrograms show frequency over time.
+
+---
+
+# 4. Splitting Audio into Chunks
+
+Segment long recordings into smaller units.
+
+```{r}
+chunk_length <- 5  # seconds
+samples_per_chunk <- chunk_length * wav@samp.rate
+
+total_samples <- length(wav@left)
+n_chunks <- ceiling(total_samples / samples_per_chunk)
+
+chunks <- list()
+
+for (i in 1:n_chunks) {
+  start <- ((i - 1) * samples_per_chunk) + 1
+  end <- min(i * samples_per_chunk, total_samples)
+  chunks[[i]] <- extractWave(wav, from = start, to = end, xunit = "samples")
+}
+
+length(chunks)
+```
+
+---
+
+# 5. Automatic Speech Recognition (Whisper)
+
+Whisper is a neural speech recognition model.
+
+### Install Whisper (Python)
+
+```bash
+pip install openai-whisper
+```
+
+### Load Whisper via reticulate
+
+```{r eval = F}
+whisper <- import("whisper")
+model <- whisper$load_model("base")
+```
+
+### Transcribe Audio
+
+```{r eval = F}
+result <- model$transcribe(audio_path)
+
+transcript <- result$text
+transcript
+```
+
+### Extract Time-Aligned Segments
+
+```{r eval = F}
+segments <- result$segments
+
+alignment_df <- data.frame(
+  start = sapply(segments, function(x) x$start),
+  end   = sapply(segments, function(x) x$end),
+  text  = sapply(segments, function(x) x$text)
+)
+
+alignment_df
+```
+
+---
+
+# 6. Forced Alignment
+
+**Forced alignment** links words or phonemes to precise time stamps.
+
+Options:
+
+- Montreal Forced Aligner (external tool)
+- Whisper segment timestamps (approximate alignment)
+
+Alignment allows us to connect:
+
+> Text ↔ Time ↔ Acoustic Signal
+
+---
+
+# 7. Extracting Acoustic Features
+
+## Vowel Formants
+
+Formants (F1, F2, F3) represent resonant frequencies of the vocal tract.
+
+```{r eval = F}
+formants <- formant(wav, fmax = 5000, plot = FALSE)
+
+formant_df <- data.frame(
+  time = formants[,1],
+  F1 = formants[,2],
+  F2 = formants[,3]
+)
+
+head(formant_df)
+```
+
+---
+
+# 8. Visualizing Vowel Space
+
+```{r eval = F}
+ggplot(formant_df, aes(x = F2, y = F1)) +
+  geom_point(alpha = 0.3) +
+  scale_y_reverse() +
+  scale_x_reverse() +
+  labs(title = "Vowel Space (F1–F2)",
+       x = "F2 (Hz)",
+       y = "F1 (Hz)")
+```
+
+Reversing axes follows phonetic convention.
+
+---
+
+# 9. Linking Alignment and Acoustics
+
+We can extract formants only during specific words.
+
+```{r eval = F}
+first_segment <- alignment_df[1, ]
+
+subset_formants <- formant_df %>%
+  filter(time >= first_segment$start,
+         time <= first_segment$end)
+
+head(subset_formants)
+```
+
+This enables:
+
+- Word-specific acoustic analysis  
+- Sociophonetic comparisons  
+- Phoneme-level modeling  
+
+---
+
+# 10. Summary
+
+In this tutorial, you learned how to:
+
+- Load and visualize audio  
+- Segment recordings  
+- Perform ASR using Whisper  
+- Extract time-aligned segments  
+- Compute vowel formants  
+- Visualize vowel space  
+- Connect lexical and acoustic information  
+
+Speech processing connects:
+
+> Raw Signal → Linguistic Structure → Quantitative Features
+
+---
+
+# 11. Session Info
+
+```{r}
+sessionInfo()
+```
+
