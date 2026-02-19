@@ -1,0 +1,1676 @@
+---  
+title: "ANOVA, MANOVA, and ANCOVA using R"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    theme: cosmo  
+---  
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(dplyr)  
+library(ggplot2)  
+library(tidyr)  
+library(flextable)  
+library(effectsize)  
+library(report)  
+library(emmeans)  
+library(car)  
+library(ggpubr)  
+library(rstatix)  
+library(broom)  
+library(cowplot)  
+library(psych)  
+options(stringsAsFactors = FALSE)  
+options("scipen" = 100, "digits" = 12)  
+set.seed(42)  
+```  
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+This tutorial introduces three closely related statistical methods for analysing differences between groups: **ANOVA** (Analysis of Variance), **MANOVA** (Multivariate Analysis of Variance), and **ANCOVA** (Analysis of Covariance). All three extend the logic of the t-test — which compares two group means — to more complex research designs involving multiple groups, multiple outcome variables, or the need to control for additional variables.  
+  
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
+  
+These methods are widely used across linguistics and the language sciences. A researcher comparing speech rate across three registers, examining whether listening proficiency and reading proficiency differ across language backgrounds, or testing whether vocabulary size differences between groups persist after controlling for age, would reach for ANOVA, MANOVA, or ANCOVA respectively.  
+  
+This tutorial is aimed at **beginners and intermediate R users**. Each method is introduced conceptually before its implementation in R is demonstrated, with worked linguistic examples throughout. The tutorial integrates theory and practice so that you can understand *why* you are running each analysis, not just *how*.  
+  
+::: {.callout-note}  
+## Prerequisite Tutorials  
+  
+Before working through this tutorial, we recommend familiarity with the following:  
+  
+- [Introduction to Quantitative Reasoning](/tutorials/introquant/introquant.html)  
+- [Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html)  
+- [Descriptive Statistics](/tutorials/dstats/dstats.html)  
+- [Basic Inferential Statistics](/tutorials/basicstatz/basicstatz.html)  
+- [Regression Concepts](/tutorials/regression_concepts/regression_concepts.html)  
+- [Introduction to Data Visualization](/tutorials/introviz/introviz.html)  
+- [Getting started with R](/tutorials/intror/intror.html)  
+:::  
+  
+<br>  
+  
+::: {.callout-tip}  
+## What This Tutorial Covers  
+  
+1. **The logic of ANOVA** — why comparing variances tests differences in means; F-ratio; partitioning variance  
+2. **One-way ANOVA** — testing differences across three or more groups; assumptions; post-hoc tests  
+3. **Two-way ANOVA** — factorial designs; main effects; interaction effects; visualising interactions  
+4. **Repeated measures ANOVA** — within-subjects designs; sphericity; the Greenhouse-Geisser correction  
+5. **MANOVA** — multiple dependent variables; Pillai's trace and other multivariate statistics; follow-up ANOVAs  
+6. **ANCOVA** — controlling for a covariate; adjusted means; homogeneity of regression slopes  
+7. **Effect sizes and power** — η², partial η², ω², Cohen's f; what they mean and how to report them  
+8. **Reporting standards** — model paragraphs, tables, and APA conventions  
+:::  
+  
+---  
+  
+## Preparation and Session Set-up {-}  
+  
+Install the required packages if you have not done so already (run once only):  
+  
+```{r prep1, echo=T, eval=F, message=FALSE, warning=FALSE}  
+install.packages("dplyr")  
+install.packages("ggplot2")  
+install.packages("tidyr")  
+install.packages("flextable")  
+install.packages("effectsize")  
+install.packages("report")  
+install.packages("emmeans")  
+install.packages("car")  
+install.packages("ggpubr")  
+install.packages("rstatix")  
+install.packages("broom")  
+install.packages("cowplot")  
+install.packages("psych")  
+install.packages("checkdown")  
+```  
+  
+Load the packages and set global options:  
+  
+```{r prep2, message=FALSE, warning=FALSE}  
+library(dplyr)       # data processing  
+library(ggplot2)     # data visualisation  
+library(tidyr)       # data reshaping  
+library(flextable)   # formatted tables  
+library(effectsize)  # effect size measures  
+library(report)      # automated result summaries  
+library(emmeans)     # estimated marginal means and contrasts  
+library(car)         # Levene's test and Type III sums of squares  
+library(ggpubr)      # publication-ready plots  
+library(rstatix)     # pipe-friendly statistical tests  
+library(broom)       # tidy model output  
+library(cowplot)     # multi-panel plots  
+library(psych)       # descriptive summaries  
+library(checkdown)   # interactive exercises  
+  
+options(stringsAsFactors = FALSE)  
+options("scipen" = 100, "digits" = 12)  
+set.seed(42)  
+```  
+  
+---  
+  
+# The Logic of ANOVA {#logic}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** Why Analysis of *Variance* is the right tool for comparing *means*; how the F-ratio works; why ANOVA is preferable to multiple t-tests  
+  
+**Key concepts:** Between-group variance, within-group variance, F-ratio, Type I error inflation  
+:::  
+  
+## Why Not Just Run Multiple t-tests? {-}  
+  
+Imagine you want to compare reading speed across three groups of language learners: beginners, intermediate learners, and advanced learners. One instinct is to run three separate t-tests: beginners vs. intermediate, beginners vs. advanced, and intermediate vs. advanced.  
+  
+The problem with this approach is **Type I error inflation**. Each t-test has a 5% probability of falsely rejecting the null hypothesis (given α = .05). When you run three tests simultaneously, the probability of making *at least one* false rejection is no longer 5% — it is:  
+  
+$$P(\text{at least one false rejection}) = 1 - (1 - \alpha)^k = 1 - (0.95)^3 = .143$$  
+  
+With three comparisons, the family-wise error rate has already climbed to 14.3%. With ten comparisons it would exceed 40%. **ANOVA solves this problem** by testing all groups simultaneously in a single test, keeping the family-wise error rate at α = .05.  
+  
+## Partitioning Variance {-}  
+  
+The key insight of ANOVA is that **total variability in the data can be partitioned** into two components:  
+  
+$$SS_{\text{total}} = SS_{\text{between}} + SS_{\text{within}}$$  
+  
+where:  
+  
+- $SS_{\text{between}}$ (also called $SS_{\text{model}}$ or $SS_{\text{treatment}}$) captures how much the group means differ from the grand mean — the variability *explained* by group membership  
+- $SS_{\text{within}}$ (also called $SS_{\text{error}}$ or $SS_{\text{residual}}$) captures how much individual scores vary around their group mean — unexplained variability  
+  
+These sums of squares are converted to **mean squares** by dividing by their degrees of freedom:  
+  
+$$MS_{\text{between}} = \frac{SS_{\text{between}}}{k - 1} \qquad MS_{\text{within}} = \frac{SS_{\text{within}}}{N - k}$$  
+  
+where $k$ is the number of groups and $N$ is the total number of observations.  
+  
+## The F-Ratio {-}  
+  
+The **F-ratio** is the test statistic for ANOVA:  
+  
+$$F = \frac{MS_{\text{between}}}{MS_{\text{within}}} = \frac{\text{Variance explained by group membership}}{\text{Unexplained variance (noise)}}$$  
+  
+Under the null hypothesis (all group means are equal), $MS_{\text{between}}$ and $MS_{\text{within}}$ should estimate the same population variance, so F ≈ 1. When the null hypothesis is false and group means genuinely differ, $MS_{\text{between}}$ will be larger than $MS_{\text{within}}$, producing F > 1.  
+  
+The larger the F-ratio, the more evidence against H₀. The significance of F is assessed against the F-distribution with degrees of freedom $(k-1, N-k)$.  
+  
+```{r f_viz, echo=FALSE, message=FALSE, warning=FALSE}  
+x    <- seq(0, 8, length.out = 500)  
+df1  <- data.frame(x = x, y = df(x, 2, 27), label = "F(2, 27)")  
+crit <- qf(0.95, 2, 27)  
+  
+ggplot(df1, aes(x, y)) +  
+  geom_area(fill = "lightgray", alpha = 0.6) +  
+  geom_area(data = subset(df1, x >= crit),  
+            aes(x, y), fill = "tomato", alpha = 0.7) +  
+  geom_vline(xintercept = crit, linetype = "dashed", color = "tomato", linewidth = 0.8) +  
+  annotate("text", x = crit + 0.5, y = 0.35,  
+           label = paste0("Critical F = ", round(crit, 2)), hjust = 0, size = 3.5) +  
+  annotate("text", x = 5.5, y = 0.12,  
+           label = "Rejection\nregion (5%)", color = "tomato", size = 3.5) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank()) +  
+  labs(title = "F-distribution with df = (2, 27): the rejection region for α = .05",  
+       x = "F value", y = "Density")  
+```  
+  
+::: {.callout-tip}  
+## Intuition for the F-ratio  
+  
+Think of F as a **signal-to-noise ratio**. The numerator is the signal: how much do the group means differ? The denominator is the noise: how much do individuals within groups vary? A large F means the signal is much stronger than the noise — strong evidence that the groups differ.  
+  
+If F = 1, the group differences are no larger than random variation within groups — no evidence of a real effect.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: The Logic of ANOVA  
+:::  
+  
+**Q1. Why is it problematic to run multiple t-tests instead of ANOVA when comparing three or more groups?**  
+  
+```{r}  
+#| echo: false  
+#| label: "LOG_Q1"  
+check_question("Each additional test inflates the family-wise Type I error rate, making false rejections increasingly likely",  
+               options = c(  
+                 "Each additional test inflates the family-wise Type I error rate, making false rejections increasingly likely",  
+                 "t-tests cannot handle more than two groups, so they produce incorrect results",  
+                 "ANOVA is faster to compute, making it preferable for practical reasons",  
+                 "Multiple t-tests produce overly conservative results"  
+               ),  
+               type = "radio",  
+               q_id = "LOG_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! With α = .05, each t-test has a 5% false positive rate. Running k comparisons inflates the family-wise error rate to 1 − (0.95)^k. For 3 comparisons: 14.3%; for 6: 26.5%; for 10: 40.1%. ANOVA tests all groups in one omnibus test, keeping the error rate at exactly α = .05.",  
+               wrong = "Think about probability: if each test has a 5% chance of a false positive, what happens when you run many tests?")  
+```  
+  
+---  
+  
+**Q2. An ANOVA returns F(3, 76) = 0.87. What does this suggest?**  
+  
+```{r}  
+#| echo: false  
+#| label: "LOG_Q2"  
+check_question("The group means are not significantly different — the between-group variance is no larger than within-group noise",  
+               options = c(  
+                 "The group means are not significantly different — the between-group variance is no larger than within-group noise",  
+                 "There is a significant difference between at least two groups",  
+                 "The ANOVA model is invalid and should be rerun",  
+                 "F < 1 always indicates a data entry error"  
+               ),  
+               type = "radio",  
+               q_id = "LOG_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! F = 0.87 is less than 1, meaning the between-group variance (MS_between) is actually smaller than the within-group variance (MS_within). This is consistent with the null hypothesis — the groups are no more different from each other than individual scores within groups. F < 1 is not an error; it simply means there is no evidence of a group effect.",  
+               wrong = "Recall that F = MS_between / MS_within. If F < 1, what does that tell us about the relative sizes of the two variance components?")  
+```  
+  
+---  
+  
+# One-Way ANOVA {#oneway}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to test whether three or more group means differ significantly; how to check assumptions; how to identify *which* groups differ using post-hoc tests  
+  
+**Key functions:** `aov()`, `summary()`, `TukeyHSD()`, `emmeans()`, `car::leveneTest()`  
+  
+**Effect size:** η² (eta-squared), ω² (omega-squared)  
+:::  
+  
+A **one-way ANOVA** tests whether the means of a numeric dependent variable differ across three or more levels of a single categorical independent variable (factor).  
+  
+$$H_0: \mu_1 = \mu_2 = \cdots = \mu_k \quad \text{(all group means are equal)}$$  
+$$H_1: \text{At least one group mean differs from the others}$$  
+  
+## Assumptions {-}  
+  
+Before fitting a one-way ANOVA, the following assumptions should be verified:  
+  
+| Assumption | How to check |  
+|---|---|  
+| **Independence** of observations | Research design (each participant in one group only) |  
+| **Normality** of residuals within each group | Q-Q plots; Shapiro-Wilk test |  
+| **Homogeneity of variances** (homoskedasticity) | Levene's test; boxplots |  
+| **No extreme outliers** | Boxplots; z-scores |  
+  
+ANOVA is relatively **robust to mild violations** of normality, especially with balanced designs (equal group sizes) and moderate-to-large sample sizes (n ≥ 15 per group). It is more sensitive to violations of homogeneity of variances, particularly with unequal group sizes.  
+  
+## Worked Example: Speech Rate Across Three Registers {-}  
+  
+**Research question**: Do speakers produce syllables at different rates in formal speech, informal conversation, and read-aloud tasks?  
+  
+We simulate a dataset of syllables-per-second for 30 speakers (10 per register):  
+  
+```{r owa_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+n_per_group <- 10  
+  
+speech_rate <- data.frame(  
+  Register    = rep(c("Formal", "Informal", "ReadAloud"), each = n_per_group),  
+  SyllablesPS = c(  
+    rnorm(n_per_group, mean = 4.2, sd = 0.6),   # Formal: slower  
+    rnorm(n_per_group, mean = 5.4, sd = 0.7),   # Informal: fastest  
+    rnorm(n_per_group, mean = 4.8, sd = 0.5)    # Read aloud: intermediate  
+  )  
+) |>  
+  dplyr::mutate(Register = factor(Register,  
+                                  levels = c("Formal", "ReadAloud", "Informal")))  
+```  
+  
+### Step 1: Descriptive Statistics {-}  
+  
+Always start with a descriptive summary before running inferential tests:  
+  
+```{r owa_desc, message=FALSE, warning=FALSE}  
+speech_rate |>  
+  dplyr::group_by(Register) |>  
+  dplyr::summarise(  
+    n    = n(),  
+    M    = round(mean(SyllablesPS), 2),  
+    SD   = round(sd(SyllablesPS), 2),  
+    Mdn  = round(median(SyllablesPS), 2),  
+    Min  = round(min(SyllablesPS), 2),  
+    Max  = round(max(SyllablesPS), 2)  
+  ) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .85, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Descriptive statistics: speech rate (syllables/second) by register.") |>  
+  flextable::border_outer()  
+```  
+  
+### Step 2: Visualise the Data {-}  
+  
+```{r owa_viz, message=FALSE, warning=FALSE}  
+ggplot(speech_rate, aes(x = Register, y = SyllablesPS, fill = Register)) +  
+  geom_violin(alpha = 0.4, trim = FALSE) +  
+  geom_boxplot(width = 0.2, fill = "white",  
+               outlier.color = "tomato", outlier.size = 2) +  
+  stat_summary(fun = mean, geom = "point",  
+               shape = 18, size = 3, color = "black") +  
+  scale_fill_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  theme_bw() +  
+  theme(legend.position = "none", panel.grid.minor = element_blank()) +  
+  labs(title = "Speech rate by register",  
+       subtitle = "Diamond = group mean; box = median and IQR",  
+       x = "Register", y = "Syllables per second")  
+```  
+  
+### Step 3: Check Assumptions {-}  
+  
+**Normality of residuals**  
+  
+Fit the model first, then inspect residuals:  
+  
+```{r owa_normality, message=FALSE, warning=FALSE}  
+anova_model <- aov(SyllablesPS ~ Register, data = speech_rate)  
+  
+# Q-Q plot of residuals  
+par(mfrow = c(1, 2))  
+qqnorm(residuals(anova_model), main = "Q-Q Plot of Residuals", pch = 16,  
+       col = "steelblue")  
+qqline(residuals(anova_model), col = "tomato", lwd = 2)  
+  
+hist(residuals(anova_model), breaks = 10, main = "Histogram of Residuals",  
+     xlab = "Residuals", col = "steelblue", border = "white")  
+par(mfrow = c(1, 1))  
+```  
+  
+```{r owa_shapiro, message=FALSE, warning=FALSE}  
+# Shapiro-Wilk test on residuals  
+shapiro.test(residuals(anova_model))  
+```  
+  
+**Homogeneity of variances** (Levene's test):  
+  
+```{r owa_levene, message=FALSE, warning=FALSE}  
+car::leveneTest(SyllablesPS ~ Register, data = speech_rate)  
+```  
+  
+::: {.callout-tip}  
+## What If Assumptions Are Violated?  
+  
+- **Non-normal residuals** with sufficient sample size (n ≥ 15 per group): ANOVA is robust; proceed with caution and report the violation  
+- **Non-normal residuals** with small samples: use the **Kruskal-Wallis test** (non-parametric alternative)  
+- **Unequal variances**: use **Welch's ANOVA** — `oneway.test(y ~ group, var.equal = FALSE)` — which does not assume homoskedasticity  
+:::  
+  
+### Step 4: Fit and Interpret the ANOVA {-}  
+  
+```{r owa_fit, message=FALSE, warning=FALSE}  
+summary(anova_model)  
+```  
+  
+The ANOVA table shows:  
+  
+- **Df**: degrees of freedom for the effect (k − 1 = 2) and error (N − k = 27)  
+- **Sum Sq**: sum of squares (SS) for each source of variance  
+- **Mean Sq**: mean square = Sum Sq / Df  
+- **F value**: the F-ratio = MS_between / MS_within  
+- **Pr(>F)**: the p-value  
+  
+### Step 5: Effect Size {-}  
+  
+A significant F-ratio tells us that group means differ, but not how *much* they differ. We need an effect size.  
+  
+**Eta-squared (η²)** is the proportion of total variance explained by the factor:  
+  
+$$\eta^2 = \frac{SS_{\text{between}}}{SS_{\text{total}}}$$  
+  
+**Omega-squared (ω²)** is a less biased alternative that corrects for the number of groups and sample size:  
+  
+$$\omega^2 = \frac{SS_{\text{between}} - (k-1) \cdot MS_{\text{within}}}{SS_{\text{total}} + MS_{\text{within}}}$$  
+  
+```{r owa_effect, message=FALSE, warning=FALSE}  
+effectsize::eta_squared(anova_model, partial = FALSE)  
+effectsize::omega_squared(anova_model, partial = FALSE)  
+```  
+  
+```{r anova_effect_table, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Statistic  = c("η² (eta-squared)", "ω² (omega-squared)"),  
+  Small      = c(".01", ".01"),  
+  Medium     = c(".06", ".06"),  
+  Large      = c(".14", ".14"),  
+  Notes      = c("Biased upward; overestimates in small samples",  
+                 "Less biased; preferred for reporting")  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Benchmarks for ANOVA effect sizes (Cohen, 1988).") |>  
+  flextable::border_outer()  
+```  
+  
+### Step 6: Post-Hoc Tests {-}  
+  
+A significant one-way ANOVA tells us that *at least one* group mean differs — but not *which* pairs differ. **Post-hoc tests** perform all pairwise comparisons while controlling the family-wise error rate.  
+  
+::: {.callout-note}  
+## Choosing a Post-Hoc Test  
+  
+| Test | When to use |  
+|---|---|  
+| **Tukey HSD** | Equal or near-equal sample sizes; most common choice |  
+| **Bonferroni** | Conservative; best when you have few planned comparisons |  
+| **Games-Howell** | Unequal variances (heteroskedasticity) |  
+| **Scheffé** | Complex contrasts involving combinations of groups |  
+  
+For most linguistic research with balanced designs, **Tukey HSD** is the standard choice.  
+:::  
+  
+**Tukey HSD via base R:**  
+  
+```{r owa_tukey, message=FALSE, warning=FALSE}  
+TukeyHSD(anova_model)  
+```  
+  
+**Estimated marginal means and pairwise contrasts via `emmeans`** (more flexible, works with complex designs):  
+  
+```{r owa_emmeans, message=FALSE, warning=FALSE}  
+emm <- emmeans::emmeans(anova_model, ~ Register)  
+emm  
+  
+# Pairwise contrasts with Tukey adjustment  
+pairs(emm, adjust = "tukey")  
+```  
+  
+**Visualise the pairwise comparisons:**  
+  
+```{r owa_emm_plot, message=FALSE, warning=FALSE}  
+emmeans::emmip(anova_model, ~ Register,  
+               CIs = TRUE, style = "factor") +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank()) +  
+  labs(title = "Estimated marginal means with 95% CIs",  
+       y = "Syllables per second", x = "Register")  
+```  
+  
+::: {.callout-note}  
+## Reporting: One-Way ANOVA  
+  
+A one-way ANOVA was conducted to examine whether speech rate (syllables per second) differed across three register types (Formal, Read Aloud, Informal). Levene's test confirmed homogeneity of variances (*p* > .05), and residuals were approximately normal (Shapiro-Wilk: *p* > .05). The ANOVA revealed a significant main effect of Register (*F*(2, 27) = X.XX, *p* = .XXX, ω² = .XX). Post-hoc Tukey HSD comparisons showed that informal speech was significantly faster than formal speech (*p* = .XXX) and read-aloud speech (*p* = .XXX), while formal and read-aloud rates did not differ significantly (*p* = .XXX).  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: One-Way ANOVA  
+:::  
+  
+**Q1. A one-way ANOVA returns F(4, 95) = 2.87, p = .027. What can you conclude?**  
+  
+```{r}  
+#| echo: false  
+#| label: "OWA_Q1"  
+check_question("At least one pair of group means differs significantly; post-hoc tests are needed to identify which pairs",  
+               options = c(  
+                 "At least one pair of group means differs significantly; post-hoc tests are needed to identify which pairs",  
+                 "All five groups differ significantly from each other",  
+                 "The result is not significant because F < 3",  
+                 "The effect is large because F > 1"  
+               ),  
+               type = "radio",  
+               q_id = "OWA_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! ANOVA is an omnibus test — a significant result (p = .027 < .05) tells us the null hypothesis of equal means is rejected, meaning at least one group mean differs. But it does not tell us which specific pairs differ. Post-hoc tests (e.g., Tukey HSD) are needed for that. df = (4, 95) indicates 5 groups and N = 100 total observations.",  
+               wrong = "ANOVA is an omnibus test covering all groups at once. Does a significant F tell you which specific groups differ?")  
+```  
+  
+---  
+  
+**Q2. Levene's test returns p = .003 for a one-way ANOVA with unequal group sizes. What should you do?**  
+  
+```{r}  
+#| echo: false  
+#| label: "OWA_Q2"  
+check_question("Use Welch's ANOVA (oneway.test(y ~ group, var.equal = FALSE)), which does not assume equal variances",  
+               options = c(  
+                 "Use Welch's ANOVA (oneway.test(y ~ group, var.equal = FALSE)), which does not assume equal variances",  
+                 "Proceed with standard ANOVA — Levene's test is merely advisory",  
+                 "Switch to a paired t-test",  
+                 "Remove the group with the highest variance"  
+               ),  
+               type = "radio",  
+               q_id = "OWA_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! p = .003 means the group variances differ significantly — a violation of ANOVA's homoskedasticity assumption. With unequal group sizes, this violation is particularly consequential. Welch's ANOVA adjusts the degrees of freedom to account for unequal variances, analogous to Welch's t-test for two groups. For post-hoc tests with unequal variances, use the Games-Howell procedure.",  
+               wrong = "Levene's test p = .003 < .05 means equal variances cannot be assumed. Which version of ANOVA handles this?")  
+```  
+  
+---  
+  
+**Q3. Why is it important to report ω² rather than η² for ANOVA effect sizes in small samples?**  
+  
+```{r}  
+#| echo: false  
+#| label: "OWA_Q3"  
+check_question("η² is biased upward in small samples — it systematically overestimates the true population effect size; ω² corrects for this bias",  
+               options = c(  
+                 "η² is biased upward in small samples — it systematically overestimates the true population effect size; ω² corrects for this bias",  
+                 "ω² is always larger than η², making effects look more impressive",  
+                 "η² cannot be computed when sample sizes are unequal",  
+                 "They are equivalent — the choice is purely stylistic"  
+               ),  
+               type = "radio",  
+               q_id = "OWA_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! η² = SS_between / SS_total directly uses the sample sums of squares, which overestimate the corresponding population quantities in small samples. ω² subtracts (k−1)×MS_within from the numerator and adds MS_within to the denominator, correcting for the positive bias. In practice the difference is small for large samples, but for the small samples common in linguistics research, ω² provides a more honest estimate of the population effect.",  
+               wrong = "η² uses the raw sample sums of squares. Think about how sample statistics relate to population parameters in small samples.")  
+```  
+  
+---  
+  
+# Two-Way ANOVA {#twoway}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to test the effects of two categorical factors simultaneously; what interaction effects are and how to interpret them; how to visualise factorial designs  
+  
+**Key concepts:** Main effects, interaction effects, factorial design, interaction plot  
+  
+**Key functions:** `aov()`, `interaction.plot()`, `emmeans()`, `effectsize::eta_squared(partial = TRUE)`  
+:::  
+  
+A **two-way ANOVA** (also called a **factorial ANOVA**) examines the effects of two categorical independent variables (factors) on a numeric dependent variable. It partitions variance into three components:  
+  
+$$SS_{\text{total}} = SS_A + SS_B + SS_{A \times B} + SS_{\text{within}}$$  
+  
+- **Main effect of A**: Does the dependent variable differ across levels of factor A, averaging across all levels of factor B?  
+- **Main effect of B**: Does the dependent variable differ across levels of factor B, averaging across all levels of factor A?  
+- **Interaction effect A×B**: Does the effect of factor A on the dependent variable *depend* on the level of factor B?  
+  
+::: {.callout-important}  
+## Interaction Effects Take Priority  
+  
+Always examine the interaction term first. If the interaction is significant, the main effects cannot be interpreted independently — the effect of one factor depends on the level of the other. In this case, interpret the simple effects (the effect of factor A at each level of factor B) rather than main effects.  
+:::  
+  
+## Worked Example: Vocabulary Score by Proficiency and Instruction Type {-}  
+  
+**Research question**: Do vocabulary test scores differ by learner proficiency level (Beginner, Advanced) and instruction type (Explicit, Implicit), and do these two factors interact?  
+  
+```{r twa_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+n <- 15   # per cell  
+  
+vocab_data <- data.frame(  
+  Proficiency = rep(c("Beginner", "Advanced"), each = n * 2),  
+  Instruction = rep(rep(c("Explicit", "Implicit"), each = n), 2),  
+  Score = c(  
+    # Beginners: explicit instruction helps a lot; implicit less so  
+    rnorm(n, mean = 62, sd = 8),   # Beginner × Explicit  
+    rnorm(n, mean = 48, sd = 9),   # Beginner × Implicit  
+    # Advanced: explicit and implicit both work well  
+    rnorm(n, mean = 78, sd = 7),   # Advanced × Explicit  
+    rnorm(n, mean = 76, sd = 8)    # Advanced × Implicit  
+  )  
+) |>  
+  dplyr::mutate(  
+    Proficiency = factor(Proficiency, levels = c("Beginner", "Advanced")),  
+    Instruction = factor(Instruction, levels = c("Explicit", "Implicit"))  
+  )  
+```  
+  
+### Descriptive Statistics {-}  
+  
+```{r twa_desc, message=FALSE, warning=FALSE}  
+vocab_data |>  
+  dplyr::group_by(Proficiency, Instruction) |>  
+  dplyr::summarise(  
+    n  = n(),  
+    M  = round(mean(Score), 2),  
+    SD = round(sd(Score), 2),  
+    .groups = "drop"  
+  ) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .75, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Vocabulary scores (M, SD) by proficiency and instruction type.") |>  
+  flextable::border_outer()  
+```  
+  
+### Visualise the Interaction {-}  
+  
+The **interaction plot** is the most informative visualisation for a factorial design. Parallel lines indicate no interaction; non-parallel (crossing or diverging) lines suggest an interaction.  
+  
+```{r twa_viz, message=FALSE, warning=FALSE}  
+# Summary for plotting  
+twa_summary <- vocab_data |>  
+  dplyr::group_by(Proficiency, Instruction) |>  
+  dplyr::summarise(  
+    M  = mean(Score),  
+    SE = sd(Score) / sqrt(n()),  
+    .groups = "drop"  
+  )  
+  
+p1 <- ggplot(twa_summary,  
+             aes(x = Instruction, y = M,  
+                 color = Proficiency, group = Proficiency)) +  
+  geom_line(linewidth = 1) +  
+  geom_point(size = 3) +  
+  geom_errorbar(aes(ymin = M - SE, ymax = M + SE),  
+                width = 0.1, linewidth = 0.8) +  
+  scale_color_manual(values = c("steelblue", "tomato")) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank()) +  
+  labs(title = "Interaction plot",  
+       subtitle = "Non-parallel lines suggest an interaction",  
+       x = "Instruction type", y = "Mean vocabulary score",  
+       color = "Proficiency")  
+  
+p2 <- ggplot(vocab_data,  
+             aes(x = Proficiency, y = Score, fill = Instruction)) +  
+  geom_boxplot(alpha = 0.7, outlier.color = "gray40") +  
+  scale_fill_manual(values = c("steelblue", "tomato")) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank(), legend.position = "top") +  
+  labs(title = "Score distributions by cell",  
+       x = "Proficiency", y = "Vocabulary score", fill = "Instruction")  
+  
+cowplot::plot_grid(p1, p2, ncol = 2)  
+```  
+  
+The interaction plot shows that explicit instruction benefits beginners much more than implicit instruction, while advanced learners perform similarly under both conditions. This suggests an interaction.  
+  
+### Check Assumptions {-}  
+  
+```{r twa_assumptions, message=FALSE, warning=FALSE}  
+twa_model <- aov(Score ~ Proficiency * Instruction, data = vocab_data)  
+  
+# Levene's test  
+car::leveneTest(Score ~ Proficiency * Instruction, data = vocab_data)  
+  
+# Normality of residuals  
+shapiro.test(residuals(twa_model))  
+```  
+  
+### Fit the Two-Way ANOVA {-}  
+  
+```{r twa_fit, message=FALSE, warning=FALSE}  
+summary(twa_model)  
+```  
+  
+::: {.callout-note}  
+## Reading the Two-Way ANOVA Table  
+  
+The output shows three rows of effects:  
+  
+- **Proficiency**: main effect of proficiency level  
+- **Instruction**: main effect of instruction type  
+- **Proficiency:Instruction**: the interaction term  
+  
+Because the interaction is significant, we focus on **simple effects** — the effect of Instruction within each level of Proficiency — rather than interpreting main effects in isolation.  
+:::  
+  
+### Effect Sizes {-}  
+  
+For factorial designs, **partial η²** is reported instead of (total) η². Partial η² measures the proportion of variance explained by one effect after accounting for all other effects:  
+  
+$$\eta^2_p = \frac{SS_{\text{effect}}}{SS_{\text{effect}} + SS_{\text{error}}}$$  
+  
+```{r twa_effect, message=FALSE, warning=FALSE}  
+effectsize::eta_squared(twa_model, partial = TRUE)  
+```  
+  
+### Simple Effects Analysis {-}  
+  
+When the interaction is significant, we decompose it by examining the effect of one factor at each level of the other:  
+  
+```{r twa_simple, message=FALSE, warning=FALSE}  
+emm_twa <- emmeans::emmeans(twa_model, ~ Instruction | Proficiency)  
+emm_twa  
+  
+# Simple effects: does instruction type matter within each proficiency group?  
+pairs(emm_twa, adjust = "bonferroni")  
+```  
+  
+The simple effects analysis reveals that explicit instruction produces significantly higher scores than implicit instruction for beginners, but not for advanced learners — confirming the interaction.  
+  
+::: {.callout-note}  
+## Reporting: Two-Way ANOVA  
+  
+A 2 × 2 factorial ANOVA examined the effects of proficiency level (Beginner, Advanced) and instruction type (Explicit, Implicit) on vocabulary scores. Levene's test confirmed homogeneity of variances (*F*(3, 56) = X.XX, *p* > .05). There was a significant main effect of Proficiency (*F*(1, 56) = X.XX, *p* < .001, partial η² = .XX) and a significant Proficiency × Instruction interaction (*F*(1, 56) = X.XX, *p* = .XXX, partial η² = .XX). The main effect of Instruction was not significant (*F*(1, 56) = X.XX, *p* = .XXX). Simple effects analysis showed that explicit instruction produced significantly higher scores than implicit instruction for beginners (*p* < .001) but not for advanced learners (*p* = .XXX).  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Two-Way ANOVA  
+:::  
+  
+**Q1. In a two-way ANOVA, the interaction term is significant. What should you do first?**  
+  
+```{r}  
+#| echo: false  
+#| label: "TWA_Q1"  
+check_question("Interpret the simple effects (the effect of one factor at each level of the other), not the main effects in isolation",  
+               options = c(  
+                 "Interpret the simple effects (the effect of one factor at each level of the other), not the main effects in isolation",  
+                 "Ignore the interaction and report only the main effects",  
+                 "Re-run the analysis as two separate one-way ANOVAs",  
+                 "Report the main effects first, then mention the interaction as secondary"  
+               ),  
+               type = "radio",  
+               q_id = "TWA_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A significant interaction means the effect of one factor depends on the level of the other. Interpreting main effects in isolation when there is an interaction is misleading — the 'average' effect of one factor may not represent its effect at any specific level of the other. Simple effects analysis (the effect of factor A at each level of factor B) is the appropriate follow-up.",  
+               wrong = "A significant interaction means the two factors' effects are not independent of each other. Can you meaningfully interpret one factor's 'main' effect when it varies across levels of the other?")  
+```  
+  
+---  
+  
+**Q2. An interaction plot shows two perfectly parallel lines. What does this indicate?**  
+  
+```{r}  
+#| echo: false  
+#| label: "TWA_Q2"  
+check_question("No interaction — the effect of one factor is the same at all levels of the other factor",  
+               options = c(  
+                 "No interaction — the effect of one factor is the same at all levels of the other factor",  
+                 "A significant interaction — parallel lines always indicate interaction",  
+                 "The data are normally distributed",  
+                 "The two factors have equal main effects"  
+               ),  
+               type = "radio",  
+               q_id = "TWA_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Parallel lines in an interaction plot mean that the difference between the levels of one factor (e.g., the gap between the two lines) is the same regardless of the level of the other factor. This is the definition of no interaction — the factors have purely additive effects. Crossing or diverging lines suggest an interaction. Note: even if lines look slightly non-parallel in a sample, the interaction F-test determines whether this departure from parallelism is statistically significant.",  
+               wrong = "Think about what parallel lines mean geometrically: the vertical distance between the lines is constant. What does constant mean in terms of the effect of one factor across levels of another?")  
+```  
+  
+---  
+  
+# Repeated Measures ANOVA {#repeated}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to analyse designs where the same participants are measured across multiple conditions or time points; the sphericity assumption and its corrections  
+  
+**Key concepts:** Within-subjects factor, sphericity, Mauchly's test, Greenhouse-Geisser correction  
+  
+**Key functions:** `aov()` with `Error()`, `rstatix::anova_test()`, `emmeans()`  
+:::  
+  
+A **repeated measures ANOVA** (also called a **within-subjects ANOVA**) is used when the same participants are measured under three or more conditions. Because measurements come from the same individuals, they are correlated — the repeated measures design removes between-subject variability, increasing statistical power.  
+  
+## The Sphericity Assumption {-}  
+  
+Repeated measures ANOVA requires an additional assumption not needed in independent ANOVA: **sphericity**. Sphericity requires that the variances of the *differences* between all pairs of conditions are equal.  
+  
+Sphericity is tested using **Mauchly's test**:  
+- *p* > .05: sphericity is not violated — proceed normally  
+- *p* ≤ .05: sphericity is violated — apply a correction to the degrees of freedom  
+  
+The most common correction is the **Greenhouse-Geisser correction** (ε̂), which reduces the degrees of freedom to account for the violation. A more liberal alternative is the **Huynh-Feldt correction**. When sphericity is severely violated (ε̂ < .75), the Greenhouse-Geisser correction is preferred.  
+  
+## Worked Example: Grammaticality Judgements Across Three Time Points {-}  
+  
+**Research question**: Do grammaticality judgement scores change over three testing sessions (pre-instruction, mid-instruction, post-instruction)?  
+  
+```{r rm_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+n_participants <- 20  
+  
+rm_data <- data.frame(  
+  Participant = factor(rep(1:n_participants, 3)),  
+  Time        = factor(rep(c("Pre", "Mid", "Post"), each = n_participants),  
+                       levels = c("Pre", "Mid", "Post")),  
+  Score       = c(  
+    rnorm(n_participants, mean = 58, sd = 10),   # Pre  
+    rnorm(n_participants, mean = 67, sd = 9),    # Mid  
+    rnorm(n_participants, mean = 74, sd = 8)     # Post  
+  )  
+)  
+```  
+  
+### Descriptive Statistics and Visualisation {-}  
+  
+```{r rm_desc, message=FALSE, warning=FALSE}  
+rm_data |>  
+  dplyr::group_by(Time) |>  
+  dplyr::summarise(  
+    n  = n(),  
+    M  = round(mean(Score), 2),  
+    SD = round(sd(Score), 2),  
+    .groups = "drop"  
+  ) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Grammaticality judgement scores across three time points.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r rm_viz, message=FALSE, warning=FALSE}  
+# Individual trajectories + group mean  
+rm_summary <- rm_data |>  
+  dplyr::group_by(Time) |>  
+  dplyr::summarise(M = mean(Score), SE = sd(Score)/sqrt(n()), .groups = "drop")  
+  
+ggplot(rm_data, aes(x = Time, y = Score, group = Participant)) +  
+  geom_line(color = "gray70", alpha = 0.6, linewidth = 0.5) +  
+  geom_point(color = "gray60", alpha = 0.5, size = 1.5) +  
+  geom_line(data = rm_summary, aes(x = Time, y = M, group = 1),  
+            color = "steelblue", linewidth = 1.5, inherit.aes = FALSE) +  
+  geom_point(data = rm_summary, aes(x = Time, y = M),  
+             color = "steelblue", size = 4, inherit.aes = FALSE) +  
+  geom_errorbar(data = rm_summary,  
+                aes(x = Time, ymin = M - SE, ymax = M + SE),  
+                width = 0.1, color = "steelblue", linewidth = 1,  
+                inherit.aes = FALSE) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank()) +  
+  labs(title = "Grammaticality judgement scores over time",  
+       subtitle = "Gray lines = individual participants; blue = group mean ± SE",  
+       x = "Time point", y = "Score")  
+```  
+  
+### Fit the Repeated Measures ANOVA {-}  
+  
+In base R, repeated measures ANOVA is specified using an `Error()` term:  
+  
+```{r rm_fit, message=FALSE, warning=FALSE}  
+rm_model <- aov(Score ~ Time + Error(Participant/Time), data = rm_data)  
+summary(rm_model)  
+```  
+  
+The `rstatix` package provides a more convenient interface that also performs Mauchly's test and applies corrections automatically:  
+  
+```{r rm_rstatix, message=FALSE, warning=FALSE}  
+rm_data |>  
+  rstatix::anova_test(  
+    dv    = Score,  
+    wid   = Participant,  
+    within = Time  
+  )  
+```  
+  
+The output includes:  
+- **F**: the F-statistic  
+- **p**: the p-value (uncorrected)  
+- **p<.05**: significance indicator  
+- **ges**: generalised eta-squared (the recommended effect size for repeated measures designs)  
+- **Mauchly's W** and **p** for the sphericity test  
+- **GGe**: the Greenhouse-Geisser epsilon (ε̂)  
+- **p[GG]**: the Greenhouse-Geisser corrected p-value  
+  
+### Post-Hoc Pairwise Comparisons {-}  
+  
+```{r rm_posthoc, message=FALSE, warning=FALSE}  
+emm_rm <- emmeans::emmeans(rm_model, ~ Time)  
+pairs(emm_rm, adjust = "bonferroni")  
+```  
+  
+::: {.callout-note}  
+## Reporting: Repeated Measures ANOVA  
+  
+A one-way repeated measures ANOVA examined whether grammaticality judgement scores changed across three time points (Pre, Mid, Post). Mauchly's test indicated that [sphericity was/was not] violated (*W* = X.XX, *p* = .XXX). [If violated: The Greenhouse-Geisser correction was therefore applied (ε̂ = X.XX).] The ANOVA revealed a significant main effect of Time (*F*(X.XX, X.XX) = X.XX, *p* < .001, generalised η² = .XX). Bonferroni-corrected pairwise comparisons showed that scores increased significantly from Pre to Mid (*p* = .XXX) and from Mid to Post (*p* = .XXX).  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Repeated Measures ANOVA  
+:::  
+  
+**Q1. What is the sphericity assumption in repeated measures ANOVA, and why does it matter?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RM_Q1"  
+check_question("Sphericity requires that the variances of the differences between all pairs of conditions are equal; violations inflate the Type I error rate",  
+               options = c(  
+                 "Sphericity requires that the variances of the differences between all pairs of conditions are equal; violations inflate the Type I error rate",  
+                 "Sphericity requires that all participants score equally across conditions",  
+                 "Sphericity requires normal distribution of the dependent variable",  
+                 "Sphericity is another name for homogeneity of variances between groups"  
+               ),  
+               type = "radio",  
+               q_id = "RM_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Sphericity is a specific form of covariance structure assumed by the repeated measures ANOVA F-test. When violated, the F-ratio is too large and p-values are too small, inflating the Type I error rate. The Greenhouse-Geisser correction addresses this by reducing the degrees of freedom by a factor of ε̂ (epsilon), making the test more conservative.",  
+               wrong = "Sphericity relates to the variances of *differences* between conditions, not the raw scores themselves. What happens to the F-test when this assumption is violated?")  
+```  
+  
+---  
+  
+**Q2. Mauchly's test returns W = 0.71, p = .003 for a 4-level repeated measures factor. What should you report?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RM_Q2"  
+check_question("Report the Greenhouse-Geisser corrected F-statistic and p-value, since sphericity is violated (p < .05)",  
+               options = c(  
+                 "Report the Greenhouse-Geisser corrected F-statistic and p-value, since sphericity is violated (p < .05)",  
+                 "Report the uncorrected F-statistic — Mauchly's test is only advisory",  
+                 "Switch to a between-subjects ANOVA since sphericity is violated",  
+                 "Report the Huynh-Feldt correction, which is always preferred over Greenhouse-Geisser"  
+               ),  
+               type = "radio",  
+               q_id = "RM_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! p = .003 < .05 means sphericity is violated — reporting the uncorrected F would give inflated results. The Greenhouse-Geisser correction (ε̂) adjusts the degrees of freedom: df = (k−1) × ε̂ for the numerator and (N−1)(k−1) × ε̂ for the denominator. The Huynh-Feldt correction is less conservative and is sometimes preferred when ε̂ > .75; with ε̂ close to the lower bound, Greenhouse-Geisser is more appropriate.",  
+               wrong = "Mauchly's p = .003 < .05 means sphericity is violated. Which correction is applied to the degrees of freedom in response?")  
+```  
+  
+---  
+  
+# MANOVA {#manova}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** When and why to use multiple dependent variables simultaneously; how MANOVA protects against inflated error rates across multiple outcomes; how to interpret multivariate test statistics and follow up with univariate ANOVAs  
+  
+**Key concepts:** Multivariate test statistics (Pillai's trace, Wilks' λ, Hotelling's T², Roy's largest root); discriminant functions  
+  
+**Key functions:** `manova()`, `summary()`, `summary.aov()`  
+:::  
+  
+**MANOVA** (Multivariate Analysis of Variance) extends ANOVA to designs with **two or more dependent variables**. Instead of testing group differences on each outcome separately (which would again inflate Type I error), MANOVA tests all outcomes simultaneously within a single multivariate framework.  
+  
+## When to Use MANOVA {-}  
+  
+Use MANOVA when:  
+  
+- You have **two or more correlated dependent variables** measured on the same participants  
+- You want to understand whether groups differ across a **profile of outcomes** considered together  
+- You want to control the overall Type I error rate across multiple outcomes  
+  
+Do not use MANOVA simply because you have multiple outcomes — if the outcomes are theoretically unrelated, separate ANOVAs with an appropriate correction (e.g., Bonferroni) may be more interpretable.  
+  
+## The Multivariate Test Statistics {-}  
+  
+MANOVA produces several test statistics, each with slightly different properties:  
+  
+```{r manova_stats_table, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Statistic      = c("Pillai's trace", "Wilks' λ", "Hotelling's trace", "Roy's largest root"),  
+  Formula_logic  = c("Sum of explained variance in each discriminant dimension",  
+                     "Product of (1 − explained variance) across dimensions",  
+                     "Sum of explained/unexplained variance ratios",  
+                     "Variance on the first (largest) discriminant dimension only"),  
+  Robustness     = c("Most robust; recommended when assumptions may be violated",  
+                     "Traditional default; performs well when assumptions are met",  
+                     "Sensitive to non-normality",  
+                     "Powerful but anti-conservative; only valid if one discriminant function dominates"),  
+  Recommendation = c("Preferred for most applications",  
+                     "Report alongside Pillai when assumptions met",  
+                     "Rarely preferred",  
+                     "Use with caution")  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Multivariate test statistics in MANOVA: characteristics and recommendations.") |>  
+  flextable::border_outer()  
+```  
+  
+::: {.callout-tip}  
+## Which Test Statistic to Report?  
+  
+**Pillai's trace** is the most robust to violations of multivariate normality and homogeneity of covariance matrices, and is the recommended default for most linguistic research. When the assumptions are well met and you have one dominant discriminant function, Wilks' λ is a reasonable alternative.  
+:::  
+  
+## Assumptions of MANOVA {-}  
+  
+MANOVA extends the ANOVA assumptions to the multivariate case:  
+  
+| Assumption | How to check |  
+|---|---|  
+| **Multivariate normality** | Q-Q plots per group per variable; Mardia's test (`rstatix::mshapiro_test()`) |  
+| **Homogeneity of covariance matrices** | Box's M test (`rstatix::box_m()`) — note: very sensitive, treat cautiously |  
+| **Independence** of observations | Research design |  
+| **No extreme multivariate outliers** | Mahalanobis distance |  
+| **No multicollinearity** between DVs | Correlation matrix; if *r* > .90, consider combining or dropping variables |  
+  
+## Worked Example: Language Proficiency Profiles Across Three L1 Backgrounds {-}  
+  
+**Research question**: Do speakers from three different L1 backgrounds (English, Mandarin, German) differ in their overall language proficiency profile, as measured by listening score, reading score, and writing score?  
+  
+```{r manova_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+n_per <- 25  
+  
+manova_data <- data.frame(  
+  L1_Background = factor(rep(c("English", "Mandarin", "German"), each = n_per)),  
+  Listening     = c(  
+    rnorm(n_per, mean = 82, sd = 8),  
+    rnorm(n_per, mean = 74, sd = 9),  
+    rnorm(n_per, mean = 78, sd = 7)  
+  ),  
+  Reading = c(  
+    rnorm(n_per, mean = 80, sd = 7),  
+    rnorm(n_per, mean = 85, sd = 8),  
+    rnorm(n_per, mean = 76, sd = 9)  
+  ),  
+  Writing = c(  
+    rnorm(n_per, mean = 75, sd = 9),  
+    rnorm(n_per, mean = 68, sd = 10),  
+    rnorm(n_per, mean = 80, sd = 8)  
+  )  
+)  
+```  
+  
+### Descriptive Statistics {-}  
+  
+```{r manova_desc, message=FALSE, warning=FALSE}  
+manova_data |>  
+  tidyr::pivot_longer(cols = c(Listening, Reading, Writing),  
+                      names_to = "Skill", values_to = "Score") |>  
+  dplyr::group_by(L1_Background, Skill) |>  
+  dplyr::summarise(  
+    M  = round(mean(Score), 1),  
+    SD = round(sd(Score), 1),  
+    .groups = "drop"  
+  ) |>  
+  tidyr::pivot_wider(names_from = Skill,  
+                     values_from = c(M, SD)) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Proficiency scores (M, SD) by L1 background and skill.") |>  
+  flextable::border_outer()  
+```  
+  
+### Visualise the Profiles {-}  
+  
+```{r manova_viz, message=FALSE, warning=FALSE}  
+manova_data |>  
+  tidyr::pivot_longer(cols = c(Listening, Reading, Writing),  
+                      names_to = "Skill", values_to = "Score") |>  
+  dplyr::group_by(L1_Background, Skill) |>  
+  dplyr::summarise(M = mean(Score), SE = sd(Score)/sqrt(n()), .groups = "drop") |>  
+  ggplot(aes(x = Skill, y = M,  
+             color = L1_Background, group = L1_Background)) +  
+  geom_line(linewidth = 1) +  
+  geom_point(size = 3) +  
+  geom_errorbar(aes(ymin = M - SE, ymax = M + SE),  
+                width = 0.1, linewidth = 0.7) +  
+  scale_color_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank(), legend.position = "top") +  
+  labs(title = "Language proficiency profiles by L1 background",  
+       subtitle = "Mean ± SE across listening, reading, and writing",  
+       x = "Skill", y = "Mean score", color = "L1 background")  
+```  
+  
+The diverging profile lines suggest that the groups differ not just in overall proficiency but in their *pattern* of skill strengths — exactly the kind of question MANOVA is designed to answer.  
+  
+### Check Assumptions {-}  
+  
+```{r manova_assump, message=FALSE, warning=FALSE}  
+# Multivariate normality per group (Shapiro-Wilk on each variable within each group)
+manova_data |>
+  tidyr::pivot_longer(cols = c(Listening, Reading, Writing),
+                      names_to = "Skill", values_to = "Score") |>
+  dplyr::group_by(L1_Background, Skill) |>
+  dplyr::summarise(
+    W = shapiro.test(Score)$statistic,
+    p = shapiro.test(Score)$p.value,
+    .groups = "drop"
+  )
+
+# Homogeneity of covariance matrices (Box's M)
+rstatix::box_m(
+  data  = manova_data[, c("Listening", "Reading", "Writing")],
+  group = manova_data$L1_Background
+)
+
+# Correlation between DVs (check for multicollinearity)
+cor(manova_data[, c("Listening", "Reading", "Writing")])
+```  
+  
+::: {.callout-warning}  
+## Box's M Test  
+  
+Box's M test is extremely sensitive — with moderate sample sizes it almost always rejects the null hypothesis of equal covariance matrices even when the violation is minor. Treat a significant Box's M as a warning rather than an absolute contraindication. If Pillai's trace is used as the test statistic, MANOVA remains robust to moderate violations.  
+:::  
+  
+### Fit the MANOVA {-}  
+  
+```{r manova_fit, message=FALSE, warning=FALSE}  
+# Bind outcome columns into a matrix (required by manova())  
+outcome_matrix <- cbind(manova_data$Listening,  
+                        manova_data$Reading,  
+                        manova_data$Writing)  
+  
+manova_model <- manova(outcome_matrix ~ L1_Background, data = manova_data)  
+  
+# Pillai's trace (default and recommended)  
+summary(manova_model, test = "Pillai")  
+  
+# Wilks' lambda for comparison  
+summary(manova_model, test = "Wilks")  
+```  
+  
+### Follow-Up Univariate ANOVAs {-}  
+  
+A significant MANOVA tells us the groups differ on the *combination* of outcomes. Follow-up univariate ANOVAs identify which individual outcomes drive the multivariate effect:  
+  
+```{r manova_followup, message=FALSE, warning=FALSE}  
+summary.aov(manova_model)  
+```  
+  
+For each significant univariate ANOVA, run post-hoc comparisons as you would for a standard one-way ANOVA:  
+  
+```{r manova_posthoc, message=FALSE, warning=FALSE}  
+# Post-hoc for Listening (if significant)  
+listening_model <- aov(Listening ~ L1_Background, data = manova_data)  
+TukeyHSD(listening_model)  
+  
+# Post-hoc for Reading  
+reading_model <- aov(Reading ~ L1_Background, data = manova_data)  
+TukeyHSD(reading_model)  
+  
+# Post-hoc for Writing  
+writing_model <- aov(Writing ~ L1_Background, data = manova_data)  
+TukeyHSD(writing_model)  
+```  
+  
+::: {.callout-note}  
+## Reporting: MANOVA  
+  
+A one-way MANOVA examined whether L1 background (English, Mandarin, German) was associated with a profile of proficiency scores (Listening, Reading, Writing). Box's M test [was/was not] significant (*F*(XX, XXXXX) = X.XX, *p* = .XXX), and Pillai's trace was used as the test statistic. The MANOVA revealed a significant multivariate effect of L1 background (Pillai's trace = X.XX, *F*(X, XX) = X.XX, *p* = .XXX). Univariate follow-up ANOVAs showed significant group differences for Listening (*F*(2, 72) = X.XX, *p* = .XXX, η² = .XX) and Writing (*F*(2, 72) = X.XX, *p* = .XXX, η² = .XX), but not for Reading (*F*(2, 72) = X.XX, *p* = .XXX).  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: MANOVA  
+:::  
+  
+**Q1. A researcher wants to compare three dialects of English on five phonetic measures simultaneously. Why is MANOVA preferable to five separate ANOVAs?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MAN_Q1"  
+check_question("MANOVA tests all five outcomes simultaneously, keeping the family-wise Type I error rate at α = .05 and detecting multivariate group differences that might not be apparent in any individual ANOVA",  
+               options = c(  
+                 "MANOVA tests all five outcomes simultaneously, keeping the family-wise Type I error rate at α = .05 and detecting multivariate group differences that might not be apparent in any individual ANOVA",  
+                 "MANOVA is faster to compute than five separate ANOVAs",  
+                 "MANOVA is required whenever you have more than three dependent variables",  
+                 "Separate ANOVAs would produce identical results to MANOVA"  
+               ),  
+               type = "radio",  
+               q_id = "MAN_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Five separate ANOVAs at α = .05 would give a family-wise error rate of 1 − (0.95)^5 = 22.6%. MANOVA tests the linear combination of all five outcomes that maximises group separation — it can detect multivariate effects (e.g., a distinctive profile across outcomes) even when no individual outcome differs significantly. The significant MANOVA is then followed by univariate ANOVAs to identify which specific outcomes drive the effect.",  
+               wrong = "Think about what happens to the Type I error rate when you run multiple tests. And consider whether groups might differ in their *pattern* of scores rather than on any single measure.")  
+```  
+  
+---  
+  
+**Q2. Why is Pillai's trace generally recommended as the test statistic for MANOVA?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MAN_Q2"  
+check_question("Pillai's trace is the most robust to violations of multivariate normality and homogeneity of covariance matrices",  
+               options = c(  
+                 "Pillai's trace is the most robust to violations of multivariate normality and homogeneity of covariance matrices",  
+                 "Pillai's trace always produces the largest F-statistic",  
+                 "Pillai's trace is the only statistic that adjusts for multiple dependent variables",  
+                 "Pillai's trace is less sensitive than Wilks' λ and therefore more conservative"  
+               ),  
+               type = "radio",  
+               q_id = "MAN_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! When MANOVA assumptions are met, all four statistics give similar results and Wilks' λ is the classical default. But when assumptions are violated — particularly heterogeneous covariance matrices (flagged by Box's M) or non-normal data — Pillai's trace is the most robust. Since real linguistic data rarely perfectly meet assumptions, Pillai's trace is the recommended default.",  
+               wrong = "Different multivariate test statistics differ in their sensitivity to assumption violations. Which one maintains its Type I error rate best when assumptions are not perfectly met?")  
+```  
+  
+---  
+  
+# ANCOVA {#ancova}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to remove the influence of a continuous control variable (covariate) before testing group differences; how this increases statistical power and removes confounding; how to interpret adjusted means  
+  
+**Key concepts:** Covariate, adjusted means, homogeneity of regression slopes  
+  
+**Key functions:** `aov()` with covariate, `emmeans()` for adjusted means, `car::Anova()` for Type III SS  
+:::  
+  
+**ANCOVA** (Analysis of Covariance) combines ANOVA with linear regression. It tests whether group means on a dependent variable differ *after controlling for* one or more continuous covariates. ANCOVA serves two related purposes:  
+  
+1. **Reducing error variance**: By explaining some of the within-group variability via the covariate, ANCOVA increases statistical power  
+2. **Removing confounding**: If groups differ on a variable that also predicts the outcome (a confound), ANCOVA statistically equates the groups on that variable before testing the group effect  
+  
+## Key Assumptions of ANCOVA {-}  
+  
+ANCOVA requires all ANOVA assumptions plus two additional ones:  
+  
+| Assumption | Description | How to check |  
+|---|---|---|  
+| **Linear relationship** between covariate and DV | The covariate should correlate linearly with the outcome | Scatterplot; correlation |  
+| **Homogeneity of regression slopes** | The relationship between covariate and DV must be the same in all groups (no group × covariate interaction) | Test the interaction term: `aov(DV ~ group * covariate)` |  
+| **Independence** of covariate and group factor | The covariate should not itself be affected by the group manipulation (especially in experiments) | Design consideration |  
+  
+::: {.callout-important}  
+## The Homogeneity of Regression Slopes Assumption  
+  
+If the slopes relating the covariate to the outcome differ across groups, the covariate adjusts scores differently in different groups — making the adjusted means uninterpretable. Always test this assumption by including the group × covariate interaction in the model. If the interaction is significant, ANCOVA assumptions are violated and a different approach (e.g., moderated regression) is needed.  
+:::  
+  
+## Worked Example: Vocabulary Scores Controlling for Working Memory {-}  
+  
+**Research question**: Does instruction type (Explicit vs. Implicit) affect vocabulary test scores, after controlling for working memory capacity?  
+  
+**Rationale**: Groups may differ in working memory, which independently predicts vocabulary learning. ANCOVA removes this confound, revealing whether instruction type has an effect beyond what working memory alone would predict.  
+  
+```{r ancova_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+n <- 30  # per group  
+  
+ancova_data <- data.frame(  
+  Instruction    = factor(rep(c("Explicit", "Implicit"), each = n)),  
+  WorkingMemory  = c(rnorm(n, mean = 52, sd = 10),  
+                     rnorm(n, mean = 55, sd = 10)),  # slightly higher in Implicit group  
+  VocabScore     = NA  
+)  
+  
+# Vocabulary is affected by both instruction and working memory  
+ancova_data$VocabScore <- with(ancova_data,  
+  ifelse(Instruction == "Explicit", 65, 55) +    # instruction effect  
+  0.4 * WorkingMemory +                           # working memory effect  
+  rnorm(nrow(ancova_data), 0, 8)                  # noise  
+)  
+```  
+  
+### Step 1: Check That Covariate Predicts the Outcome {-}  
+  
+```{r ancova_cov_check, message=FALSE, warning=FALSE}  
+ggplot(ancova_data, aes(x = WorkingMemory, y = VocabScore,  
+                         color = Instruction, shape = Instruction)) +  
+  geom_point(alpha = 0.7, size = 2.5) +  
+  geom_smooth(method = "lm", se = TRUE, alpha = 0.15) +  
+  scale_color_manual(values = c("steelblue", "tomato")) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank(), legend.position = "top") +  
+  labs(title = "Vocabulary score vs. working memory by instruction type",  
+       subtitle = "Parallel regression lines support homogeneity of slopes",  
+       x = "Working memory score", y = "Vocabulary score",  
+       color = "Instruction", shape = "Instruction")  
+```  
+  
+Approximately parallel lines suggest that the relationship between working memory and vocabulary is similar across groups — supporting the homogeneity of slopes assumption.  
+  
+### Step 2: Test Homogeneity of Regression Slopes {-}  
+  
+```{r ancova_slopes, message=FALSE, warning=FALSE}  
+# Include the interaction to test homogeneity of slopes  
+slopes_test <- aov(VocabScore ~ Instruction * WorkingMemory, data = ancova_data)  
+car::Anova(slopes_test, type = "III")  
+```  
+  
+A non-significant interaction (*p* > .05) confirms that the slopes are homogeneous — ANCOVA is appropriate.  
+  
+### Step 3: Fit the ANCOVA {-}  
+  
+With the assumption verified, we fit the ANCOVA (covariate enters first to ensure it is controlled for):  
+  
+```{r ancova_fit, message=FALSE, warning=FALSE}  
+ancova_model <- aov(VocabScore ~ WorkingMemory + Instruction, data = ancova_data)  
+car::Anova(ancova_model, type = "III")  
+```  
+  
+::: {.callout-note}  
+## Type I vs. Type III Sums of Squares  
+  
+- **Type I SS** (sequential): Each effect is adjusted only for effects that appear earlier in the model formula. Order matters — use only with orthogonal (balanced, uncorrelated) designs.  
+- **Type III SS** (partial): Each effect is adjusted for all other effects simultaneously. Order does not matter — use with ANCOVA and unbalanced designs.  
+  
+Always use `car::Anova(model, type = "III")` for ANCOVA to ensure correct Type III SS.  
+:::  
+  
+### Step 4: Adjusted Means {-}  
+  
+The most important output from ANCOVA is the **adjusted means** — the estimated group means after statistically controlling for the covariate. These represent what the group means would be if all groups had the same covariate value (typically the grand mean).  
+  
+```{r ancova_adj_means, message=FALSE, warning=FALSE}  
+# Estimated marginal means (adjusted for working memory)  
+emm_ancova <- emmeans::emmeans(ancova_model, ~ Instruction)  
+emm_ancova  
+  
+# Pairwise comparison of adjusted means  
+pairs(emm_ancova)  
+```  
+  
+```{r ancova_viz, message=FALSE, warning=FALSE}  
+# Compare unadjusted vs. adjusted means  
+raw_means <- ancova_data |>  
+  dplyr::group_by(Instruction) |>  
+  dplyr::summarise(Mean = mean(VocabScore), Type = "Unadjusted", .groups = "drop")  
+  
+adj_means <- as.data.frame(emm_ancova) |>  
+  dplyr::select(Instruction, emmean) |>  
+  dplyr::rename(Mean = emmean) |>  
+  dplyr::mutate(Type = "Adjusted (ANCOVA)")  
+  
+combined_means <- dplyr::bind_rows(raw_means, adj_means)  
+  
+ggplot(combined_means, aes(x = Instruction, y = Mean,  
+                            fill = Type, group = Type)) +  
+  geom_col(position = position_dodge(0.7), width = 0.6, alpha = 0.85) +  
+  scale_fill_manual(values = c("steelblue", "tomato")) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank(), legend.position = "top") +  
+  labs(title = "Unadjusted vs. covariate-adjusted group means",  
+       subtitle = "ANCOVA removes the confounding influence of working memory",  
+       x = "Instruction type", y = "Vocabulary score", fill = "")  
+```  
+  
+### Step 5: Effect Size {-}  
+  
+```{r ancova_effect, message=FALSE, warning=FALSE}  
+effectsize::eta_squared(ancova_model, partial = TRUE)  
+```  
+  
+::: {.callout-note}  
+## Reporting: ANCOVA  
+  
+An ANCOVA was conducted to examine whether instruction type (Explicit vs. Implicit) affected vocabulary scores, after controlling for working memory capacity. The homogeneity of regression slopes assumption was verified — the interaction between instruction type and working memory was not significant (*F*(1, 56) = X.XX, *p* = .XXX). Working memory was a significant covariate (*F*(1, 57) = X.XX, *p* < .001, partial η² = .XX). After controlling for working memory, there was a significant main effect of instruction type (*F*(1, 57) = X.XX, *p* = .XXX, partial η² = .XX). Adjusted means indicated that explicit instruction (*M*_adj = XX.X) produced higher scores than implicit instruction (*M*_adj = XX.X).  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: ANCOVA  
+:::  
+  
+**Q1. What are the two main purposes of including a covariate in ANCOVA?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ANC_Q1"  
+check_question("Reducing residual error variance (increasing power) and statistically removing the confounding influence of the covariate on the group comparison",  
+               options = c(  
+                 "Reducing residual error variance (increasing power) and statistically removing the confounding influence of the covariate on the group comparison",  
+                 "Making the dependent variable normally distributed and removing outliers",  
+                 "Increasing the sample size and reducing the number of groups",  
+                 "Replacing a missing second independent variable and simplifying the model"  
+               ),  
+               type = "radio",  
+               q_id = "ANC_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! ANCOVA serves two related purposes: (1) By explaining some of the within-group variability via the covariate, it reduces the error term (MS_within), giving the F-ratio a larger numerator-to-denominator ratio and increasing statistical power. (2) By statistically equating groups on the covariate, it removes confounding — the group comparison is made at a common covariate level, producing adjusted means that represent what the means would be if all groups had identical covariate values.",  
+               wrong = "Think about what the covariate does to (a) the error variance and (b) the comparability of groups. How does explaining additional variance affect the F-ratio?")  
+```  
+  
+---  
+  
+**Q2. The homogeneity of regression slopes test returns F(1, 56) = 7.23, p = .009. What does this mean for your ANCOVA?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ANC_Q2"  
+check_question("ANCOVA is not appropriate — the covariate has a different relationship with the outcome in different groups; consider moderated regression instead",  
+               options = c(  
+                 "ANCOVA is not appropriate — the covariate has a different relationship with the outcome in different groups; consider moderated regression instead",  
+                 "ANCOVA is still appropriate — this test only affects the covariate's significance",  
+                 "Remove the covariate from the model and run a standard ANOVA",  
+                 "Switch to MANOVA, which does not require homogeneous slopes"  
+               ),  
+               type = "radio",  
+               q_id = "ANC_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A significant group × covariate interaction (p = .009) means the regression slopes differ across groups — the covariate relates to the outcome differently in different conditions. In this case, a single covariate adjustment is inappropriate because the adjustment needed differs by group. Moderated regression (including the interaction term explicitly) or plotting the relationship within each group separately would be more appropriate approaches.",  
+               wrong = "The homogeneity of slopes test checks whether the covariate-outcome relationship is the same in all groups. A significant interaction (p < .05) means the slopes differ. What does that imply for ANCOVA's assumption?")  
+```  
+  
+---  
+  
+**Q3. What is the difference between unadjusted means and adjusted means in ANCOVA?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ANC_Q3"  
+check_question("Adjusted means are estimated group means after statistically controlling for the covariate — they represent what the means would be if all groups had the same covariate value",  
+               options = c(  
+                 "Adjusted means are estimated group means after statistically controlling for the covariate — they represent what the means would be if all groups had the same covariate value",  
+                 "Adjusted means are means after removing outliers from the dataset",  
+                 "Adjusted means are standardised (z-score) versions of the raw means",  
+                 "Adjusted means include a Bonferroni correction for multiple comparisons"  
+               ),  
+               type = "radio",  
+               q_id = "ANC_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Adjusted (or estimated marginal) means account for the covariate by computing what each group mean would be at the grand mean of the covariate. If groups differ on the covariate — for example, if one group has higher working memory on average — the raw means conflate the group effect with the covariate effect. Adjusted means disentangle these by placing all groups at the same covariate value before comparing. In R, emmeans::emmeans() computes adjusted means automatically.",  
+               wrong = "The 'adjustment' in ANCOVA is specifically about the covariate. What does controlling for a covariate mean for the estimated group means?")  
+```  
+  
+---  
+  
+# Effect Sizes and Statistical Power {#effectsize}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to quantify the practical importance of ANOVA results; the difference between η², partial η², ω², and Cohen's *f*; a brief introduction to power analysis for ANOVA designs  
+:::  
+  
+Statistical significance tells us whether an effect exists; **effect sizes** tell us how large it is. Always report effect sizes alongside F-statistics and p-values.  
+  
+## Summary of Effect Size Measures for ANOVA {-}  
+  
+```{r es_summary_table, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Measure       = c("η² (eta-squared)", "partial η²", "ω² (omega-squared)",  
+                    "partial ω²", "Cohen's f"),  
+  Formula       = c("SS_effect / SS_total",  
+                    "SS_effect / (SS_effect + SS_error)",  
+                    "Bias-corrected η²",  
+                    "Bias-corrected partial η²",  
+                    "√(η² / (1 − η²))"),  
+  Small         = c(".01", ".01", ".01", ".01", ".10"),  
+  Medium        = c(".06", ".06", ".06", ".06", ".25"),  
+  Large         = c(".14", ".14", ".14", ".14", ".40"),  
+  When_to_use   = c("One-way ANOVA; total variance is meaningful",  
+                    "Factorial ANOVA/ANCOVA; each effect assessed against error only",  
+                    "One-way ANOVA; preferred for small samples (less biased)",  
+                    "Factorial ANOVA/ANCOVA; less biased than partial η²",  
+                    "Power analysis; Cohen's conventions")  
+) |>  
+  dplyr::rename("When to use" = When_to_use) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Effect size measures for ANOVA designs: formulas, benchmarks, and recommendations.") |>  
+  flextable::border_outer()  
+```  
+  
+## Computing Effect Sizes in R {-}  
+  
+```{r es_compute, message=FALSE, warning=FALSE}  
+# Using the one-way ANOVA model from earlier  
+anova_model <- aov(SyllablesPS ~ Register, data = speech_rate)  
+  
+# eta-squared (total)  
+effectsize::eta_squared(anova_model, partial = FALSE)  
+  
+# partial eta-squared  
+effectsize::eta_squared(anova_model, partial = TRUE)  
+  
+# omega-squared (less biased; preferred for small samples)  
+effectsize::omega_squared(anova_model, partial = FALSE)  
+  
+# Cohen's f (for power analysis)  
+effectsize::cohens_f(anova_model)  
+```  
+  
+## A Brief Note on Power Analysis {-}  
+  
+**Statistical power** is the probability of correctly detecting a true effect (i.e., rejecting H₀ when H₁ is true). The conventional target is power ≥ .80. Power depends on:  
+  
+- **Effect size** (larger effects are easier to detect)  
+- **Sample size** (more participants → more power)  
+- **Significance level** α (stricter α → less power)  
+- **Number of groups** (more groups → more df needed)  
+  
+The `pwr` package performs power analysis for ANOVA:  
+  
+```{r power_analysis, message=FALSE, warning=FALSE}  
+# install.packages("pwr")  
+library(pwr)  
+  
+# What sample size is needed per group for:  
+# - 3 groups (k = 3)  
+# - medium effect (f = 0.25)  
+# - α = .05, power = .80?  
+pwr::pwr.anova.test(  
+  k     = 3,       # number of groups  
+  f     = 0.25,    # Cohen's f (medium effect)  
+  sig.level = 0.05,  
+  power = 0.80  
+)  
+```  
+  
+This tells us the required sample size *per group* to achieve 80% power with a medium effect and three groups.  
+  
+---  
+  
+# Reporting Standards {#reporting}  
+  
+Clear, complete reporting allows readers to evaluate and reproduce your analyses. This section provides the key conventions and model reporting paragraphs.  
+  
+## APA-Style Conventions {-}  
+  
+::: {.callout-note}  
+## Reporting Checklist for ANOVA-Family Tests  
+  
+For every analysis, report:  
+  
+- **F-statistic** with degrees of freedom: *F*(df_between, df_within) = X.XX  
+- **p-value** (exact where possible; *p* < .001 when very small)  
+- **Effect size** with confidence interval: partial η² = .XX, 95% CI [.XX, .XX]  
+- **Group means and SDs** (or a summary table)  
+- **Assumption checks**: Levene's test, Shapiro-Wilk (or Q-Q plot description)  
+- **Post-hoc tests**: method used, adjusted p-values for each comparison  
+- For ANCOVA: adjusted means and the covariate F-statistic  
+- For repeated measures: Mauchly's W, ε̂ if corrected, corrected df  
+:::  
+  
+## Quick Reference: Test Selection {-}  
+  
+```{r test_ref, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Design = c(  
+    "3+ independent groups, 1 DV",  
+    "3+ independent groups, 1 DV, unequal variances",  
+    "3+ independent groups, 1 DV, non-normal data",  
+    "2 factors (independent groups), 1 DV",  
+    "Same participants across 3+ conditions",  
+    "Same participants across 3+ conditions, non-normal",  
+    "3+ groups, 2+ DVs simultaneously",  
+    "3+ groups, 1 DV, controlling for a continuous variable"  
+  ),  
+  Test = c(  
+    "One-way ANOVA",  
+    "Welch's ANOVA",  
+    "Kruskal-Wallis test",  
+    "Two-way (factorial) ANOVA",  
+    "Repeated measures ANOVA",  
+    "Friedman test",  
+    "MANOVA",  
+    "ANCOVA"  
+  ),  
+  R_function = c(  
+    "aov(y ~ group)",  
+    "oneway.test(y ~ group, var.equal = FALSE)",  
+    "kruskal.test(y ~ group)",  
+    "aov(y ~ A * B)",  
+    "aov(y ~ time + Error(id/time))",  
+    "friedman.test(y ~ time | id)",  
+    "manova(cbind(y1,y2) ~ group)",  
+    "aov(y ~ covariate + group)"  
+  ),  
+  Effect_size = c(  
+    "ω² or η²",  
+    "η²",  
+    "ε² (rank-based)",  
+    "partial η² per effect",  
+    "Generalised η²",  
+    "Kendall's W",  
+    "Pillai's trace; univariate partial η²",  
+    "partial η² (adjusted)"  
+  )  
+) |>  
+  dplyr::rename("Research design" = Design,  
+                "R function" = R_function,  
+                "Effect size" = Effect_size) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Quick reference: ANOVA-family test selection, R functions, and effect sizes.") |>  
+  flextable::border_outer()  
+```  
+  
+## Model Reporting Paragraphs {-}  
+  
+### One-way ANOVA  
+  
+> A one-way ANOVA examined whether speech rate (syllables per second) differed across three register types (Formal, Read Aloud, Informal). Levene's test confirmed homogeneity of variances (*F*(2, 27) = X.XX, *p* = .XXX), and Shapiro-Wilk tests on residuals within each group indicated approximately normal distributions (all *p* > .05). The ANOVA revealed a significant main effect of Register (*F*(2, 27) = X.XX, *p* = .XXX, ω² = .XX, 95% CI [.XX, .XX]). Tukey HSD post-hoc comparisons showed that informal speech (*M* = 5.41, *SD* = 0.70) was significantly faster than both formal speech (*M* = 4.19, *SD* = 0.60; *p* < .001) and read-aloud speech (*M* = 4.80, *SD* = 0.50; *p* = .XXX).  
+  
+### Two-way ANOVA with significant interaction  
+  
+> A 2 × 2 factorial ANOVA examined the effects of Proficiency (Beginner, Advanced) and Instruction type (Explicit, Implicit) on vocabulary scores. The interaction between Proficiency and Instruction type was significant (*F*(1, 56) = X.XX, *p* = .XXX, partial η² = .XX), indicating that the effect of instruction type depended on learner proficiency. Simple effects analysis showed that explicit instruction produced significantly higher scores than implicit instruction for beginners (*p* < .001; *M*_diff = X.XX) but not for advanced learners (*p* = .XXX; *M*_diff = X.XX).  
+  
+### ANCOVA  
+  
+> An ANCOVA was conducted to examine whether instruction type (Explicit vs. Implicit) affected vocabulary test scores after controlling for working memory capacity. The homogeneity of regression slopes assumption was met — the Instruction × Working Memory interaction was non-significant (*F*(1, 56) = X.XX, *p* = .XXX). Working memory was a significant covariate (*F*(1, 57) = X.XX, *p* < .001, partial η² = .XX). After adjusting for working memory, instruction type had a significant effect on vocabulary scores (*F*(1, 57) = X.XX, *p* = .XXX, partial η² = .XX). Adjusted means showed higher scores for explicit (*M*_adj = XX.X, *SE* = X.X) than implicit instruction (*M*_adj = XX.X, *SE* = X.X).  
+  
+### MANOVA  
+  
+> A one-way MANOVA examined whether L1 background (English, Mandarin, German) was associated with a proficiency profile comprising Listening, Reading, and Writing scores (*n* = 75; 25 per group). Pillai's trace was used as the test statistic given its robustness to assumption violations. The MANOVA revealed a significant multivariate effect of L1 background (Pillai's trace = X.XX, *F*(X, XX) = X.XX, *p* = .XXX). Univariate follow-up ANOVAs with Bonferroni correction (*α*_adjusted = .017) showed significant group differences for Listening (*F*(2, 72) = X.XX, *p* = .XXX, η² = .XX) and Writing (*F*(2, 72) = X.XX, *p* = .XXX, η² = .XX) but not Reading (*F*(2, 72) = X.XX, *p* = .XXX).  
+  
+---  
+  
+# Citation & Session Info {-}  
+  
+Schweinberger, Martin. 2026. *ANOVA, MANOVA, and ANCOVA using R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/anova/anova.html (Version 2026.02.19).  
+  
+```  
+@manual{schweinberger2026anova,  
+  author       = {Schweinberger, Martin},  
+  title        = {ANOVA, MANOVA, and ANCOVA using R},  
+  note         = {https://ladal.edu.au/tutorials/anova/anova.html},  
+  year         = {2026},  
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
+  address      = {Brisbane},  
+  edition      = {2026.02.19}  
+}  
+```  
+  
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to HOME](/index.html)  
+  
+---  
+  
+# References {-}  
