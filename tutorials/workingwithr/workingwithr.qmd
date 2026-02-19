@@ -1,0 +1,1446 @@
+---
+title: "Working with R: Control Flow, Functions, and Programming"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(checkdown)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(flextable)
+library(purrr)
+options(stringsAsFactors = FALSE)
+options(scipen = 100)
+options(max.print = 100)
+set.seed(42)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial is the second in the LADAL R series. It picks up where [Getting Started with R and RStudio](/tutorials/intror/intror.html) left off and introduces the **programming** side of R: how to write code that makes decisions, repeats itself, and encapsulates reusable logic. These are the tools that transform R from a calculator into a real programming environment — the tools you reach for when you want to automate a task, process many files at once, or build a custom analysis pipeline.
+
+The tutorial uses linguistic examples throughout: text cleaning, corpus processing, token counting, and data wrangling tasks typical of language research. By the end, you will be able to write your own functions, process data in loops, and apply the same operation efficiently across many groups or files.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, please complete:
+
+- [Getting Started with R and RStudio](/tutorials/intror/intror.html)
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)
+- [Handling Tables in R](/tutorials/table/table.html)
+
+You should be comfortable with objects, vectors, data frames, and basic `dplyr` operations before continuing.
+:::
+
+<br>
+
+::: {.callout-tip}
+## What This Tutorial Covers
+
+1. **Conditional logic** — `if`/`else`, `ifelse()`, `dplyr::case_when()`
+2. **`for` loops** — iterating over vectors, lists, and files
+3. **`while` loops** — condition-driven iteration
+4. **Writing functions** — arguments, defaults, return values, scope
+5. **The `apply` family** — `sapply()`, `lapply()`, `apply()`
+6. **Functional programming with `purrr`** — `map()` and its variants
+7. **Error handling** — `tryCatch()` for robust code
+8. **Best practices** — when to loop, when to vectorise, how to write clean functions
+:::
+
+---
+
+## Preparation and Session Set-up {-}
+
+Install required packages (once only):
+
+```{r install, eval=FALSE}
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("tidyr")
+install.packages("flextable")
+install.packages("purrr")
+install.packages("checkdown")
+```
+
+Load packages and set options:
+
+```{r load, message=FALSE, warning=FALSE}
+library(dplyr)       # data manipulation
+library(ggplot2)     # data visualisation
+library(tidyr)       # data reshaping
+library(flextable)   # formatted tables
+library(purrr)       # functional programming tools
+library(checkdown)   # interactive exercises
+
+options(stringsAsFactors = FALSE)
+options(scipen = 100)
+options(max.print = 100)
+set.seed(42)
+```
+
+We will use a small simulated dataset throughout this tutorial — a collection of text samples with associated metadata:
+
+```{r sample_data}
+# A small corpus of text samples
+corpus <- data.frame(
+  doc_id   = paste0("doc", 1:12),
+  register = rep(c("Academic", "News", "Fiction"), each = 4),
+  text     = c(
+    "The syntactic properties of embedded clauses remain poorly understood.",
+    "Phonological alternations in unstressed syllables exhibit considerable variation.",
+    "Discourse coherence is maintained through a variety of cohesive devices.",
+    "The morphological complexity of agglutinative languages poses theoretical challenges.",
+    "Scientists announced a major breakthrough in renewable energy storage yesterday.",
+    "Local authorities confirmed that road closures will affect the city centre this weekend.",
+    "The prime minister addressed parliament amid growing calls for electoral reform.",
+    "Unemployment figures fell sharply in the third quarter according to new statistics.",
+    "She had not expected the letter to arrive so soon, or to contain such news.",
+    "The old house creaked and groaned as the storm gathered strength outside.",
+    "He said nothing for a long time, watching the rain trace patterns on the glass.",
+    "By morning the fog had lifted and the valley lay green and still below them."
+  ),
+  n_tokens = c(11, 10, 12, 11, 14, 16, 13, 14, 17, 15, 18, 16),
+  year     = c(2019, 2020, 2021, 2022, 2019, 2020, 2021, 2022,
+               2019, 2020, 2021, 2022),
+  stringsAsFactors = FALSE
+)
+```
+
+---
+
+# Conditional Logic {#conditionals}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to make R take different actions depending on the data — the foundation of any decision-making code
+
+**Key functions:** `if`, `else`, `else if`, `ifelse()`, `dplyr::case_when()`
+
+**Why it matters:** Real data is messy and varied — conditional logic lets your code respond intelligently to what it finds
+:::
+
+## `if` / `else` Statements {-}
+
+An `if` statement runs a block of code **only when a condition is `TRUE`**. The optional `else` block runs when it is `FALSE`.
+
+```{r if_basic}
+n_docs <- nrow(corpus)
+
+if (n_docs >= 10) {
+  cat("Corpus is large enough for analysis:", n_docs, "documents.\n")
+} else {
+  cat("Corpus may be too small:", n_docs, "documents.\n")
+}
+```
+
+Chain multiple conditions with `else if`:
+
+```{r if_elseif}
+mean_tokens <- mean(corpus$n_tokens)
+
+if (mean_tokens < 10) {
+  complexity <- "low"
+} else if (mean_tokens < 15) {
+  complexity <- "moderate"
+} else {
+  complexity <- "high"
+}
+
+cat("Average token count:", round(mean_tokens, 1),
+    "→ Complexity:", complexity, "\n")
+```
+
+::: {.callout-important}
+## `if` Requires a Single `TRUE` or `FALSE`
+
+The condition inside `if()` must evaluate to exactly one logical value. In R 4.2 and later, passing a vector of logicals is a **hard error** (in older versions it was a warning that used only the first element). Either way, it is never what you want.
+
+```{r if_vector_warn}
+x <- c(TRUE, FALSE, TRUE)
+
+# Safely demonstrate the error without breaking the document
+tryCatch(
+  if (x) print("this only checks x[1]"),
+  error = function(e) cat("Error:", conditionMessage(e), "\n")
+)
+```
+
+Use `any()` or `all()` when you need to reduce a logical vector to a single value:
+
+```{r if_any_all}
+# Does at least one element satisfy the condition?
+if (any(x))  cat("At least one TRUE\n")
+
+# Do all elements satisfy the condition?
+if (all(x))  cat("All TRUE\n") else cat("Not all TRUE\n")
+```
+:::
+
+## `ifelse()` — Vectorised Conditional {-}
+
+`ifelse()` applies a condition to an **entire vector** and returns a vector of results — one for each element. This makes it ideal for creating or recoding columns:
+
+```{r ifelse}
+# Classify each document by token count
+corpus <- corpus %>%
+  dplyr::mutate(
+    length_class = ifelse(n_tokens >= 15, "long", "short")
+  )
+
+table(corpus$length_class)
+```
+
+## `dplyr::case_when()` — Multiple Conditions {-}
+
+When you need more than two categories, `case_when()` is far cleaner than nested `ifelse()` calls. It works like a series of `if`/`else if` conditions, evaluated top to bottom:
+
+```{r case_when}
+corpus <- corpus %>%
+  dplyr::mutate(
+    era = dplyr::case_when(
+      year <= 2019 ~ "Early",
+      year <= 2021 ~ "Middle",
+      year == 2022 ~ "Recent",
+      TRUE         ~ "Unknown"   # fallback for any unmatched rows
+    )
+  )
+
+table(corpus$era)
+```
+
+::: {.callout-tip}
+## `case_when()` Evaluation Order
+
+Conditions are tested **top to bottom** and the first match wins. Always put more specific conditions before less specific ones. The final `TRUE ~ "value"` acts as a catch-all default (like `else`) — it is good practice to always include one.
+:::
+
+## `switch()` — Selecting Among Named Options {-}
+
+`switch()` is useful when you have a single variable that can take one of several known values, and you want to map each value to a different result or action:
+
+```{r switch}
+describe_register <- function(reg) {
+  switch(reg,
+    "Academic" = "Formal; high lexical density; passive constructions common",
+    "News"     = "Neutral; inverted pyramid structure; quotations frequent",
+    "Fiction"  = "Varied; narrative voice; dialogue and description",
+    "Unknown register"
+  )
+}
+
+describe_register("Academic")
+describe_register("News")
+describe_register("Blog")   # falls through to default
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: Conditional Logic
+:::
+
+**Q1. What is the key difference between `if` and `ifelse()` in R?**
+
+```{r}
+#| echo: false
+#| label: "COND_Q1"
+check_question("`if` evaluates a single TRUE/FALSE and runs a code block; `ifelse()` evaluates a vector of conditions and returns a vector of values",
+               options = c(
+                 "`if` evaluates a single TRUE/FALSE and runs a code block; `ifelse()` evaluates a vector of conditions and returns a vector of values",
+                 "They are identical — `ifelse()` is just a shorthand alias for `if`",
+                 "`if` is faster than `ifelse()` for all inputs",
+                 "`ifelse()` can only handle numeric conditions; `if` handles any type"
+               ),
+               type = "radio",
+               q_id = "COND_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `if(condition) { block }` expects exactly one TRUE or FALSE and determines which block of code to execute. `ifelse(condition, yes, no)` accepts a vector of logicals and returns a vector — for each TRUE it returns the corresponding `yes` value, for each FALSE the `no` value. This vectorised behaviour makes `ifelse()` ideal inside `dplyr::mutate()` for recoding entire columns.",
+               wrong = "Think about what each construct *returns* and what kind of input it accepts. One runs a block of code once; the other produces a vector of values.")
+```
+
+---
+
+**Q2. In a `case_when()` call, what does the final `TRUE ~ "Unknown"` line do?**
+
+```{r}
+#| echo: false
+#| label: "COND_Q2"
+check_question("It acts as a catch-all default, matching any rows not matched by the earlier conditions",
+               options = c(
+                 "It acts as a catch-all default, matching any rows not matched by the earlier conditions",
+                 "It checks whether the variable equals the logical value TRUE",
+                 "It causes an error — TRUE is not a valid left-hand side in case_when()",
+                 "It replaces all values with 'Unknown', overriding the earlier conditions"
+               ),
+               type = "radio",
+               q_id = "COND_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! In `case_when()`, conditions are tested top to bottom and the first match wins. `TRUE` always evaluates to `TRUE`, so `TRUE ~ \"Unknown\"` matches every row that has not already been matched by an earlier condition. It is the equivalent of the final `else` in a chain of `if`/`else if` statements. Omitting it means unmatched rows become `NA`.",
+               wrong = "Remember that `case_when()` evaluates conditions from top to bottom. A condition that is always `TRUE` placed at the end will only ever be reached by rows that did not match anything above it.")
+```
+
+---
+
+**Q3. You want to add a column `pos_class` that is `\"function\"` when `word` is in `c(\"the\", \"a\", \"of\", \"in\")` and `\"content\"` otherwise. Which code is correct?**
+
+```{r}
+#| echo: false
+#| label: "COND_Q3"
+check_question('df %>% mutate(pos_class = ifelse(word %in% c("the","a","of","in"), "function", "content"))',
+               options = c(
+                 'df %>% mutate(pos_class = ifelse(word %in% c("the","a","of","in"), "function", "content"))',
+                 'df %>% mutate(pos_class = if(word %in% c("the","a","of","in")) "function" else "content")',
+                 'df %>% filter(word %in% c("the","a","of","in")) %>% mutate(pos_class = "function")',
+                 'df %>% mutate(pos_class = case_when(word == "the" ~ "function", word == "a" ~ "function"))'
+               ),
+               type = "radio",
+               q_id = "COND_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! `%in%` tests membership in a vector, and `ifelse()` applies this test to every row of the column, returning "function" or "content" accordingly. The `if`/`else` option would fail because `if` cannot handle vectors. The `filter()` option would *remove* non-function words rather than labelling them. The `case_when()` option would work only for "the" and "a" — the remaining words would become `NA` without a catch-all.',
+               wrong = 'Think about which function handles vectorised conditions (needed for a whole column) and which operator tests whether a value belongs to a set.')
+```
+
+---
+
+# `for` Loops {#forloops}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to repeat a block of code for each element of a sequence or list
+
+**Key concepts:** Loop variable, iteration, pre-allocation, `seq_along()`
+
+**Why it matters:** Loops automate repetitive tasks — processing multiple files, computing statistics per document, or building up results iteratively
+:::
+
+A `for` loop **iterates** over a sequence, executing its body once per element. The loop variable takes each element's value in turn:
+
+```{r for_basic}
+registers <- unique(corpus$register)
+
+for (reg in registers) {
+  n <- sum(corpus$register == reg)
+  cat(reg, ":", n, "documents\n")
+}
+```
+
+## Looping with Indices {-}
+
+When you need both the element *and* its position, loop over indices using `seq_along()`. This is safer than `1:length(x)` because it handles zero-length vectors correctly:
+
+```{r for_index}
+words <- c("syntax", "morphology", "phonology", "pragmatics", "semantics")
+
+for (i in seq_along(words)) {
+  cat(sprintf("Word %d: %-12s (%d characters)\n",
+              i, words[i], nchar(words[i])))
+}
+```
+
+## Storing Results: Pre-allocation {-}
+
+The most important loop performance rule: **pre-allocate** your output object before the loop, then fill it by index. Growing a vector by appending inside a loop forces R to copy the entire vector on every iteration — catastrophically slow for large inputs.
+
+```{r prealloc}
+# BAD: growing inside the loop (slow for large n)
+results_slow <- c()
+for (i in seq_along(words)) {
+  results_slow <- c(results_slow, nchar(words[i]))  # full copy each time!
+}
+
+# GOOD: pre-allocate, then fill by index
+results_fast <- integer(length(words))
+for (i in seq_along(words)) {
+  results_fast[i] <- nchar(words[i])
+}
+
+results_fast
+```
+
+## A Realistic Corpus Example {-}
+
+Here we loop over registers, compute summary statistics for each, and collect the results in a pre-allocated list:
+
+```{r corpus_loop}
+registers  <- unique(corpus$register)
+summaries  <- vector("list", length(registers))   # pre-allocate a list
+names(summaries) <- registers
+
+for (reg in registers) {
+  subset_df       <- corpus[corpus$register == reg, ]
+  summaries[[reg]] <- data.frame(
+    register  = reg,
+    n_docs    = nrow(subset_df),
+    mean_tok  = round(mean(subset_df$n_tokens), 1),
+    sd_tok    = round(sd(subset_df$n_tokens), 2),
+    min_tok   = min(subset_df$n_tokens),
+    max_tok   = max(subset_df$n_tokens)
+  )
+}
+
+# Combine list of data frames into one
+do.call(rbind, summaries) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .85, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 12) %>%
+  flextable::fontsize(size = 12, part = "header") %>%
+  flextable::align_text_col(align = "center") %>%
+  flextable::set_caption(caption = "Token statistics per register computed with a for loop.") %>%
+  flextable::border_outer()
+```
+
+## Looping Over Files {-}
+
+One of the most practical uses of `for` loops in corpus linguistics is processing many text files in a folder:
+
+```{r file_loop, eval=FALSE}
+# List all .txt files in a folder
+txt_files <- list.files(path = "data/corpus/",
+                        pattern = "\\.txt$",
+                        full.names = TRUE)
+
+# Pre-allocate results
+results <- data.frame(
+  filename = character(length(txt_files)),
+  n_chars  = integer(length(txt_files)),
+  n_lines  = integer(length(txt_files)),
+  stringsAsFactors = FALSE
+)
+
+for (i in seq_along(txt_files)) {
+  text              <- readLines(txt_files[i], warn = FALSE)
+  results$filename[i] <- basename(txt_files[i])
+  results$n_chars[i]  <- sum(nchar(text))
+  results$n_lines[i]  <- length(text)
+}
+
+head(results)
+```
+
+## `break` and `next` {-}
+
+Two special keywords control loop flow:
+
+- **`break`**: exit the loop immediately
+- **`next`**: skip to the next iteration (like `continue` in other languages)
+
+```{r break_next}
+# next: skip documents with fewer than 13 tokens
+cat("Long documents only:\n")
+for (i in seq_len(nrow(corpus))) {
+  if (corpus$n_tokens[i] < 13) next
+  cat(" ", corpus$doc_id[i], "-", corpus$n_tokens[i], "tokens\n")
+}
+
+# break: stop as soon as we find the first Academic document
+cat("\nFirst Academic document:\n")
+for (i in seq_len(nrow(corpus))) {
+  if (corpus$register[i] == "Academic") {
+    cat(" ", corpus$doc_id[i], ":", substr(corpus$text[i], 1, 50), "...\n")
+    break
+  }
+}
+```
+
+## Nested `for` Loops {-}
+
+Loops can be nested — the inner loop runs completely for each iteration of the outer loop:
+
+```{r nested}
+registers <- unique(corpus$register)
+eras      <- unique(corpus$era)
+
+cat("Documents per register × era:\n")
+for (reg in registers) {
+  for (era in eras) {
+    n <- sum(corpus$register == reg & corpus$era == era)
+    cat(sprintf("  %-10s × %-7s : %d\n", reg, era, n))
+  }
+}
+```
+
+::: {.callout-warning}
+## Loops Are Often Not the Best Tool
+
+Before writing a loop, always ask: *does a vectorised function or `dplyr` verb already do this?* Vectorised operations in R are implemented in C and run orders of magnitude faster than R-level loops.
+
+```{r vectorised_alt}
+# Instead of a loop to get character counts per document:
+nchar(corpus$text)    # nchar() is already vectorised
+
+# Instead of a loop to get token stats per register:
+corpus %>%
+  dplyr::group_by(register) %>%
+  dplyr::summarise(mean_tok = mean(n_tokens), .groups = "drop")
+```
+
+Loops shine when: (a) each iteration depends on the result of the previous one, (b) you are reading/writing files, or (c) no vectorised alternative exists.
+:::
+
+---
+
+::: {.callout-tip}
+## Exercises: `for` Loops
+:::
+
+**Q1. Why should you pre-allocate your output vector before a `for` loop rather than growing it with `c()` inside the loop?**
+
+```{r}
+#| echo: false
+#| label: "FOR_Q1"
+check_question("Growing with c() forces R to copy the entire vector on every iteration, which becomes extremely slow for large loops; pre-allocation assigns memory once",
+               options = c(
+                 "Growing with c() forces R to copy the entire vector on every iteration, which becomes extremely slow for large loops; pre-allocation assigns memory once",
+                 "c() inside a loop always produces incorrect results",
+                 "Pre-allocation is only needed for loops with more than 1000 iterations",
+                 "There is no practical difference — both approaches have the same performance"
+               ),
+               type = "radio",
+               q_id = "FOR_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Each call to `c(results, new_value)` creates a brand new vector by copying all existing elements plus the new one. After n iterations, R has made n copies of progressively larger vectors — the total work is O(n²) instead of O(n). For 10,000 iterations this can mean the difference between milliseconds and minutes. Pre-allocating with `integer(n)` or `vector('list', n)` reserves the memory once and simply fills it by index.",
+               wrong = "Think about what `c(existing_vector, new_value)` does each time it runs. If `existing_vector` already has 999 elements, what does R have to do to add one more?")
+```
+
+---
+
+**Q2. What does `next` do inside a `for` loop?**
+
+```{r}
+#| echo: false
+#| label: "FOR_Q2"
+check_question("It skips the remainder of the current iteration and moves to the next one",
+               options = c(
+                 "It skips the remainder of the current iteration and moves to the next one",
+                 "It exits the loop entirely",
+                 "It repeats the current iteration from the beginning",
+                 "It pauses execution and waits for user input"
+               ),
+               type = "radio",
+               q_id = "FOR_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `next` is equivalent to `continue` in Python, Java, or C. When R encounters `next`, it jumps immediately to the start of the next iteration without executing any remaining code in the loop body. Use it to skip rows that fail a quality check, skip files that cannot be read, or skip elements that do not meet a processing condition. `break` is the companion keyword that exits the loop entirely.",
+               wrong = "There are two loop-control keywords: one skips to the next iteration, one exits the loop. Which is which?")
+```
+
+---
+
+**Q3. Why is `seq_along(x)` preferred over `1:length(x)` when looping over a vector `x`?**
+
+```{r}
+#| echo: false
+#| label: "FOR_Q3"
+check_question("seq_along(x) returns an empty sequence when x has length 0, while 1:length(x) returns c(1, 0) and causes the loop to run twice with wrong indices",
+               options = c(
+                 "seq_along(x) returns an empty sequence when x has length 0, while 1:length(x) returns c(1, 0) and causes the loop to run twice with wrong indices",
+                 "seq_along() is faster than the : operator for all vector lengths",
+                 "seq_along() automatically handles character and factor vectors; 1:length(x) only works for numerics",
+                 "There is no practical difference — they are fully interchangeable"
+               ),
+               type = "radio",
+               q_id = "FOR_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Try it: `1:length(character(0))` returns `c(1, 0)` — a two-element vector — because `length(character(0))` is 0 and `1:0` counts down. This causes a loop that was meant to do nothing to run twice with nonsensical indices. `seq_along(character(0))` correctly returns `integer(0)` — an empty sequence — so the loop body never executes. This edge case is rare but the bug it produces is baffling to diagnose.",
+               wrong = "Try mentally evaluating both expressions when x is an empty vector, i.e., x <- c(). What does 1:length(x) produce? What does seq_along(x) produce?")
+```
+
+---
+
+# `while` Loops {#whileloops}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to write loops that run until a condition changes rather than for a fixed number of iterations
+
+**Key concepts:** Loop condition, infinite loops, `break` as a safety exit
+
+**When to use:** Convergence algorithms, reading streams of data, retrying failed operations
+:::
+
+A `while` loop runs its body **as long as its condition remains `TRUE`**. Use it when the number of iterations is not known in advance.
+
+```{r while_basic}
+# Count how many tokens we accumulate before passing 50 total
+token_counts <- corpus$n_tokens
+total        <- 0
+i            <- 0
+
+while (total < 50) {
+  i     <- i + 1
+  total <- total + token_counts[i]
+}
+
+cat("Reached", total, "tokens after", i, "documents.\n")
+```
+
+## A Text-Processing Example {-}
+
+Here we simulate reading tokens from a stream until we hit a sentence boundary (a token ending in `.`):
+
+```{r while_text}
+tokens    <- c("The", "quick", "brown", "fox", "jumps", ".", "Over", "the", "lazy")
+sentence  <- character(0)
+j         <- 0
+
+while (j < length(tokens)) {
+  j       <- j + 1
+  current <- tokens[j]
+  sentence <- c(sentence, current)
+  if (grepl("\\.$", current)) break   # stop at sentence boundary
+}
+
+cat("First sentence:", paste(sentence, collapse = " "), "\n")
+```
+
+## Avoiding Infinite Loops {-}
+
+A `while` loop runs forever if its condition never becomes `FALSE`. Always ensure:
+
+1. The loop body **modifies** the condition variable
+2. A **`break` safety exit** is included for unexpected situations
+
+```{r while_safe}
+# Safe pattern: always include a maximum iteration counter
+max_iter <- 1000
+iter     <- 0
+value    <- 100
+
+while (value > 1 && iter < max_iter) {
+  value <- value * 0.9   # converges toward 0
+  iter  <- iter + 1
+}
+
+cat("Converged to", round(value, 4), "after", iter, "iterations.\n")
+```
+
+::: {.callout-warning}
+## If Your R Session Freezes
+
+If you accidentally create an infinite loop, press **Escape** in the Console, or click the **Stop** button (red square) in the Console toolbar. RStudio will interrupt the running code. If that fails, use `Session → Interrupt R` from the menu.
+:::
+
+---
+
+::: {.callout-tip}
+## Exercises: `while` Loops
+:::
+
+**Q1. When is a `while` loop more appropriate than a `for` loop?**
+
+```{r}
+#| echo: false
+#| label: "WHILE_Q1"
+check_question("When the number of iterations is not known in advance and depends on a condition that changes during execution",
+               options = c(
+                 "When the number of iterations is not known in advance and depends on a condition that changes during execution",
+                 "When you need to iterate over every element in a fixed-length vector",
+                 "When you need faster execution than a for loop provides",
+                 "When you want to loop over the rows of a data frame"
+               ),
+               type = "radio",
+               q_id = "WHILE_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Use `for` when you know exactly how many iterations are needed ('for each element in this vector, do ...'). Use `while` when the stopping point is determined dynamically during execution ('keep going until convergence', 'keep reading until end of file', 'keep retrying until success'). In linguistics, `while` is useful for processing token streams, simulating iterative processes, or implementing search algorithms.",
+               wrong = "Think about what distinguishes the two loops: one iterates a known number of times over a predefined sequence; the other continues until something changes. Which description matches which loop?")
+```
+
+---
+
+**Q2. What is the risk of writing `while (TRUE) { ... }` without a `break` statement inside the body?**
+
+```{r}
+#| echo: false
+#| label: "WHILE_Q2"
+check_question("The loop runs forever — an infinite loop that freezes the R session until interrupted",
+               options = c(
+                 "The loop runs forever — an infinite loop that freezes the R session until interrupted",
+                 "R automatically stops the loop after 1000 iterations",
+                 "The loop runs exactly once because TRUE evaluates to 1",
+                 "R throws an error immediately because TRUE is not a valid condition"
+               ),
+               type = "radio",
+               q_id = "WHILE_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `while (TRUE)` creates a loop whose condition is always `TRUE` and therefore never naturally terminates. Without a `break` statement inside the body to exit when some condition is met, it runs indefinitely. This is actually a valid and intentional pattern for some use cases (e.g., continuously listening for input), but in data analysis it is almost always accidental. Press Escape or click the Stop button in RStudio to interrupt.",
+               wrong = "What happens to a condition that is always TRUE? Does `while` have any built-in safety limit?")
+```
+
+---
+
+# Writing Functions {#functions}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to write your own reusable functions in R — the single most important skill for writing clean, maintainable code
+
+**Key concepts:** Function definition, arguments, default values, return values, scope, documentation
+
+**Why it matters:** Functions eliminate copy-paste errors, make your intentions explicit, and make code testable and shareable
+:::
+
+The rule of thumb: **if you have written the same block of code more than twice, it should be a function.**
+
+## Anatomy of a Function {-}
+
+```{r fn_anatomy}
+# General template:
+# my_function <- function(required_arg, optional_arg = default_value) {
+#   # body: code that does the work
+#   return(result)   # optional: last expression is returned automatically
+# }
+
+# A minimal example
+greet_language <- function(language) {
+  paste("Hello from", language, "linguistics!")
+}
+
+greet_language("computational")
+greet_language("corpus")
+```
+
+## Required and Optional Arguments {-}
+
+Arguments without a default are **required** — omitting them raises an error. Arguments with a default are **optional** and use their default when not supplied:
+
+```{r fn_args}
+# type_token_ratio: required x (character vector of tokens), optional lowercase
+ttr <- function(tokens, lowercase = TRUE) {
+  if (lowercase) tokens <- tolower(tokens)
+  n_tokens <- length(tokens)
+  n_types  <- length(unique(tokens))
+  n_types / n_tokens
+}
+
+sample_tokens <- c("The", "cat", "sat", "on", "the", "mat", "the", "cat")
+
+ttr(sample_tokens)              # lowercase = TRUE (default)
+ttr(sample_tokens, lowercase = FALSE)  # case-sensitive
+```
+
+## Return Values {-}
+
+A function **automatically returns its last evaluated expression**. Use `return()` explicitly for early exits or when clarity matters:
+
+```{r fn_return}
+# Early return when input is invalid
+safe_ttr <- function(tokens, lowercase = TRUE) {
+  if (length(tokens) == 0) {
+    warning("Empty token vector supplied — returning NA.")
+    return(NA_real_)
+  }
+  if (!is.character(tokens)) {
+    stop("tokens must be a character vector.")
+  }
+  if (lowercase) tokens <- tolower(tokens)
+  length(unique(tokens)) / length(tokens)
+}
+
+safe_ttr(character(0))     # triggers warning, returns NA
+safe_ttr(sample_tokens)    # normal use
+```
+
+## Returning Multiple Values {-}
+
+Functions can only return one object, but that object can be a **named list** containing as many results as needed:
+
+```{r fn_multireturn}
+corpus_stats <- function(tokens, lowercase = TRUE) {
+  if (lowercase) tokens <- tolower(tokens)
+  list(
+    n_tokens = length(tokens),
+    n_types  = length(unique(tokens)),
+    ttr      = round(length(unique(tokens)) / length(tokens), 3),
+    longest  = tokens[which.max(nchar(tokens))]
+  )
+}
+
+result <- corpus_stats(sample_tokens)
+result$ttr
+result$longest
+
+# Access multiple outputs at once
+str(result)
+```
+
+## Function Scope {-}
+
+Variables created inside a function **live only inside that function** — they are invisible to (and cannot accidentally overwrite) the global environment:
+
+```{r fn_scope}
+cleanup_text <- function(text) {
+  cleaned <- gsub("[[:punct:]]", "", text)   # 'cleaned' is local to the function
+  cleaned <- trimws(tolower(cleaned))
+  cleaned
+}
+
+raw_text <- "  Hello, World!  "
+cleaned_text <- cleanup_text(raw_text)
+
+cleaned_text                 # the result is returned and stored here
+exists("cleaned")            # FALSE — 'cleaned' was never in the global env
+```
+
+::: {.callout-tip}
+## The `<<-` Operator
+
+If you genuinely need to modify a variable in the calling environment from inside a function (rare), use `<<-` instead of `<-`. This searches up the call stack to find the variable and modifies it there. However, this is considered **bad practice** in most data analysis code because it creates hidden side effects that make functions unpredictable. Prefer returning a value and assigning it explicitly.
+:::
+
+## Documenting Functions with `roxygen2` Style {-}
+
+Good functions should be documented so that you (and colleagues) can understand them months later. The conventional format mirrors the `roxygen2` package style:
+
+```{r fn_docs}
+#' Compute Type-Token Ratio
+#'
+#' @description
+#' Calculates the type-token ratio (TTR) of a character vector of tokens.
+#' TTR = number of unique word types / total number of tokens.
+#'
+#' @param tokens A character vector of tokens (words).
+#' @param lowercase Logical. If TRUE (default), tokens are lowercased before
+#'   counting, so "The" and "the" count as the same type.
+#'
+#' @return A single numeric value between 0 and 1. Values closer to 1
+#'   indicate higher lexical diversity.
+#'
+#' @examples
+#' ttr(c("the", "cat", "sat", "on", "the", "mat"))
+#' ttr(c("The", "Cat", "sat"), lowercase = FALSE)
+ttr <- function(tokens, lowercase = TRUE) {
+  if (length(tokens) == 0) return(NA_real_)
+  if (lowercase) tokens <- tolower(tokens)
+  length(unique(tokens)) / length(tokens)
+}
+```
+
+## Building a Reusable Text Cleaning Pipeline {-}
+
+Here is a realistic example: a family of small, focused functions composed into a pipeline:
+
+```{r fn_pipeline}
+# Step 1: normalise whitespace and case
+normalise_text <- function(text) {
+  text <- tolower(text)
+  text <- trimws(text)
+  gsub("\\s+", " ", text)   # collapse multiple spaces
+}
+
+# Step 2: remove punctuation
+remove_punct <- function(text) {
+  gsub("[[:punct:]]", "", text)
+}
+
+# Step 3: tokenise (split on whitespace)
+tokenise <- function(text) {
+  strsplit(text, "\\s+")[[1]]
+}
+
+# Step 4: remove stopwords
+remove_stopwords <- function(tokens,
+                             stopwords = c("the","a","an","of","in","and","to","is")) {
+  tokens[!tokens %in% stopwords]
+}
+
+# Compose into a full pipeline
+clean_and_tokenise <- function(text, stopwords = NULL) {
+  text   <- normalise_text(text)
+  text   <- remove_punct(text)
+  tokens <- tokenise(text)
+  if (!is.null(stopwords)) tokens <- remove_stopwords(tokens, stopwords)
+  tokens
+}
+
+# Apply to one document
+example_text <- "The syntactic properties of embedded clauses remain poorly understood."
+clean_and_tokenise(example_text,
+                   stopwords = c("the", "a", "an", "of", "in", "and", "to", "is"))
+
+# Apply to all documents in the corpus
+corpus$content_tokens <- sapply(corpus$text, function(t) {
+  length(clean_and_tokenise(t, stopwords = c("the","a","an","of","in","and","to","is")))
+})
+
+head(corpus[, c("doc_id", "register", "n_tokens", "content_tokens")])
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: Writing Functions
+:::
+
+**Q1. A function has no explicit `return()` statement. What does it return?**
+
+```{r}
+#| echo: false
+#| label: "FN_Q1"
+check_question("The value of the last evaluated expression in the function body",
+               options = c(
+                 "The value of the last evaluated expression in the function body",
+                 "NULL — you must always use return() to get a value back",
+                 "The first argument passed to the function",
+                 "An error — return() is mandatory in R"
+               ),
+               type = "radio",
+               q_id = "FN_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! R uses *implicit return*: the last evaluated expression is automatically returned. This is why `add <- function(x, y) x + y` works perfectly without `return(x + y)`. Explicit `return()` is most useful when you need to exit early based on a condition (e.g., returning `NA` for invalid input before the main logic runs) or when function bodies are complex enough that making the return explicit aids readability.",
+               wrong = "R has implicit return behaviour — think about what happens at the console when you type an expression. Functions work the same way.")
+```
+
+---
+
+**Q2. You write `x <- 99` inside a function body. After calling the function, does `x` exist in the global environment?**
+
+```{r}
+#| echo: false
+#| label: "FN_Q2"
+check_question("No — variables assigned with <- inside a function exist only in that function's local environment and disappear when the function finishes",
+               options = c(
+                 "No — variables assigned with <- inside a function exist only in that function's local environment and disappear when the function finishes",
+                 "Yes — all assignments inside functions are automatically global",
+                 "Only if x was already defined before calling the function",
+                 "Only if x is passed as an argument to the function"
+               ),
+               type = "radio",
+               q_id = "FN_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Each function call creates its own local environment. Variables assigned with `<-` inside a function are created in that local environment and discarded when the function exits. This isolation is a deliberate design feature: it prevents functions from accidentally modifying your data, and it means you do not need to worry about name clashes between a function's internal variables and your workspace objects.",
+               wrong = "Where does a variable 'live' when it is created inside a function? Does it automatically escape into the global workspace?")
+```
+
+---
+
+**Q3. Your function computes three things: n_tokens, n_types, and TTR. What is the best way to return all three?**
+
+```{r}
+#| echo: false
+#| label: "FN_Q3"
+check_question("Return a named list: list(n_tokens = ..., n_types = ..., ttr = ...)",
+               options = c(
+                 "Return a named list: list(n_tokens = ..., n_types = ..., ttr = ...)",
+                 "Use three separate return() calls: return(n_tokens); return(n_types); return(ttr)",
+                 "Assign them to global variables with <<- before returning",
+                 "Return a character string that concatenates all three values"
+               ),
+               type = "radio",
+               q_id = "FN_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! A function can only return one object, but that object can be a named list containing any number of values of any type. The caller then accesses individual results with `$`: `result$ttr`. Multiple `return()` calls do not work — the first one exits the function immediately; subsequent ones are never reached. Assigning to global variables with `<<-` works but creates hidden side effects and is considered bad practice. Concatenating to a string loses type information.",
+               wrong = "A function can only return *one* object. But what kind of object can hold multiple values of different types?")
+```
+
+---
+
+# The `apply` Family {#apply}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to apply a function to every element of a vector or list without writing an explicit loop
+
+**Key functions:** `sapply()`, `lapply()`, `apply()`
+
+**Why it matters:** The `apply` family is more concise than loops and often faster — it expresses intent clearly
+:::
+
+The `apply` family of functions replaces many common loop patterns with a single, expressive call. They all share the same pattern: *apply this function to each element of this object*.
+
+## `sapply()` — Simplified Apply {-}
+
+`sapply()` applies a function to each element of a vector or list and **simplifies the result** to a vector or matrix if possible:
+
+```{r sapply}
+# Character count for each document
+nchar_results <- sapply(corpus$text, nchar)
+head(nchar_results)
+
+# Type-token ratio for a list of token vectors
+token_lists <- list(
+  doc1 = c("the", "cat", "sat", "on", "the", "mat"),
+  doc2 = c("a", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog"),
+  doc3 = c("to", "be", "or", "not", "to", "be")
+)
+
+sapply(token_lists, ttr)   # returns a named numeric vector
+```
+
+Use an **anonymous function** (a function defined inline without a name) for more complex operations:
+
+```{r sapply_anon}
+# Count content words (longer than 3 characters) per document
+sapply(corpus$text, function(t) {
+  tokens <- strsplit(tolower(t), "\\s+")[[1]]
+  sum(nchar(tokens) > 3)
+})
+```
+
+::: {.callout-tip}
+## The `\(x)` Shorthand (R 4.1+)
+
+Since R 4.1, you can write anonymous functions more concisely:
+
+```r
+# Old style
+sapply(x, function(t) nchar(t))
+
+# New shorthand (backslash lambda)
+sapply(x, \(t) nchar(t))
+```
+:::
+
+## `lapply()` — List Apply {-}
+
+`lapply()` always returns a **list**, making it safer when results have different lengths or types:
+
+```{r lapply}
+# Get unique words per document (different lengths per doc)
+unique_words <- lapply(token_lists, unique)
+unique_words
+
+# lapply is appropriate here because each result has a different length
+sapply(token_lists, unique)  # also works but returns a list (cannot simplify)
+```
+
+## `apply()` — Matrix/Data Frame Apply {-}
+
+`apply()` operates on **matrices or data frames**, applying a function across rows (`MARGIN = 1`) or columns (`MARGIN = 2`):
+
+```{r apply}
+# Create a numeric matrix of document features
+features <- matrix(
+  c(corpus$n_tokens, corpus$content_tokens),
+  ncol = 2,
+  dimnames = list(corpus$doc_id, c("n_tokens", "content_tokens"))
+)
+
+# Column means
+apply(features, MARGIN = 2, FUN = mean)
+
+# Row sums
+head(apply(features, MARGIN = 1, FUN = sum))
+```
+
+## Choosing Between `sapply()` and `lapply()` {-}
+
+```{r apply_choice, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Function  = c("sapply()", "lapply()", "apply()"),
+  Input     = c("vector or list", "vector or list", "matrix or data frame"),
+  Output    = c("vector/matrix (simplified) or list if simplification fails",
+                "always a list",
+                "vector or list"),
+  Use_when  = c("results are all the same type and length",
+                "results differ in length or type; you always want a list",
+                "you want to summarise across rows or columns of a matrix")
+) %>%
+  dplyr::rename("Use when" = Use_when) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .99, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 11) %>%
+  flextable::fontsize(size = 11, part = "header") %>%
+  flextable::align_text_col(align = "left") %>%
+  flextable::set_caption(caption = "Choosing the right apply function.") %>%
+  flextable::border_outer()
+```
+
+---
+
+# Functional Programming with `purrr` {#purrr}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to use `purrr::map()` and its variants as a modern, consistent alternative to the `apply` family
+
+**Key functions:** `map()`, `map_chr()`, `map_dbl()`, `map_df()`, `map2()`, `walk()`
+
+**Why it matters:** `purrr` functions have consistent, predictable behaviour and integrate cleanly with `dplyr` pipelines
+:::
+
+The `purrr` package provides a family of `map()` functions that replace the `apply` family with a more consistent interface. Every `map()` function takes a list or vector and applies a function to each element.
+
+## `map()` and Type-Specific Variants {-}
+
+`map()` always returns a list. Type-specific variants guarantee a particular output type and fail informatively if the results do not match:
+
+```{r purrr_map}
+# map() → always a list
+map(token_lists, length)
+
+# map_dbl() → numeric (double) vector
+map_dbl(token_lists, ttr)
+
+# map_int() → integer vector
+map_int(token_lists, length)
+
+# map_chr() → character vector
+map_chr(token_lists, \(t) paste(t[1:2], collapse = " "))
+```
+
+## `map_df()` — Map to a Data Frame {-}
+
+`map_df()` (or `map() |> list_rbind()`) is extremely useful for applying a function that returns a data frame to each element and binding the results together:
+
+```{r purrr_mapdf}
+get_doc_stats <- function(tokens, doc_name) {
+  data.frame(
+    doc      = doc_name,
+    n_tokens = length(tokens),
+    n_types  = length(unique(tokens)),
+    ttr      = round(ttr(tokens), 3)
+  )
+}
+
+map_df(names(token_lists), \(nm) get_doc_stats(token_lists[[nm]], nm))
+```
+
+## `map2()` — Map Over Two Inputs Simultaneously {-}
+
+`map2()` applies a function to corresponding elements of two vectors or lists:
+
+```{r purrr_map2}
+doc_ids <- c("text_A", "text_B", "text_C")
+texts   <- list(
+  c("the","cat","sat"),
+  c("a","dog","ran"),
+  c("one","two","three","one")
+)
+
+map2_dbl(texts, doc_ids, \(tokens, id) {
+  cat(id, ": TTR =", round(ttr(tokens), 3), "\n")
+  ttr(tokens)
+})
+```
+
+## `walk()` — Map for Side Effects {-}
+
+`walk()` is like `map()` but is used when you want the **side effect** (printing, writing a file, making a plot) rather than the return value. It invisibly returns the input:
+
+```{r purrr_walk}
+# Print a summary line for each register without capturing the return value
+corpus %>%
+  dplyr::group_by(register) %>%
+  dplyr::group_split() %>%
+  walk(\(df) {
+    cat(sprintf("Register: %-10s | Docs: %d | Mean tokens: %.1f\n",
+                df$register[1], nrow(df), mean(df$n_tokens)))
+  })
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: `apply` and `purrr`
+:::
+
+**Q1. What is the difference between `sapply()` and `lapply()`?**
+
+```{r}
+#| echo: false
+#| label: "APP_Q1"
+check_question("sapply() tries to simplify the result to a vector or matrix; lapply() always returns a list",
+               options = c(
+                 "sapply() tries to simplify the result to a vector or matrix; lapply() always returns a list",
+                 "lapply() is faster than sapply() for all inputs",
+                 "sapply() works on lists; lapply() works on vectors",
+                 "They are identical — sapply is just an alias for lapply"
+               ),
+               type = "radio",
+               q_id = "APP_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `sapply(x, f)` calls `lapply(x, f)` internally and then tries to simplify the result: if all outputs are scalars of the same type, it returns a vector; if all outputs are vectors of the same length, it returns a matrix; otherwise it returns a list. The simplification is convenient but can be unpredictable. `lapply()` is more predictable because it always returns a list — prefer it when outputs may vary in length or type, or when you need a guaranteed list for downstream processing.",
+               wrong = "Both functions apply a function to each element of a vector or list. The key difference is in the *type of object they return*.")
+```
+
+---
+
+**Q2. When would you use `purrr::walk()` instead of `purrr::map()`?**
+
+```{r}
+#| echo: false
+#| label: "APP_Q2"
+check_question("When you want the side effects (printing, saving files, plotting) rather than the return values",
+               options = c(
+                 "When you want the side effects (printing, saving files, plotting) rather than the return values",
+                 "When the function returns a logical vector",
+                 "walk() is faster than map() for numeric computations",
+                 "When iterating over a list rather than a vector"
+               ),
+               type = "radio",
+               q_id = "APP_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `walk()` is the appropriate choice when the purpose of iterating is a *side effect* — writing files to disk, printing output, generating and saving plots, sending data to a database — rather than collecting return values. `walk()` invisibly returns the input (enabling piping) while discarding the function's return values. Using `map()` for side effects works but creates an unwanted list of results that has to be ignored.",
+               wrong = "Think about what the 'output' of the iteration is. Are you collecting return values to use later, or are you performing actions whose value lies in what they *do* (write, print, display)?")
+```
+
+---
+
+# Error Handling {#errors}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to write code that handles errors and warnings gracefully rather than crashing
+
+**Key functions:** `tryCatch()`, `try()`, `stop()`, `warning()`, `message()`
+
+**Why it matters:** When processing many files or documents, a single error should not halt your entire pipeline
+:::
+
+## Signalling Conditions from Your Functions {-}
+
+Use `stop()`, `warning()`, and `message()` to communicate problems from inside your functions:
+
+```{r conditions}
+compute_ttr <- function(tokens) {
+  if (!is.character(tokens)) stop("tokens must be a character vector")
+  if (length(tokens) == 0)   warning("Empty vector — returning NA")
+  if (length(tokens) < 10)   message("Note: TTR is unreliable for short texts")
+  if (length(tokens) == 0)   return(NA_real_)
+  length(unique(tokens)) / length(tokens)
+}
+
+compute_ttr(c("the", "cat", "sat"))  # message: short text
+```
+
+## `tryCatch()` — Handle Errors Gracefully {-}
+
+`tryCatch()` lets you intercept errors, warnings, and messages, and decide what to do instead of crashing:
+
+```{r trycatch}
+# Without tryCatch: one bad input crashes everything
+safe_ttr <- function(tokens) {
+  tryCatch(
+    expr    = compute_ttr(tokens),
+    error   = function(e) {
+      cat("Error in compute_ttr:", conditionMessage(e), "\n")
+      NA_real_
+    },
+    warning = function(w) {
+      cat("Warning:", conditionMessage(w), "\n")
+      NA_real_
+    }
+  )
+}
+
+safe_ttr(c("the", "cat", "sat", "on", "the", "mat"))   # normal
+safe_ttr(123)                                           # wrong type → error caught
+safe_ttr(character(0))                                  # empty → warning caught
+```
+
+## Applying `tryCatch()` Across a Pipeline {-}
+
+This pattern is invaluable when processing many documents or files — one bad item should not stop the whole run:
+
+```{r trycatch_pipeline}
+# Simulate some good and some bad inputs
+inputs <- list(
+  c("the", "cat", "sat", "on", "the", "mat"),
+  123,                      # will error
+  character(0),             # will warn
+  c("a", "quick", "fox")
+)
+
+results <- sapply(inputs, safe_ttr)
+results
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: Error Handling
+:::
+
+**Q1. What is the difference between `stop()`, `warning()`, and `message()` inside a function?**
+
+```{r}
+#| echo: false
+#| label: "ERR_Q1"
+check_question("stop() halts execution with an error; warning() continues but signals a potential problem; message() prints an informational note without affecting control flow",
+               options = c(
+                 "stop() halts execution with an error; warning() continues but signals a potential problem; message() prints an informational note without affecting control flow",
+                 "All three halt execution — they only differ in the colour of the output",
+                 "stop() is for syntax errors; warning() is for runtime errors; message() is for logic errors",
+                 "warning() and message() are identical; stop() is the only one that affects execution"
+               ),
+               type = "radio",
+               q_id = "ERR_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `stop()` raises an error condition that immediately halts execution (unless caught by `tryCatch()`). `warning()` raises a warning condition — by default R continues execution and collects warnings to display at the end (though `tryCatch()` can intercept them immediately). `message()` sends an informational message to `stderr` without raising any condition — execution continues normally. Use `stop()` for invalid inputs that make the function impossible to complete; `warning()` for inputs that are valid but suspicious; `message()` for progress updates or informational notes.",
+               wrong = "Think about what happens to program execution after each: does it continue, pause, or stop?")
+```
+
+---
+
+**Q2. Why is wrapping a function call in `tryCatch()` useful when processing a large number of files or documents?**
+
+```{r}
+#| echo: false
+#| label: "ERR_Q2"
+check_question("It prevents one failed item from crashing the entire pipeline — errors are caught and handled gracefully, and processing continues with the remaining items",
+               options = c(
+                 "It prevents one failed item from crashing the entire pipeline — errors are caught and handled gracefully, and processing continues with the remaining items",
+                 "tryCatch() makes the function run faster by skipping validation",
+                 "It automatically fixes the error and retries the operation",
+                 "It is only useful for file I/O operations, not for statistical functions"
+               ),
+               type = "radio",
+               q_id = "ERR_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Without error handling, a single corrupt file, an unexpected encoding, or one row with missing data can crash an entire overnight batch job. `tryCatch()` lets you define what to do when something goes wrong — typically log the error, return `NA` or an empty result, and continue with the next item. This is essential for robust corpus processing pipelines where some documents may be malformed or inaccessible.",
+               wrong = "Imagine you are processing 5,000 text files and one of them is corrupt. Without error handling, what happens to the other 4,999?")
+```
+
+---
+
+# Best Practices {#bestpractice}
+
+::: {.callout-note}
+## Section Overview
+
+**A concise guide to writing better R code:** when to loop, when to vectorise, how to name and document functions, and how to structure growing code projects
+:::
+
+## When to Use Each Construct {-}
+
+```{r when_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Situation = c(
+    "Apply the same operation to every element of a vector",
+    "Apply the same operation to each group in a data frame",
+    "Apply a function to each element and collect results",
+    "Iterate when each step depends on the previous result",
+    "Number of iterations unknown; stop when condition met",
+    "Apply a function for its side effects (print, save, plot)",
+    "Handle different cases of a single categorical variable"
+  ),
+  Best_tool = c(
+    "Vectorised operation (e.g., nchar(), tolower(), arithmetic)",
+    "dplyr::group_by() + summarise() or mutate()",
+    "sapply() / lapply() / purrr::map()",
+    "for loop with pre-allocated output",
+    "while loop (with break safety exit)",
+    "purrr::walk() or a for loop",
+    "ifelse() / case_when() / switch()"
+  )
+) %>%
+  dplyr::rename("Best tool" = Best_tool) %>%
+  flextable() %>%
+  flextable::set_table_properties(width = .99, layout = "autofit") %>%
+  flextable::theme_zebra() %>%
+  flextable::fontsize(size = 11) %>%
+  flextable::fontsize(size = 11, part = "header") %>%
+  flextable::align_text_col(align = "left") %>%
+  flextable::set_caption(caption = "Choosing the right construct for the task.") %>%
+  flextable::border_outer()
+```
+
+## Writing Good Functions {-}
+
+- **Do one thing well** — a function named `clean_and_tokenise_and_count_and_plot()` is a sign it should be four functions
+- **Name with verbs**: `clean_text()`, `compute_ttr()`, `plot_frequency()` — not `myFunc()` or `data2()`
+- **Validate inputs early** — use `stop()` at the top of the function body for invalid arguments
+- **Provide useful defaults** — optional arguments should default to the most common use case
+- **Document** — at minimum a comment above explaining what the function does, its arguments, and what it returns
+- **Test** — call your function with expected inputs, edge cases (empty vector, single element, NA), and invalid inputs
+
+## Code Style for Loops and Functions {-}
+
+```r
+# Good: clear structure, consistent indentation, descriptive names
+compute_register_stats <- function(data, group_col = "register") {
+  data %>%
+    dplyr::group_by(.data[[group_col]]) %>%
+    dplyr::summarise(
+      n          = dplyr::n(),
+      mean_tok   = round(mean(n_tokens), 1),
+      sd_tok     = round(sd(n_tokens), 2),
+      .groups    = "drop"
+    )
+}
+
+# Bad: cryptic names, no whitespace, no structure
+f<-function(d,g="register"){d%>%group_by(.data[[g]])%>%summarise(n=n(),m=round(mean(n_tokens),1))}
+```
+
+## The DRY Principle {-}
+
+**Don't Repeat Yourself.** If you catch yourself copy-pasting a block of code and changing one value, that block should be a function parameterised by that value. Code duplication multiplies the places you must update when requirements change, and multiplies the opportunities for inconsistency.
+
+```r
+# BEFORE: copy-pasted three times with minor changes
+academic_ttr <- sum(corpus$register == "Academic") |> ...
+news_ttr     <- sum(corpus$register == "News")     |> ...
+fiction_ttr  <- sum(corpus$register == "Fiction")  |> ...
+
+# AFTER: one function, called three times
+get_register_ttr <- function(data, reg) { ... }
+sapply(c("Academic", "News", "Fiction"), get_register_ttr, data = corpus)
+```
+
+---
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2026. *Working with R: Control Flow, Functions, and Programming*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/workingwithr/workingwithr.html (Version 2026.02.19).
+
+```
+@manual{schweinberger2026workingwithr,
+  author       = {Schweinberger, Martin},
+  title        = {Working with R: Control Flow, Functions, and Programming},
+  note         = {https://ladal.edu.au/tutorials/workingwithr/workingwithr.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.02.19}
+}
+```
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to HOME](/index.html)
+
+---
+
+# References {-}

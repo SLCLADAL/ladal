@@ -1,385 +1,1454 @@
----
-title: "Handling tables in R"
-author: "Martin Schweinberger"
----
-
-![](/images/uq1.jpg){ width=100% }
-
-# Introduction{-}
-
-This tutorial shows how to work with tables and how to tabulate data in R. A more advanced and detailed but also truly excellent and highly recommended resource on processing data in R is @wickham2016r [see also @wickham2019welcome]. Alternative but also very useful resources are @stander2017enthusing and @estrellado2020data.
-
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
-
-This tutorial is intended for beginners and intermediate users of R with the aim of showcasing how to work with and process tabulated data (tables) using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful functions and methods associated with tabular data. 
-
-
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-  <li>[String Processing in R](/tutorials/string/string.html) </li>
-  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>
-</ul>
-</p>
-</span>
-</div>
-
-<br>
-
-## Preparation and session set up{-}
-
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to R and more information on how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below can be executed without errors. Before turning to the code in the sections below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code. Don't worry if it takes some time - it may take up to 5 minutes to install all of the packages.
-
-```{r prep1, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("tidyverse")
-install.packages("flextable")
-install.packages("openxlsx")
-install.packages("here")
-```
-
-Now that we have installed the packages, we can activate them as shown below.
-
-```{r prep2, message=FALSE, warning=FALSE} 
-# load packages
-library(dplyr)
-library(tidyr)
-library(flextable)
-library(openxlsx)
-library(here)
-```
-
-Once you have installed RStudio and initiated the session by executing the code shown above, you are good to go.
-
-# Getting started{-}
-
-Tables are one of the most common and important ways to process, handle, and describe data. This tutorial introduces different types of tables, how to load and save different types of tables, as well as how to modify and process tables and tabulated data.
-
-When working with R, there are different kinds or types of tables that have different characteristics. The most common types of tables in R are:
-
-* matrices
-* data frames
-* tibbles
-
-Matrices can only contain one type of data and all data points will be converted to the type of scale with the lowest information value. For instance, if at least one variable in a table represents characters (or strings), then all other variables are also converted into characters (although they may be numbers). 
-
-Data frames can contain different types of scales, and variables are not converted automatically. In this sense, data frames are more flexible and are preferable over matrices.
-
-Tibbles are the tidyverse equivalent of data frames. They offer new functions and possibilities of handling and inspecting the data. 
-
-# Loading tables into R{-}
-
-There are several different functions that allow us to read tabulated data into R. In our case, we use the `readRDS` function which loads R data sets. 
-
-```{r lt1, message=FALSE, warning=FALSE}
-# load data with read.delim
-mytable <- base::readRDS("tutorials/table/data/mld.rda", "rb")
-```
-
-
-```{r line_0, echo = F, warning=F, message=F}
-mytable %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 rows of mytable.") %>%
-    flextable::border_outer()
-```
-
-
-If  the data is stored as a txt-file, there are various functions to read in the data. The most common functions are `read.delim` and `read.table`. 
-
-```{r lt2, eval = F, message=FALSE, warning=FALSE}
-# load data with read.delim
-tab1 <- read.delim("tutorials/table/data/mlrdata.txt",
-    sep = "\t", header = TRUE
-)
-tab2 <- read.table("tutorials/table/data/mlrdata.txt", header = TRUE)
-```
-
-To load excel data from the web, you can use the `read.xlsx` function from the `openxlsx` package.
-
-```{r lt3b, message=FALSE, warning=FALSE}
-# load data
-exceldata <- openxlsx::read.xlsx("tutorials/table/data/testdata1.xlsx",
-    sheet = 1
-)
-```
-
-```{r line_01b, echo = F, warning=F, message=F}
-exceldata %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 rows of the exceldata.") %>%
-    flextable::border_outer()
-```
-
-To load excel data from your own computer, you can use the `read_excel` function from the `readxl` package (which is part of the tidyverse and thus does not need to be installed separately).
-
-***
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>NOTE</b><br><br>You would need to adapt the path to the data (which currently points to the data folder on my computer!). Thus, the path below is specified to my computer.</p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-<div class="question">` 
-
-
-</div>
-
-***
-
-
-```{r excel7, message=FALSE, warning=FALSE}
-# load data
-excelcomp <- readxl::read_excel(here::here("tutorials/table/data", "testdata1.xlsx"), sheet = 1)
-```
-
-```{r excel8, echo = F, warning=F, message=F}
-excelcomp %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 rows of the excelcomp data.") %>%
-    flextable::border_outer()
-```
-
-# Inspecting tables{-}
-
-The most common functions that are used to inspect tabular data are the `head()` and the `str()` functions. The `head()` function shows the first 6 lines (by default) but we can also specify the number of rows. The `str()` function provides a summary of the structure of the data.
-
-
-Inspecting the first 6 rows of a table:
-
-```{r tab_01b, warning=F, message=F}
-head(mytable)
-```
-
-Inspecting the first 10 rows of a table:
-
-```{r tab_02b, warning=F, message=F}
-head(mytable, 10)
-```
-
-Checking the structure of tabulated data:
-
-```{r tab_03b, warning=F, message=F}
-str(mytable)
-```
-
-The following section shows how to access and manipulate tables. 
-
-# Processing tabular data{-}
-
-The tidyverse is a specific way of writing R code that builds on a family of libraries designed for efficient data science workflows which were developed initially by Hadley Wickham. This new way of writing R code builds on a shared and underlying design philosophy and grammar. Due to its popularity and ease of use, the tidyverse way to write R code is becoming increasingly popular and we will use it in the following to handle and manipulate tabulated data. 
-
-If you have already loaded data into R and now want to process the data, you typically have to modify the data in some way to get the information or format you need. The tidyverse offers very user-friendly, intuitive, and handy functions for processing data to match the needs of your analysis. To have access to the tidyverse functions for data processing, we load the `tidyverse` package and load and inspect another set of data using the `read.delim` function. The new data is stored as a txt file and has 100 observations (rows) and 3 variables (*status*, *attraction*, and *money*). The data set represents how much money people have spent on someone they were interested in or not (attraction: *Interested* versus *NotInterested*) and their own relationship status (status: *Single* versus *Relationship*).
-
-```{r dp1, eval = T, message=FALSE, warning=FALSE}
-# load new data
-newdata <- base::readRDS("tutorials/table/data/mld.rda", "rb")
-```
-
-```{r tidy11, echo = F, warning=F, message=F}
-newdata %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 rows of the excelcomp data.") %>%
-    flextable::border_outer()
-```
-
-The table represents 3 variables (status, attraction, and money) and each row contains information on the relationship status of 100 people and how much money these people would spend on a gift to someone of the opposite sex who they are or are not interested in. We will now check out different ways and functions to process this data. 
-
-## Piping{-}
-
-Piping, done with the sequence `%>%`, is a very easy, intuitive, quick, and handy way to process data. Essentially piping means that we take an element that is to the left of the piping symbol and then do something to it; that way, the piping symbol can be translated as *and then*. 
-
-We could, for example, load data and then capitalise the column names and then group the data by status and attraction and then get the mean of money spent, deleting all observations except for the first one. A more formal way to write this would be:
-
-> load %>% capitalise %>% group %>% summarise.
-
-In R this command would look like this:
-
-```{r dp2, eval = T, message=FALSE, warning=FALSE}
-# example of a data processing pipeline
-pipeddata <- base::readRDS("tutorials/table/data/mld.rda", "rb") %>%
-    dplyr::rename(Status = status, Attraction = attraction, Money = money) %>%
-    dplyr::group_by(Status, Attraction) %>%
-    dplyr::summarise(Mean = mean(Money))
-# inspect summarised data
-pipeddata
-```
-
-The pipe has worked, and we get the resulting summary which shows the mean of the money spent based on  Attraction and Status.
-
-## Selecting and filtering{-}
-
-Among the most frequent procedures in data processing is selecting certain columns or extracting rows based on variable levels. In the tidyverse, this is done by using the `select` and `filter` functions. While `select` allows you to extract columns, `filter` is used to extract rows, e.g. to get only observations that have a certain feature. Have a look at the example below.
-
-```{r dp3, eval = T, message=FALSE, warning=FALSE}
-# select and filter
-reduceddata <- newdata %>%
-    # select the columns attraction and money
-    dplyr::select(attraction, money) %>%
-    # extract rows which represent cases where the person was interested in someone
-    dplyr::filter(attraction == "Interested")
-# inspect new table
-nrow(reduceddata)
-table(reduceddata$attraction)
-```
-
-We have now reduced the data by excluding status (we have only selected attraction and money) and we have removed those 50 data rows of people who were not interested. The `select` function (like most other tidyverse functions) can also be used together with a minus sign, which causes a column to be removed, thus `dplyr::select(-money)` would remove the money column (see below).
-
-```{r dp4, eval = T, message=FALSE, warning=FALSE}
-# select and filter
-datawithoutmoney <- newdata %>%
-    # remove money
-    dplyr::select(-money)
-# inspect data
-head(datawithoutmoney)
-```
-
-Selecting and filtering are extremely powerful functions that can also be combined with other functions. But before we discuss more complex issues, we will have a look at how we can change columns.
-
-## Changing data and adding columns{-}
-
-Changing and adding data is done with the `mutate` function. The `mutate` function requires that we specify a column name. If we use the same name as the column we are changing, then we change the column, but if we specify another column name, then a new column is created. 
-
-We will now create a new column (Spendalot) in which we encode if the person has spent a lot of money (100 AUD or more) on the present or not (less than 100 AUD).
-
-```{r dp5, eval = T, message=FALSE, warning=FALSE}
-# creating a new column
-newdata <- newdata %>%
-    dplyr::mutate(Spendalot = ifelse(money >= 100, "Alot", "Alittle"))
-# inspect data
-head(newdata)
-```
-
-The table now has a new column (Spendalot), because we specified a column name that did not exist yet - had we written `dplyr::mutate(money = ifelse(money >= 100, "Alot", "Alittle"))` then we would have changed the money column and replaced the money values with the labels *Alot* and *Alittle*.
-
-## Renaming columns{-}
-
-Oftentimes, column names are not really meaningful or even incoherent, which makes it harder to wrap your head around what the values in a column refer to. The easiest way around this is rename columns which is, fortunately, very simple in the tidyverse. While the column names of our example table are already meaningful, I want to capitalise the first letter of each column name. This can be done as follows.
-
-```{r dp6, eval = T, message=FALSE, warning=FALSE}
-# renaming columns
-newdata <- newdata %>%
-    dplyr::rename(Status = status, Attraction = attraction, Money = money)
-# inspect data
-head(newdata)
-```
-
-
-The renaming was successful as all column names now begin with a capital letter.
-
-## Grouping and summarising{-}
-
-In contrast to mutate, which retains the number of rows, summarizing creates new columns but collapses rows and only provides the summary value (or values if more than one summary is specified). Also, columns that are not  grouping variables are removed. 
-
-Summarizing is particularly useful when we want to get summaries of groups. We will modify the example from above and extract the mean and the standard deviation of the money spent on presents by relationship status and whether the giver was attracted to the giv-ee. 
-
-```{r dp7, eval = T, message=FALSE, warning=FALSE}
-# grouping and summarizing data
-datasummary <- newdata %>%
-    dplyr::group_by(Status, Attraction) %>%
-    dplyr::summarise(Mean = round(mean(Money), 2), SD = round(sd(Money), 1))
-# inspect summarised data
-datasummary
-```
-
-## Gathering and Spreading{-}
-
-One very common problem is that data - or at least parts of it - have to be transformed from long to wide format or vice versa. In the tidyverse, this is done using the `gather` and `spread` function. We will convert the summary table shown above into a wide format (we also remove the SD column as it is no longer needed) 
-
-```{r dp8, eval = T, message=FALSE, warning=FALSE}
-# converting data to wide format
-widedata <- datasummary %>%
-    # remove SD column
-    dplyr::select(-SD) %>%
-    # convert into wide format
-    tidyr::spread(Attraction, Mean)
-# inspect wide data
-widedata
-```
-
-We can re-convert the wide data into a long format using the `gather` function. 
-
-```{r dp9, eval = T, message=FALSE, warning=FALSE}
-# converting data to long format
-longdata <- widedata %>%
-    # convert into long format
-    tidyr::gather(Attraction, Money, Interested:NotInterested)
-# inspect wide data
-longdata
-```
-
-There are many more useful functions for processing, handling, and summarizing tables but this should suffice to get you started.
-
-
-
-# Citation & Session Info {-}
-
-Schweinberger, Martin. 2025. *Handling tables in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/table/table.html (Version 2025.04.01).
-
-
-```
-@manual{schweinberger2025table,
-  author = {Schweinberger, Martin},
-  title = {Handling tables in R},
-  note = {https://ladal.edu.au/tutorials/table/table.html},
-  year = {2025},
-  organization = "The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.01}
-}
-```
-
-```{r fin}
-sessionInfo()
-```
-
-
-
-# References{-}
-
-***
-
-[Back to top](#introduction)
-
-[Back to LADAL](/)
-
-***
-
+---  
+title: "Handling Tables in R"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    theme: cosmo  
+---  
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(dplyr)  
+library(tidyr)  
+library(flextable)  
+library(here)  
+options(stringsAsFactors = FALSE)  
+options(scipen = 100)  
+options(max.print = 100)  
+set.seed(42)  
+```  
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
+  
+This tutorial shows how to work with tables and how to process and manipulate tabular data in R. Tables are one of the most fundamental data structures in quantitative research: almost every dataset you will encounter — corpus metadata, survey responses, frequency counts, experimental results — arrives in tabular form. Knowing how to load, inspect, reshape, filter, summarise, join, and save tables efficiently is therefore one of the most important practical skills in R.  
+  
+The tutorial uses the tidyverse family of packages throughout, particularly `dplyr` and `tidyr`. These packages provide a consistent, readable grammar for data manipulation that has become the standard in modern R programming. A highly recommended companion resource is @wickham2016r (freely available at [r4ds.had.co.nz](https://r4ds.had.co.nz/)), which covers these tools in much greater depth.  
+  
+::: {.callout-note}  
+## Prerequisite Tutorials  
+  
+Before working through this tutorial, please complete or familiarise yourself with:  
+  
+- [Getting Started with R and RStudio](/tutorials/intror/intror.html)  
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)  
+- [String Processing in R](/tutorials/string/string.html)  
+:::  
+  
+<br>  
+  
+::: {.callout-tip}  
+## What This Tutorial Covers  
+  
+1. **Table types in R** — matrices, data frames, and tibbles  
+2. **Loading tables** — CSV, TXT, Excel, and RDS formats  
+3. **Inspecting tables** — exploring structure, dimensions, and contents  
+4. **Selecting and filtering** — extracting columns and rows  
+5. **Mutating and recoding** — creating and modifying columns  
+6. **Renaming and reordering** — cleaning up column names  
+7. **Sorting** — arranging rows with `arrange()`  
+8. **Grouping and summarising** — collapsing data by group  
+9. **Reshaping** — pivoting between wide and long format  
+10. **Joining tables** — combining data from multiple sources  
+11. **Handling missing values** — detecting and dealing with `NA`  
+12. **Saving tables** — writing to CSV, Excel, and RDS  
+:::  
+  
+---  
+  
+## Preparation and Session Set-up {-}  
+  
+Install the required packages (once only):  
+  
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}  
+install.packages("dplyr")  
+install.packages("tidyr")  
+install.packages("flextable")  
+install.packages("openxlsx")  
+install.packages("readxl")  
+install.packages("here")  
+install.packages("checkdown")  
+```  
+  
+Load the packages at the start of each session:  
+  
+```{r load, message=FALSE, warning=FALSE}  
+library(dplyr)       # data manipulation  
+library(tidyr)       # reshaping data  
+library(flextable)   # formatted tables  
+library(here)        # robust file paths  
+library(checkdown)   # interactive exercises  
+  
+options(stringsAsFactors = FALSE)  
+options(scipen = 100)  
+options(max.print = 100)  
+```  
+  
+We will use a simulated dataset throughout this tutorial. It represents a small corpus study: 120 observations of speech events from speakers across three registers, with metadata on speaker age, gender, proficiency, and word count.  
+  
+```{r create_data, message=FALSE, warning=FALSE}  
+set.seed(42)  
+  
+corpus_meta <- data.frame(  
+  doc_id      = paste0("doc", sprintf("%03d", 1:120)),  
+  speaker_id  = paste0("spk", rep(1:40, each = 3)),  
+  register    = rep(c("Academic", "News", "Fiction"), times = 40),  
+  gender      = rep(c("Female", "Male", "Female", "Male",  
+                      "Female", "Male", "Female", "Male",  
+                      "Female", "Male"), each = 12),  
+  age_group   = rep(c("18-30", "31-50", "51+"), times = 40),  
+  l1          = sample(c("English", "German", "Mandarin", "Arabic"),  
+                       120, replace = TRUE, prob = c(0.5, 0.2, 0.2, 0.1)),  
+  word_count  = c(  
+    round(rnorm(40, mean = 320, sd = 55)),   # Academic  
+    round(rnorm(40, mean = 210, sd = 40)),   # News  
+    round(rnorm(40, mean = 275, sd = 65))    # Fiction  
+  ),  
+  year        = sample(2018:2023, 120, replace = TRUE),  
+  stringsAsFactors = FALSE  
+)  
+  
+# Introduce a few missing values for later sections  
+corpus_meta$word_count[c(5, 23, 67)] <- NA  
+corpus_meta$l1[c(12, 88)] <- NA  
+```  
+  
+We also create a second, smaller table that we will use for the joining section:  
+  
+```{r create_speaker_data}  
+speaker_info <- data.frame(  
+  speaker_id    = paste0("spk", 1:40),  
+  native_country = sample(  
+    c("Australia", "UK", "Germany", "China", "Egypt"),  
+    40, replace = TRUE, prob = c(0.35, 0.25, 0.2, 0.15, 0.05)  
+  ),  
+  education     = sample(c("Undergraduate", "Postgraduate", "PhD"),  
+                         40, replace = TRUE),  
+  stringsAsFactors = FALSE  
+)  
+```  
+  
+---  
+  
+# Table Types in R {#types}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** The three main table types in R and when each is appropriate  
+  
+**Key concept:** Data frames (and tibbles) are the standard for mixed-type tabular data  
+:::  
+  
+The three most common table types in R are:  
+  
+**Matrices** store data of a single type only. If even one element is a character string, every other element is coerced to character as well. Matrices are used for numerical operations (e.g., in linear algebra or distance computations) but are rarely the right choice for storing research data with mixed variable types.  
+  
+**Data frames** are the workhorse of R data analysis. Each column is a vector that can hold its own type (numeric, character, factor, logical), so different variable types coexist freely. Rows represent observations; columns represent variables.  
+  
+**Tibbles** are the tidyverse version of data frames. They behave like data frames in almost all respects but have nicer default printing (they show only the first 10 rows and annotate column types), and they are slightly stricter about subsetting (less silent failure). All `dplyr` and `tidyr` operations work identically on data frames and tibbles.  
+  
+```{r types_demo}  
+# A matrix: all values become character because of the name column
+m <- matrix(c("Alice", "Bob", 28, 34), nrow = 2,
+            dimnames = list(NULL, c("name", "age")))
+class(m)
+typeof(m[1, "age"])   # character, not numeric!
+
+# A data frame: types are preserved per column
+df <- data.frame(name = c("Alice", "Bob"), age = c(28, 34))
+class(df)
+class(df$age)               # numeric, as intended
+
+# Convert a data frame to a tibble
+tb <- tibble::as_tibble(df)
+class(tb)
+```  
+  
+::: {.callout-tip}  
+## Which to Use?  
+  
+Use **data frames** or **tibbles** for almost all research data — they preserve variable types and work seamlessly with all tidyverse functions. Use **matrices** only when you need to pass data to a function that specifically requires a matrix (e.g., `dist()`, `hclust()`, or matrix algebra).  
+:::  
+  
+---  
+  
+# Loading Tables into R {#loading}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to read tabular data from CSV, TXT, Excel, and RDS files  
+  
+**Key functions:** `read.csv()`, `read.delim()`, `readxl::read_excel()`, `readRDS()`  
+:::  
+  
+## CSV and TXT Files {-}  
+  
+Comma-separated values (CSV) files are the most portable format for tabular data. Use `read.csv()` for standard CSV files or `read.delim()` for tab-separated TXT files:  
+  
+```{r load_csv, eval=FALSE}  
+# Load a CSV file  
+mydata <- read.csv(here::here("data", "corpus_data.csv"))  
+  
+# Load a tab-separated TXT file  
+mydata <- read.delim(here::here("data", "corpus_data.txt"),  
+                     sep = "\t", header = TRUE)  
+  
+# Using read.table() — more flexible, more arguments to specify  
+mydata <- read.table(here::here("data", "corpus_data.txt"),  
+                     header = TRUE, sep = "\t", quote = "\"",  
+                     stringsAsFactors = FALSE)  
+```  
+  
+The tidyverse `readr` package provides faster alternatives with better default behaviour (no automatic factor conversion, cleaner column type detection):  
+  
+```{r load_readr, eval=FALSE}  
+library(readr)  
+mydata <- readr::read_csv(here::here("data", "corpus_data.csv"))  
+mydata <- readr::read_tsv(here::here("data", "corpus_data.txt"))  
+```  
+  
+## Excel Files {-}  
+  
+Use `readxl::read_excel()` to load Excel workbooks. This package is part of the tidyverse and requires no installation if you have already installed `tidyverse`:  
+  
+```{r load_excel, eval=FALSE}  
+library(readxl)  
+  
+# Load the first sheet  
+mydata <- readxl::read_excel(here::here("data", "corpus_data.xlsx"),  
+                              sheet = 1)  
+  
+# Load by sheet name  
+mydata <- readxl::read_excel(here::here("data", "corpus_data.xlsx"),  
+                              sheet = "Sheet2")  
+  
+# Load only specific rows and columns  
+mydata <- readxl::read_excel(here::here("data", "corpus_data.xlsx"),  
+                              range = "A1:F50")  
+```  
+  
+The `openxlsx` package is useful when you also need to *write* formatted Excel files (see the [Saving Tables](#saving) section):  
+  
+```{r load_openxlsx, eval=FALSE}  
+library(openxlsx)  
+mydata <- openxlsx::read.xlsx(here::here("data", "corpus_data.xlsx"),  
+                               sheet = 1)  
+```  
+  
+## RDS Files {-}  
+  
+R's native binary format (`.rds`) preserves all R-specific attributes — factor levels, column types, and so on — exactly as they were when saved. It is the best format for saving and reloading data between R sessions:  
+  
+```{r load_rds, eval=FALSE}  
+# Load an RDS file  
+mydata <- readRDS(here::here("data", "corpus_data.rds"))  
+```  
+  
+::: {.callout-tip}  
+## Using `here::here()` for File Paths  
+  
+Always use `here::here()` rather than hardcoded absolute paths (`"C:/Users/Martin/..."`) or relative paths that depend on your working directory. `here()` constructs paths relative to the root of your R Project, so code works identically on any computer. See the [Getting Started tutorial](/tutorials/intror/intror.html) for how to set up an R Project.  
+:::  
+  
+---  
+  
+# Inspecting Tables {#inspecting}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to quickly understand the shape, structure, and content of a table  
+  
+**Key functions:** `head()`, `tail()`, `str()`, `glimpse()`, `summary()`, `dim()`, `names()`  
+:::  
+  
+Before doing anything with a dataset, always inspect it first. A handful of functions give you a rapid, comprehensive picture.  
+  
+```{r inspect}  
+# First 6 rows (default)  
+head(corpus_meta)  
+```  
+  
+```{r inspect2}  
+# First 10 rows  
+head(corpus_meta, 10)  
+```  
+  
+```{r inspect3}  
+# Last 6 rows  
+tail(corpus_meta)  
+```  
+  
+```{r inspect4}  
+# Dimensions (rows × columns)  
+dim(corpus_meta)  
+nrow(corpus_meta)  
+ncol(corpus_meta)  
+```  
+  
+```{r inspect5}  
+# Column names  
+names(corpus_meta)  
+```  
+  
+```{r inspect6}  
+# Structure: column types and first values  
+str(corpus_meta)  
+```  
+  
+```{r inspect7}  
+# tidyverse-style structure overview (more readable)  
+dplyr::glimpse(corpus_meta)  
+```  
+  
+```{r inspect8}  
+# Statistical summary per column  
+summary(corpus_meta)  
+```  
+  
+The `summary()` output is especially useful: it shows the range, quartiles, and mean for numeric columns, and a frequency table for factor columns. Crucially, it also shows the count of `NA` values per column — a quick way to spot missing data.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Inspecting Tables  
+:::  
+  
+**Q1. You receive a new dataset and run `dim(df)` which returns `c(2500, 18)`. What does this tell you?**  
+  
+```{r}  
+#| echo: false  
+#| label: "INSP_Q1"  
+check_question("The data frame has 2500 rows (observations) and 18 columns (variables)",  
+               options = c(  
+                 "The data frame has 2500 rows (observations) and 18 columns (variables)",  
+                 "The data frame has 18 rows and 2500 columns",  
+                 "The data frame contains 2500 × 18 = 45,000 unique values",  
+                 "The data frame has 2500 variables and 18 observations"  
+               ),  
+               type = "radio",  
+               q_id = "INSP_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! R always reports dimensions as (rows, columns) — this convention is consistent throughout the language, from dim() to matrix notation to subsetting. 2500 rows means 2500 observations (e.g., documents, speakers, tokens); 18 columns means 18 variables measured for each observation.",  
+               wrong = "R reports dimensions as (rows, columns). The first number is always the number of rows (observations), the second is the number of columns (variables).")  
+```  
+  
+---  
+  
+**Q2. Which function provides the most compact overview of column names AND their types AND the first few values in one call?**  
+  
+```{r}  
+#| echo: false  
+#| label: "INSP_Q2"  
+check_question("dplyr::glimpse()",  
+               options = c("dplyr::glimpse()", "head()", "summary()", "names()"),  
+               type = "radio",  
+               q_id = "INSP_Q2",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! glimpse() is the tidyverse's answer to str(). It lists every column on its own line with the data type in angle brackets (e.g., <chr>, <dbl>, <int>) and as many values as fit on the screen. It is often more readable than str() for wide data frames with many columns. head() shows rows but not types. summary() shows statistics but is harder to scan for types. names() shows only column names.",  
+               wrong = "Think about which function shows all three pieces of information — names, types, and values — simultaneously in a compact format.")  
+```  
+  
+---  
+  
+# Selecting and Filtering {#selectfilter}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to extract specific columns and rows from a data frame  
+  
+**Key functions:** `dplyr::select()`, `dplyr::filter()`  
+  
+**Key concept:** `select()` operates on **columns**; `filter()` operates on **rows**  
+:::  
+  
+## Selecting Columns with `select()` {-}  
+  
+`select()` keeps only the columns you name. It never changes the rows.  
+  
+```{r select_basic}  
+# Keep specific columns by name  
+corpus_meta |>  
+  dplyr::select(doc_id, register, word_count) |>  
+  head(5)  
+```  
+  
+```{r select_remove}  
+# Remove a column with -  
+corpus_meta |>  
+  dplyr::select(-year, -l1) |>  
+  head(5)  
+```  
+  
+`select()` also accepts helper functions that select columns by pattern, type, or position:  
+  
+```{r select_helpers}  
+# Columns whose names start with a given string  
+corpus_meta |>  
+  dplyr::select(dplyr::starts_with("s")) |>  
+  head(3)  
+  
+# Columns whose names contain a given string  
+corpus_meta |>  
+  dplyr::select(dplyr::contains("_id")) |>  
+  head(3)  
+  
+# Select and rename in one step  
+corpus_meta |>  
+  dplyr::select(Document = doc_id, Register = register, Words = word_count) |>  
+  head(3)  
+```  
+  
+## Filtering Rows with `filter()` {-}  
+  
+`filter()` keeps only rows where the condition is `TRUE`. It never changes the columns.  
+  
+```{r filter_basic}  
+# Keep only Academic texts  
+corpus_meta |>  
+  dplyr::filter(register == "Academic") |>  
+  nrow()  
+```  
+  
+```{r filter_multiple}  
+# Multiple conditions: Academic texts with more than 300 words  
+corpus_meta |>  
+  dplyr::filter(register == "Academic", word_count > 300) |>  
+  head(5)  
+```  
+  
+```{r filter_or}  
+# OR condition: Academic OR Fiction  
+corpus_meta |>  
+  dplyr::filter(register %in% c("Academic", "Fiction")) |>  
+  dplyr::count(register)  
+```  
+  
+```{r filter_text}  
+# Filter on a partial string match  
+corpus_meta |>  
+  dplyr::filter(stringr::str_detect(doc_id, "00[12]$")) |>  
+  head(5)  
+```  
+  
+::: {.callout-tip}  
+## Combining `select()` and `filter()`  
+  
+The two functions are almost always used together in a pipeline: first filter the rows you need, then select the columns you need:  
+  
+```{r select_filter_combined}  
+corpus_meta |>  
+  dplyr::filter(gender == "Female", age_group == "18-30") |>  
+  dplyr::select(doc_id, register, word_count) |>  
+  head(5)  
+```  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Selecting and Filtering  
+:::  
+  
+**Q1. What is the key difference between `select()` and `filter()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SF_Q1"  
+check_question("select() subsets columns; filter() subsets rows",  
+               options = c(  
+                 "select() subsets columns; filter() subsets rows",  
+                 "select() subsets rows; filter() subsets columns",  
+                 "They are interchangeable — both can subset rows or columns depending on the argument",  
+                 "select() works on character columns; filter() works on numeric columns"  
+               ),  
+               type = "radio",  
+               q_id = "SF_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! select() keeps or drops columns by name (or pattern), leaving all rows unchanged. filter() keeps or drops rows based on a logical condition, leaving all columns unchanged. In a typical pipeline you use both: filter() first to reduce rows, then select() to reduce columns — this order is usually most efficient.",  
+               wrong = "Think about the two dimensions of a table: rows (observations) and columns (variables). Which function controls which dimension?")  
+```  
+  
+---  
+  
+**Q2. You want to keep only rows where `register` is `\"News\"` AND `word_count` is greater than 200. Which code is correct?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SF_Q2"  
+check_question('df |> dplyr::filter(register == "News", word_count > 200)',  
+               options = c(  
+                 'df |> dplyr::filter(register == "News", word_count > 200)',  
+                 'df |> dplyr::filter(register == "News" | word_count > 200)',  
+                 'df |> dplyr::select(register == "News", word_count > 200)',  
+                 'df |> dplyr::filter(register = "News" & word_count > 200)'  
+               ),  
+               type = "radio",  
+               q_id = "SF_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = 'Correct! In filter(), a comma between conditions means AND — both must be TRUE for a row to be kept. The | operator would mean OR (either condition sufficient). select() cannot filter rows. A single = is assignment, not comparison — it would raise an error inside filter().',  
+               wrong = "Check two things: (1) which function filters rows, and (2) which operator means AND (both conditions must hold) versus OR (either condition is enough)?")  
+```  
+  
+---  
+  
+# Mutating and Recoding {#mutate}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to create new columns and modify existing ones  
+  
+**Key functions:** `dplyr::mutate()`, `dplyr::if_else()`, `dplyr::case_when()`  
+:::  
+  
+`mutate()` adds new columns or overwrites existing ones while keeping all rows and all other columns unchanged.  
+  
+## Adding a New Column {-}  
+  
+```{r mutate_new}  
+# Add a column for word count in thousands  
+corpus_meta <- corpus_meta |>  
+  dplyr::mutate(word_count_k = round(word_count / 1000, 3))  
+  
+head(corpus_meta[, c("doc_id", "word_count", "word_count_k")], 5)  
+```  
+  
+## Binary Recoding with `if_else()` {-}  
+  
+Use `dplyr::if_else()` (the type-safe tidyverse version of base R `ifelse()`) to recode a column into two categories:  
+  
+```{r mutate_ifelse}  
+corpus_meta <- corpus_meta |>  
+  dplyr::mutate(  
+    length_class = dplyr::if_else(word_count >= 300, "Long", "Short")  
+  )  
+  
+table(corpus_meta$length_class, useNA = "ifany")  
+```  
+  
+## Multi-Category Recoding with `case_when()` {-}  
+  
+`case_when()` is the tidyverse equivalent of a chain of `if`/`else if` statements. Conditions are evaluated top-to-bottom and the first match wins. The final `TRUE ~` acts as the catch-all default:  
+  
+```{r mutate_casewhen}  
+corpus_meta <- corpus_meta |>  
+  dplyr::mutate(  
+    length_band = dplyr::case_when(  
+      word_count <  200              ~ "Very short",  
+      word_count >= 200 & word_count < 300 ~ "Short",  
+      word_count >= 300 & word_count < 400 ~ "Long",  
+      word_count >= 400              ~ "Very long",  
+      TRUE                           ~ NA_character_   # catches NA word counts  
+    )  
+  )  
+  
+table(corpus_meta$length_band, useNA = "ifany")  
+```  
+  
+## Recoding Based on String Patterns {-}  
+  
+Combine `mutate()` with `stringr::str_detect()` to recode based on partial string matches — a pattern that comes up constantly in corpus linguistics when working with file names or speaker IDs:  
+  
+```{r mutate_strdetect}  
+corpus_meta <- corpus_meta |>  
+  dplyr::mutate(  
+    period = dplyr::case_when(  
+      year %in% 2018:2019 ~ "Early",  
+      year %in% 2020:2021 ~ "Mid",  
+      year %in% 2022:2023 ~ "Recent",  
+      TRUE                ~ "Unknown"  
+    )  
+  )  
+  
+table(corpus_meta$period)  
+```  
+  
+## Modifying an Existing Column {-}  
+  
+Use the same column name on the left-hand side of `mutate()` to overwrite an existing column:  
+  
+```{r mutate_overwrite}  
+# Convert register to a factor with a custom level order  
+corpus_meta <- corpus_meta |>  
+  dplyr::mutate(  
+    register = factor(register,  
+                      levels = c("Academic", "News", "Fiction"))  
+  )  
+  
+levels(corpus_meta$register)  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Mutating  
+:::  
+  
+**Q1. What happens if you use the same column name on both sides of `mutate()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MUT_Q1"  
+check_question("The existing column is overwritten with the new values — no new column is added",  
+               options = c(  
+                 "The existing column is overwritten with the new values — no new column is added",  
+                 "R throws an error because you cannot overwrite existing columns",  
+                 "A new column is added with a suffix like .1 to avoid the name conflict",  
+                 "Both the old and new columns are kept with different names"  
+               ),  
+               type = "radio",  
+               q_id = "MUT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! mutate(col = new_values) replaces the column col with new_values if col already exists. If col does not yet exist, it is created as a new column. This dual behaviour is intentional: use the same name to recode in place, use a new name to add a parallel column. Be careful when overwriting — the original values are lost unless you have saved them first.",  
+               wrong = "Think about what mutate() does with the name you provide. If the name already exists in the data frame, what is the natural outcome?")  
+```  
+  
+---  
+  
+**Q2. In a `case_when()` call, what happens to rows that do not match any condition and there is no `TRUE ~` catch-all?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MUT_Q2"  
+check_question("They receive NA — unmatched rows become missing when no default is provided",  
+               options = c(  
+                 "They receive NA — unmatched rows become missing when no default is provided",  
+                 "They retain their original value from the column being replaced",  
+                 "R throws an error and stops execution",  
+                 "They receive 0 for numeric columns or an empty string for character columns"  
+               ),  
+               type = "radio",  
+               q_id = "MUT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! case_when() returns NA for any row that does not match at least one condition — including rows where the tested variable is already NA (since NA comparisons always return NA, not TRUE). This is a common source of unexpected missing values. Always include a TRUE ~ fallback: either a meaningful default value like TRUE ~ 'Other', or an explicit TRUE ~ NA_character_ to make the intention clear.",  
+               wrong = "case_when() evaluates each condition top to bottom. What value does it assign when none of the conditions are TRUE and no default is specified?")  
+```  
+  
+---  
+  
+# Renaming and Reordering Columns {#rename}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to rename columns and change their order  
+  
+**Key functions:** `dplyr::rename()`, `dplyr::relocate()`  
+:::  
+  
+## Renaming with `rename()` {-}  
+  
+`rename()` uses `new_name = old_name` syntax:  
+  
+```{r rename}  
+corpus_renamed <- corpus_meta |>  
+  dplyr::rename(  
+    Document  = doc_id,  
+    Speaker   = speaker_id,  
+    Register  = register,  
+    Gender    = gender,  
+    AgeGroup  = age_group,  
+    L1        = l1,  
+    WordCount = word_count,  
+    Year      = year  
+  )  
+  
+names(corpus_renamed)  
+```  
+  
+## Renaming by Pattern with `rename_with()` {-}  
+  
+`rename_with()` applies a function to column names — useful for bulk transformations:  
+  
+```{r rename_with}  
+# Capitalise the first letter of every column name  
+corpus_meta |>  
+  dplyr::rename_with(stringr::str_to_title) |>  
+  names()  
+  
+# Replace all underscores with dots  
+corpus_meta |>  
+  dplyr::rename_with(~ gsub("_", ".", .x)) |>  
+  names()  
+```  
+  
+## Reordering Columns with `relocate()` {-}  
+  
+`relocate()` moves columns to a new position without dropping any:  
+  
+```{r relocate}  
+# Move word_count to the front  
+corpus_meta |>  
+  dplyr::relocate(word_count, .before = doc_id) |>  
+  head(3)  
+  
+# Move year and l1 to after register  
+corpus_meta |>  
+  dplyr::relocate(year, l1, .after = register) |>  
+  head(3)  
+```  
+  
+---  
+  
+# Sorting with `arrange()` {#arrange}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to sort rows in ascending or descending order, including multi-column sorting  
+  
+**Key function:** `dplyr::arrange()`  
+:::  
+  
+`arrange()` sorts rows by one or more columns. The default is ascending order; wrap a column in `desc()` for descending:  
+  
+```{r arrange_basic}  
+# Sort by word count, ascending (shortest first)  
+corpus_meta |>  
+  dplyr::select(doc_id, register, word_count) |>  
+  dplyr::arrange(word_count) |>  
+  head(8)  
+```  
+  
+```{r arrange_desc}  
+# Sort by word count, descending (longest first)  
+corpus_meta |>  
+  dplyr::select(doc_id, register, word_count) |>  
+  dplyr::arrange(dplyr::desc(word_count)) |>  
+  head(8)  
+```  
+  
+```{r arrange_multi}  
+# Multi-column sort: register (alphabetical), then word_count (descending)  
+corpus_meta |>  
+  dplyr::select(doc_id, register, word_count) |>  
+  dplyr::arrange(register, dplyr::desc(word_count)) |>  
+  head(10)  
+```  
+  
+::: {.callout-tip}  
+## `NA` Values in `arrange()`  
+  
+Missing values are always sorted to the **end** by `arrange()`, regardless of ascending or descending order. Use `dplyr::filter(!is.na(column))` before `arrange()` if you want to exclude them first.  
+:::  
+  
+---  
+  
+# Grouping and Summarising {#summarise}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to compute group-level summaries — the most common operation in descriptive data analysis  
+  
+**Key functions:** `dplyr::group_by()`, `dplyr::summarise()`, `dplyr::count()`  
+:::  
+  
+`group_by()` splits the data into groups; `summarise()` computes summary statistics within each group and collapses rows to one per group.  
+  
+## Basic Group Summary {-}  
+  
+```{r summarise_basic}  
+corpus_meta |>  
+  dplyr::group_by(register) |>  
+  dplyr::summarise(  
+    n         = dplyr::n(),  
+    mean_wc   = round(mean(word_count, na.rm = TRUE), 1),  
+    sd_wc     = round(sd(word_count, na.rm = TRUE), 1),  
+    min_wc    = min(word_count, na.rm = TRUE),  
+    max_wc    = max(word_count, na.rm = TRUE),  
+    .groups   = "drop"  
+  ) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .75, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Word count summary by register.") |>  
+  flextable::border_outer()  
+```  
+  
+## Multi-Variable Grouping {-}  
+  
+```{r summarise_multi}  
+corpus_meta |>  
+  dplyr::group_by(register, gender) |>  
+  dplyr::summarise(  
+    n       = dplyr::n(),  
+    mean_wc = round(mean(word_count, na.rm = TRUE), 1),  
+    .groups = "drop"  
+  ) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Word count by register and gender.") |>  
+  flextable::border_outer()  
+```  
+  
+## `count()` — Quick Frequency Tables {-}  
+  
+`count()` is a shortcut for `group_by() + summarise(n = n())`:  
+  
+```{r count}  
+# Frequency of each register  
+corpus_meta |>  
+  dplyr::count(register)  
+  
+# Cross-tabulation: register × gender  
+corpus_meta |>  
+  dplyr::count(register, gender)  
+  
+# Sort by frequency  
+corpus_meta |>  
+  dplyr::count(l1, sort = TRUE)  
+```  
+  
+## `mutate()` After `group_by()` {-}  
+  
+When `mutate()` follows `group_by()`, it computes the new column within each group but retains all original rows — useful for computing group means alongside individual values:  
+  
+```{r group_mutate}  
+corpus_meta |>  
+  dplyr::group_by(register) |>  
+  dplyr::mutate(  
+    group_mean_wc = round(mean(word_count, na.rm = TRUE), 1),  
+    deviation     = word_count - group_mean_wc  
+  ) |>  
+  dplyr::ungroup() |>  
+  dplyr::select(doc_id, register, word_count, group_mean_wc, deviation) |>  
+  head(8)  
+```  
+  
+::: {.callout-important}  
+## Always `ungroup()` After `group_by()`  
+  
+After using `group_by()`, the data frame remains "grouped" until you explicitly `ungroup()` it. Grouped data frames can produce unexpected results in subsequent operations. Always add `dplyr::ungroup()` at the end of any pipeline that uses `group_by()`, or use the `.groups = "drop"` argument inside `summarise()`.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Summarising  
+:::  
+  
+**Q1. What is the key difference between using `mutate()` and `summarise()` after `group_by()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SUM_Q1"  
+check_question("mutate() adds a new column while keeping all original rows; summarise() collapses each group to a single row",  
+               options = c(  
+                 "mutate() adds a new column while keeping all original rows; summarise() collapses each group to a single row",  
+                 "summarise() adds new columns; mutate() removes rows",  
+                 "They are identical after group_by() — the result is always one row per group",  
+                 "mutate() is for numeric columns; summarise() is for character columns"  
+               ),  
+               type = "radio",  
+               q_id = "SUM_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! After group_by(), mutate() computes values within each group but returns a data frame with the same number of rows as the input — each row gets the group-level value alongside its own data. summarise() computes values within each group and returns exactly one row per group, discarding all individual-level information. Use mutate() to add a group mean column alongside raw data; use summarise() to create a compact summary table.",  
+               wrong = "Think about the number of rows in the result. If you have 120 rows grouped into 3 registers, how many rows does each function produce?")  
+```  
+  
+---  
+  
+**Q2. What does `.groups = \"drop\"` do inside `summarise()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SUM_Q2"  
+check_question("It removes the grouping structure after summarising, so the result is a plain ungrouped data frame",  
+               options = c(  
+                 "It removes the grouping structure after summarising, so the result is a plain ungrouped data frame",  
+                 "It drops groups that have fewer than a minimum number of observations",  
+                 "It deletes the grouping column from the output",  
+                 "It causes summarise() to ignore missing values"  
+               ),  
+               type = "radio",  
+               q_id = "SUM_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = 'Correct! After group_by() + summarise(), dplyr would normally retain grouping on all but the last grouping variable (and print a message warning you about this). Setting .groups = "drop" explicitly removes all grouping from the result, giving you a clean, ordinary data frame. This is the recommended practice to avoid unexpected behaviour in any further operations.',  
+               wrong = 'What does the "drop" in .groups = "drop" suggest about what happens to the grouping metadata?')  
+```  
+  
+---  
+  
+# Reshaping: Wide and Long Format {#reshape}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to convert data between wide format and long format using `pivot_longer()` and `pivot_wider()`  
+  
+**Key concept:** Long format has one row per observation; wide format has one row per subject with multiple measurement columns  
+  
+**Note on older functions:** The tidyverse functions `gather()` and `spread()` are deprecated and replaced by `pivot_longer()` and `pivot_wider()`. This tutorial uses the modern versions.  
+:::  
+  
+Reshaping is one of the most frequently needed — and most frequently confusing — data operations. The key is understanding the two formats:  
+  
+**Wide format:** Each subject occupies one row; repeated measurements are spread across multiple columns (e.g., `score_time1`, `score_time2`, `score_time3`). Easy for humans to read; needed for some statistical functions.  
+  
+**Long format:** Each measurement is its own row; a column identifies which measurement it is. Required by `ggplot2` and most tidy statistical functions.  
+  
+Let us create a small wide-format summary to demonstrate:  
+  
+```{r reshape_setup}  
+# Create a wide-format summary: mean word count per register × gender  
+wide_summary <- corpus_meta |>  
+  dplyr::group_by(register, gender) |>  
+  dplyr::summarise(mean_wc = round(mean(word_count, na.rm = TRUE), 1),  
+                   .groups = "drop") |>  
+  tidyr::pivot_wider(names_from = gender, values_from = mean_wc)  
+  
+wide_summary |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .5, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Mean word count per register × gender (wide format).") |>  
+  flextable::border_outer()  
+```  
+  
+## Wide to Long: `pivot_longer()` {-}  
+  
+`pivot_longer()` gathers multiple columns into key-value pairs — it makes the data *longer* (more rows, fewer columns):  
+  
+```{r pivot_longer}  
+long_summary <- wide_summary |>  
+  tidyr::pivot_longer(  
+    cols      = c(Female, Male),   # columns to gather  
+    names_to  = "gender",          # new column for the old column names  
+    values_to = "mean_wc"          # new column for the values  
+  )  
+  
+long_summary  
+```  
+  
+## Long to Wide: `pivot_wider()` {-}  
+  
+`pivot_wider()` spreads a key-value pair across multiple columns — it makes the data *wider* (fewer rows, more columns):  
+  
+```{r pivot_wider}  
+# Back to wide format  
+long_summary |>  
+  tidyr::pivot_wider(  
+    names_from  = gender,    # column whose values become new column names  
+    values_from = mean_wc    # column whose values fill the new columns  
+  )  
+```  
+  
+## A Linguistic Example {-}  
+  
+A common situation in corpus work: you have measurements for several linguistic features across multiple text types, and you need to switch between formats depending on whether you are computing a table (wide) or a plot (long):  
+  
+```{r reshape_linguistic}  
+# Simulate feature counts per register  
+features_wide <- data.frame(  
+  register       = c("Academic", "News", "Fiction"),  
+  passive_rate   = c(0.12, 0.06, 0.03),  
+  nominalisation = c(0.18, 0.09, 0.05),  
+  hedging        = c(0.08, 0.04, 0.11)  
+)  
+  
+# Convert to long format for plotting  
+features_long <- features_wide |>  
+  tidyr::pivot_longer(  
+    cols      = -register,         # all columns except register  
+    names_to  = "feature",  
+    values_to = "rate"  
+  )  
+  
+features_long  
+  
+# Plot in long format  
+ggplot2::ggplot(features_long,  
+                ggplot2::aes(x = register, y = rate, fill = register)) +  
+  ggplot2::geom_col() +  
+  ggplot2::facet_wrap(~ feature) +  
+  ggplot2::scale_fill_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  ggplot2::theme_bw() +  
+  ggplot2::theme(legend.position = "none",  
+                 panel.grid.minor = ggplot2::element_blank()) +  
+  ggplot2::labs(title = "Linguistic feature rates by register",  
+                x = "Register", y = "Rate")  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Reshaping  
+:::  
+  
+**Q1. Which format does `ggplot2` require for plotting grouped data?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RSH_Q1"  
+check_question("Long format — one row per observation, with a column identifying the group",  
+               options = c(  
+                 "Long format — one row per observation, with a column identifying the group",  
+                 "Wide format — one row per subject with separate columns per group",  
+                 "Either format works identically in ggplot2",  
+                 "ggplot2 does not work with grouped data at all"  
+               ),  
+               type = "radio",  
+               q_id = "RSH_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! ggplot2 is built around the tidy data principle: each row is one observation, each column is one variable. The aesthetic mapping (aes()) assigns a single column to each visual property (fill, colour, x, y). When you have measurements for multiple groups, long format puts all measurements in one column and identifies the group in another — exactly what aes(fill = group) needs. Wide format, with one column per group, cannot be mapped directly.",  
+               wrong = "Think about how ggplot2's aes() works: it maps a single column to a visual property. If your data has a column for each group (wide format), how would ggplot2 know which column to use for the grouping aesthetic?")  
+```  
+  
+---  
+  
+**Q2. What is the modern tidyverse replacement for the deprecated `gather()` and `spread()` functions?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RSH_Q2"  
+check_question("pivot_longer() replaces gather(); pivot_wider() replaces spread()",  
+               options = c(  
+                 "pivot_longer() replaces gather(); pivot_wider() replaces spread()",  
+                 "pivot_wider() replaces gather(); pivot_longer() replaces spread()",  
+                 "melt() and cast() from the reshape2 package",  
+                 "gather() and spread() are not deprecated — they still work identically"  
+               ),  
+               type = "radio",  
+               q_id = "RSH_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! gather() and spread() were the original tidyr reshaping functions, but they had confusing argument names. tidyr 1.0.0 (2019) introduced pivot_longer() and pivot_wider() as clearer, more powerful replacements. The old functions still work but produce a deprecation warning. pivot_longer() makes data longer (more rows, fewer columns) — equivalent to gather(). pivot_wider() makes data wider (fewer rows, more columns) — equivalent to spread().",  
+               wrong = "Think about the direction of the reshape: which function makes more rows (longer), and which makes more columns (wider)?")  
+```  
+  
+---  
+  
+# Joining Tables {#joining}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to combine two data frames by matching on a shared key column  
+  
+**Key functions:** `dplyr::left_join()`, `dplyr::inner_join()`, `dplyr::full_join()`, `dplyr::anti_join()`  
+  
+**Why it matters:** Research data is often stored in multiple linked tables — joining is the core operation for combining them  
+:::  
+  
+All `dplyr` join functions take two data frames and a `by` argument specifying the shared key column(s). They differ in how they handle rows that have no match.  
+  
+## Join Types {-}  
+  
+```{r join_diagram, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Function       = c("left_join(x, y)", "right_join(x, y)", "inner_join(x, y)",  
+                     "full_join(x, y)", "anti_join(x, y)"),  
+  Keeps          = c("All rows from x; matched rows from y",  
+                     "All rows from y; matched rows from x",  
+                     "Only rows with a match in both x and y",  
+                     "All rows from both x and y",  
+                     "Rows in x with NO match in y"),  
+  Unmatched_fill = c("NA in y columns", "NA in x columns",  
+                     "Dropped", "NA where missing", "No y columns added"),  
+  Most_common    = c("✓ Most common", "", "", "", "Useful for diagnostics")  
+) |>  
+  dplyr::rename("Unmatched rows" = Unmatched_fill, "Note" = Most_common) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Overview of dplyr join functions.") |>  
+  flextable::border_outer()  
+```  
+  
+## `left_join()` — The Standard Join {-}  
+  
+`left_join()` keeps every row from the left table (`x`) and attaches matching columns from the right table (`y`). Rows in `x` with no match in `y` get `NA` in the `y` columns.  
+  
+```{r left_join}  
+# Add speaker information to the corpus metadata  
+corpus_full <- corpus_meta |>  
+  dplyr::left_join(speaker_info, by = "speaker_id")  
+  
+# All original rows are preserved  
+nrow(corpus_full) == nrow(corpus_meta)  
+  
+# New columns have been added  
+names(corpus_full)  
+  
+head(corpus_full[, c("doc_id", "speaker_id", "register",  
+                     "native_country", "education")], 8)  
+```  
+  
+## `inner_join()` — Matches Only {-}  
+  
+`inner_join()` keeps only rows that have a match in both tables. Use it when you only want complete cases:  
+  
+```{r inner_join}  
+# Suppose we only have speaker info for speakers 1–25  
+partial_speaker_info <- speaker_info |>  
+  dplyr::filter(speaker_id %in% paste0("spk", 1:25))  
+  
+corpus_inner <- corpus_meta |>  
+  dplyr::inner_join(partial_speaker_info, by = "speaker_id")  
+  
+nrow(corpus_inner)   # fewer rows than the original  
+```  
+  
+## `anti_join()` — Diagnosing Mismatches {-}  
+  
+`anti_join()` returns rows from `x` that have **no** match in `y` — useful for quality checking:  
+  
+```{r anti_join}  
+# Which documents have no speaker info?  
+corpus_meta |>  
+  dplyr::anti_join(partial_speaker_info, by = "speaker_id") |>  
+  dplyr::select(doc_id, speaker_id) |>  
+  head(6)  
+```  
+  
+## Joining on Multiple Keys {-}  
+  
+When tables share more than one key column, pass a vector to `by`:  
+  
+```{r multi_join, eval=FALSE}  
+# Join on two columns simultaneously  
+df1 |>  
+  dplyr::left_join(df2, by = c("speaker_id", "year"))  
+```  
+  
+If the key columns have different names in the two tables, use a named vector:  
+  
+```{r named_join, eval=FALSE}  
+# "id" in df1 matches "speaker_id" in df2  
+df1 |>  
+  dplyr::left_join(df2, by = c("id" = "speaker_id"))  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Joining  
+:::  
+  
+**Q1. You have a data frame `texts` with 500 rows and a reference table `metadata` with 300 rows. You join them with `left_join(texts, metadata, by = "doc_id")`. How many rows will the result have?**  
+  
+```{r}  
+#| echo: false  
+#| label: "JOIN_Q1"  
+check_question("500 — left_join always keeps all rows from the left table",  
+               options = c(  
+                 "500 — left_join always keeps all rows from the left table",  
+                 "300 — the result can never be larger than the smaller table",  
+                 "800 — all rows from both tables are kept",  
+                 "It depends on how many doc_ids match"  
+               ),  
+               type = "radio",  
+               q_id = "JOIN_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! left_join(x, y) always preserves every row of x — that is the defining property. Rows in x with no matching row in y receive NA in the y columns. Rows in y with no matching row in x are simply ignored. So the output always has exactly nrow(x) rows (assuming no duplicate keys causing row multiplication). Use inner_join() if you only want the 300 rows that have metadata.",  
+               wrong = "The 'left' in left_join refers to the left table (the first argument). What does left_join guarantee about rows from the left table?")  
+```  
+  
+---  
+  
+**Q2. When would you use `anti_join()` rather than `left_join()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "JOIN_Q2"  
+check_question("When you want to identify rows in x that have no match in y — useful for quality checking and finding missing data",  
+               options = c(  
+                 "When you want to identify rows in x that have no match in y — useful for quality checking and finding missing data",  
+                 "When you want to keep all rows from both tables including unmatched rows",  
+                 "When the join key columns have different names in the two tables",  
+                 "anti_join() is faster than left_join() for large tables"  
+               ),  
+               type = "radio",  
+               q_id = "JOIN_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! anti_join(x, y) returns only the rows of x that have NO matching row in y — and it adds no columns from y. This makes it ideal for data quality checks: 'which documents in my corpus have no metadata?', 'which speakers are in the results table but not in the participant list?'. It is a diagnostic tool, not a way to combine data.",  
+               wrong = "Think about what anti_join returns: not a combination of two tables, but a filtered version of x. What kind of rows does it select?")  
+```  
+  
+---  
+  
+# Handling Missing Values {#missing}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to detect, count, filter, and replace missing values in a data frame  
+  
+**Key functions:** `is.na()`, `na.omit()`, `tidyr::drop_na()`, `tidyr::replace_na()`, `dplyr::coalesce()`  
+:::  
+  
+Missing values (`NA`) are unavoidable in real data. Handling them incorrectly is one of the most common sources of subtle errors in data analysis. The first step is always to understand where your `NA`s are and why they are there.  
+  
+## Detecting Missing Values {-}  
+  
+```{r na_detect}  
+# Count NAs per column  
+colSums(is.na(corpus_meta))  
+```  
+  
+```{r na_detect2}  
+# Proportion of NAs per column  
+round(colMeans(is.na(corpus_meta)) * 100, 1)  
+```  
+  
+```{r na_detect3}  
+# Which rows have at least one NA?  
+corpus_meta |>  
+  dplyr::filter(dplyr::if_any(dplyr::everything(), is.na)) |>  
+  dplyr::select(doc_id, word_count, l1)  
+```  
+  
+## Removing Rows with Missing Values {-}  
+  
+```{r na_remove}  
+# Remove any row with at least one NA (use with caution!)  
+corpus_complete <- corpus_meta |>  
+  tidyr::drop_na()  
+  
+nrow(corpus_meta) - nrow(corpus_complete)  # rows removed  
+  
+# Remove rows with NA in a specific column only  
+corpus_no_na_wc <- corpus_meta |>  
+  tidyr::drop_na(word_count)  
+  
+nrow(corpus_no_na_wc)  
+```  
+  
+::: {.callout-warning}  
+## Think Before Dropping NA Rows  
+  
+`drop_na()` discards entire observations. If missing data is not random (e.g., word count is missing for a specific text type or speaker group), dropping those rows introduces bias. Always investigate *why* values are missing before deciding how to handle them.  
+:::  
+  
+## Replacing Missing Values {-}  
+  
+```{r na_replace}  
+# Replace NA in a specific column with a fixed value  
+corpus_meta |>  
+  tidyr::replace_na(list(l1 = "Unknown")) |>  
+  dplyr::count(l1, sort = TRUE)  
+```  
+  
+```{r na_replace2}  
+# Replace NA with a computed value (e.g., column mean)  
+corpus_meta |>  
+  dplyr::mutate(  
+    word_count = dplyr::if_else(  
+      is.na(word_count),  
+      round(mean(word_count, na.rm = TRUE)),  
+      word_count  
+    )  
+  ) |>  
+  dplyr::summarise(n_na = sum(is.na(word_count)))   # should be 0  
+```  
+  
+## `na.rm` in Summary Functions {-}  
+  
+Most R summary functions (mean, sd, sum, min, max) have an `na.rm` argument. Setting `na.rm = TRUE` tells the function to ignore `NA` values rather than propagating them:  
+  
+```{r na_rm}  
+x <- c(10, 20, NA, 40, NA, 60)  
+  
+mean(x)              # NA — because NA contaminates the result  
+mean(x, na.rm = TRUE)  # 32.5 — NAs excluded  
+```  
+  
+---  
+  
+# Saving Tables {#saving}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to write data frames to CSV, Excel, and RDS files  
+  
+**Key functions:** `write.csv()`, `openxlsx::write.xlsx()`, `saveRDS()`  
+:::  
+  
+## Saving as CSV {-}  
+  
+```{r save_csv, eval=FALSE}  
+# Base R — the most portable format  
+write.csv(corpus_meta,  
+          file = here::here("data", "corpus_meta_processed.csv"),  
+          row.names = FALSE)   # always set row.names = FALSE  
+  
+# tidyverse readr version — slightly faster, no row names by default  
+readr::write_csv(corpus_meta,  
+                 file = here::here("data", "corpus_meta_processed.csv"))  
+```  
+  
+## Saving as Excel {-}  
+  
+Use `openxlsx` to write formatted Excel files. It supports multiple sheets, cell styles, column widths, and more:  
+  
+```{r save_excel, eval=FALSE}  
+library(openxlsx)  
+  
+# Single sheet  
+openxlsx::write.xlsx(corpus_meta,  
+                     file = here::here("data", "corpus_meta.xlsx"),  
+                     sheetName = "Corpus Metadata",  
+                     rowNames  = FALSE)  
+  
+# Multiple sheets in one workbook  
+wb <- openxlsx::createWorkbook()  
+openxlsx::addWorksheet(wb, "Metadata")  
+openxlsx::addWorksheet(wb, "Speaker Info")  
+openxlsx::writeData(wb, "Metadata",     corpus_meta)  
+openxlsx::writeData(wb, "Speaker Info", speaker_info)  
+openxlsx::saveWorkbook(wb,  
+                       file      = here::here("data", "corpus_study.xlsx"),  
+                       overwrite = TRUE)  
+```  
+  
+## Saving as RDS {-}  
+  
+RDS is the best format for saving R objects between sessions. It preserves factor levels, column types, and all R-specific attributes:  
+  
+```{r save_rds, eval=FALSE}  
+saveRDS(corpus_meta, file = here::here("data", "corpus_meta.rds"))  
+  
+# Reload later  
+corpus_meta <- readRDS(here::here("data", "corpus_meta.rds"))  
+```  
+  
+```{r format_table, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  Format     = c("CSV (.csv)", "Excel (.xlsx)", "RDS (.rds)"),  
+  Best_for   = c("Sharing with other software and collaborators",  
+                 "Sharing with non-R users; multi-sheet summaries",  
+                 "Saving processed data between R sessions"),  
+  Preserves  = c("Values only (no types, no factor levels)",  
+                 "Values and basic formatting",  
+                 "All R types, factor levels, and attributes"),  
+  Write_fn   = c("write.csv() / readr::write_csv()",  
+                 "openxlsx::write.xlsx()",  
+                 "saveRDS()")  
+) |>  
+  dplyr::rename("Best for" = Best_for, "Preserves" = Preserves,  
+                "Write function" = Write_fn) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Comparison of table saving formats.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Missing Values and Saving  
+:::  
+  
+**Q1. You run `mean(x)` on a numeric vector and get `NA`. What is the most likely cause, and how do you fix it?**  
+  
+```{r}  
+#| echo: false  
+#| label: "NA_Q1"  
+check_question("The vector contains at least one NA — fix by adding na.rm = TRUE: mean(x, na.rm = TRUE)",  
+               options = c(  
+                 "The vector contains at least one NA — fix by adding na.rm = TRUE: mean(x, na.rm = TRUE)",  
+                 "The vector is empty — fix by checking length(x) first",  
+                 "The vector contains non-numeric values — fix by converting with as.numeric()",  
+                 "mean() does not work on vectors — use colMeans() instead"  
+               ),  
+               type = "radio",  
+               q_id = "NA_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! NA is contagious: any arithmetic involving NA produces NA. The na.rm = TRUE argument tells mean() (and sd(), sum(), min(), max(), etc.) to ignore NA values when computing the result. This is almost always what you want. The exception is when you deliberately want NA to signal that you cannot compute a reliable summary for a dataset with missing values — in which case leaving na.rm = FALSE is the correct choice.",  
+               wrong = "What does NA in a numeric vector do to arithmetic operations? And what argument do summary functions accept to handle this?")  
+```  
+  
+---  
+  
+**Q2. Why is RDS the best format for saving data between R sessions, compared to CSV?**  
+  
+```{r}  
+#| echo: false  
+#| label: "NA_Q2"  
+check_question("RDS preserves all R-specific attributes including column types, factor levels, and ordered factors — CSV saves only raw values as text",  
+               options = c(  
+                 "RDS preserves all R-specific attributes including column types, factor levels, and ordered factors — CSV saves only raw values as text",  
+                 "RDS files are always smaller than CSV files",  
+                 "CSV cannot store more than 1000 rows; RDS has no row limit",  
+                 "RDS can be opened in Excel; CSV cannot"  
+               ),  
+               type = "radio",  
+               q_id = "NA_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A CSV file is plain text: every value is stored as a string, with no information about column types. When you reload a CSV, R has to guess types and will sometimes guess wrong (e.g., factor levels lose their ordering). An RDS file is a binary serialisation of the R object itself — factor levels, their ordering, integer vs. double distinction, and any other R attributes are stored exactly. Use CSV for sharing data with other people or software; use RDS for your own intermediate and final R data objects.",  
+               wrong = "Think about what information a plain-text CSV file can and cannot store compared to a format that saves the R object directly.")  
+```  
+  
+---  
+  
+# Citation & Session Info {-}  
+  
+Schweinberger, Martin. 2026. *Handling Tables in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/table/table.html (Version 2026.02.19).  
+  
+```  
+@manual{schweinberger2026table,  
+  author       = {Schweinberger, Martin},  
+  title        = {Handling Tables in R},  
+  note         = {https://ladal.edu.au/tutorials/table/table.html},  
+  year         = {2026},  
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
+  address      = {Brisbane},  
+  edition      = {2026.02.19}  
+}  
+```  
+  
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to HOME](/index.html)  
+  
+---  
+  
+# References {-}  
