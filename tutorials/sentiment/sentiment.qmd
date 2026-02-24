@@ -1,570 +1,1144 @@
----
-title: "Sentiment Analysis in R"
-author: "Martin Schweinberger"
----
+---  
+title: "Sentiment Analysis in R"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    theme: cosmo  
+---  
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(tidyverse)  
+library(flextable)  
+library(Hmisc)  
+library(sentimentr)  
+library(tidytext)  
+library(zoo)  
+options(stringsAsFactors = FALSE)  
+options(scipen = 999)  
+```  
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+This tutorial introduces **Sentiment Analysis (SA)** in R — a powerful method for extracting information about emotion and opinion from natural language [@silge2017text]. We'll use modern R packages including `sentimentr` [@sentimentr2021package] and `tidytext` [@tidytext2016package], along with the *Word-Emotion Association Lexicon* [@mohammad2013crowdsourcing].  
+  
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
+  
+::: {.callout-note}  
+## Learning Outcomes  
+  
+By the end of this tutorial, you will be able to:  
+  
+1. **Understand** the principles of sentiment analysis and its applications in linguistics  
+2. **Perform** basic sentiment analysis using the Word-Emotion Association Lexicon  
+3. **Calculate** polarity ratios and emotion scores from text data  
+4. **Visualize** sentiment patterns across texts and over narrative time  
+5. **Identify** key emotive words contributing to sentiment scores  
+6. **Track changes** in sentiment using binning and rolling averages  
+7. **Apply** context-sensitive sentiment analysis that accounts for negation  
+  
+:::  
+  
+---  
+  
+## What Is Sentiment Analysis? {-}  
+  
+**Sentiment Analysis** (SA) is a computational method for extracting information about emotion, opinion, or attitude from natural language [@silge2017text]. SA has been successfully applied across disciplines including psychology, economics, education, political science, and social sciences.  
+  
+::: {.callout-important}  
+## Why Use Sentiment Analysis?  
+  
+SA offers several advantages over traditional methods:  
+  
+✓ **Fully replicable**: Emotion coding is automated and consistent    
+✓ **Scalable**: Can analyze thousands of documents quickly    
+✓ **Quantitative**: Produces numerical scores for statistical analysis    
+✓ **Unobtrusive**: Can analyze existing text without surveys or experiments  
+  
+:::  
+  
+### Beyond Simple Polarity {-}  
+  
+Many SA tools provide only **polarity** (positive vs. negative). However, linguistics research often requires more nuanced information. This tutorial uses the **Word-Emotion Association Lexicon**, which provides scores for **eight core emotions**:  
+  
+| Emotion | Example Words |  
+|---------|---------------|  
+| **Joy** | happy, beautiful, wonderful |  
+| **Trust** | safe, honest, reliable |  
+| **Anticipation** | ready, hope, expect |  
+| **Surprise** | wow, sudden, amazing |  
+| **Sadness** | cry, tragedy, loss |  
+| **Fear** | afraid, terror, panic |  
+| **Disgust** | sick, ugly, awful |  
+| **Anger** | fit, burst, hate |  
+  
+This fine-grained approach allows us to investigate specific emotional dimensions rather than just crude positive-negative distinctions.  
+  
+---  
+  
+## Prerequisites {-}  
+  
+::: {.callout-note}  
+## Required Background  
+  
+Before starting this tutorial, we recommend familiarity with:  
+  
+- [Getting started with R](/tutorials/intror/intror.html)  
+- [String Processing in R](/tutorials/string/string.html)  
+- [Data manipulation with tidyverse](/tutorials/table/table.html)  
+- [Basic data visualization with ggplot2](/tutorials/gviz/gviz.html)  
+  
+:::  
+  
+---  
+  
+## The Word-Emotion Association Lexicon {-}  
+  
+The **Word-Emotion Association Lexicon** [@mohammad2013crowdsourcing] comprises **10,170 terms** with emotion associations based on crowd-sourced ratings from Amazon Mechanical Turk:  
+  
+- **38,726 ratings** from **2,216 raters**  
+- Each term rated **5 times**  
+- **85%** of words had 4+ identical ratings (high reliability)  
+  
+**How it works**: Raters were asked whether each word was associated with one or more of eight emotions. The resulting associations are highly reliable and capture intuitive emotional connotations.  
+  
+::: {.callout-tip}  
+## Example Associations  
+  
+- *cry*, *tragedy* → SADNESS  
+- *happy*, *beautiful* → JOY    
+- *fit*, *burst* → ANGER  
+- *safe*, *friend* → TRUST  
+  
+:::  
+  
+---  
+  
+# Preparation and Setup {#prep}  
+  
+## Install Packages {-}  
+  
+If you haven't already installed the required packages:  
+  
+```{r prep_install, eval = FALSE}  
+install.packages(c("tidyverse", "tidytext", "sentimentr", "Hmisc",  
+                   "zoo", "flextable", "checkdown"))  
+```  
+  
+## Load Packages {-}  
+  
+```{r prep_load, eval = FALSE, message=FALSE, warning=FALSE}  
+library(tidyverse)   # data manipulation & ggplot2  
+library(tidytext)    # text mining  
+library(sentimentr)  # context-sensitive sentiment  
+library(Hmisc)       # binning with cut2()  
+library(zoo)         # rolling means with rollapply()  
+library(flextable)   # formatted tables  
+library(checkdown)   # interactive exercises  
+  
+options(stringsAsFactors = FALSE)  
+options(scipen = 999)  
+```  
+  
+## Load Example Data {-}  
+  
+We'll analyze four classic texts to demonstrate sentiment analysis:  
+  
+```{r data_load, eval = T}  
+# load texts  
+darwin <- base::readRDS(here::here("tutorials/sentiment/data", "origindarwin.rda"))  
+twain <- base::readRDS(here::here("tutorials/sentiment/data", "twainhuckfinn.rda"))  
+orwell <- base::readRDS(here::here("tutorials/sentiment/data", "orwell.rda"))  
+lovecraft <- base::readRDS(here::here("tutorials/sentiment/data", "lovecraftcolor.rda"))  
+```  
 
-![](/images/uq1.jpg){ width=100% }
+```{r data_inspect, echo = FALSE}  
+darwin |>  
+  head(10) |>  
+  as.data.frame() |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "First 3 lines of Darwin's Origin of Species.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+# Part I: Basic Sentiment Analysis {#basic}  
+  
+## Text Preprocessing {#preprocessing}  
+  
+Before sentiment analysis, we need to clean and tokenize the texts.  
+  
+### Create Cleaning Function {-}  
+  
+```{r clean_function}  
+# function to clean and tokenize text  
+txtclean <- function(x, title) {  
+  x |>  
+    # convert to UTF-8 encoding  
+    iconv(to = "UTF-8") |>  
+    # lowercase  
+    base::tolower() |>  
+    # collapse into single string  
+    paste0(collapse = " ") |>  
+    # remove extra whitespace  
+    stringr::str_squish() |>  
+    # split into words  
+    stringr::str_split(" ") |>  
+    unlist() |>  
+    # convert to tibble  
+    tibble::tibble() |>  
+    # rename column  
+    dplyr::select(word = 1, everything()) |>  
+    # add novel identifier  
+    dplyr::mutate(novel = title) |>  
+    # remove stopwords (the, a, an, etc.)  
+    dplyr::anti_join(tidytext::stop_words, by = "word") |>  
+    # remove non-alphabetic characters  
+    dplyr::mutate(word = stringr::str_remove_all(word, "\\W")) |>  
+    # remove empty strings  
+    dplyr::filter(word != "")  
+}  
+```  
+  
+::: {.callout-note}  
+## Why Remove Stopwords?  
+  
+**Stopwords** (e.g., *the*, *a*, *an*, *of*) are high-frequency function words with little semantic content. Removing them:  
+  
+- Reduces noise in sentiment analysis  
+- Focuses on content words (nouns, verbs, adjectives)  
+- Improves computational efficiency  
+  
+**However**: For context-sensitive analysis (Part III), we'll keep stopwords because negators like *not* and *never* affect sentiment.  
+:::  
+  
+### Clean All Texts {-}  
+  
+```{r clean_texts}  
+# process all four texts  
+darwin_clean <- txtclean(darwin, "darwin")  
+lovecraft_clean <- txtclean(lovecraft, "lovecraft")  
+orwell_clean <- txtclean(orwell, "orwell")  
+twain_clean <- txtclean(twain, "twain")  
+```  
+  
+```{r clean_inspect, echo = FALSE}  
+darwin_clean |>  
+  head(10) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "First 10 words from cleaned Darwin text.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+## Perform Sentiment Analysis {#perform}  
+  
+Now we join the cleaned texts with the Word-Emotion Association Lexicon:  
 
-# Introduction{-}
+::: {.callout-note}  
+## Citation Note  
+  
+If you use the **Word-Emotion Association Lexicon** (NRC), please cite 
 
-This tutorial introduces Sentiment Analysis (SA) in R building on @silge2017text and using the `sentimentr` [@sentimentr2021package] and `tidytext` [@tidytext2016package] packages and the *Word-Emotion-Association Dictionary* [@mohammad2013crowdsourcing]. 
+Mohammad, Saif M, and Peter D Turney. 2013. Crowdsourcing a Word-Emotion Association Lexicon. *Computational Intelligence 29* (3): 436–65. https://doi.org/https://doi.org/10.1111/j.1467-8640.2012.00460.x. 
 
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+::: 
 
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to perform SA on textual data  using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with sentiment detection, analysis, and visualization. The analysis shown here is in parts based on the 2^nd^ chapter of *Text Mining with R* - the e-version of this chapter on [sentiment analysis can be found here](https://www.tidytextmining.com/sentiment.html).
+```{r nrc_tidytext, eval = F, echo = T}
+nrc <- tidytext::get_sentiments(lexicon = "nrc")
 
-
-SA is a cover term for approaches which extract information on emotion or opinion from natural language [@silge2017text]. SA have been successfully applied to analysis of language data in a wide range of disciplines such as psychology, economics, education, as well as political and social sciences. Commonly SA are used to determine the stance of a larger group of speakers towards a given phenomenon such as political candidates or parties, product lines or situations. Crucially, SA are employed in these domains because they have advantages compared to alternative methods investigating the verbal expression of emotion. One advantage of SA is that the emotion coding of SA is fully replicable.
-
-## Preparation and session set up{-}
-
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the packages so you do not need to worry if it takes some time).
-
-```{r prep1, echo=T, eval = F}
-# install packages
-install.packages("dplyr")
-install.packages("stringr")
-install.packages("tidyr")
-install.packages("tibble")
-install.packages("tidytext")
-install.packages("Hmisc")
-install.packages("sentimentr")
-install.packages("zoo")
-install.packages("flextable")
+# combine texts and join with sentiment lexicon  
+novels_anno <- rbind(darwin_clean, twain_clean, orwell_clean, lovecraft_clean) |>  
+  dplyr::group_by(novel) |>  
+  # count total words per novel  
+  dplyr::mutate(words = n()) |>  
+  # join with sentiment lexicon  
+  dplyr::left_join(nrc, by = "word", relationship =
+  "many-to-many") |>  
+  dplyr::mutate(  
+    novel = factor(novel),  
+    sentiment = factor(sentiment)  
+  )  
 ```
 
 
-Now that we have installed the packages, we activate them as shown below.
-
-```{r prep2, message=FALSE, warning=FALSE, class.source='klippy'}
-# activate packages
-library(dplyr)
-library(flextable)
-library(ggplot2)
-library(Hmisc)
-library(sentimentr)
-library(stringr)
-library(tibble)
-library(tidyr)
-library(tidytext)
-library(zoo)
-```
-
-
-Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
 
 
 
-# What is Sentiment Analysis?{-}
+  
+```{r sa_perform, eval = T, echo = F}  
+# load NRC lexicon  
+nrc <- readRDS(here::here("tutorials/sentiment/data/nrc.rda"))  
+  
+# combine texts and join with sentiment lexicon  
+novels_anno <- rbind(darwin_clean, twain_clean, orwell_clean, lovecraft_clean) |>  
+  dplyr::group_by(novel) |>  
+  # count total words per novel  
+  dplyr::mutate(words = n()) |>  
+  # join with sentiment lexicon  
+  dplyr::left_join(nrc, by = "word", relationship =
+  "many-to-many") |>  
+  dplyr::mutate(  
+    novel = factor(novel),  
+    sentiment = factor(sentiment)  
+  )  
+```  
+  
 
-
-Sentiment Analysis (SA) extracts information on emotion or opinion from natural language [@silge2017text]. Most forms of SA provides information about positive or negative polarity, e.g. whether a tweet is *positive* or *negative*. As such, SA represents a type of classifier that assigns values to texts. As most SA only provide information about polarity, SA is often regarded as rather coarse-grained and, thus, rather irrelevant for the types of research questions in linguistics. 
-
-In the language sciences, SA can also be a very helpful tool if the type of SA provides more fine-grained information. In the following, we will perform such a information-rich SA. The SA used here does not only provide information about polarity but it will also provide association values for eight core emotions. 
-
-The more fine-grained output is made possible by relying on the Word-Emotion Association Lexicon [@mohammad2013crowdsourcing], which comprises 10,170 terms, and in which lexical elements are assigned scores based on ratings gathered through the crowd-sourced Amazon Mechanical Turk service. For the Word-Emotion Association Lexicon raters were asked whether a given word was associated with one of eight emotions. The resulting associations between terms and emotions are based on 38,726 ratings from 2,216 raters who answered a sequence of questions for each word which were then fed into the emotion association rating [cf. @mohammad2013crowdsourcing]. Each term was rated 5 times. For 85 percent of words, at least 4 raters provided identical ratings. For instance, the word *cry* or *tragedy* are more readily associated with SADNESS while words such as *happy* or *beautiful* are indicative of JOY and words like *fit* or *burst* may indicate ANGER. This means that the SA here allows us to investigate the expression of certain core emotions rather than merely classifying statements along the lines of a crude positive-negative distinction. 
-
-## Getting started{-}
-
-In the following, we will perform a SA to investigate the emotionality of five different novels. We will start with the first example and load five pieces of literature. 
-
-```{r sa3, message=FALSE, warning=FALSE}
-darwin <- base::readRDS("tutorials/sentiment/data/origindarwin.rda", "rb")
-twain <- base::readRDS("tutorials/sentiment/data/twainhuckfinn.rda", "rb")
-orwell <- base::readRDS("tutorials/sentiment/data/orwell.rda", "rb")
-lovecraft <- base::readRDS("tutorials/sentiment/data/lovecraftcolor.rda", "rb")
-```
-
-```{r ds02, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-darwin %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the darwin data.") %>%
-    flextable::border_outer()
-```
-
-Write function to clean data
-
-```{r sa5, cmessage=FALSE, warning=FALSE}
-txtclean <- function(x, title) {
-    require(dplyr)
-    require(stringr)
-    require(tibble)
-    x <- x %>%
-        iconv(to = "UTF-8") %>%
-        base::tolower() %>%
-        paste0(collapse = " ") %>%
-        stringr::str_squish() %>%
-        stringr::str_split(" ") %>%
-        unlist() %>%
-        tibble::tibble() %>%
-        dplyr::select(word = 1, everything()) %>%
-        dplyr::mutate(novel = title) %>%
-        dplyr::anti_join(stop_words) %>%
-        dplyr::mutate(word = str_remove_all(word, "\\W")) %>%
-        dplyr::filter(word != "")
-}
-```
-
-Process and clean texts.
-
-```{r sa7, message=FALSE, warning=FALSE}
-# process text data
-darwin_clean <- txtclean(darwin, "darwin")
-lovecraft_clean <- txtclean(lovecraft, "lovecraft")
-orwell_clean <- txtclean(orwell, "orwell")
-twain_clean <- txtclean(twain, "twain")
-```
-
-```{r sa7b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-darwin_clean %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the cleaned darwin data.") %>%
-    flextable::border_outer()
-```
-
-
-# Basic Sentiment Analysis{-}
-
-Now, we combine the data with the *Word-Emotion Association Lexicon* [@mohammad2013crowdsourcing]. 
-
-
-```{r bsa1b, message=FALSE, warning=FALSE}
-nrc <- readRDS(here::here("tutorials/sentiment/data", "nrc.rda"))
-novels_anno <- rbind(darwin_clean, twain_clean, orwell_clean, lovecraft_clean) %>%
-    dplyr::group_by(novel) %>%
-    dplyr::mutate(words = n()) %>%
-    dplyr::left_join(nrc) %>%
-    dplyr::mutate(
-        novel = factor(novel),
-        sentiment = factor(sentiment)
+  
+```{r sa_inspect, echo = FALSE}  
+novels_anno |>  
+  head(10) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .7, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "First 10 rows with sentiment annotations.") |>  
+  flextable::border_outer()  
+```  
+  
+::: {.callout-important}  
+## Interpreting the Results  
+  
+- **word**: The token from the text  
+- **novel**: Which text it came from    
+- **words**: Total word count for that novel  
+- **sentiment**: Associated emotion (NA if word not in lexicon)  
+  
+Words not in the NRC lexicon receive `NA` for sentiment (neutral/unassociated).  
+:::  
+  
+---  
+  
+## Calculate Emotion Frequencies {#frequencies}  
+  
+Summarize sentiment frequencies and calculate percentages:  
+  
+```{r sa_summarize}  
+novels <- novels_anno |>  
+  dplyr::group_by(novel, sentiment) |>  
+  dplyr::summarise(  
+    sentiment_freq = n(),  
+    words = unique(words),  
+    .groups = "drop"  
+  ) |>  
+  # remove NA sentiments  
+  dplyr::filter(!is.na(sentiment)) |>  
+  # calculate percentage of emotive words  
+  dplyr::mutate(percentage = round(sentiment_freq / words * 100, 1))  
+```  
+  
+```{r sa_summarize_inspect, echo = FALSE}  
+novels |>  
+  head(15) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .8, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "Emotion frequencies by novel.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+## Visualize Emotion Profiles {#visualize}  
+  
+### Plot Emotions by Novel {-}  
+  
+```{r sa_plot1, fig.width=10, fig.height=6}  
+# plot 8 core emotions (exclude positive/negative polarity)  
+novels |>  
+  dplyr::filter(  
+    sentiment != "positive",  
+    sentiment != "negative"  
+  ) |>  
+  ggplot(aes(sentiment, percentage, fill = novel)) +  
+  geom_col(position = position_dodge(), alpha = 0.8) +  
+  scale_fill_manual(  
+    name = "",  
+    values = c("orange", "gray70", "red", "grey30")  
+  ) +  
+  theme_bw() +  
+  labs(  
+    title = "Emotion Profiles Across Four Novels",  
+    subtitle = "Percentage of words associated with each emotion",  
+    x = "Emotion", y = "Percentage of Words (%)"  
+  ) +  
+  theme(  
+    legend.position = "top",  
+    panel.grid.minor = element_blank(),  
+    axis.text.x = element_text(angle = 45, hjust = 1)  
+  )  
+```  
+  
+### Plot Novels by Emotion {-}  
+  
+Reorder emotions from negative (red) to positive (blue):  
+  
+```{r sa_plot2, fig.width=10, fig.height=6}  
+novels |>  
+  dplyr::filter(  
+    sentiment != "positive",  
+    sentiment != "negative"  
+  ) |>  
+  dplyr::mutate(  
+    sentiment = factor(sentiment, levels = c(  
+      "anger", "fear", "disgust", "sadness",  
+      "surprise", "anticipation", "trust", "joy"  
+    ))  
+  ) |>  
+  ggplot(aes(novel, percentage, fill = sentiment)) +  
+  geom_col(position = position_dodge(), alpha = 0.9) +  
+  scale_fill_brewer(palette = "RdBu", name = "Emotion") +  
+  theme_bw() +  
+  labs(  
+    title = "Emotion Comparison by Novel",  
+    subtitle = "Ordered from negative (red) to positive (blue)",  
+    x = "", y = "Percentage of Words (%)"  
+  ) +  
+  theme(legend.position = "right") +  
+  coord_flip()  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Basic Sentiment Analysis  
+:::  
+  
+**Q1. What does it mean if a novel has 5% "joy" words?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q1"  
+check_question("5% of all words in the novel are associated with joy in the NRC lexicon",  
+               options = c(  
+                 "5% of all words in the novel are associated with joy in the NRC lexicon",  
+                 "5% of all sentences express joy",  
+                 "The novel is 5% positive overall",  
+                 "5% of emotive words (excluding neutral) express joy"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The percentage is calculated as (joy_words / total_words) × 100. If a novel has 10,000 words total and 500 are tagged as 'joy' in the NRC lexicon, that's 5%. This includes ALL words, not just emotive ones. Most words receive NA (not in lexicon).",  
+               wrong = "Think about the denominator: percentage of what? Look at the code where we calculate `percentage`.")  
+```  
+  
+---  
+  
+**Q2. Why do we remove stopwords before sentiment analysis?**  
+  
+```{r}  
+#| echo: false  
+#| label: "BASIC_Q2"  
+check_question("Stopwords are high-frequency function words (the, a, of) with little emotional content — removing them reduces noise",  
+               options = c(  
+                 "Stopwords are high-frequency function words (the, a, of) with little emotional content — removing them reduces noise",  
+                 "Stopwords are always negative and would skew results",  
+                 "The NRC lexicon doesn't include stopwords",  
+                 "Removing stopwords is required for all text analysis in R"  
+               ),  
+               type = "radio",  
+               q_id = "BASIC_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Stopwords like *the*, *a*, *of*, *to* are grammatical function words with high frequency but little semantic (and emotional) content. They would dilute sentiment scores without adding meaningful information. However, we keep stopwords when doing context-sensitive analysis (Part III) because negators like *not* are crucial for meaning.",  
+               wrong = "Stopwords are function words. What's their role in meaning? Do they convey emotion?")  
+```  
+  
+---  
+  
+# Part II: Identifying Important Emotives {#important}  
+  
+Which specific words contribute most to each emotion category? Let's find the top emotive words.  
+  
+## Extract Top Emotive Words {#top_words}  
+  
+We'll focus on four emotions for clarity:  
+  
+```{r important_words}  
+novels_impw <- novels_anno |>  
+  dplyr::filter(  
+    !is.na(sentiment),  
+    # focus on 4 core emotions  
+    sentiment %in% c("anger", "fear", "trust", "joy")  
+  ) |>  
+  # order emotions from negative to positive  
+  dplyr::mutate(  
+    sentiment = factor(sentiment, levels = c("anger", "fear", "trust", "joy"))  
+  ) |>  
+  dplyr::group_by(novel, sentiment) |>  
+  # count word frequencies by sentiment  
+  dplyr::count(word, sort = TRUE) |>  
+  # get top 3 words per novel × sentiment combination  
+  dplyr::top_n(3, n) |>  
+  # calculate proportion within each group  
+  dplyr::mutate(score = n / sum(n)) |>  
+  dplyr::ungroup()  
+```  
+  
+```{r important_inspect, echo = FALSE}  
+novels_impw |>  
+  head(15) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .8, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "Top emotive words by novel and sentiment.") |>  
+  flextable::border_outer()  
+```  
+  
+## Visualize Top Emotive Words {#vis_top}  
+  
+```{r important_plot, fig.width=12, fig.height=10}  
+novels_impw |>  
+  dplyr::group_by(novel) |>  
+  # get top 20 words overall  
+  dplyr::slice_max(score, n = 20) |>  
+  dplyr::arrange(desc(score)) |>  
+  dplyr::ungroup() |>  
+  ggplot(aes(x = reorder(word, score), y = score, fill = word)) +  
+  facet_wrap(novel ~ sentiment, ncol = 4, scales = "free_y") +  
+  geom_col(show.legend = FALSE, alpha = 0.8) +  
+  coord_flip() +  
+  theme_bw() +  
+  labs(  
+    title = "Top Emotive Words by Novel and Emotion",  
+    subtitle = "Showing most frequent emotion-associated words",  
+    x = "Word", y = "Proportion within emotion category"  
+  ) +  
+  theme(  
+    strip.text = element_text(face = "bold"),  
+    panel.grid.minor = element_blank()  
+  )  
+```  
+  
+::: {.callout-note}  
+## Interpreting the Visualization  
+  
+Each panel shows the top words for a specific novel × emotion combination. For example:  
+  
+- **Darwin + Trust**: Words like *nature*, *species*, *selection* reflect scientific confidence  
+- **Lovecraft + Fear**: Words like *horror*, *terrible*, *dread* reflect the horror genre  
+- **Orwell + Anger**: Words like *hate*, *war*, *enemy* reflect dystopian themes  
+  
+This reveals **genre-specific emotion vocabularies**.  
+:::  
+  
+---  
+  
+# Part III: Polarity Analysis {#polarity}  
+  
+**Polarity** measures the ratio of positive to negative emotion words. It's a simple but powerful metric for overall emotional tone.  
+  
+## Calculate Polarity Ratios {#calc_polarity}  
+  
+```{r polarity_calc}  
+polarity_scores <- novels |>  
+  # keep only positive/negative tags  
+  dplyr::filter(sentiment %in% c("positive", "negative")) |>  
+  dplyr::select(novel, sentiment, sentiment_freq) |>  
+  # pivot wider for calculation  
+  tidyr::pivot_wider(  
+    names_from = sentiment,  
+    values_from = sentiment_freq,  
+    values_fill = 0  
+  ) |>  
+  # calculate polarity ratio  
+  dplyr::mutate(polarity = positive / negative)  
+```  
+  
+```{r polarity_inspect, echo = FALSE}  
+polarity_scores |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .7, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "Polarity ratios by novel.") |>  
+  flextable::border_outer()  
+```  
+  
+## Visualize Polarity {#vis_polarity}  
+  
+```{r polarity_plot, fig.width=10, fig.height=6}  
+polarity_scores |>  
+  ggplot(aes(x = reorder(novel, polarity), y = polarity, fill = novel)) +  
+  geom_col(alpha = 0.8, show.legend = FALSE) +  
+  geom_text(  
+    aes(y = polarity - 0.1, label = round(polarity, 2)),  
+    color = "white", size = 5, fontface = "bold"  
+  ) +  
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray30") +  
+  theme_bw() +  
+  labs(  
+    title = "Polarity Comparison Across Novels",  
+    subtitle = "Ratio of positive to negative emotion words",  
+    y = "Polarity Ratio\n(positive ÷ negative)",  
+    x = ""  
+  ) +  
+  scale_y_continuous(  
+    breaks = c(0, 1, 2),  
+    labels = c("More negative", "Neutral", "More positive")  
+  ) +  
+  coord_cartesian(y = c(0, 2.5)) +  
+  theme(panel.grid.minor = element_blank())  
+```  
+  
+::: {.callout-important}  
+## Interpreting Polarity  
+  
+- **Polarity = 1**: Equal positive and negative words (neutral)  
+- **Polarity > 1**: More positive than negative (optimistic tone)  
+- **Polarity < 1**: More negative than positive (pessimistic tone)  
+  
+All four novels have polarity > 1 (more positive than negative), but *Lovecraft* is closest to neutral, reflecting its horror/dark themes.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Polarity Analysis  
+:::  
+  
+**Q1. A novel has 800 positive emotion words and 400 negative emotion words. What is its polarity ratio?**  
+  
+```{r}  
+#| echo: false  
+#| label: "POL_Q1"  
+check_question("2.0 (= 800 ÷ 400) — twice as many positive as negative",  
+               options = c(  
+                 "2.0 (= 800 ÷ 400) — twice as many positive as negative",  
+                 "0.5 (= 400 ÷ 800) — half as many negative as positive",  
+                 "400 (= 800 − 400) — net positive difference",  
+                 "1200 (= 800 + 400) — total emotive words"  
+               ),  
+               type = "radio",  
+               q_id = "POL_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Polarity = positive ÷ negative = 800 ÷ 400 = 2.0. This means there are twice as many positive emotion words as negative ones, indicating an overall positive tone. The formula is always (positive / negative), not (negative / positive).",  
+               wrong = "Polarity is a ratio: positive divided by negative. What is 800 ÷ 400?")  
+```  
+  
+---  
+  
+**Q2. What does a polarity ratio of 0.8 indicate?**  
+  
+```{r}  
+#| echo: false  
+#| label: "POL_Q2"  
+check_question("More negative than positive words — the text has a pessimistic tone",  
+               options = c(  
+                 "More negative than positive words — the text has a pessimistic tone",  
+                 "More positive than negative words — the text has an optimistic tone",  
+                 "Exactly 80% of words are positive",  
+                 "The difference between positive and negative is 0.8 words"  
+               ),  
+               type = "radio",  
+               q_id = "POL_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Polarity < 1 means more negative than positive. If polarity = 0.8, then negative/positive = 1/0.8 = 1.25, meaning 25% more negative than positive words. For example: 400 positive ÷ 500 negative = 0.8. This indicates a pessimistic or darker emotional tone.",  
+               wrong = "Polarity = positive/negative. What does a ratio less than 1 mean?")  
+```  
+  
+---  
+  
+# Part IV: Tracking Changes Over Time {#changes}  
+  
+How does sentiment change as a narrative unfolds? We'll use two methods: **binning** and **rolling averages**.  
+  
+## Method 1: Binning {#binning}  
+  
+**Binning** divides text into equal-sized chunks and calculates sentiment within each bin.  
+  
+### Prepare Data for Binning {-}  
+  
+```{r binning_prep}  
+novels_bin <- novels_anno |>  
+  dplyr::group_by(novel) |>  
+  # keep only polarity tags  
+  dplyr::filter(is.na(sentiment) | sentiment %in% c("negative", "positive")) |>  
+  # convert to numeric: positive = +1, negative = −1, neutral = 0  
+  dplyr::mutate(  
+    sentiment = as.character(sentiment),  
+    sentiment = case_when(  
+      is.na(sentiment) ~ "0",  
+      TRUE ~ sentiment  
+    ),  
+    sentiment = case_when(  
+      sentiment == "0" ~ 0,  
+      sentiment == "positive" ~ 1,  
+      TRUE ~ -1  
+    ),  
+    # create word index  
+    id = 1:n(),  
+    # divide into bins of 100 words each  
+    index = as.numeric(Hmisc::cut2(id, m = 100))  
+  ) |>  
+  dplyr::group_by(novel, index) |>  
+  # calculate mean polarity per bin  
+  dplyr::summarize(  
+    polarity = mean(sentiment),  
+    .groups = "drop"  
+  )  
+```  
+  
+```{r binning_inspect, echo = FALSE}  
+novels_bin |>  
+  head(15) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "First 15 bins with average polarity.") |>  
+  flextable::border_outer()  
+```  
+  
+::: {.callout-note}  
+## How Binning Works  
+  
+1. **Assign numeric values**: positive = +1, negative = −1, neutral = 0  
+2. **Divide text into bins**: e.g., bin 1 = words 1–100, bin 2 = 101–200, etc.  
+3. **Calculate mean**: Average sentiment value within each bin  
+4. **Plot over time**: Show how polarity changes across bins  
+  
+**Bin size matters**: Too small = noisy; too large = loses detail. 100 words is typical.  
+:::  
+  
+### Visualize Sentiment Trajectories {-}  
+  
+```{r binning_plot, fig.width=12, fig.height=8}  
+ggplot(novels_bin, aes(index, polarity)) +  
+  facet_wrap(~ novel, scales = "free_x", ncol = 2) +  
+  geom_line(alpha = 0.3, color = "gray50") +  
+  geom_smooth(se = TRUE, color = "steelblue", fill = "lightblue") +  
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +  
+  theme_bw() +  
+  labs(  
+    title = "Sentiment Trajectories Across Narratives (Binning Method)",  
+    subtitle = "Smoothed trend with 95% confidence interval",  
+    y = "Polarity (mean by bin)",  
+    x = "Narrative progression (bin index)"  
+  ) +  
+  theme(  
+    strip.text = element_text(face = "bold", size = 11),  
+    panel.grid.minor = element_blank()  
+  )  
+```  
+  
+::: {.callout-important}  
+## Interpreting Trajectories  
+  
+- **Above zero**: Positive polarity dominates in that section  
+- **Below zero**: Negative polarity dominates  
+- **Slope**: Rising = becoming more positive; falling = becoming more negative  
+  
+For example, if Orwell's *1984* shows declining polarity toward the end, this reflects the increasingly dystopian/pessimistic narrative arc.  
+:::  
+  
+---  
+  
+## Method 2: Rolling Averages {#rolling}  
+  
+**Rolling averages** (also called moving averages) calculate the mean within a sliding window.  
+  
+::: {.callout-warning}  
+## Binning vs. Rolling Averages  
+  
+- **Binning**: Divides text into non-overlapping chunks → shows discrete changes  
+- **Rolling averages**: Sliding window → smooths fluctuations, better for trends  
+  
+**Rolling averages are NOT ideal for tracking changes** — they smooth data too much. Use binning to detect actual shifts; use rolling averages to visualize overall trends.  
+:::  
+  
+### Calculate Rolling Means {-}  
+  
+```{r rolling_prep}  
+novels_change <- novels_anno |>
+  # keep only polarity
+  dplyr::filter(is.na(sentiment) | sentiment %in% c("negative", "positive")) |>
+  dplyr::group_by(novel) |>
+  # convert to numeric
+  dplyr::mutate(
+    sentiment = as.character(sentiment),
+    sentiment = case_when(
+      is.na(sentiment) ~ "0",
+      TRUE ~ sentiment
+    ),
+    sentiment = case_when(
+      sentiment == "0" ~ 0,
+      sentiment == "positive" ~ 1,
+      TRUE ~ -1
+    ),
+    id = 1:n()
+  ) |>
+  dplyr::reframe(
+    id = id,
+    # rolling mean with window = 100 words
+    rmean = zoo::rollapply(
+      sentiment, 
+      width = 100, 
+      FUN = mean, 
+      align = "right", 
+      fill = NA
     )
-```
-
-```{r bsa1c, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-novels_anno %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the novels_anno data.") %>%
-    flextable::border_outer()
-```
-
-
-
-We will now summarize the results of the SA and calculate the percentages of the prevalence of emotions across the books.
-
-```{r bsa3, message=FALSE, warning=FALSE}
-novels <- novels_anno %>%
-    dplyr::group_by(novel) %>%
-    dplyr::group_by(novel, sentiment) %>%
-    dplyr::summarise(
-        sentiment = unique(sentiment),
-        sentiment_freq = n(),
-        words = unique(words)
-    ) %>%
-    dplyr::filter(is.na(sentiment) == F) %>%
-    dplyr::mutate(percentage = round(sentiment_freq / words * 100, 1))
-```
-
-```{r bsa3b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-novels %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the novels data.") %>%
-    flextable::border_outer()
-```
-
-
-
-
-
-After performing the SA, visualize the results and show the scores fro each core emotion by book.
-
-```{r bsa5, message=FALSE, warning=FALSE}
-novels %>%
-    dplyr::filter(
-        sentiment != "positive",
-        sentiment != "negative"
-    ) %>%
-    ggplot(aes(sentiment, percentage, fill = novel)) +
-    geom_bar(
-        stat = "identity",
-        position = position_dodge()
-    ) +
-    scale_fill_manual(name = "", values = c("orange", "gray70", "red", "grey30")) +
-    theme_bw() +
-    theme(legend.position = "top")
-```
-
-We can also display the emotions by book and re-level sentiment so that the different core emotions are ordered from more negative (*red*) to more positive (*blue*).
-
-```{r bsa7, message=FALSE, warning=FALSE}
-novels %>%
-    dplyr::filter(
-        sentiment != "positive",
-        sentiment != "negative"
-    ) %>%
-    dplyr::mutate(sentiment = factor(sentiment,
-        levels = c(
-            "anger", "fear", "disgust", "sadness",
-            "surprise", "anticipation", "trust", "joy"
-        )
-    )) %>%
-    ggplot(aes(novel, percentage, fill = sentiment)) +
-    geom_bar(stat = "identity", position = position_dodge()) +
-    scale_fill_brewer(palette = "RdBu") +
-    theme_bw() +
-    theme(legend.position = "right") +
-    coord_flip()
-```
-
-
-# Identifying important emotives{-}
-
-We now check, which words have contributed to the emotionality scores. In other words, we investigate, which words are most important for the emotion scores within each novel. For the sake of interpretability, we will remove several core emotion categories and also the polarity.
-
-```{r contribsa1, message=FALSE, warning=FALSE}
-novels_impw <- novels_anno %>%
-    dplyr::filter(
-        !is.na(sentiment),
-        sentiment != "anticipation",
-        sentiment != "surprise",
-        sentiment != "disgust",
-        sentiment != "negative",
-        sentiment != "sadness",
-        sentiment != "positive"
-    ) %>%
-    dplyr::mutate(sentiment = factor(sentiment, levels = c("anger", "fear", "trust", "joy"))) %>%
-    dplyr::group_by(novel) %>%
-    dplyr::count(word, sentiment, sort = TRUE) %>%
-    dplyr::group_by(novel, sentiment) %>%
-    dplyr::top_n(3) %>%
-    dplyr::mutate(score = n / sum(n))
-```
-
-```{r contribsa1b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-novels_impw %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the novels_impw data.") %>%
-    flextable::border_outer()
-```
-
-
-
-We can now visualize the top three words for the remaining core emotion categories. 
-
-```{r contribsa2, message=FALSE, warning=FALSE}
-novels_impw %>%
-    dplyr::group_by(novel) %>%
-    slice_max(score, n = 20) %>%
-    dplyr::arrange(desc(score)) %>%
-    dplyr::ungroup() %>%
-    ggplot(aes(x = reorder(word, score), y = score, fill = word)) +
-    facet_wrap(novel ~ sentiment, ncol = 4, scales = "free_y") +
-    geom_col(show.legend = FALSE) +
-    coord_flip() +
-    labs(x = "Words")
-```
-
-
-# Calculating and dispalying polarity{-}
-
-Now, we visualize the polarity of each book, i.e. the ratio of the number of positive emotion words divided by the number of negative words.
-
-
-```{r pol1, message=FALSE, warning=FALSE}
-novels %>%
-    dplyr::filter(sentiment == "positive" | sentiment == "negative") %>%
-    dplyr::select(-percentage, -words) %>%
-    dplyr::mutate(
-        sentiment_sum = sum(sentiment_freq),
-        positive = sentiment_sum - sentiment_freq
-    ) %>%
-    dplyr::filter(sentiment != "positive") %>%
-    dplyr::rename(negative = sentiment_freq) %>%
-    dplyr::select(novel, positive, negative) %>%
-    dplyr::group_by(novel) %>%
-    dplyr::summarise(polarity = positive / negative) %>%
-    ggplot(aes(reorder(novel, polarity, mean), polarity, fill = novel)) +
-    geom_bar(stat = "identity") +
-    geom_text(aes(y = polarity - 0.1, label = round(polarity, 2)),
-        color = "white", size = 4
-    ) +
-    theme_bw() +
-    labs(
-        y = "Polarity\n(ration of positive to negative emitives)",
-        x = ""
-    ) +
-    coord_cartesian(y = c(0, 2)) +
-    scale_y_continuous(
-        breaks = seq(0, 2, 1),
-        labels = c("more negative", "neutral", "more positive")
-    ) +
-    theme(legend.position = "none")
-```
-
-Overall, all books are in the positive range (the polarity score is not negative) and we see that *lovecraft* is the book with the most negative emotion words while *darwin* is the most positive book as it has the highest average polarity ratio.
-
-# Calculating and dispalying changes in polarity{-}
-
-There are two main methods for tracking changes in polarity: binning and moving averages. binning splits the data up into sections and calculates the polarity ration within each bin. Moving averages calculate the mean within windows that are then shifted forward. We begin with an exemplification of binning and then move on to calculating moving averages. 
-
-## Binning{-}
-
-The following code chunk uses binning to determine the polarity and subsequently displaying changes in polarity across the development of the novels' plots.
-
-```{r bin1, message=FALSE, warning=FALSE}
-novels_bin <- novels_anno %>%
-    dplyr::group_by(novel) %>%
-    dplyr::filter(is.na(sentiment) | sentiment == "negative" | sentiment == "positive") %>%
-    dplyr::mutate(
-        sentiment = as.character(sentiment),
-        sentiment = case_when(
-            is.na(sentiment) ~ "0",
-            TRUE ~ sentiment
-        ),
-        sentiment = case_when(
-            sentiment == "0" ~ 0,
-            sentiment == "positive" ~ 1,
-            TRUE ~ -1
-        ),
-        id = 1:n(),
-        index = as.numeric(cut2(id, m = 100))
-    ) %>%
-    dplyr::group_by(novel, index) %>%
-    dplyr::summarize(
-        index = unique(index),
-        polarity = mean(sentiment)
-    )
-```
-
-
-```{r bin1b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-novels_bin %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the novels_bin data.") %>%
-    flextable::border_outer()
-```
-
-
-
-
-We now have an average polarity for each bin and can plot this polarity over the development of the story.
-
-```{r bin5, message=FALSE, warning=FALSE}
-ggplot(novels_bin, aes(index, polarity)) +
-    facet_wrap(vars(novel), scales = "free_x") +
-    geom_smooth(se = F, col = "black") +
-    theme_bw() +
-    labs(
-        y = "polarity ratio (mean by bin)",
-        x = "index (bin)"
-    )
-```
-
-
-
-## Moving average{-}
-
-Another method for tracking changes in polarity over time is to calculate rolling or moving means. It should be noted thought that rolling means are not an optimal method for tracking changes over time and rather represent a method for smoothing chaotic time-series data. However, they can be used to complement the analysis of changes that are detected by binning.  
-
-To calculate moving averages, we will assign words with positive polarity a value +1 and words with negative polarity a value of -1 (neutral words are coded as 0). A rolling mean calculates the mean over a fixed window span. Once the initial mean is calculated, the window is shifted to the next position and the mean is calculated for that window of values, and so on. We set the window size to 100 words which represents an arbitrary value.
-
-```{r ma1, message=FALSE, warning=FALSE}
-novels_change <- novels_anno %>%
-    dplyr::filter(is.na(sentiment) | sentiment == "negative" | sentiment == "positive") %>%
-    dplyr::group_by(novel) %>%
-    dplyr::mutate(
-        sentiment = as.character(sentiment),
-        sentiment = case_when(
-            is.na(sentiment) ~ "0",
-            TRUE ~ sentiment
-        ),
-        sentiment = case_when(
-            sentiment == "0" ~ 0,
-            sentiment == "positive" ~ 1,
-            TRUE ~ -1
-        ),
-        id = 1:n()
-    ) %>%
-    dplyr::summarise(
-        id = id,
-        rmean = rollapply(sentiment, 100, mean, align = "right", fill = NA)
-    ) %>%
-    na.omit()
-```
-
-```{r ma1b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-novels_change %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the novels_change data.") %>%
-    flextable::border_outer()
-```
-
-
-We will now display the values of the rolling mean to check if three are notable trends in how the polarity shifts over the course of the unfolding of the story within George Orwell's *Nineteen Eighty-Four*.
-
-
-```{r ma5, message=FALSE, warning=FALSE}
-ggplot(novels_change, aes(id, rmean)) +
-    facet_wrap(vars(novel), scales = "free_x") +
-    geom_smooth(se = F, col = "black") +
-    theme_bw() +
-    labs(
-        y = "polarity ratio (rolling mean, k = 100)",
-        x = "index (word in monograph)"
-    )
-```
-
-The difference between the rolling mean and the binning is quite notable and results from the fact, that rolling means represent a smoothing method rather than a method to track changes over time. 
-
-# Neutralizing negation{-}
-
-So far we have ignored that negation affects the meaning and also the sentiment that is expressed by words. In practice, this means that the sentence *you are a good boy* and *You are not a good boy* would receive the same scores as we strictly focused on the use of emotive but ignored how words interact and how the context affects word meaning.
-
-In fact, we removed *not* and other such negators (e.g. *none*, *never*, or *neither*) when we removed stop words. In this section, we want to discover how we can incorporate context in our SA. Unfortunately, we have to restrict this example to an analysis of polarity as performing a context-sensitive sentiment analysis that would extend the *Word-Emotion Association Lexicon* would be quite complex and require generating our own sentiment dictionary.
-
-We begin by cleaning George Orwell's *Nineteen Eighty-Four*, then splitting it into sentences, and selecting the first 50 sentences as the sample that we will be working with.
-
-```{r neg1, message=FALSE, warning=FALSE}
-# split text into sentences
-orwell_sent <- orwell %>%
-    iconv(to = "latin1") %>%
-    paste0(collapse = " ") %>%
-    stringr::str_replace_all(., "([a-z])- ([a-z])", "\\1\\2") %>%
-    stringr::str_squish() %>%
-    tibble() %>%
-    dplyr::select(text = 1, everything()) %>%
-    tidytext::unnest_tokens(sentence, text, token = "sentences") %>%
-    dplyr::top_n(50)
-```
-
-```{r neg1b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-orwell_sent %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the orwell_sent data.") %>%
-    flextable::border_outer()
-```
-
-
-
-
-
-In a next step, we load the `sentimentr` package which allows us to extract negation-sensitive polarity scores for each sentences. In addition, we apply the `sentimentr` function to each sentence and extract their polarity scores.
-
-```{r neg3, message=FALSE, warning=FALSE}
-orwell_sent_class <- orwell_sent %>%
-    dplyr::mutate(ressent = sentiment(sentence)$sentiment)
-```
-
-```{r neg3b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}
-# inspect data
-orwell_sent_class %>%
-    as.data.frame() %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 10 lines of the orwell_sent_class data.") %>%
-    flextable::border_outer()
-```
-
-
-
-If you are interested in learning more about SA in R, @silge2017text is highly recommended as it goes more into detail and offers additional information.
-
-# Citation & Session Info {-}
-
-Schweinberger, Martin. 2025. *Sentiment Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/sentiment/sentiment.html (Version 2025.04.02).
-
-```
-@manual{schweinberger2025sentiment,
-  author = {Schweinberger, Martin},
-  title = {Sentiment Analysis in R},
-  note = {https://ladal.edu.au/tutorials/sentiment/sentiment.html},
-  year = {2025},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.02}
-}
-```
-
-```{r fin}
-sessionInfo()
-```
-
-
-***
-
-[Back to top](#introduction)
-
-[Back to HOME](/)
-
-***
-
-
-# References{-}
+  ) |>
+  na.omit()
+```  
+  
+```{r rolling_inspect, echo = FALSE}  
+novels_change |>  
+  head(15) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "Rolling mean polarity (k = 100).") |>  
+  flextable::border_outer()  
+```  
+  
+### Visualize Rolling Averages {-}  
+  
+```{r rolling_plot, fig.width=12, fig.height=8}  
+ggplot(novels_change, aes(id, rmean)) +  
+  facet_wrap(~ novel, scales = "free_x", ncol = 2) +  
+  geom_line(alpha = 0.5, color = "steelblue") +  
+  geom_smooth(se = F, color = "darkblue", fill = "lightblue", method = "loess") +  
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +  
+  theme_bw() +  
+  labs(  
+    title = "Sentiment Trajectories Using Rolling Averages",  
+    subtitle = "Window = 100 words",  
+    y = "Polarity (rolling mean, k = 100)",  
+    x = "Word position in text"  
+  ) +  
+  theme(  
+    strip.text = element_text(face = "bold", size = 11),  
+    panel.grid.minor = element_blank()  
+  )  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Tracking Changes  
+:::  
+  
+**Q1. What is the main difference between binning and rolling averages?**  
+  
+```{r}  
+#| echo: false  
+#| label: "TRACK_Q1"  
+check_question("Binning uses non-overlapping chunks; rolling averages use overlapping sliding windows",  
+               options = c(  
+                 "Binning uses non-overlapping chunks; rolling averages use overlapping sliding windows",  
+                 "Rolling averages are always more accurate than binning",  
+                 "Binning calculates means; rolling averages calculate medians",  
+                 "They produce identical results but use different code"  
+               ),  
+               type = "radio",  
+               q_id = "TRACK_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Binning divides text into discrete, non-overlapping chunks (words 1–100, 101–200, etc.) and calculates the mean within each. Rolling averages use a sliding window that moves one word at a time (words 1–100, 2–101, 3–102, etc.), creating overlapping measurements. This makes rolling averages smoother but less sensitive to discrete changes.",  
+               wrong = "Think about whether the windows overlap. Do bins 1–100 and 101–200 share any words?")  
+```  
+  
+---  
+  
+**Q2. Why is binning generally preferred over rolling averages for detecting sentiment changes in narratives?**  
+  
+```{r}  
+#| echo: false  
+#| label: "TRACK_Q2"  
+check_question("Binning preserves discrete shifts in sentiment; rolling averages over-smooth and obscure changes",  
+               options = c(  
+                 "Binning preserves discrete shifts in sentiment; rolling averages over-smooth and obscure changes",  
+                 "Rolling averages require more computational power",  
+                 "Binning works with any window size; rolling averages require exactly 100 words",  
+                 "Rolling averages only work for positive sentiment"  
+               ),  
+               type = "radio",  
+               q_id = "TRACK_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Rolling averages are primarily a **smoothing technique** — they reduce noise by averaging across overlapping windows, which makes trends clearer but **obscures sharp changes**. If a novel has a dramatic shift from positive to negative (e.g., a tragedy), binning will detect this as a discrete drop, while rolling averages will blur it into a gradual slope. Use binning to find changes; use rolling averages to visualize smooth trends.",  
+               wrong = "Consider what happens to a sudden change when you average it with surrounding values. Does it become sharper or smoother?")  
+```  
+  
+---  
+  
+# Part V: Context-Sensitive Sentiment Analysis {#context}  
+  
+So far, we've ignored how **context** affects meaning. The sentence *"You are a good boy"* and *"You are **not** a good boy"* would receive identical scores because we removed stopwords including negators.  
+  
+In this section, we incorporate **negation** using the `sentimentr` package, which accounts for words like *not*, *never*, *neither* that reverse polarity.  
+  
+::: {.callout-warning}  
+## Limitation  
+  
+We focus on **polarity** only (positive/negative), not the 8 core emotions. Context-sensitive emotion analysis would require a custom sentiment lexicon with negation rules for each emotion.  
+:::  
+  
+## Prepare Sentences {#sentences}  
+  
+We'll analyze the first 50 sentences from Orwell's *1984*:  
+  
+```{r context_prep}  
+# split into sentences  
+orwell_sent <- orwell |>  
+  iconv(to = "latin1") |>  
+  paste0(collapse = " ") |>  
+  # remove hyphenation  
+  stringr::str_replace_all("([a-z])- ([a-z])", "\\1\\2") |>  
+  stringr::str_squish() |>  
+  tibble::tibble() |>  
+  dplyr::select(text = 1) |>  
+  # tokenize by sentences  
+  tidytext::unnest_tokens(sentence, text, token = "sentences") |>  
+  # keep first 50 sentences  
+  dplyr::slice_head(n = 50)  
+```  
+  
+```{r context_inspect, echo = FALSE}  
+orwell_sent |>  
+  head(10) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "First 10 sentences from Orwell's 1984.") |>  
+  flextable::border_outer()  
+```  
+  
+## Apply Context-Sensitive SA {#apply_context}  
+  
+The `sentimentr::sentiment()` function accounts for:  
+  
+- **Negators**: *not*, *never*, *no*  
+- **Intensifiers**: *very*, *extremely*, *quite*  
+- **De-amplifiers**: *barely*, *hardly*, *scarcely*  
+- **Adversative conjunctions**: *but*, *however*, *although*  
+  
+```{r context_apply}  
+orwell_sent_class <- orwell_sent |>  
+  dplyr::mutate(  
+    # calculate context-sensitive sentiment  
+    sentiment_score = sentimentr::sentiment(sentence)$sentiment  
+  )  
+```  
+  
+```{r context_apply_inspect, echo = FALSE}  
+orwell_sent_class |>  
+  head(10) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::set_caption(caption = "Sentences with context-sensitive sentiment scores.") |>  
+  flextable::border_outer()  
+```  
+  
+::: {.callout-note}  
+## Interpreting Scores  
+  
+- **Positive scores**: Sentence expresses positive sentiment  
+- **Negative scores**: Sentence expresses negative sentiment    
+- **Magnitude**: Larger absolute values = stronger sentiment  
+  
+**Example**:   
+- *"This is good"* → +0.35  
+- *"This is not good"* → −0.35 (negation reverses polarity)  
+- *"This is very good"* → +0.50 (intensifier amplifies)  
+:::  
+  
+## Visualize Context-Sensitive Sentiment {#vis_context}  
+  
+```{r context_plot, fig.width=10, fig.height=6}  
+orwell_sent_class |>  
+  dplyr::mutate(sentence_id = 1:n()) |>  
+  ggplot(aes(x = sentence_id, y = sentiment_score)) +  
+  geom_col(aes(fill = sentiment_score > 0), alpha = 0.8, show.legend = FALSE) +  
+  geom_hline(yintercept = 0, linetype = "dashed") +  
+  scale_fill_manual(values = c("red3", "steelblue")) +  
+  theme_bw() +  
+  labs(  
+    title = "Context-Sensitive Sentiment Analysis of Orwell's 1984",  
+    subtitle = "First 50 sentences (negation-aware)",  
+    x = "Sentence Number", y = "Sentiment Score"  
+  ) +  
+  theme(panel.grid.minor = element_blank())  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Context-Sensitive Analysis  
+:::  
+  
+**Q1. Why does context-sensitive sentiment analysis keep stopwords instead of removing them?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CONT_Q1"  
+check_question("Negators like 'not', 'never', 'no' are stopwords but are crucial for reversing sentiment polarity",  
+               options = c(  
+                 "Negators like 'not', 'never', 'no' are stopwords but are crucial for reversing sentiment polarity",  
+                 "Stopwords improve accuracy of sentiment detection",  
+                 "The sentimentr package requires stopwords to function",  
+                 "Context-sensitive analysis doesn't actually use stopwords"  
+               ),  
+               type = "radio",  
+               q_id = "CONT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Words like *not*, *never*, *neither*, *no* are classified as stopwords (high-frequency function words) in standard stopword lists. But they're essential for meaning: *'good'* is positive, but *'not good'* is negative. Context-sensitive analysis must preserve these negators to accurately assess polarity. We sacrifice some noise reduction (from keeping stopwords) to gain semantic accuracy.",  
+               wrong = "What category of stopwords is most important for sentiment? What happens to 'I am happy' vs 'I am not happy'?")  
+```  
+  
+---  
+  
+**Q2. The sentence "This is not very good" receives a sentiment score of −0.45. What does this tell us?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CONT_Q2"  
+check_question("The sentence is moderately negative — 'not' reverses 'good' and 'very' intensifies the negation",  
+               options = c(  
+                 "The sentence is moderately negative — 'not' reverses 'good' and 'very' intensifies the negation",  
+                 "The sentence contains 45% negative words",  
+                 "The sentence is slightly positive (−0.45 is close to zero)",  
+                 "The sentiment is unreliable because the score is negative"  
+               ),  
+               type = "radio",  
+               q_id = "CONT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! sentimentr processes context: (1) 'good' has positive polarity, (2) 'not' reverses it to negative, (3) 'very' intensifies the magnitude. The result is a moderately negative score (−0.45). Without context-sensitivity, we'd incorrectly score this as positive (seeing only 'good' and 'very'). Magnitude matters: −0.45 is moderately negative, while −0.05 would be mildly negative.",  
+               wrong = "Negative scores mean negative sentiment. The magnitude (how far from zero) indicates strength. What does −0.45 mean?")  
+```  
+  
+---  
+  
+# Summary and Best Practices {#summary}  
+  
+## Key Takeaways {-}  
+  
+1. **Sentiment Analysis extracts emotion from text** using lexicon-based methods  
+2. **Word-Emotion Association Lexicon** provides 8 core emotions beyond simple polarity  
+3. **Polarity ratio** (positive/negative) measures overall emotional tone  
+4. **Binning** detects discrete sentiment changes in narratives  
+5. **Context-sensitive analysis** accounts for negation and intensifiers  
+  
+---  
+  
+## When to Use Each Method {-}  
+  
+| Goal | Method |  
+|------|--------|  
+| Compare overall emotionality of texts | Basic SA with NRC lexicon |  
+| Identify key emotive vocabulary | Top words analysis |  
+| Measure positivity/negativity | Polarity ratio |  
+| Track narrative arc changes | Binning (preferred) or rolling averages |  
+| Account for negation/intensifiers | `sentimentr` package |  
+  
+---  
+  
+## Limitations and Considerations {-}  
+  
+::: {.callout-warning}  
+## SA Limitations  
+  
+1. **Lexicon coverage**: NRC has ~10,000 words — rare/specialized terms may be missing  
+2. **Context dependence**: Basic SA ignores word order, syntax, pragmatics  
+3. **Domain specificity**: "Sick" is negative in health contexts, positive in slang  
+4. **Sarcasm/irony**: Cannot detect *"Oh, great, just what I needed"* (sarcastic)  
+5. **Cultural bias**: Lexicons may reflect English/Western emotional norms  
+  
+**Always validate** results with close reading and domain expertise.  
+:::  
+  
+---  
+  
+## Further Reading {-}  
+  
+For more advanced sentiment analysis:  
+  
+- @silge2017text: *Text Mining with R* (free online: [tidytextmining.com](https://www.tidytextmining.com/))  
+- @mohammad2013crowdsourcing: Original NRC lexicon paper  
+- `sentimentr` documentation: Context-sensitive methods  
+- `syuzhet` package: Narrative trajectory analysis  
+  
+---  
+  
+# AI Usage Statement {#ai}  
+  
+::: {.callout-note}  
+## Use of AI in Tutorial Development  
+  
+This tutorial was developed with assistance from Claude (Anthropic) for:  
+  
+✓ Structuring content and creating callout boxes    
+✓ Generating interactive checkdown exercises    
+✓ Writing clear explanations of statistical concepts    
+✓ Creating modern ggplot2 visualizations    
+✓ Improving code documentation and comments  
+  
+All code examples were tested, all statistical content was verified against published sources, and all pedagogical decisions were made by the tutorial author (Martin Schweinberger).  
+:::  
+  
+---  
+  
+# Citation & Session Info {#citation}  
+  
+Schweinberger, Martin. 2026. *Sentiment Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/sentiment/sentiment.html (Version 2026.02.24).  
+  
+```  
+@manual{schweinberger2026sentiment,  
+  author = {Schweinberger, Martin},  
+  title = {Sentiment Analysis in R},  
+  note = {https://ladal.edu.au/tutorials/sentiment/sentiment.html},  
+  year = {2026},  
+  organization = {The University of Queensland, School of Languages and Cultures},  
+  address = {Brisbane},  
+  edition = {2026.02.24}  
+}  
+```  
+  
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to HOME](/)  
+  
+---  
+  
+# References {-}  
+
+---  
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was re-developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the `checkdown` quiz questions and feedback strings. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.
+:::
