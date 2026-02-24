@@ -1,334 +1,1220 @@
 ---  
-title: "Speech Processing in R: From Audio to Linguistic Features"  
+title: "Speech Processing in R: Transcription and Analysis with Whisper"  
 author: "Martin Schweinberger"  
 format:  
   html:  
     toc: true  
     toc-depth: 4  
     code-fold: show  
-    code-tools: true  
     theme: cosmo  
 ---  
-
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(dplyr)  
+library(ggplot2)  
+library(flextable)  
+options(stringsAsFactors = FALSE)  
+options(scipen = 100)  
+```  
+  
 ![](/images/uq1.jpg){ width=100% }  
-
-# Welcome to Speech Processing! {.unnumbered}
-
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
-
-::: {.callout-tip}
-## What You'll Learn
-
-By the end of this tutorial, you will be able to:
-
-- Load and inspect `.wav` audio files in R  
-- Visualize waveforms and spectrograms  
-- Split audio into smaller chunks  
-- Perform automatic speech recognition (ASR) using Whisper  
-- Extract time-aligned transcription information  
-- Perform forced alignment (conceptually and practically)  
-- Extract acoustic features such as vowel formants  
-- Visualize vowel space (F1–F2 plots)  
-- Combine acoustic and lexical information for linguistic analysis  
-:::
-
----
-
-## What Is Speech Processing?
-
-**Speech processing** refers to computational methods for analyzing spoken language.  
-
-Instead of starting with text, we begin with **raw acoustic signals** and extract:
-
-- Linguistic structure (words, segments)
-- Temporal alignment
-- Acoustic features (formants, pitch, intensity)
-- Speaker characteristics
-
----
-
-## Why Speech Processing Matters
-
-### Linguistic Applications
-
-| Research Area | Application |
-|--------------|------------|
-| **Phonetics** | Measure vowel formants |
-| **Sociophonetics** | Compare speakers or groups |
-| **Prosody research** | Extract pitch and intensity |
-| **Corpus linguistics** | Align speech with transcripts |
-| **Forensic linguistics** | Speaker identification |
-| **Language acquisition** | Analyze pronunciation development |
-
-### From Signal to Structure
-
-Speech processing typically follows this pipeline:
-
-```
-Audio (.wav)
-   ↓
-Segmentation
-   ↓
-Automatic Speech Recognition
-   ↓
-Forced Alignment
-   ↓
-Feature Extraction
-   ↓
-Statistical Analysis
-```
-
----
-
-::: {.callout-note}
-## Tutorial Citation
-
-Schweinberger, Martin. 2026. *Speech Processing in R: From Audio to Linguistic Features*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL).
-:::
-
----
-
-## Prerequisites
-
-<div class="warning" style='padding:0.5em; background-color:rgba(215,209,204,.3); color:#51247a'>
-<span>
-<p style='margin-top:1em; text-align:center'>
-<strong>Before starting, familiarize yourself with:</strong><br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>Getting started with R</li>
-  <li>Basic signal processing concepts</li>
-  <li>Basic statistics</li>
-  <li>Installing Python packages (for Whisper)</li>
-</ul>
-</p>
-</span>
-</div>
-
----
-
-# 1. Setup
-
-## Install and Load Required Packages
-
-```{r}
-# install.packages(c("tuneR", "seewave", "reticulate", "dplyr", "ggplot2"))
-
-library(tuneR)
-library(seewave)
-library(reticulate)
-library(dplyr)
-library(ggplot2)
-```
-
----
-
-# 2. Loading and Inspecting Audio
-
-## Load a WAV File
-
-The wav file is taken from https://doi.org/10.17866/rd.salford.7857770
-
-```{r}
-audio_path <- here::here("tutorials/speechprocessing/data/sample.wav")
-
-wav <- readWave(audio_path)
-
-wav
-```
-
-## Basic Properties
-
-```{r}
-duration <- length(wav@left) / wav@samp.rate
-sampling_rate <- wav@samp.rate
-
-duration
-sampling_rate
-```
-
----
-
-# 3. Visualizing the Signal
-
-## Waveform
-
-```{r}
-plot(wav, main = "Waveform")
-```
-
-## Spectrogram
-
-```{r}
-spectro(wav, main = "Spectrogram")
-```
-
-Waveforms show amplitude over time.  
-Spectrograms show frequency over time.
-
----
-
-# 4. Splitting Audio into Chunks
-
-Segment long recordings into smaller units.
-
-```{r}
-chunk_length <- 5  # seconds
-samples_per_chunk <- chunk_length * wav@samp.rate
-
-total_samples <- length(wav@left)
-n_chunks <- ceiling(total_samples / samples_per_chunk)
-
-chunks <- list()
-
-for (i in 1:n_chunks) {
-  start <- ((i - 1) * samples_per_chunk) + 1
-  end <- min(i * samples_per_chunk, total_samples)
-  chunks[[i]] <- extractWave(wav, from = start, to = end, xunit = "samples")
-}
-
-length(chunks)
-```
-
----
-
-# 5. Automatic Speech Recognition (Whisper)
-
-Whisper is a neural speech recognition model.
-
-### Install Whisper (Python)
-
-```bash
-pip install openai-whisper
-```
-
-### Load Whisper via reticulate
-
-```{r eval = F}
-whisper <- import("whisper")
-model <- whisper$load_model("base")
-```
-
-### Transcribe Audio
-
-```{r eval = F}
-result <- model$transcribe(audio_path)
-
-transcript <- result$text
-transcript
-```
-
-### Extract Time-Aligned Segments
-
-```{r eval = F}
-segments <- result$segments
-
-alignment_df <- data.frame(
-  start = sapply(segments, function(x) x$start),
-  end   = sapply(segments, function(x) x$end),
-  text  = sapply(segments, function(x) x$text)
-)
-
-alignment_df
-```
-
----
-
-# 6. Forced Alignment
-
-**Forced alignment** links words or phonemes to precise time stamps.
-
-Options:
-
-- Montreal Forced Aligner (external tool)
-- Whisper segment timestamps (approximate alignment)
-
-Alignment allows us to connect:
-
-> Text ↔ Time ↔ Acoustic Signal
-
----
-
-# 7. Extracting Acoustic Features
-
-## Vowel Formants
-
-Formants (F1, F2, F3) represent resonant frequencies of the vocal tract.
-
-```{r eval = F}
-formants <- formant(wav, fmax = 5000, plot = FALSE)
-
-formant_df <- data.frame(
-  time = formants[,1],
-  F1 = formants[,2],
-  F2 = formants[,3]
-)
-
-head(formant_df)
-```
-
----
-
-# 8. Visualizing Vowel Space
-
-```{r eval = F}
-ggplot(formant_df, aes(x = F2, y = F1)) +
-  geom_point(alpha = 0.3) +
-  scale_y_reverse() +
-  scale_x_reverse() +
-  labs(title = "Vowel Space (F1–F2)",
-       x = "F2 (Hz)",
-       y = "F1 (Hz)")
-```
-
-Reversing axes follows phonetic convention.
-
----
-
-# 9. Linking Alignment and Acoustics
-
-We can extract formants only during specific words.
-
-```{r eval = F}
-first_segment <- alignment_df[1, ]
-
-subset_formants <- formant_df %>%
-  filter(time >= first_segment$start,
-         time <= first_segment$end)
-
-head(subset_formants)
-```
-
-This enables:
-
-- Word-specific acoustic analysis  
-- Sociophonetic comparisons  
-- Phoneme-level modeling  
-
----
-
-# 10. Summary
-
-In this tutorial, you learned how to:
-
-- Load and visualize audio  
-- Segment recordings  
-- Perform ASR using Whisper  
-- Extract time-aligned segments  
-- Compute vowel formants  
-- Visualize vowel space  
-- Connect lexical and acoustic information  
-
-Speech processing connects:
-
-> Raw Signal → Linguistic Structure → Quantitative Features
-
----
-
-# 11. Session Info
-
-```{r}
-sessionInfo()
-```
-
+  
+# Introduction {#intro}  
+  
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
+  
+This tutorial introduces **speech processing** in R — the computational analysis of spoken language. Rather than beginning with text, we begin with raw audio and work our way through the pipeline from acoustic signal to linguistic content: loading and visualising audio, detecting speech segments, performing automatic speech recognition (ASR) with Whisper, and extracting acoustic features such as vowel formants.  
+  
+Speech processing opens up a wide range of research possibilities that are simply unavailable when working with text alone: studying pronunciation, prosody, voice quality, and speaker variation; building time-aligned transcripts from interview or conversation recordings; and analysing the acoustic correlates of linguistic categories.  
+  
+The tutorial uses entirely **R-native tools** — no Python installation is required. Whisper is accessed via the `audio.whisper` package, an Rcpp wrapper around the `whisper.cpp` C++ inference library that runs the full Whisper model family directly in R.  
+  
+::: {.callout-note}  
+## Prerequisite Tutorials  
+  
+Before working through this tutorial, please complete or familiarise yourself with:  
+  
+- [Getting Started with R and RStudio](/tutorials/intror/intror.html)  
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)  
+- [Handling Tables in R](/tutorials/table/table.html)  
+:::  
+  
+<br>  
+  
+::: {.callout-tip}  
+## What This Tutorial Covers  
+  
+1. **The speech processing pipeline** — from raw audio to linguistic analysis  
+2. **Loading and inspecting audio** — reading WAV files with `tuneR`  
+3. **Visualising audio** — waveforms and spectrograms  
+4. **Voice Activity Detection (VAD)** — splitting on pauses with Silero VAD  
+5. **Automatic Speech Recognition (ASR)** — transcribing with Whisper in R  
+6. **Working with transcripts** — time-aligned output, token timestamps  
+7. **Translation** — transcribing non-English audio into English  
+8. **Speaker diarisation** — labelling who speaks when  
+9. **Post-processing transcripts** — cleaning, saving, and analysing output  
+10. **Extracting acoustic features** — vowel formants and vowel space plots  
+:::  
+  
+---  
+  
+## Preparation and Session Set-up {-}  
+  
+### Installing R Packages {-}  
+  
+```{r install_r, eval=FALSE}  
+# Core audio handling  
+install.packages("tuneR")  
+install.packages("seewave")  
+  
+# Whisper ASR (R-native, no Python needed)  
+# audio.whisper is not yet on CRAN — install from GitHub  
+install.packages("remotes")  
+remotes::install_github("bnosac/audio.whisper")  
+  
+# Data wrangling and visualisation  
+install.packages("dplyr")  
+install.packages("ggplot2")  
+install.packages("flextable")  
+install.packages("here")  
+install.packages("checkdown")  
+```  
+  
+::: {.callout-tip}  
+## Two R Whisper Packages  
+  
+Two packages bring Whisper to R natively:  
+  
+- **`audio.whisper`** (GitHub: `bnosac/audio.whisper`) — an Rcpp wrapper around `whisper.cpp`, a highly optimised C++ inference engine. Fast, memory-efficient, and requires no external dependencies. This is what we use throughout this tutorial.  
+- **`whisper`** (CRAN) — a pure R `torch` implementation of Whisper. Newer and still maturing; useful if you want a fully CRAN-installable solution.  
+  
+Both packages run without Python. There is no need to install `reticulate` or any Python packages.  
+:::  
+  
+### System Requirements {-}  
+  
+`audio.whisper` compiles `whisper.cpp` during installation. You need:  
+  
+- **R** ≥ 4.1  
+- A **C++ compiler**: already present on Mac (Xcode Command Line Tools) and Linux; Windows users need [Rtools](https://cran.r-project.org/bin/windows/Rtools/)  
+- From version 0.5.0, **cmake** is also required: install via `brew install cmake` (Mac), `sudo apt install cmake` (Linux), or from [cmake.org](https://cmake.org/download/) (Windows)  
+- **GPU acceleration** is optional but supported: CUDA on Linux, Metal on Apple Silicon  
+  
+### Loading Packages {-}  
+  
+```{r load, message=FALSE, warning=FALSE}  
+library(tuneR)          # audio I/O  
+library(seewave)        # signal processing and spectrograms  
+library(audio.whisper)  # Whisper ASR  
+library(dplyr)          # data manipulation  
+library(ggplot2)        # plotting  
+library(flextable)      # formatted tables  
+library(here)           # portable file paths  
+library(checkdown)      # interactive exercises  
+  
+options(stringsAsFactors = FALSE)  
+options(scipen = 100)  
+```  
+  
+### Sample Audio File {-}  
+  
+All code in this tutorial assumes you have a 16-bit mono WAV file at `data/sample.wav` inside your R Project. The `audio.whisper` package also includes a built-in sample (a famous JFK speech excerpt) which you can use to run the Whisper sections immediately without your own audio:  
+  
+```{r sample_path, eval=T}  
+# Use your own file:  
+audio_path <- here::here("data", "sample.wav")  
+  
+# Or use the built-in JFK sample from audio.whisper:  
+audio_path <- system.file(package = "audio.whisper", "samples", "jfk.wav")  
+```  
+  
+::: {.callout-important}  
+## Audio Format Requirements  
+  
+Whisper requires **16-bit mono WAV** files sampled at **16 kHz**. If your file is in a different format (MP3, FLAC, stereo, different sample rate), convert it first. The `ffmpeg` command-line tool handles this easily:  
+  
+```bash  
+# Convert any audio file to 16-bit mono 16 kHz WAV  
+ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le output.wav  
+```  
+  
+You can call `ffmpeg` from R using `system()` if it is installed:  
+  
+```r  
+system("ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le data/sample.wav")  
+```  
+:::  
+  
+---  
+  
+# The Speech Processing Pipeline {#pipeline}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** The conceptual pipeline from raw audio to linguistic analysis  
+  
+**Why it matters:** Understanding the pipeline helps you choose the right tool for each step and anticipate where errors can occur  
+:::  
+  
+Speech processing typically follows a sequential pipeline:  
+  
+```  
+Raw Audio (.wav)  
+      ↓  
+[1] Load and Inspect  
+      ↓  
+[2] Visualise (Waveform, Spectrogram)  
+      ↓  
+[3] Voice Activity Detection (VAD)  
+      Find speech segments, detect pauses  
+      ↓  
+[4] Automatic Speech Recognition (ASR)  
+      Convert audio to text with timestamps  
+      ↓  
+[5] Speaker Diarisation (optional)  
+      Label who speaks when  
+      ↓  
+[6] Post-processing  
+      Clean, save, analyse transcript  
+      ↓  
+[7] Acoustic Feature Extraction (optional)  
+      Formants, pitch, intensity  
+      ↓  
+Statistical Analysis  
+```  
+  
+Each step produces structured data that feeds into the next. Whisper (step 4) is the centrepiece: it converts raw audio into a time-aligned transcript. VAD (step 3) is a pre-processing step that removes silence and noise before transcription, improving both accuracy and speed.  
+  
+The table below maps each step to the R tools used in this tutorial:  
+  
+```{r pipeline_table, echo=FALSE}  
+data.frame(  
+  Step      = c("Load audio", "Visualise", "VAD / Segmentation",  
+                "ASR (transcription)", "Speaker diarisation",  
+                "Post-processing", "Acoustic features"),  
+  Tool      = c("tuneR::readWave()",  
+                "tuneR::plot() / seewave::spectro()",  
+                "audio.whisper::vad()",  
+                "audio.whisper::whisper() + predict()",  
+                "predict(..., diarize = TRUE)",  
+                "dplyr, stringr, write.csv()",  
+                "seewave::formant() + ggplot2"),  
+  Package   = c("tuneR", "tuneR / seewave", "audio.whisper",  
+                "audio.whisper", "audio.whisper",  
+                "dplyr / base R", "seewave / ggplot2")  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .9, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Speech processing pipeline and R tools.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+# Loading and Inspecting Audio {#loading}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to load a WAV file into R and inspect its basic properties  
+  
+**Key functions:** `tuneR::readWave()`, `length()`, `@samp.rate`, `@bit`  
+:::  
+  
+The `tuneR` package provides the standard interface for reading and manipulating audio in R. `readWave()` loads a WAV file and returns a `Wave` object:  
+  
+```{r load_audio, eval=FALSE}  
+audio_path <- here::here("data", "sample.wav")  
+wav <- tuneR::readWave(audio_path)  
+  
+# Or with the built-in sample:  
+wav <- tuneR::readWave(  
+  system.file(package = "audio.whisper", "samples", "jfk.wav")  
+)  
+```  
+  
+```{r load_audio_actual, echo=FALSE, eval=T}  
+# This block would execute; shown above as if it runs  
+wav <- tuneR::readWave(  
+  system.file(package = "audio.whisper", "samples", "jfk.wav")  
+)  
+```  
+  
+Inspect the basic properties of the audio:  
+  
+```{r audio_properties, eval=T}  
+# Print a summary of the Wave object  
+wav  
+  
+# Key properties accessed via slots  
+sampling_rate <- wav@samp.rate    # samples per second (e.g., 16000)  
+bit_depth     <- wav@bit          # bit depth (16 = standard)  
+n_samples     <- length(wav@left) # number of samples (mono: @left only)  
+n_channels    <- ifelse(wav@stereo, 2, 1)  
+  
+# Calculate duration in seconds  
+duration_sec  <- n_samples / sampling_rate  
+  
+cat("Duration:     ", round(duration_sec, 2), "seconds\n")  
+cat("Sampling rate:", sampling_rate, "Hz\n")  
+cat("Bit depth:    ", bit_depth, "bit\n")  
+cat("Channels:     ", n_channels, "\n")  
+```  
+  
+::: {.callout-tip}  
+## Understanding Sampling Rate  
+  
+The **sampling rate** (in Hz) is the number of audio samples recorded per second. CD quality is 44,100 Hz; telephone quality is 8,000 Hz. Whisper requires **16,000 Hz (16 kHz)** — the standard for speech processing. A lower sampling rate means less high-frequency information is preserved, which is fine for speech (which contains most energy below 8 kHz) but would degrade music quality. If `wav@samp.rate` is not 16000, re-sample the file with `ffmpeg` before transcription.  
+:::  
+  
+---  
+  
+# Visualising Audio {#visualise}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to create waveform and spectrogram plots to visually inspect audio  
+  
+**Key functions:** `plot()` on a Wave object, `seewave::spectro()`  
+  
+**Why it matters:** Visual inspection catches obvious problems (silence, clipping, background noise) before you run time-consuming ASR  
+:::  
+  
+## Waveform {-}  
+  
+A **waveform** plots amplitude (air pressure displacement) against time. It shows when the recording is loud or quiet, where there are pauses, and whether the signal is clipped (amplitude maxed out):  
+  
+```{r waveform, eval=T}  
+# Base R plot method for Wave objects  
+plot(wav, main = "Waveform", col = "steelblue",  
+     xlab = "Time (samples)", ylab = "Amplitude")  
+```  
+  
+From the waveform you can immediately see:  
+  
+- **Pauses and silences** — flat regions with near-zero amplitude  
+- **Clipping** — amplitude that hits the maximum value consistently  
+- **Background noise** — a non-zero baseline even during silence  
+- **Approximate speech rhythm** — alternating loud (vowel nuclei) and quiet (consonants) regions  
+  
+## Spectrogram {-}  
+  
+A **spectrogram** plots frequency (y-axis) against time (x-axis), with colour representing intensity. It reveals the frequency structure of speech — formants, fricatives, stop bursts — that the waveform cannot show:  
+  
+```{r spectrogram, eval=F}  
+# Narrow-band spectrogram (good for pitch/formants)  
+seewave::spectro(wav,  
+                 flim = c(0, 8),      # frequency limit in kHz  
+                 main = "Spectrogram",  
+                 collevels = seq(-40, 0, 1))   # dynamic range in dB  
+  
+# Wide-band spectrogram (good for temporal structure)  
+seewave::spectro(wav,  
+                 wl = 256,            # shorter window = better time resolution  
+                 flim = c(0, 8),  
+                 main = "Wide-band Spectrogram")  
+```  
+  
+::: {.callout-tip}  
+## Reading a Spectrogram  
+  
+In a spectrogram of speech:  
+  
+- **Dark horizontal bands** (especially in the lower 3 kHz) are **formants** — resonant frequencies of the vocal tract that define vowel quality  
+- **Broadband vertical striations** are voicing pulses from the vocal folds  
+- **Diffuse high-frequency energy** indicates fricatives (s, f, sh)  
+- **Silence / gaps** appear as blank regions  
+- **The fundamental frequency (F0)** is the lowest horizontal band and its harmonics are visible as evenly spaced bands above it  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Audio Basics  
+:::  
+  
+**Q1. What does a sampling rate of 16,000 Hz mean?**  
+  
+```{r}  
+#| echo: false  
+#| label: "AUD_Q1"  
+check_question("16,000 amplitude measurements are taken per second when recording the audio",  
+               options = c(  
+                 "16,000 amplitude measurements are taken per second when recording the audio",  
+                 "The audio file is 16,000 bytes in size",  
+                 "The audio contains frequencies up to 16,000 kHz",  
+                 "The recording lasted 16,000 seconds"  
+               ),  
+               type = "radio",  
+               q_id = "AUD_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A sampling rate of 16,000 Hz (16 kHz) means the audio signal was measured 16,000 times per second during recording. According to the Nyquist theorem, this captures all frequencies up to 8,000 Hz (half the sampling rate), which is sufficient for speech since most phonetically relevant energy is below 8 kHz. Whisper requires 16 kHz input — files at other rates must be resampled before transcription.",  
+               wrong = "Sampling rate is measured in Hz (cycles or events per second). What does 16,000 of those events per second mean in terms of how the signal is measured?")  
+```  
+  
+---  
+  
+**Q2. What does a spectrogram show that a waveform does not?**  
+  
+```{r}  
+#| echo: false  
+#| label: "AUD_Q2"  
+check_question("The frequency content of the signal over time — which frequencies are present and how their intensity changes",  
+               options = c(  
+                 "The frequency content of the signal over time — which frequencies are present and how their intensity changes",  
+                 "The total duration of the recording",  
+                 "The amplitude of the signal at each moment in time",  
+                 "The file size and bit depth of the audio"  
+               ),  
+               type = "radio",  
+               q_id = "AUD_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A waveform shows only amplitude over time — it tells you when the signal is loud or quiet, but not what frequencies are present. A spectrogram applies a Short-Time Fourier Transform to show both time (x-axis) and frequency (y-axis), with colour indicating intensity. This makes formants, fricative noise, and pitch visible — information that is essential for phonetic analysis but completely invisible in a waveform.",  
+               wrong = "A waveform shows amplitude over time. What additional dimension does a spectrogram add?")  
+```  
+  
+---  
+  
+# Voice Activity Detection (VAD) {#vad}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to use the built-in Silero VAD in `audio.whisper` to identify speech segments and split audio on pauses — the correct way to segment long recordings  
+  
+**Key function:** `audio.whisper::vad()`  
+  
+**Why it matters:** Splitting on fixed time intervals (e.g., every 5 seconds) is almost always wrong — it cuts through words mid-utterance. VAD splits at natural pause boundaries where there is genuinely no speech.  
+:::  
+  
+## What Is VAD? {-}  
+  
+**Voice Activity Detection** classifies each moment in the audio as either *speech* or *non-speech* (silence, background noise, music). In a transcription pipeline, VAD serves two purposes:  
+  
+1. **Pre-segmentation**: Split a long recording into shorter chunks at natural pause boundaries before sending to Whisper, so that each segment is self-contained  
+2. **Noise filtering**: Prevent Whisper from wasting computation (and producing hallucinated output) on silent or non-speech portions  
+  
+`audio.whisper` integrates the [Silero VAD](https://github.com/snakers4/silero-vad) model — a lightweight, accurate voice activity detector — directly into the package. No additional installation is needed.  
+  
+## Running VAD {-}  
+  
+```{r vad_demo, eval=T}  
+# Detect speech segments in the audio file  
+vad_result <- audio.whisper::vad(  
+  path                 = audio_path,  
+  threshold            = 0.5,    # confidence threshold: 0–1 (higher = stricter)  
+  min_speech_duration  = 250,    # minimum speech segment in ms  
+  min_silence_duration = 100,    # minimum silence to split on, in ms  
+  max_speech_duration  = -1,     # no maximum (set to e.g. 30000 for 30s chunks)  
+  pad                  = 30,     # pad each segment by this many ms  
+  overlap              = 0.1     # seconds of overlap between segments  
+)  
+  
+# Inspect the result  
+head(vad_result$data)  
+```  
+  
+The `$data` element is a data frame with columns `segment`, `from`, `to`, and `has_voice`:  
+  
+```{r vad_output_example, echo=FALSE}  
+# Simulated VAD output for display  
+data.frame(  
+  segment   = 1:6,  
+  from      = c(0.00, 1.24, 3.81, 5.10, 7.34, 9.02),  
+  to        = c(1.19, 3.76, 5.05, 7.28, 8.97, 11.00),  
+  has_voice = c(FALSE, TRUE, FALSE, TRUE, FALSE, TRUE)  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .55, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Example VAD output: speech (has_voice = TRUE) and non-speech segments.") |>  
+  flextable::border_outer()  
+```  
+  
+## Extracting Speech Segments for Transcription {-}  
+  
+```{r vad_segments, eval=T}  
+# Keep only the speech segments  
+speech_segments <- vad_result$data |>  
+  dplyr::filter(has_voice == TRUE)  
+  
+# These timestamps can be passed directly to Whisper's sections argument  
+# Convert from seconds to milliseconds for the sections argument  
+sections <- data.frame(  
+  start    = as.integer(speech_segments$from * 1000),  
+  duration = as.integer((speech_segments$to - speech_segments$from) * 1000)  
+)  
+  
+cat("Found", nrow(sections), "speech segments\n")  
+cat("Total speech duration:", sum(sections$duration) / 1000, "seconds\n")  
+```  
+  
+::: {.callout-tip}  
+## VAD vs. Fixed-Length Chunking  
+  
+The draft of this tutorial suggested splitting audio into fixed 5-second chunks. **This is almost always the wrong approach.** Fixed chunking:  
+  
+- Cuts through words and sentences mid-utterance  
+- Forces Whisper to transcribe fragments with no linguistic context  
+- Produces transcripts that are hard to reassemble  
+  
+VAD-based splitting respects linguistic structure: it splits at silence boundaries where speakers have paused. Each segment is a complete utterance or breath group, giving Whisper maximum context and producing much cleaner output.  
+  
+The only situation where fixed-length chunking is appropriate is when the audio has no natural pauses (e.g., continuous singing, non-stop machine noise) — not typical for speech data.  
+:::  
+  
+---  
+  
+# Automatic Speech Recognition with Whisper {#asr}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to download Whisper models, transcribe audio files, and work with the time-aligned output  
+  
+**Key functions:** `audio.whisper::whisper()`, `predict()`  
+  
+**Why R, not Python:** `audio.whisper` is an Rcpp wrapper around `whisper.cpp` — a highly optimised C++ implementation of Whisper. It runs entirely within R with no Python dependency.  
+:::  
+  
+## What Is Whisper? {-}  
+  
+**Whisper** is OpenAI's open-source automatic speech recognition model, released in 2022 and updated regularly since. Key properties:  
+  
+- Trained on over 680,000 hours of multilingual audio from the web  
+- Supports transcription in ~100 languages and translation to English  
+- Available in five sizes — from `tiny` (39M parameters) to `large-v3` (1.5B parameters)  
+- Robust to accents, background noise, and technical vocabulary  
+- Produces word-level timestamps when requested  
+- Released under the MIT licence — free for academic and commercial use  
+  
+Whisper's architecture is a transformer-based encoder-decoder. Audio is converted into a log-Mel spectrogram, processed by the encoder, and decoded into text tokens by the decoder. The training procedure exposes the model to extremely diverse speech conditions, giving it strong zero-shot generalisation.  
+  
+## Whisper Model Sizes {-}  
+  
+```{r model_table, echo=FALSE}  
+data.frame(  
+  Model         = c("tiny", "tiny.en", "base", "base.en",  
+                    "small", "small.en", "medium", "medium.en",  
+                    "large-v2", "large-v3", "large-v3-turbo"),  
+  Parameters    = c("39M", "39M", "74M", "74M", "244M", "244M",  
+                    "769M", "769M", "1.5B", "1.5B", "809M"),  
+  Download_size = c("75 MB", "75 MB", "142 MB", "142 MB", "466 MB",  
+                    "466 MB", "~1.4 GB", "~1.4 GB", "~2.9 GB",  
+                    "~2.9 GB", "~1.5 GB"),  
+  RAM_required  = c("~390 MB", "~390 MB", "~500 MB", "~500 MB",  
+                    "~1.0 GB", "~1.0 GB", "~2.6 GB", "~2.6 GB",  
+                    "~5.0 GB", "~5.0 GB", "~3.1 GB"),  
+  Notes         = c("Fastest, lowest accuracy", "English only",  
+                    "Good balance for testing", "English only",  
+                    "Recommended starting point", "English only",  
+                    "Good multilingual accuracy", "English only",  
+                    "High accuracy", "Best accuracy",  
+                    "Fast + high accuracy (recommended)")  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Available Whisper models and their resource requirements.") |>  
+  flextable::border_outer()  
+```  
+  
+## Downloading a Model {-}  
+  
+Models are downloaded from HuggingFace and cached locally. You only need to download each model once:  
+  
+```{r download_model, eval=FALSE}  
+# Download a model — specify the model name  
+# The model file is stored in R's user data directory  
+whisper_download_model("base")      # 142 MB — good for testing  
+whisper_download_model("small")     # 466 MB — recommended for research  
+whisper_download_model("large-v3-turbo")  # best accuracy/speed trade-off  
+```  
+  
+## Basic Transcription {-}  
+  
+```{r transcribe_basic, eval=FALSE}  
+# Load the model  
+model <- audio.whisper::whisper("base")  
+  
+# Transcribe the audio file  
+trans <- predict(model,  
+                 newdata  = audio_path,  
+                 language = "en",    # specify language or "auto" for detection  
+                 n_threads = 4)      # use multiple CPU threads for speed  
+  
+# Inspect the result  
+trans  
+```  
+  
+The output of `predict()` is a list with three elements:  
+  
+```{r trans_structure, echo=FALSE}  
+data.frame(  
+  Element   = c("$data", "$tokens", "$timing"),  
+  Type      = c("data.frame", "data.frame", "list"),  
+  Contains  = c(  
+    "Segment-level transcript: columns segment, segment_offset, text, from, to",  
+    "Token-level transcript: segment, token_id, token, token_prob (if token_timestamps = TRUE)",  
+    "Start, end, and duration of the transcription process"  
+  )  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Structure of the predict() output from audio.whisper.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r trans_inspect, eval=FALSE}  
+# The main transcript: one row per segment  
+head(trans$data)  
+  
+# Number of segments transcribed  
+nrow(trans$data)  
+  
+# Plain text: concatenate all segments  
+full_text <- paste(trans$data$text, collapse = " ")  
+cat(full_text)  
+```  
+  
+## Time-Aligned Segments {-}  
+  
+The `$data` data frame includes `from` and `to` columns in `HH:MM:SS.mmm` format — the start and end time of each segment in the audio:  
+  
+```{r trans_alignment, eval=FALSE}  
+# View the time-aligned transcript  
+trans$data |>  
+  dplyr::select(segment, from, to, text) |>  
+  head(10)  
+```  
+  
+A simulated example of what this looks like:  
+  
+```{r trans_example_table, echo=FALSE}  
+data.frame(  
+  segment = 1:5,  
+  from    = c("00:00:00.000", "00:00:02.340", "00:00:05.780",  
+              "00:00:09.120", "00:00:12.560"),  
+  to      = c("00:00:02.280", "00:00:05.710", "00:00:09.060",  
+              "00:00:12.490", "00:00:15.200"),  
+  text    = c(  
+    " And so my fellow Americans,",  
+    " ask not what your country can do for you,",  
+    " ask what you can do for your country.",  
+    " My fellow citizens of the world,",  
+    " ask not what America will do for you,"  
+  )  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .9, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Simulated time-aligned transcript from predict().") |>  
+  flextable::border_outer()  
+```  
+  
+## Token-Level Timestamps {-}  
+  
+Setting `token_timestamps = TRUE` provides token-level alignment — each subword token gets its own time range and probability score:  
+  
+```{r trans_tokens, eval=FALSE}  
+trans_tokens <- predict(model,  
+                        newdata           = audio_path,  
+                        language          = "en",  
+                        token_timestamps  = TRUE,  
+                        n_threads         = 4)  
+  
+# Token-level output  
+head(trans_tokens$tokens, 15)  
+```  
+  
+Token timestamps are useful for forced alignment — connecting specific words to precise time positions in the audio. They are less accurate than dedicated forced aligner tools (such as the Montreal Forced Aligner), but require no additional setup and are good enough for many research purposes.  
+  
+## Transcribing VAD-Segmented Audio {-}  
+  
+For longer recordings, the recommended workflow is to run VAD first and pass the speech segments to `predict()` via the `sections` argument:  
+  
+```{r trans_vad, eval=FALSE}  
+# Run VAD  
+vad_result <- audio.whisper::vad(audio_path)  
+  
+# Extract speech segments, convert to ms  
+sections <- vad_result$data |>  
+  dplyr::filter(has_voice == TRUE) |>  
+  dplyr::transmute(  
+    start    = as.integer(from * 1000),  
+    duration = as.integer((to - from) * 1000)  
+  )  
+  
+# Transcribe only the speech segments  
+model <- audio.whisper::whisper("small")  
+trans <- predict(model,  
+                 newdata   = audio_path,  
+                 language  = "en",  
+                 sections  = sections,  
+                 n_threads = 4)  
+  
+nrow(trans$data)  
+head(trans$data[, c("segment", "from", "to", "text")])  
+```  
+  
+## Using VAD Built into `predict()` {-}  
+  
+Alternatively, `predict()` accepts a `vad = TRUE` argument that runs Silero VAD internally before transcription — a convenient one-step approach:  
+  
+```{r trans_vad_internal, eval=FALSE}  
+model <- audio.whisper::whisper("small")  
+  
+trans <- predict(model,  
+                 newdata   = audio_path,  
+                 language  = "en",  
+                 vad       = TRUE,    # run VAD automatically  
+                 n_threads = 4)  
+  
+head(trans$data[, c("from", "to", "text")])  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: ASR with Whisper  
+:::  
+  
+**Q1. Why should you use `vad = TRUE` or pre-segment with `vad()` for long recordings rather than passing the whole file directly to `predict()`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ASR_Q1"  
+check_question("VAD removes silence and non-speech before transcription, preventing Whisper from hallucinating content for silent portions and improving both speed and accuracy",  
+               options = c(  
+                 "VAD removes silence and non-speech before transcription, preventing Whisper from hallucinating content for silent portions and improving both speed and accuracy",  
+                 "Whisper cannot process audio files longer than 30 seconds without VAD",  
+                 "VAD converts the audio to 16 kHz, which Whisper requires",  
+                 "VAD is only needed when the audio contains multiple languages"  
+               ),  
+               type = "radio",  
+               q_id = "ASR_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Whisper processes audio in 30-second chunks internally. When given a long recording with many silences, it can hallucinate text for the silent portions — a known Whisper limitation. VAD pre-filters the audio so that only segments containing actual speech are transcribed. This reduces hallucination, speeds up transcription (less audio to process), and produces cleaner output. The vad = TRUE argument in predict() applies Silero VAD automatically before running Whisper.",  
+               wrong = "Think about what happens when Whisper is given a long recording with many silent gaps. What does a model trained to always produce text output do when there is no speech to transcribe?")  
+```  
+  
+---  
+  
+**Q2. What is the difference between `trans$data` and `trans$tokens`?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ASR_Q2"  
+check_question("$data contains one row per recognised segment with start/end timestamps; $tokens contains one row per subword token with individual probabilities (only available with token_timestamps = TRUE)",  
+               options = c(  
+                 "$data contains one row per recognised segment with start/end timestamps; $tokens contains one row per subword token with individual probabilities (only available with token_timestamps = TRUE)",  
+                 "$data is for English; $tokens is for other languages",  
+                 "$tokens is faster to produce than $data",  
+                 "They contain identical information in different formats"  
+               ),  
+               type = "radio",  
+               q_id = "ASR_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! $data is always present and gives a segment-level view: each row is one utterance or phrase with its start and end time (from and to columns). $tokens provides finer-grained alignment at the subword token level — each token from Whisper's byte-pair encoding vocabulary gets its own timestamp and probability score. Token timestamps are only available when token_timestamps = TRUE is set, and they are useful for approximate word-level forced alignment.",  
+               wrong = "Think about granularity: one row per segment, versus one row per token. What is the difference in the detail level of the time alignment?")  
+```  
+  
+---  
+  
+**Q3. Which Whisper model is recommended as the best balance between speed and accuracy for most research use cases?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ASR_Q3"  
+check_question('"large-v3-turbo" — it achieves near large-v3 accuracy at roughly half the computational cost',  
+               options = c(  
+                 '"large-v3-turbo" — it achieves near large-v3 accuracy at roughly half the computational cost',  
+                 '"tiny" — it is the fastest model and accuracy differences are minimal',  
+                 '"base" — it is the only model that runs without a GPU',  
+                 '"medium.en" — it is the largest English-only model'  
+               ),  
+               type = "radio",  
+               q_id = "ASR_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = 'Correct! large-v3-turbo (released 2024) achieves accuracy close to the full large-v3 model while being significantly faster and using less memory (~3.1 GB RAM vs ~5 GB). For research use, it is the recommended default unless you have a specific reason to use a smaller model (very limited hardware) or the full large-v3 (maximum accuracy on difficult audio). The tiny and base models are useful for quick testing and development but not for final research transcriptions.',  
+               wrong = "Consider the trade-off between speed, memory requirements, and transcription quality. Which model was specifically designed to deliver high accuracy without the full resource cost of large-v3?")  
+```  
+  
+---  
+  
+# Translation {#translation}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to use Whisper's built-in translation capability to transcribe non-English audio directly into English  
+  
+**Key argument:** `type = "translate"` in `predict()`  
+:::  
+  
+One of Whisper's most useful capabilities for linguistic research is **speech-to-text translation**: transcribing audio in one language directly into English text — without a separate translation step. This is particularly valuable for multilingual corpora where you want English translations of non-English speech.  
+  
+```{r translate, eval=FALSE}  
+# Transcribe in the original language (e.g., Dutch)  
+trans_nl <- predict(model,  
+                    newdata  = audio_path_dutch,  
+                    language = "nl",  
+                    type     = "transcribe")   # default  
+  
+# Translate to English  
+trans_en <- predict(model,  
+                    newdata  = audio_path_dutch,  
+                    language = "nl",  
+                    type     = "translate")    # produces English output  
+  
+# Compare  
+cat("Dutch:   ", paste(trans_nl$data$text, collapse = " "), "\n")  
+cat("English: ", paste(trans_en$data$text, collapse = " "), "\n")  
+```  
+  
+::: {.callout-tip}  
+## Supported Languages  
+  
+To see all languages Whisper supports:  
+  
+```r  
+audio.whisper::whisper_languages()  
+```  
+  
+Whisper supports ~100 languages. Performance varies considerably: accuracy is highest for high-resource languages (English, Spanish, French, German, Chinese, Japanese) and lower for low-resource languages. Always evaluate accuracy on a sample of your own data before relying on Whisper for a full corpus.  
+:::  
+  
+---  
+  
+# Speaker Diarisation {#diarisation}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to identify which speaker uttered each segment of a multi-speaker recording  
+  
+**Key argument:** `diarize = TRUE` in `predict()`  
+  
+**Why it matters:** Without diarisation, a transcript of a conversation or interview shows only sequential text with no indication of speaker turns. Diarisation adds the "who spoke when" dimension that is essential for conversation analysis, sociolinguistics, and interview research.  
+:::  
+  
+## What Is Speaker Diarisation? {-}  
+  
+**Speaker diarisation** is the process of partitioning an audio stream into segments and labelling each segment with the identity (or an anonymous label) of the speaker. It answers the question: *"Who spoke when?"*  
+  
+Diarisation does not identify *who* a person is by name — it assigns arbitrary labels (SPEAKER_00, SPEAKER_01, etc.) that are consistent within a recording. Two utterances from the same physical speaker receive the same label; utterances from different speakers receive different labels.  
+  
+The typical pipeline is:  
+  
+```  
+Audio → VAD → Speaker Embedding Extraction → Clustering → Label Assignment  
+```  
+  
+## Running Diarisation with `audio.whisper` {-}  
+  
+`audio.whisper` supports diarisation directly within `predict()` via the `diarize = TRUE` argument:  
+  
+```{r diarise, eval=FALSE}  
+model <- audio.whisper::whisper("small")  
+  
+trans_diarised <- predict(model,  
+                          newdata   = audio_path,  
+                          language  = "en",  
+                          diarize   = TRUE,    # enable speaker diarisation  
+                          vad       = TRUE,    # also enable VAD  
+                          n_threads = 4)  
+  
+# The $data column now includes a 'speaker' column  
+head(trans_diarised$data[, c("segment", "from", "to", "speaker", "text")])  
+```  
+  
+```{r diarise_example_table, echo=FALSE}  
+data.frame(  
+  segment = 1:6,  
+  from    = c("00:00:00.000", "00:00:03.400", "00:00:07.120",  
+              "00:00:10.880", "00:00:14.230", "00:00:18.750"),  
+  to      = c("00:00:03.350", "00:00:07.060", "00:00:10.820",  
+              "00:00:14.180", "00:00:18.690", "00:00:22.400"),  
+  speaker = c("SPEAKER_00", "SPEAKER_01", "SPEAKER_00",  
+              "SPEAKER_01", "SPEAKER_00", "SPEAKER_01"),  
+  text    = c(  
+    " Good morning, can you tell me about your research?",  
+    " Yes, I work on language acquisition in bilingual children.",  
+    " Fascinating. What age group do you focus on?",  
+    " Primarily three to six year olds, the critical period.",  
+    " And what methods do you typically use?",  
+    " Mainly naturalistic observation and structured elicitation tasks."  
+  )  
+) |>  
+  flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Simulated diarised transcript with speaker labels.") |>  
+  flextable::border_outer()  
+```  
+  
+## Working with Diarised Transcripts {-}  
+  
+```{r diarise_analysis, eval=FALSE}  
+# How many turns per speaker?  
+trans_diarised$data |>  
+  dplyr::count(speaker, sort = TRUE)  
+  
+# How much time does each speaker occupy?  
+trans_diarised$data |>  
+  dplyr::mutate(  
+    from_sec = as.numeric(substr(from, 7, 12)),  
+    to_sec   = as.numeric(substr(to,   7, 12)),  
+    duration = to_sec - from_sec  
+  ) |>  
+  dplyr::group_by(speaker) |>  
+  dplyr::summarise(  
+    n_turns    = dplyr::n(),  
+    total_sec  = round(sum(duration), 1),  
+    mean_turn  = round(mean(duration), 2),  
+    .groups    = "drop"  
+  )  
+  
+# Extract one speaker's contribution only  
+speaker_00_text <- trans_diarised$data |>  
+  dplyr::filter(speaker == "SPEAKER_00") |>  
+  dplyr::pull(text) |>  
+  paste(collapse = " ")  
+```  
+  
+::: {.callout-tip}  
+## Limitations of Built-in Diarisation  
+  
+`audio.whisper`'s built-in diarisation is convenient but limited compared to dedicated tools:  
+  
+- It uses speaker embeddings derived from the Whisper encoder, not a purpose-built diarisation model  
+- Accuracy degrades with more than 3–4 speakers or significant speaker overlap  
+- It cannot handle cross-talk (simultaneous speech)  
+  
+For more accurate diarisation, especially for long recordings with many speakers or overlapping speech, consider post-processing with [pyannote.audio](https://github.com/pyannote/pyannote-audio) (Python) or matching Whisper's segment timestamps against a separate diarisation tool.  
+:::  
+  
+---  
+  
+# Post-Processing Transcripts {#postprocess}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to clean, structure, save, and begin analysing transcripts produced by Whisper  
+  
+**Key operations:** Text cleaning, timestamp parsing, saving to CSV/text formats  
+:::  
+  
+Whisper output typically requires some post-processing before analysis. Common steps include removing leading/trailing whitespace, standardising punctuation, parsing timestamps, and saving in corpus-friendly formats.  
+  
+## Cleaning the Transcript {-}  
+  
+```{r clean_trans, eval=FALSE}  
+library(stringr)  
+  
+transcript_clean <- trans$data |>  
+  dplyr::mutate(  
+    # Remove leading/trailing whitespace (Whisper adds a leading space to each segment)  
+    text     = stringr::str_trim(text),  
+    # Normalise multiple spaces  
+    text     = stringr::str_replace_all(text, "\\s+", " "),  
+    # Remove segments that are likely hallucinations (very short or only punctuation)  
+    is_valid = stringr::str_detect(text, "[[:alpha:]]{3,}")  
+  ) |>  
+  dplyr::filter(is_valid) |>  
+  dplyr::select(-is_valid)  
+```  
+  
+## Parsing Timestamps {-}  
+  
+Whisper returns timestamps as `HH:MM:SS.mmm` strings. Convert them to numeric seconds for calculations:  
+  
+```{r parse_timestamps, eval=FALSE}  
+parse_hms <- function(hms_string) {  
+  # Convert "HH:MM:SS.mmm" to numeric seconds  
+  parts <- stringr::str_split(hms_string, "[:.]")[[1]]  
+  h <- as.numeric(parts[1])  
+  m <- as.numeric(parts[2])  
+  s <- as.numeric(parts[3])  
+  ms <- as.numeric(parts[4]) / 1000  
+  h * 3600 + m * 60 + s + ms  
+}  
+  
+transcript_timed <- transcript_clean |>  
+  dplyr::mutate(  
+    from_sec  = sapply(from, parse_hms),  
+    to_sec    = sapply(to,   parse_hms),  
+    duration  = to_sec - from_sec  
+  )  
+  
+# Summary statistics  
+cat("Total segments:  ", nrow(transcript_timed), "\n")  
+cat("Total duration:  ", round(sum(transcript_timed$duration), 1), "seconds\n")  
+cat("Mean seg. length:", round(mean(transcript_timed$duration), 2), "seconds\n")  
+```  
+  
+## Saving Transcripts {-}  
+  
+```{r save_trans, eval=FALSE}  
+# Save as CSV (best for further analysis in R)  
+write.csv(transcript_timed,  
+          file      = here::here("outputs", "transcript.csv"),  
+          row.names = FALSE)  
+  
+# Save as plain text (one segment per line with timestamps)  
+transcript_txt <- transcript_timed |>  
+  dplyr::mutate(  
+    line = paste0("[", from, " --> ", to, "] ", text)  
+  ) |>  
+  dplyr::pull(line)  
+  
+writeLines(transcript_txt, here::here("outputs", "transcript.txt"))  
+  
+# Save in SubRip (SRT) subtitle format — useful for video annotation  
+srt_lines <- character(nrow(transcript_timed) * 4)  
+for (i in seq_len(nrow(transcript_timed))) {  
+  idx <- (i - 1) * 4  
+  srt_lines[idx + 1] <- as.character(i)  
+  srt_lines[idx + 2] <- paste(  
+    gsub("\\.", ",", transcript_timed$from[i]),  
+    "-->",  
+    gsub("\\.", ",", transcript_timed$to[i])  
+  )  
+  srt_lines[idx + 3] <- transcript_timed$text[i]  
+  srt_lines[idx + 4] <- ""  
+}  
+writeLines(srt_lines, here::here("outputs", "transcript.srt"))  
+```  
+  
+---  
+  
+# Extracting Acoustic Features {#acoustics}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** How to extract vowel formants (F1, F2) from audio and visualise the vowel space  
+  
+**Key functions:** `seewave::formant()`, `ggplot2`  
+  
+**Why it matters:** Formants are the primary acoustic correlates of vowel quality — the basis of sociophonetic research, vowel change studies, and second-language acquisition research  
+:::  
+  
+## What Are Formants? {-}  
+  
+**Formants** are resonant frequencies of the vocal tract. Each vowel is characterised by a distinctive pattern of formant frequencies:  
+  
+- **F1** (first formant) correlates primarily with tongue **height** — low vowels have high F1, high vowels have low F1  
+- **F2** (second formant) correlates primarily with tongue **backness** — front vowels have high F2, back vowels have low F2  
+- **F3** (third formant) is associated with lip rounding and retroflexion  
+  
+Plotting F1 against F2 (with axes reversed to match the traditional vowel trapezoid) shows the **vowel space** of a speaker or variety.  
+  
+## Extracting Formants {-}  
+  
+```{r formants_extract, eval=FALSE}  
+# Extract formants using seewave  
+# wl: window length (samples); higher = better frequency resolution  
+formants_raw <- seewave::formant(wav,  
+                                 fmax  = 5500,   # maximum frequency in Hz  
+                                 wl    = 512,  
+                                 plot  = FALSE)  
+  
+# Convert to data frame  
+formant_df <- as.data.frame(formants_raw)  
+names(formant_df)[1:3] <- c("time", "F1", "F2")  
+  
+head(formant_df)  
+```  
+  
+::: {.callout-important}  
+## Formant Extraction Quality  
+  
+Automatic formant extraction is sensitive to:  
+  
+- **Voiced vs. unvoiced segments**: formants are only meaningful during voiced speech. Always filter to voiced segments (where pitch is detected) before analysis.  
+- **Speaker sex/age**: typical F1/F2 ranges differ by speaker characteristics. Filter out implausible values (e.g., F1 > 1000 Hz or F2 < 500 Hz often indicate extraction errors).  
+- **Window size**: a longer analysis window gives better frequency resolution but worse time resolution. The default `wl = 512` is a reasonable starting point.  
+  
+For high-quality formant extraction in sociophonetics, dedicated tools like Praat (with an R interface via the `rPraat` or `PraatR` packages) are generally preferred.  
+:::  
+  
+## Filtering and Plotting the Vowel Space {-}  
+  
+```{r vowel_plot, eval=FALSE}  
+# Filter to plausible formant values (crude voiced speech filter)  
+formant_filtered <- formant_df |>  
+  dplyr::filter(  
+    F1 > 200, F1 < 1000,   # typical F1 range for adult speakers  
+    F2 > 500, F2 < 3500    # typical F2 range for adult speakers  
+  ) |>  
+  dplyr::filter(!is.na(F1), !is.na(F2))  
+  
+# Vowel space plot following phonetic convention (axes reversed)  
+ggplot(formant_filtered, aes(x = F2, y = F1)) +  
+  geom_point(alpha = 0.3, size = 1.2, colour = "steelblue") +  
+  geom_density_2d(colour = "tomato", linewidth = 0.5) +  
+  scale_x_reverse(name = "F2 (Hz)") +  
+  scale_y_reverse(name = "F1 (Hz)") +  
+  labs(  
+    title    = "Vowel Space (F1 – F2 Plot)",  
+    subtitle = "Each point = one analysis frame; contours show density"  
+  ) +  
+  theme_bw() +  
+  theme(panel.grid.minor = element_blank())  
+```  
+  
+## Connecting Acoustics to the Transcript {-}  
+  
+The most powerful analyses combine the time-aligned transcript with the acoustic measurements — extracting formants only during specific words or vowels:  
+  
+```{r acoustics_transcript, eval=FALSE}  
+# Suppose we want formants during a specific word in the transcript  
+target_segment <- transcript_timed |>  
+  dplyr::filter(stringr::str_detect(text, regex("\\bask\\b",  
+                                                 ignore_case = TRUE))) |>  
+  dplyr::slice(1)  
+  
+# Extract formants for the time window of that word  
+# (sampling_rate was defined when loading the audio)  
+start_sample <- round(target_segment$from_sec * wav@samp.rate)  
+end_sample   <- round(target_segment$to_sec   * wav@samp.rate)  
+  
+wav_segment <- tuneR::extractWave(wav,  
+                                  from   = start_sample,  
+                                  to     = end_sample,  
+                                  xunit  = "samples")  
+  
+formants_word <- seewave::formant(wav_segment, fmax = 5500, plot = FALSE)  
+```  
+  
+This kind of targeted extraction — formants during specific words, identified via their Whisper-generated timestamps — is the core workflow for corpus phonetics and sociophonetics research.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Acoustics and Post-Processing  
+:::  
+  
+**Q1. Why are the axes reversed in an F1–F2 vowel space plot?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ACO_Q1"  
+check_question("To match the traditional vowel trapezoid: high F1 (low vowels) appears at the bottom, low F1 (high vowels) at the top; high F2 (front vowels) on the left, low F2 (back vowels) on the right",  
+               options = c(  
+                 "To match the traditional vowel trapezoid: high F1 (low vowels) appears at the bottom, low F1 (high vowels) at the top; high F2 (front vowels) on the left, low F2 (back vowels) on the right",  
+                 "Because ggplot2 requires reversed axes for frequency data",  
+                 "To make the plot look more like a spectrogram",  
+                 "Because F1 and F2 values are always negative numbers"  
+               ),  
+               type = "radio",  
+               q_id = "ACO_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The axis reversal is a phonetic convention designed to align the plot with the IPA vowel trapezoid (the standard diagram of vowel positions). In the trapezoid, high vowels (like /i/, /u/) are at the top and low vowels (like /a/) at the bottom — but high vowels have LOW F1 values. Reversing the y-axis puts low F1 values at the top. Similarly, front vowels (high F2) are on the left of the trapezoid, so the x-axis is reversed. This convention makes the vowel space plot immediately interpretable to phoneticians.",  
+               wrong = "Think about what F1 and F2 correspond to articulatorily, and how the IPA vowel trapezoid is traditionally oriented. What would the plot look like without the reversal?")  
+```  
+  
+---  
+  
+**Q2. What is the purpose of filtering formant values to `F1 > 200 & F1 < 1000` before plotting?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ACO_Q2"  
+check_question("To exclude likely extraction errors — formants are only meaningful during voiced vowels, and implausible values typically reflect unvoiced segments, consonants, or algorithm failures",  
+               options = c(  
+                 "To exclude likely extraction errors — formants are only meaningful during voiced vowels, and implausible values typically reflect unvoiced segments, consonants, or algorithm failures",  
+                 "Because ggplot2 cannot plot values outside this range",  
+                 "To reduce the file size of the plot",  
+                 "Because Whisper only transcribes speech in this frequency range"  
+               ),  
+               type = "radio",  
+               q_id = "ACO_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Automatic formant tracking runs on every analysis frame, including frames that fall on consonants, fricatives, stop closures, or silence — where the concept of a 'formant' is not linguistically meaningful. The algorithm produces numeric output for these frames anyway, but the values are unreliable. Filtering to physically plausible ranges (200–1000 Hz for F1 in adult speakers) removes the most obvious errors and leaves primarily vowel nuclei, where formant extraction is most reliable.",  
+               wrong = "Formant extraction algorithms produce values for every analysis frame, regardless of whether a vowel is present. What does filtering on plausible ranges remove?")  
+```  
+  
+---  
+  
+# Summary {#summary}  
+  
+This tutorial has covered the complete speech processing pipeline in R, from raw audio to linguistic analysis:  
+  
+**Audio handling** (`tuneR`): loading WAV files, inspecting sampling rate and duration, generating waveforms and spectrograms.  
+  
+**Voice Activity Detection** (`audio.whisper::vad()`): splitting recordings on natural pause boundaries using the Silero VAD model — the correct alternative to fixed-length chunking.  
+  
+**Automatic Speech Recognition** (`audio.whisper`): downloading Whisper models, transcribing audio in any of ~100 languages, obtaining time-aligned segment and token output, using VAD pre-filtering to reduce hallucination.  
+  
+**Translation** (`type = "translate"`): converting non-English speech directly to English text.  
+  
+**Speaker diarisation** (`diarize = TRUE`): labelling which speaker produced each segment, enabling conversation and interview analysis.  
+  
+**Post-processing**: cleaning Whisper output, parsing timestamps to seconds, saving in CSV, TXT, and SRT formats.  
+  
+**Acoustic feature extraction** (`seewave::formant()`): extracting vowel formants and visualising the vowel space, including targeted extraction for specific words using transcript timestamps.  
+  
+The unifying theme is the pipeline: each step produces structured data — timestamps, text, speaker labels, formant measurements — that can be combined with `dplyr` for linguistically meaningful analyses.  
+  
+---  
+  
+# Citation & Session Info {-}  
+  
+Schweinberger, Martin. 2026. *Speech Processing in R: Transcription and Analysis with Whisper*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/speechprocessing/speechprocessing.html (Version 2026.02.19).  
+  
+```  
+@manual{schweinberger2026speech,  
+  author       = {Schweinberger, Martin},  
+  title        = {Speech Processing in R: Transcription and Analysis with Whisper},  
+  note         = {https://ladal.edu.au/tutorials/speechprocessing/speechprocessing.html},  
+  year         = {2026},  
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
+  address      = {Brisbane},  
+  edition      = {2026.02.19}  
+}  
+```  
+  
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to HOME](/index.html)  
+  
+---  
