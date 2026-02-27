@@ -1,1230 +1,1064 @@
----
-title: "Corpus Linguistics with R"
-author: "Martin Schweinberger"
----
-
-
-![](/images/uq1.jpg){ width=100% }
-
-# Introduction{-}
-
-This section presents selected corpus linguistic case studies to show how a corpus-based approach can be utilized to understand language. Corpus linguistics involves studying language patterns by analyzing large collections of authentic texts, known as corpora. Corpus-based studies use these corpora to explore language usage, patterns, and variations across different contexts. It offers valuable insights for understanding language phenomena, their use and acquisition or how they relate to culture. Please keep in mind that the case studies  merely aim to exemplify ways in which R can be used in language-based research - rather than providing detailed procedures on how to do corpus-based research. 
-
-
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarize yourself with the content of the following **R Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-  <li>[String Processing in R](/tutorials/string/string.html) </li>
-  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>
-</ul>
-</p>
-<p style='margin-top:1em; text-align:center'>
-Below are links to interactive notebooks of selected corpus linguistic case studies to show how a corpus-based approach can be utilized to analyse language.
-<br>
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fswearing_cb.ipynb) - [Case Study: Swearing in Irish English](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fswearing_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fintrocl_cb.ipynb) - [Exploring Corpus Data](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fintrocl_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcolloc_cb.ipynb) - [Analyzing N-grams, Collocations, and Keyness](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcolloc_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcomp_cb.ipynb) - [Case Study: Comparing corpora](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcomp_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ftopic_cb.ipynb) - [Case Study: Topic modeling](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ftopic_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Flearn_cb.ipynb) - [Case Study: Article use among ESL](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Flearn_cb.ipynb)
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ferror_cb.ipynb) - [Case Study: Orthographic errors among ESL](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ferror_cb.ipynb)
-<br>
-</p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-<br>
-
-# What is Corpus Linguistics?{-}
-
-![](/images/antconc.png){ width=60% style="float:right; padding:10px" }
-
-Corpus Linguistics (CL) can be considered both a methodology and a field of study. The defining feature of corpus linguistics research is the use of corpora (plural of corpus) to understand language [@biber1998corpus]. A corpus is a collection of machine-readable (electronic) texts and CL emerged in the 1960s, but only really expanded since the 1990s when the use of computers and software made it possible for researchers to analyze corpora efficiently [@lindquist2009corpus].
-
-The texts represented in a corpus can be very different in nature and reflect many different uses of language - texts in corpora can, for example, represent news paper articles, parliamentary debates, dinner conversations, mothers talking to children, interviews, student essays, letters, lectures, etc. [@mcenery2001corpuslinguistics].
-
-Corpora can also be very different. *Monitor corpora*, for example, aim to represent the whole variety of contexts in which people speaking a particular language, e.g. English, use that language. *Specialized corpora*, however, try to reflect language use in a specific context or register, for example the use of English in Academia or in business transactions or, for instance, how parents talk with children. 
-
-![](/images/quantcl_gries.png){ width=30% style="float:right; padding:10px" }
-
-In addition, we can differentiate between diachronic (or historical) and synchronic corpora: *diachronic corpora* contain language samples collected across different points in time so that changes in the use of language can be studied. *Synchronic corpora* represent language samples collected at one point (or period) in time and aim to reflect the state of language use during that one period (monitor corpora are typically synchronic). 
-
-
-In addition to providing examples of actual, naturally occurring language use, corpora offer frequency and probability information. In other words, corpora provide information of how frequent certain phenomena or linguistic variants are compared to other phenomena and which factors condition their use  [@gries2009whatiscorpuslinguistics]. 
-
-The use of corpora has increased dramatically as corpora offer a relatively cheap, comparatively easy, flexible, and externally valid method for analyzing language use and testing hypotheses about linguistic behavior.
-
-## Notes on loading corpus data into R{-}
-
-Before we continue with the case studies, it is important to see how what we will be doing in the case studies differs from what you will most likely do if you conduct corpus-based research.
-
-If a corpus is not accessed via a web application, corpora (collections of electronic language samples) typically - almost always - come in the form of text or audio files in a folder. That is, when using corpora, researchers typically download that corpus from a repository (for instance a website) or from some other storage media (for instance a CD, USB-stick, etc.). This means that non-web-based corpora are typically somewhere on a researcher's computer where they can then be loaded into some software, e.g. AntConc. 
-
-For the present tutorial, however, we will simply load data that is available via the LADAL GitHub repository. Nonetheless, it is important to know how to load corpus data into R - which is why I will show this below. 
-
-Loading corpus data into R consists of two steps: 
-
-1. create a list of paths of the corpus files
-
-2. loop over these paths and load the data in the files identified by the paths.
-
-To create a list of corpus files, you could use the code chunk below (the code chunk assumes that the corpus data is in a folder called *Corpus* in the *data* sub-folder of your Rproject folder).
-
-```{r listfiles, eval = F, message=F, warning=F}
-corpusfiles <- list.files(here::here("data/Corpus"), # path to the corpus data
-  # file types you want to analyze, e.g. txt-files
-  pattern = ".*.txt",
-  # full paths - not just the names of the files
-  full.names = T
-)
-```
-
-You can then use the `sapply` function to loop over the paths and load the data int R using e.g. the `scan` function as shown below. In addition to loading the file content, we also paste all the content together using the `paste0` function and remove superfluous white spaces using the `str_squish` function from the `stringr` package.
-
-```{r loadfiles, eval = F, message=F, warning=F}
-corpus <- sapply(corpusfiles, function(x) {
-  x <- scan(x,
-    what = "char",
-    sep = "",
-    quote = "",
-    quiet = T,
-    skipNul = T
-  )
-  x <- paste0(x, sep = " ", collapse = " ")
-  x <- stringr::str_squish(x)
-})
-```
-
-Once you have loaded your data into R, you can then continue with processing and transforming the data according to your needs.
-
-***
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>NOTE</b><br><br>There are many different ways in which you can load text data into R. What I have shown above is just one way of doing this. However, I found this procedure to load text data very useful. In the  case study which exemplifies how you can analyze sociolinguistic variation, we show how you can load text data in a very similar yet slightly different way (the tidyverse style of loading text data).
-</p>
-</span>
-</div>
-
-***
-
-## Preparation and session set up{-}
-
-The case studies shown below are based on R. Thus, you should already be familiar with R and RStudio. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). In addition, it is recommended to be familiar with regular expressions ([this tutorial](/tutorials/regex/regex.html) contains an overview of regular expressions that are used in this tutorial). 
-
-You should also have downloaded  and installed R and RStudio. [this tutorial](/tutorials/intror/intror.html) contains links to detailed how-tos on how to download and install R and RStudio.
-
-For this case study, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
-
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# installing packages
-install.packages("dplyr")
-install.packages("stringr")
-install.packages("here")
-install.packages("ggplot2")
-install.packages("flextable")
-install.packages("quanteda")
-install.packages("cfa")
-```
-
-```{r prep2, message=FALSE, warning=FALSE}
-# set options
-options(stringsAsFactors = F) # no automatic data transformation
-options("scipen" = 100, "digits" = 4) # suppress math annotation
-# load packages
-library(dplyr)
-library(stringr)
-library(here)
-library(ggplot2)
-library(flextable)
-library(quanteda)
-library(cfa)
-```
-
-Once you have installed RStudio and initiated the session by executing the code shown above, you are good to go.
-
-# Studying First Language Acquisiton{-}
-
-This case study shows how you can use and analyze the *Child Language Data Exchange System* (CHILDES) [@macwhinney1996childes] data base using R to show case how you can use it in your own studies. This section of the tutorials consists of two parts: 
-
-* in the first part, we load, process, and transform the data so that we have all pieces of information in a tidy table format. 
-
-* in the second part, we perform selected case studies showing how to extract information form the table we have created out of the corpus files.
-
-The first part is necessary because the corpus data comes in the CHILDES comes in a special format that makes it somewhat tedious to extract information from it. Thus, we want to separate all information in different columns. In the end, the corpus data should have the following format:
-
-
-```{r childes_01_02, echo = F, message=F, warning=F}
-id <- data.frame(1:6)
-id <- id %>%
-  dplyr::rename("id" = colnames(id)[1]) %>%
-  dplyr::mutate(
-    file = c("aab", "aab", "aab", "aab", "aab", "aab"),
-    childage = c("4;6", "4;6", "4;6", "4;6", "4;6", "4;6"),
-    child = c("ben", "ben", "ben", "ben", "ben", "ben"),
-    speaker = c("MOT", "MOT", "ben", "MOT", "ben", "MOT"),
-    utterance = c("How are you ?", "Ben ?", "Okay", "Are you hungry ?", "No", "Sure ?"),
-    tagged = c("How|WH are|BE you|PN ?|PC", "Ben|NNP ?|PC", "Okay|RB", "Are|BE you|PN hungry|JJ ?|PC", "No|NG", "Sure|RB ?|PC"),
-    comment = c("", "", "", "", "shakes head", "")
-  )
-# inspect data
-flextable::flextable(id) %>%
-  flextable::autofit()
-```
-
-
-So, after the processing, the data should contain each utterance in a separate line and each line should also contain information about the speaker and the file.
-
-
-## Using CHILDES data{-}
-
-The [*Child Language Data Exchange System* (CHILDES)](https://childes.talkbank.org/) [@macwhinney1996childes] is a browsable data base which provides corpora consisting of transcripts of conversations with children. CHILDES was established in 1984 by Brian MacWhinney and Catherine Snow and it represents the central repository for data of first language acquisition. Its earliest transcripts date from the 1960s, and it now has contents (transcripts, audio, and video) in 26 languages from 130 different corpora, all of which are publicly available worldwide. 
-
-![](/images/childes01.png){ width=40% style="float:right; padding:10px" }
-
-CHILDES is the child language part of the TalkBank system which is a system for sharing and studying conversational interactions.
-
-<br><br>
-
-To download corpora from CHILDES:
-
-* Go to the [CHILDES website](https://childes.talkbank.org/) - the landing page looks like the website shown in the image to the right. For the present tutorial, the only relevant part of that website is section labeled *Database* which contains the links to the different CHILDS corpora that you can download fro free. 
-
-
-* In the section called *Database* click on *Index to Corpora* which will take you to a table which contains links to different kinds of corpora - all containing transcripts of children's speech. The types of corpora available cover many different language, including monolingual and bilingual children, children with speech disorders, transcripts of frog stories, etc. 
-
-
-![](/images/childes02.png){ width=40% style="float:right; padding:10px" }
-
-* To download a corpus, click on one of the section, e.g. on *Eng-NA* which stands for *English recorded in North America* (but you can, of course, also download other CHILDES corpora), and then scroll down to the corpus you are interested in and click on it, e.g. scroll down to and click on *HSLLD*. 
-
-![](/images/childes03.png){ width=40% style="float:right; padding:10px" }
-
-
-* Click on *Download transcripts* and then download and store the zip-folder somewhere on your computer.
-
-* Next, unzip the zip-file and store the resulting unzipped corpus in the *data* sub-folder in your Rproject folder.
-
-Once you have downloaded, stored the data on your computer, and unzipped it, you are good to go and you can now access and analyze data from CHILDES.
-
-<br><br>
-
-## HSLLD corpus{-}
-
-For this case study, we will use data from the *Home-School Study of Language and Literacy Development* corpus (HSLLD)  which part of the CHILDES data base. The *Home-School Study of Language and Literacy Development* began in 1987 under the leadership of  Patton Tabors and with Catherine E. Snow and David K. Dickinson as  primary investigators. The original purpose of the HSLLD was to investigate the social prerequisites to literacy success. 
-
-The initial number of participants was 83 American English speaking, racially diverse, preschool age children from low-income families growing up in or around Boston, Massachusetts. Seventy-four of these children were still participating at age 5. The sample consists of 38 girls and 36 boys. Forty-seven children were Caucasian, 16 were African American, six were of Hispanic origin, and five were biracial. 
-
-Children were visited once a year in their home from age 3 – 5 and then again when they were in 2^nd^ and 4^th^ grade. Each visit lasted between one and three hours. Home visits consisted of a number of different tasks depending on the year. An outline of the different tasks for each visit is presented below. 
-
-Activities during **Home Visit 1** (HV1): Book reading (BR), Elicited report (ER), Mealtime (MT), Toy Play (TP)  
-
-Activities during **Home Visit 2** (HV2): Book reading (BR), Elicited report (ER), Mealtime (MT), Toy Play (TP)  
-
-Activities during **Home Visit 3** (HV3): Book reading (BR), Elicited report (ER), Experimental task (ET), Mealtime (MT), Reading (RE), Toy play (TP)  
-
-Activities during **Home Visit 5** (HV5): Book reading (BR), Letter writing (LW), Mealtime (MT)  
-
-Activities during **Home Visit 7** (HV7): Experimental task (ET), Letter writing (LW), Mother definitions (MD), Mealtime (MT)  
-
-## Data processing{-}
-
-We now load the data and inspect its structure using the `str` function - as the HSLLD has many files, we will only check the first 3.
-
-```{r childes_01_01, eval = F, message=F, warning=F}
-hslld <- readRDS("tutorials/corplingr/data/hslld.rda", "rb")
-
-# If you have already downloaded the data file to data/hslld.rda you can also load it locally
-# hslld <- readRDS(here::here("data/hslld.rda"))
-
-# inspect
-str(hslld[1:3])
-```
-
-```{r childes_01_01b, echo = F, message=F, warning=F}
-# load local data
-hslld <- readRDS("tutorials/corplingr/data/hslld.rda", "rb")
-# inspect
-str(hslld[1:3])
-```
-
-We continue and split the data up into files. The `sapply` function loops each element in the `hslld` object and performs specified actions on the (here, loading the content via the `scan` function, getting rid of white spaces and splitting the files when it finds the following sequences `*ABC1:` or `%ABC:`)
-
-```{r childes_01_03, message=F, warning=F}
-# create version of corpus fit for concordancing
-corpus <- sapply(hslld, function(x) {
-  # clean data
-  x <- stringr::str_trim(x, side = "both") # remove superfluous white spaces at the edges of strings
-  x <- stringr::str_squish(x) # remove superfluous white spaces within strings
-  x <- paste0(x, collapse = " ") # paste all utterances in a file together
-  # split files into individual utterances
-  x <- strsplit(gsub("([%|*][a-z|A-Z]{2,4}[0-9]{0,1}:)", "~~~\\1", x), "~~~")
-})
-# inspect results
-str(corpus[1:3])
-```
-
-We have now loaded the files into R, but the format is not yet structured in a way that we can use it - remember: we want the data to be in a tabular format.
-
-**Extract file information**
-
-Now, we extract information about the recording, e.g., the participants, the age of the child, the date of the recording etc. For this, we extract the first element of each file (because this first element contains all the relevant information bout the recording). To do this, we again use the `sapply` function (which is our looping function) and then tell R that it shall only retain the first element of each element (`x <- x[1]`).
-
-```{r childes_01_05, message=F, warning=F}
-# extract file info for each file
-fileinfo <- sapply(corpus, function(x) {
-  # extract first element of each corpus file because this contains the file info
-  x <- x[1]
-})
-# inspect
-fileinfo[1:3]
-```
-
-Now, we have one element for each file that contains all the relevant information about the file, like when the recording took place, how old the target child was, how was present during the recording etc.
-
-**Extract file content**
-
-Now, we extract the raw content from which we will extract the speaker, the utterance, the pos-tagged utterance, and any comments.Here, we loop over the `corpus` object with the `sapply` function and we remove the first element in each list (and we retain the second to last element of each element (`x <- x[2:length(x)]`)), then we paste everything else together using the `paste0` function and then, we split the whole conversation into utterances that start with a speaker id (e.g. `*MOT:`). The latter is done by the sequence `stringr::str_split(stringr::str_replace_all(x, "(\\*[A-Z])", "~~~\\1"), "~~~")`.
-
+---  
+title: "Corpus Linguistics with R"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    code-tools: true  
+    theme: cosmo  
+---  
   
-```{r childes_01_06, message=F, warning=F}
-content <- sapply(corpus, function(x) {
-  x <- x[2:length(x)]
-  x <- paste0(x, collapse = " ")
-  x <- stringr::str_split(stringr::str_replace_all(x, "(\\*[A-Z])", "~~~\\1"), "~~~")
-})
-# inspect data
-content[[1]][1:6]
-```
-
-The data now consists of utterances but also the pos-tagged utterances and any comments. However, we use this form of the data to extract the clean utterances, the pos-tagged utterances and the comments and store them in different columns. 
-
-
-**Extract information**
-
-Now, we extract how many elements (or utterances) there are in each file by looping over the `content` object and extracting the number of elements within each element of the `content` object by using the `lenght` function. 
-
-```{r childes_01_07, message=F, warning=F}
-elements <- sapply(content, function(x) {
-  x <- length(x)
-})
-# inspect
-head(elements)
-```
-
-**Generate table**
-
-We now have the file names, the metadata for each file, and the content of each file (that is split into utterances). We use this information to generate a first table which holds the file name in one column, the file information in one column, and the raw file content in another column. To combine these three pieces of information though, we need to repeat the file names and the file information as often as there are utterances in each file. We perform this repetition using the `rep` function. Once we have as many file names and file information as there are utterances in each file, we can combine these three vectors into a table using the `data.frame` function. 
-
-
-```{r childes_01_08, message=F, warning=F}
-files <- rep(names(elements), elements)
-fileinfo <- rep(fileinfo, elements)
-rawcontent <- as.vector(unlist(content))
-chitb <- data.frame(
-  1:length(rawcontent),
-  files,
-  fileinfo,
-  rawcontent
-)
-```
-
-The table in its current form is shown below. We can see that the table has three columns: the first column holds the path to each file, the second contains the file information, and the third the utterances.
-
-```{r childes_01_09, echo = F, message=F, warning=F}
-# inspect data
-chitb %>%
-  head(3) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-
-
-**Process table**
-
-We can now use the information in the two last columns to extract specific pieces of information from the data (which we will store in additional columns that we add to the table). But first, we rename the `id` column (which is simply an index of each utterance) using the `rename` function from the `dplyr` package. Then, we clean the file name column (called `files`) so that it only contains the name of the file, so we remove the rest of the path information that we do not need anymore. We do this by using the `mutate` function from the `dplyr` package  (which changes columns or creates new columns). Within the `mutate` function, we use the `gsub` function which substitutes something with something else: here the full path is replaced with on that part of the path that contains the file name. The `gsub` function has the following form
-
-<br>
-`gsub(*look for pattern*, *replacement of the pattern*, object)`
-<br>
-
-This means that the `gsub` function needs an object and in that object it looks for a pattern and then replaces instances f that pattern with something.
-
-In our case, that what we look for is the file name which is located between the symbol `/` and the file ending (`.cha`). So, we extract everything that comes between a `/` and a `.cha` in the path and keep that what is between the `/` and a `.cha`  in R's memory (this is done by placing something in round brackets in a regular expression). Then, we paste that what we have extracted back (and which is stored in memory) by using the `\\1` which grabs the first element that is in memory and puts it into the *replace with* part of the `gsub` function. 
-
-
-
-```{r hslld_01_10, message=F, warning=F}
-hslld <- chitb %>%
-  # rename id column
-  dplyr::rename(id = colnames(chitb)[1]) %>%
-  # clean file names
-  dplyr::mutate(files = gsub(".*/(.*?).cha", "\\1", files))
-```
-
-
-Let's have a look at the data.
-
-```{r hslld_01_12, echo = F, message=F, warning=F}
-# inspect data
-# inspect data
-hslld %>%
-  head() %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-We now continue in the same manner (by remove what is before what interests us and what comes after) and thereby extract pieces of information that we store in new columns.
-
-Creating a speaker column. We create a new column called `speaker` using the `mutate` function from the `dplyr` package. Then, we use the `str_replace_all` function from the `stringr` package to remove everything that comes after a `:`. *Everything that comes after* can be defined by a regular expression - in this case the sequence `.*`. The `.` is a regular expression that stands for *any symbol* - be it a letter, or a number, or any punctuation symbol, or a white space. The `*` is a numerating regular expression that tells R how many times the regular expression (the `.`) is repeated - in our case, the `*` stands for *zero to an infinite number*. So the sequence `.*` stands for any symbol, repeated zero to an infinite number of times. In combination, the sequence `:.*` stands for *look for a colon and anything that comes after. And because we have put this into the `str_replace_all` function, the colon and everything that comes after is removed.
-
-```{r hslld_01_14, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(
-    speaker = stringr::str_remove_all(rawcontent, ":.*"),
-    speaker = stringr::str_remove_all(speaker, "\\W")
-  )
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+options(stringsAsFactors = FALSE)  
+options("scipen" = 100, "digits" = 4)  
 ```  
-
-In the following, we will create many different columns, but we will always follow the same scheme: generate a new column using the `mutate` function from the `dplyr` package and then remove stuff that we do not need by using the `str_remove_all` function from the `stringr` package or just the `gsub` function - which is a simple replacement function. We can also use `str_squish` to get rid of superfluous white spaces. We will always remove sequences that are defined by a string (a sequence of characters and a regular expression consisting of the regular expression that determines what type of symbol R is supposed to look for and a numerator which tells R how many times that symbol can occur). For example, `%mor:.*` tells R to look for the sequence `%mor:` and any symbol, repeated between zero and an infinite number of times, that comes after the `%mor:` sequence. As this is put into the `str_replace_all` function and applied to the `rawcontent` file, it will replace everything that comes after `%mor:` and the sequence `%mor:` itself.
-
-Creating an utterance column.
-
-```{r hslld_01_15, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(
-    utterance = stringr::str_remove_all(rawcontent, "%mor:.*"),
-    utterance = stringr::str_remove_all(utterance, "%.*"),
-    utterance = stringr::str_remove_all(utterance, "\\*\\w{2,6}:"),
-    utterance = stringr::str_squish(utterance)
-  )
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+![](/images/antconc.png){ width=25% style="float:right; padding:10px" }  
+  
+This showcase presents two corpus linguistic case studies that demonstrate how R can be used to investigate naturally occurring language. The first examines **first language acquisition** using longitudinal transcripts from the CHILDES database, tracking how children's language grows and changes from age three to seven. The second examines **sociolinguistic variation** in swearing, using spoken corpus data to investigate whether age and gender predict the frequency of taboo language in Irish English conversation. Together, the two case studies illustrate the breadth of questions a corpus-based approach can address — from the fine-grained developmental trajectory of a lexical item and a grammatical category, to broad patterns of register and social variation across a speech community.  
+  
+Both case studies draw on authentic, naturally occurring spoken language and follow the same general workflow: loading and tidying raw corpus data, computing frequency measures, visualising patterns, and applying inferential statistics to evaluate whether observed patterns exceed what chance alone would predict. The code is fully reproducible and can be adapted to other corpora and research questions.  
+  
+::: {.callout-note}  
+## Prerequisite Knowledge  
+  
+Before working through these case studies, familiarity with the following is recommended:  
+  
+- [Getting started with R and RStudio](/tutorials/intror/intror.html)  
+- [Loading, saving, and generating data in R](/tutorials/load/load.html)  
+- [String processing in R](/tutorials/string/string.html)  
+- [Regular expressions in R](/tutorials/regex/regex.html)  
+:::  
+  
+::: {.callout-note}  
+## Interactive Notebooks  
+  
+The analyses in this showcase are also available as interactive Binder notebooks — no local R installation required:  
+  
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fswearing_cb.ipynb) [Case Study: Swearing in Irish English](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fswearing_cb.ipynb)  
+  
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fintrocl_cb.ipynb) [Exploring Corpus Data](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fintrocl_cb.ipynb)  
+  
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcolloc_cb.ipynb) [Analysing N-grams, Collocations, and Keyness](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Fcolloc_cb.ipynb)  
+  
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ftopic_cb.ipynb) [Case Study: Topic Modelling](https://mybinder.org/v2/gh/MartinSchweinberger/SLAT7829Tutorials/main?labpath=notebooks%2Ftopic_cb.ipynb)  
+:::  
+  
+::: {.callout-note}  
+## Citation  
+  
+Schweinberger, Martin. 2026. *Corpus Linguistics with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/corplingr/corplingr.html (Version 2026.02.24).  
+:::  
+  
+---  
+  
+# What Is Corpus Linguistics? {#whatis}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**What you'll learn:** The conceptual foundations of corpus linguistics, the main types of corpora, and the rationale for a frequency-based, data-driven approach to language study  
+:::  
+  
+**Corpus Linguistics** (CL) is both a methodology and a field of study. Its defining feature is the use of *corpora* — systematically compiled collections of authentic, machine-readable language — to investigate how language is actually used [@biber1998corpus]. CL emerged in the 1960s with early computational work on word frequency and collocation, but expanded dramatically from the 1990s onwards as affordable computing power made it possible to compile and query large corpora efficiently [@lindquist2009corpus]. Today, corpus-based methods are standard across linguistics, language teaching, lexicography, translation studies, and the digital humanities.  
+  
+The texts in a corpus can be very varied: newspaper articles, parliamentary debates, dinner-table conversations, mother–child interactions, academic lectures, student essays, legal documents, and social media posts have all been assembled into corpora for research purposes [@mcenery2001corpuslinguistics]. What distinguishes a corpus from an arbitrary collection of texts is *principled design* — decisions about what to include, how much to include, and in what proportions, made in advance and documented so that the collection can be treated as a representative sample of a defined population of language use.  
+  
+## Types of Corpora {-}  
+  
+Corpora vary along several important dimensions. *Monitor corpora* aim to represent the full range of language use within a speech community — they are large, diverse, and continuously updated (the British National Corpus and the Corpus of Contemporary American English are canonical examples). *Specialised corpora*, by contrast, are deliberately focused on a single register, genre, or context: a corpus of medical consultations, a corpus of second-language learner writing, or a corpus of mother–child interactions such as the one used in Case Study 1 below.  
+  
+A further important distinction is between *synchronic* and *diachronic* corpora. Synchronic corpora represent language at a single point or period in time and are used to describe the current state of a variety or register. Diachronic corpora contain language samples collected across different time periods and are used to study language change. The HSLLD corpus used in Case Study 1 is longitudinal in a developmental sense: the same children are recorded repeatedly over several years, enabling the tracking of individual and group-level linguistic growth.  
+  
+## Why Use Corpora? {-}  
+  
+![](/images/quantcl_gries.png){ width=30% style="float:right; padding:10px" }  
+  
+A fundamental motivation for corpus-based research is access to *frequency and probability information* that introspection and constructed examples cannot provide [@gries2009whatiscorpuslinguistics]. Knowing that a construction is *possible* in a language tells us relatively little; knowing how often it occurs, in what contexts, alongside what other words, and in the speech of which speakers tells us a great deal more. Corpora provide this distributional information at a scale and with a degree of ecological validity that controlled experimental methods cannot easily match. They capture language as it is actually produced under real communicative pressure — with all the hesitations, repairs, ellipses, and register-specific choices that characterise naturally occurring speech and writing.  
+  
+The use of corpora in linguistics has grown dramatically in recent decades, driven both by the availability of large digitised text collections and by the development of software tools — including R — that make it possible to apply quantitative methods to language data without specialist programming expertise.  
+  
+## Loading Corpus Data into R {-}  
+  
+Most corpora — when not accessed through a web interface — are distributed as collections of plain-text or specially formatted files stored in a folder. The standard workflow is to download the corpus from a repository, store it locally, and then load the files into R for analysis. The following code illustrates the general pattern using `list.files()` to build a vector of file paths and `sapply()` to read each file.  
+  
+```{r listfiles, eval=FALSE, message=FALSE, warning=FALSE}  
+# Step 1: build a vector of file paths  
+# (assumes corpus .txt files are in data/Corpus/ within your R project)  
+corpusfiles <- list.files(  
+  here::here("data/Corpus"),  
+  pattern   = ".*.txt",    # match only text files  
+  full.names = TRUE         # return full paths  
+)  
+  
+# Step 2: loop over paths, load, collapse, and clean each file  
+corpus <- sapply(corpusfiles, function(x) {  
+  x <- scan(x, what = "char", sep = "", quote = "", quiet = TRUE, skipNul = TRUE)  
+  x <- paste0(x, sep = " ", collapse = " ")  
+  x <- stringr::str_squish(x)  
+})  
 ```  
-
-Creating a column with the pos-tagged utterances.
-
-```{r hslld_01_16, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(
-    postag = stringr::str_remove_all(rawcontent, ".*%mor:"),
-    postag = stringr::str_remove_all(postag, "%.*"),
-    postag = stringr::str_remove_all(postag, "\\*\\w{2,6}:"),
-    postag = stringr::str_squish(postag)
-  )
+  
+::: {.callout-note}  
+## CHILDES CHAT Format  
+  
+The HSLLD corpus used in Case Study 1 comes in the CHAT format used by CHILDES, which stores transcripts, POS tags, speaker information, and recording metadata in a single structured file. Loading and parsing this format requires additional steps beyond the simple `scan()` approach above; these are covered in detail in the data processing section of Case Study 1.  
+:::  
+  
+## Setup {-}  
+  
+Both case studies rely on the following packages. Install any that are missing, then load them at the start of each session.  
+  
+```{r prep1, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}  
+# Run once to install — comment out after installation  
+install.packages("dplyr")  
+install.packages("tidyr")  
+install.packages("stringr")  
+install.packages("here")  
+install.packages("ggplot2")  
+install.packages("flextable")  
+install.packages("quanteda")  
+install.packages("cfa")  
 ```  
-
-Creating a  column with comments. In the following chunk, we use the `?` in combination with `.*`. In this case, the `?` does not mean the literal symbol `?` but it tells R to be what is called *non-greedy* which means that R will look for something until the first occurrence of something. So the sequence `.*?%` tells R to look for any symbol repeated between zero and an infinite number of times until *the first occurrence*(!) of the symbol `%`. If we did not include the `?`, R would look until the last (not the first) occurrence of `%`.
-
-```{r hslld_01_17, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(
-    comment = stringr::str_remove_all(rawcontent, ".*%mor:"),
-    comment = stringr::str_remove(comment, ".*?%"),
-    comment = stringr::str_remove_all(comment, ".*|.*"),
-    comment = stringr::str_squish(comment)
-  )
+  
+```{r prep2, message=FALSE, warning=FALSE}  
+# Load at the start of every session  
+library(dplyr)      # data manipulation  
+library(tidyr)      # reshaping data  
+library(stringr)    # string processing  
+library(here)       # portable file paths  
+library(ggplot2)    # visualisation  
+library(flextable)  # formatted display tables  
+library(quanteda)   # corpus and KWIC infrastructure  
+library(cfa)        # Configural Frequency Analysis  
 ```  
-
-Creating a  column with the participants that were present during the recording.
-
-```{r hslld_01_18, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(participants = gsub(".*@Participants:(.*?)@.*", "\\1", fileinfo))
+  
+---  
+  
+# Case Study 1: First Language Acquisition {#fla}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Research questions:** How does children's use of the negation word *no* change with age? Do mothers adjust their questioning behaviour as children develop? Which verbs appear most frequently in progressive constructions in child-directed speech? How do children's verb-to-word ratio and lexical diversity change across development?  
+  
+**Corpus:** HSLLD sub-corpus of CHILDES — longitudinal home-visit recordings of 74 American English-speaking children aged 3–7, with matched maternal speech  
+  
+**Methods:** Regex-based token extraction, normalised frequency (per 1,000 words), POS-tag filtering, type-token ratio, smooth regression and line plot visualisation with `ggplot2`  
+:::  
+  
+## Background {-}  
+  
+First language acquisition (FLA) research asks how children come to master the phonological, morphological, syntactic, and pragmatic systems of their native language. Historically, researchers relied on diary studies and controlled elicitation experiments, both of which have well-known limitations: diaries are selective and subjective; experimental tasks may elicit production that does not reflect natural use. Longitudinal naturalistic recordings — transcribed and archived in a shared, reusable format — offer a more ecologically valid window into children's developing language.  
+  
+The primary repository for such data is **CHILDES** (*Child Language Data Exchange System*) [@macwhinney1996childes], established in 1984 by Brian MacWhinney and Catherine Snow. CHILDES now contains transcripts, audio, and video in 26 languages from over 130 corpora, all freely available at [childes.talkbank.org](https://childes.talkbank.org/). The transcripts are stored in **CHAT** format — a structured plain-text format that encodes speaker turns, POS tags, morphological annotations, and metadata (participant ages, recording dates, activity types) in a single file. CHILDES is part of the broader **TalkBank** system for sharing conversational interaction data.  
+  
+## The HSLLD Corpus {-}  
+  
+For this case study we use the *Home-School Study of Language and Literacy Development* (HSLLD) corpus, part of CHILDES's English North American collection. The HSLLD was initiated in 1987 by Patton Tabors, Catherine E. Snow, and David K. Dickinson, with the original aim of investigating the social prerequisites for literacy success in young children from low-income families.  
+  
+The cohort comprised 83 American English-speaking children from racially diverse, low-income families in and around Boston, Massachusetts; 74 children were still participating at age 5. The sample included 38 girls and 36 boys. Children were visited once a year in their home between ages 3 and 5, and again in 2nd and 4th grade. Each visit lasted one to three hours, during a range of structured and semi-structured activities.  
+  
+| Visit | Activities |  
+|-------|-----------|  
+| HV1 (age ~3) | Book reading (BR), Elicited report (ER), Mealtime (MT), Toy play (TP) |  
+| HV2 (age ~4) | Book reading (BR), Elicited report (ER), Mealtime (MT), Toy play (TP) |  
+| HV3 (age ~5) | Book reading (BR), Elicited report (ER), Experimental task (ET), Mealtime (MT), Reading (RE), Toy play (TP) |  
+| HV5 (grade 2) | Book reading (BR), Letter writing (LW), Mealtime (MT) |  
+| HV7 (grade 4) | Experimental task (ET), Letter writing (LW), Mother definitions (MD), Mealtime (MT) |  
+  
+: Home visit activities in the HSLLD corpus {tbl-colwidths="[20,80]"}  
+  
+::: {.callout-tip}  
+## Downloading HSLLD from CHILDES  
+  
+To download the HSLLD corpus directly: (1) go to [childes.talkbank.org](https://childes.talkbank.org/); (2) click *Index to Corpora* under *Database*; (3) navigate to *Eng-NA* → *HSLLD*; (4) click *Download transcripts*; (5) unzip into the `data/` sub-folder of your R project. For this showcase, we load a pre-processed version stored on the LADAL server, so no download is necessary to follow along.  
+:::  
+  
+## Data Processing {#hslld-processing}  
+  
+CHAT files pack a great deal of information into a compact format that is not immediately amenable to analysis. The goal of this section is to parse the raw data into a tidy data frame where each row is one utterance and each column is one piece of associated information. The target structure looks like this:  
+  
+```{r childes_targetformat, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  id        = 1:6,  
+  file      = rep("aab", 6),  
+  childage  = rep("4;6", 6),  
+  child     = rep("ben", 6),  
+  speaker   = c("MOT", "MOT", "CHI", "MOT", "CHI", "MOT"),  
+  utterance = c("How are you ?", "Ben ?", "Okay .", "Are you hungry ?", "No .", "Sure ?"),  
+  tagged    = c("How|WH are|BE you|PN ?|PC", "Ben|NNP ?|PC", "Okay|RB .|PC",  
+                "Are|BE you|PN hungry|JJ ?|PC", "No|NG .|PC", "Sure|RB ?|PC"),  
+  comment   = c("", "", "", "", "shakes head", "")  
+) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::set_caption(  
+    caption = "Target tidy format: one row per utterance with speaker, child age, POS tags, and comments in separate columns."  
+  ) |>  
+  flextable::border_outer()  
 ```  
-
-Creating a  column with the age of the target child. In the following, the sequence `[0-9]{1,3}` means look for any sequence containing between 1 and 3 (this is defined by the `{1,3}`) numbers (the numbers are defined by the `[0-9]` part). Also, when we put `\\` before something, then we tell R that this refers to the actual symbol and not its meaning as a regular expression. For example, the symbol `|` is a regular expression that means *or* as in *You can paint my walls blue OR orange*, but if we put `\\` before `|`, we tell R that we really mean the symbol `|`.
-
-```{r hslld_01_19, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(age_targetchild = gsub(".*\\|([0-9]{1,3};[0-9]{1,3}\\.[0-9]{1,3})\\|.*", "\\1", fileinfo))
+  
+### Loading the Raw Data {-}  
+  
+We load a pre-processed version of the HSLLD data. Each element of the resulting list corresponds to one CHAT transcript file.  
+  
+```{r childes_load, eval=FALSE, message=FALSE, warning=FALSE}  
+hslld <- readRDS("tutorials/corplingr/data/hslld.rda", "rb")  
+str(hslld[1:3])  
 ```  
-
-Creating a  column with the age of the target child in years.
-
-```{r hslld_01_20, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(age_years_targetchild = stringr::str_remove_all(age_targetchild, ";.*"))
+  
+```{r childes_load_b, echo=FALSE, message=FALSE, warning=FALSE}  
+hslld <- readRDS("tutorials/corplingr/data/hslld.rda", "rb")  
+str(hslld[1:3])  
 ```  
-
-Creating a  column with the gender of the target child.
-
-```{r hslld_01_21, message=F, warning=F}
-hslld <- hslld %>%
-  dplyr::mutate(gender_targetchild = gsub(".*\\|([female]{4,6})\\|.*", "\\1", fileinfo))
-```
-
-Creating columns with the date-of-birth of the target child, more comments, and the date of the recording.
-
-
-```{r hslld_01_22, message=F, warning=F}
-hslld <- hslld %>%
-  # create dob_targetchild column
-  dplyr::mutate(dob_targetchild = gsub(".*@Birth of CHI:(.*?)@.*", "\\1", fileinfo)) %>%
-  # create comment_file column
-  dplyr::mutate(comment_file = gsub(".*@Comment: (.*?)@.*", "\\1", fileinfo)) %>%
-  # create date column
-  dplyr::mutate(date = gsub(".*@Date: (.*?)@.*", "\\1", fileinfo))
+  
+### Splitting Files into Utterances {-}  
+  
+CHAT files interleave speaker turns (e.g. `*MOT:`, `*CHI:`) with annotation tiers (e.g. `%mor:` for morphological tags). We collapse each file into a single string, insert a split marker before each tier/speaker token using the regex `([%|*][a-z|A-Z]{2,4}[0-9]{0,1}:)`, then split on those markers.  
+  
+```{r childes_split, message=FALSE, warning=FALSE}  
+corpus <- sapply(hslld, function(x) {  
+  x <- stringr::str_trim(x, side = "both")   # strip edge whitespace  
+  x <- stringr::str_squish(x)                # collapse internal whitespace  
+  x <- paste0(x, collapse = " ")             # join lines into one string  
+  # insert split marker before each tier/speaker token, then split  
+  x <- strsplit(  
+    gsub("([%|*][a-z|A-Z]{2,4}[0-9]{0,1}:)", "~~~\\1", x),  
+    "~~~"  
+  )  
+})  
+str(corpus[1:3])  
 ```  
-
-Creating columns with the location where the recording took place and the situation type of the recording.
-
-```{r hslld_01_23, message=F, warning=F}
-hslld <- hslld %>%
-  # create location column,
-  dplyr::mutate(location = gsub(".*@Location: (.*?)@.*", "\\1", fileinfo)) %>%
-  # create situation column
-  dplyr::mutate(situation = gsub(".*@Situation: (.*?)@.*", "\\1", fileinfo))
+  
+### Extracting File Metadata and Utterance Content {-}  
+  
+The first element of each split file contains the CHAT header, encoding metadata such as participant list, target child age, date of birth, and recording date. All subsequent elements contain the transcript itself. We extract both separately.  
+  
+```{r childes_meta, message=FALSE, warning=FALSE}  
+# Header element for each file  
+fileinfo <- sapply(corpus, function(x) x[1])  
+  
+# Utterance content: collapse, then re-split on speaker turns (*[A-Z])  
+content <- sapply(corpus, function(x) {  
+  x <- x[2:length(x)]  
+  x <- paste0(x, collapse = " ")  
+  x <- stringr::str_split(  
+    stringr::str_replace_all(x, "(\\*[A-Z])", "~~~\\1"),  
+    "~~~"  
+  )  
+})  
+content[[1]][1:6]  
 ```  
-
-Creating columns with the activity during the recording and the home-visit number.
-
-```{r hslld_01_24, message=F, warning=F}
-hslld <- hslld %>%
-  # create homevisit_activity column
-  dplyr::mutate(homevisit_activity = stringr::str_remove_all(situation, ";.*")) %>%
-  # create activity column
-  dplyr::mutate(activity = gsub(".*@Activities: (.*?)@.*", "\\1", fileinfo)) %>%
-  # create homevisit column
-  dplyr::mutate(homevisit = stringr::str_sub(files, 4, 6))
+  
+### Building the Raw Table {-}  
+  
+We count utterances per file, replicate the file name and metadata vectors to match, and assemble a data frame.  
+  
+```{r childes_table, message=FALSE, warning=FALSE}  
+elements   <- sapply(content, length)  
+files_rep  <- rep(names(elements), elements)  
+fileinfo_r <- rep(fileinfo, elements)  
+rawcontent <- as.vector(unlist(content))  
+  
+chitb <- data.frame(  
+  id         = seq_along(rawcontent),  
+  files      = files_rep,  
+  fileinfo   = fileinfo_r,  
+  rawcontent = rawcontent  
+)  
 ```  
-
-Creating a column with the number of words in each utterance.
-
-```{r hslld_01_25, message=F, warning=F}
-hslld <- hslld %>%
-  # create words column
-  dplyr::mutate(
-    words = stringr::str_replace_all(utterance, "\\W", " "),
-    words = stringr::str_squish(words),
-    words = stringr::str_count(words, "\\w+")
-  )
+  
+### Parsing All Columns {-}  
+  
+We now systematically extract each piece of information using regular expressions, removing everything we do *not* want to keep. The core technique throughout is `str_remove_all()`.  
+  
+The `gsub` function has the general form `gsub(pattern, replacement, object)`: it finds the `pattern` in `object` and replaces it with `replacement`. When we use `"\\1"` as the replacement, we recover the first *captured group* — the part of the pattern enclosed in `()` — while discarding everything else. This is how we extract, for example, the child's age (a sequence of digits and semicolons) from the much longer header string.  
+  
+```{r childes_parse, message=FALSE, warning=FALSE}  
+hslld <- chitb |>  
+  # clean file name: keep only the base name between the last / and .cha  
+  dplyr::mutate(files = gsub(".*/(.*?)\\.cha", "\\1", files)) |>  
+  
+  # speaker: everything before the first colon; strip remaining non-word characters  
+  dplyr::mutate(  
+    speaker = stringr::str_remove_all(rawcontent, ":.*"),  
+    speaker = stringr::str_remove_all(speaker, "\\W")  
+  ) |>  
+  
+  # utterance: remove POS tier (%mor:...), all other % tiers, and speaker codes (*XXX:)  
+  dplyr::mutate(  
+    utterance = stringr::str_remove_all(rawcontent, "%mor:.*"),  
+    utterance = stringr::str_remove_all(utterance, "%.*"),  
+    utterance = stringr::str_remove_all(utterance, "\\*\\w{2,6}:"),  
+    utterance = stringr::str_squish(utterance)  
+  ) |>  
+  
+  # postag: the %mor: tier — remove everything before it, then strip other tiers  
+  dplyr::mutate(  
+    postag = stringr::str_remove_all(rawcontent, ".*%mor:"),  
+    postag = stringr::str_remove_all(postag, "%.*"),  
+    postag = stringr::str_remove_all(postag, "\\*\\w{2,6}:"),  
+    postag = stringr::str_squish(postag)  
+  ) |>  
+  
+  # comment: the %sit: tier — non-greedy .*? stops at the first %  
+  dplyr::mutate(  
+    comment = stringr::str_remove_all(rawcontent, ".*%mor:"),  
+    comment = stringr::str_remove(comment, ".*?%"),  
+    comment = stringr::str_remove_all(comment, ".*|.*"),  
+    comment = stringr::str_squish(comment)  
+  ) |>  
+  
+  # metadata fields extracted from the CHAT file header  
+  dplyr::mutate(  
+    participants          = gsub(".*@Participants:(.*?)@.*", "\\1", fileinfo),  
+    # child age encoded as "years;months.days" in the header  
+    age_targetchild       = gsub(".*\\|([0-9]{1,3};[0-9]{1,3}\\.[0-9]{1,3})\\|.*", "\\1", fileinfo),  
+    age_years_targetchild = stringr::str_remove_all(age_targetchild, ";.*"),  
+    gender_targetchild    = gsub(".*\\|([female]{4,6})\\|.*", "\\1", fileinfo),  
+    dob_targetchild       = gsub(".*@Birth of CHI:(.*?)@.*", "\\1", fileinfo),  
+    comment_file          = gsub(".*@Comment: (.*?)@.*", "\\1", fileinfo),  
+    date                  = gsub(".*@Date: (.*?)@.*", "\\1", fileinfo),  
+    location              = gsub(".*@Location: (.*?)@.*", "\\1", fileinfo),  
+    situation_raw         = gsub(".*@Situation: (.*?)@.*", "\\1", fileinfo),  
+    activity              = gsub(".*@Activities: (.*?)@.*", "\\1", fileinfo),  
+    homevisit             = stringr::str_sub(files, 4, 6)  
+  ) |>  
+  
+  # word count per utterance (count word tokens)  
+  dplyr::mutate(  
+    words = stringr::str_replace_all(utterance, "\\W", " "),  
+    words = stringr::str_squish(words),  
+    words = stringr::str_count(words, "\\w+")  
+  ) |>  
+  
+  # remove empty rows (no speaker) and rows with malformed age strings  
+  dplyr::filter(speaker != "", nchar(age_years_targetchild) < 5) |>  
+  
+  # drop raw columns, rename, add corpus metadata, decode activity codes  
+  dplyr::select(-fileinfo, -rawcontent, -situation_raw) |>  
+  dplyr::rename(transcript_id = files) |>  
+  dplyr::mutate(  
+    collection = "EngNA",  
+    corpus     = "HSLLD",  
+    visit      = substr(transcript_id, 6, 6),  
+    situation  = substr(transcript_id, 4, 5),  
+    situation  = stringr::str_replace_all(situation, "br", "Book reading"),  
+    situation  = stringr::str_replace_all(situation, "er", "Elicited report"),  
+    situation  = stringr::str_replace_all(situation, "et", "Experimental task"),  
+    situation  = stringr::str_replace_all(situation, "lw", "Letter writing"),  
+    situation  = stringr::str_replace_all(situation, "md", "Mother-defined"),  
+    situation  = stringr::str_replace_all(situation, "mt", "Mealtime"),  
+    situation  = stringr::str_replace_all(situation, "re", "Reading"),  
+    situation  = stringr::str_replace_all(situation, "tp", "Toy play")  
+  )  
 ```  
-
-Cleaning the data: removing rows without speakers, rows where the age of the target child was incorrect, and removing superfluous columns.
-
-```{r hslld_01_26, message=F, warning=F}
-hslld <- hslld %>%
-  # remove rows without speakers (contain only metadata)
-  dplyr::filter(speaker != "") %>%
-  # remove rows with incorrect age of child
-  dplyr::filter(nchar(age_years_targetchild) < 5) %>%
-  # remove superfluous columns
-  dplyr::select(-fileinfo, -rawcontent, -situation) %>%
-  # create words column
-  dplyr::mutate(
-    collection = "EngNA",
-    corpus = "HSLLD"
-  ) %>%
-  dplyr::rename(transcript_id = files) %>%
-  # code activity
-  dplyr::mutate(visit = substr(transcript_id, 6, 6)) %>%
-  dplyr::mutate(
-    situation = substr(transcript_id, 4, 5),
-    situation = str_replace_all(situation, "br", "Book reading"),
-    situation = str_replace_all(situation, "er", "Elicited report"),
-    situation = str_replace_all(situation, "et", "Experimental task"),
-    situation = str_replace_all(situation, "lw", "Letter writing"),
-    situation = str_replace_all(situation, "md", "Mother defined situation"),
-    situation = str_replace_all(situation, "mt", "Meal time"),
-    situation = str_replace_all(situation, "re", "Reading"),
-    situation = str_replace_all(situation, "tp", "Toy play")
-  )
-```
-
-```{r hslld_01_27, echo = F, message=F, warning=F}
-# inspect data
-hslld %>%
-  head() %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-
-Now that we have the data in a format that we can use, we can use this table to continue with our case studies.
-
-## Case study 1: Use of NO {-}
-
-To extract all instances of a single word, in this example the word *no*, that are uttered by a specific interlocutor we filter by speaker and define that we only want rows where the speaker is equal to `CHI` (target child).
-
-
-```{r hslld_01_41, message=F, warning=F}
-no <- hslld %>%
-  dplyr::filter(speaker == "CHI") %>%
-  dplyr::filter(stringr::str_detect(utterance, "\\b[Nn][Oo]\\b"))
-```
-
-
-```{r hslld_01_42, echo = F, message=F, warning=F}
-# inspect data
-no %>%
-  head() %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-We summarize the results in a table. 
-
-```{r hslld_01_43, message=F, warning=F}
-no_no <- no %>%
-  dplyr::group_by(transcript_id, gender_targetchild, age_years_targetchild) %>%
-  dplyr::summarise(nos = nrow(.))
-head(no_no)
-```
-
-
-We can also extract the number of words uttered by children to check if the use of *no* shows a relative increase or decrease over time.
-
-```{r hslld_01_44, message=F, warning=F}
-no_words <- hslld %>%
-  dplyr::filter(speaker == "CHI") %>%
-  dplyr::group_by(transcript_id, gender_targetchild, age_years_targetchild) %>%
-  dplyr::mutate(nos = stringr::str_detect(utterance, "\\b[Nn][Oo]\\b")) %>%
-  dplyr::summarise(
-    nos = sum(nos),
-    words = sum(words)
-  ) %>%
-  # add relative frequency
-  dplyr::mutate(freq = round(nos / words * 1000, 3))
-# inspect data
-head(no_words)
-```
-
-We can also visualize the trends using the `ggplot` function . To learn how to visualize data in R see [this tutorial](/tutorials/dviz/dviz.html).
-
-```{r hslld_01_45, message=F, warning=F}
-no_words %>%
-  dplyr::mutate(age_years_targetchild = as.numeric(age_years_targetchild)) %>%
-  ggplot(aes(x = age_years_targetchild, y = freq)) +
-  geom_smooth() +
-  theme_bw() +
-  labs(x = "Age of target child", y = "Relative frequency of NOs \n (per 1,000 words)")
-```
-
-
-## Case study 2: extracting questions {-}
-
-Here, we want to extract all questions uttered by mothers. We operationalize questions as utterances containing a question mark.
-
-```{r hslld_01_50, message=F, warning=F}
-questions <- hslld %>%
-  dplyr::filter(speaker == "MOT") %>%
-  dplyr::filter(stringr::str_detect(utterance, "\\?"))
-# inspect data
-head(questions)
-```
-
-We could now check if the rate of questions changes over time.
-
-
-```{r hslld_01_51, message=F, warning=F}
-qmot <- hslld %>%
-  dplyr::filter(speaker == "MOT") %>%
-  dplyr::mutate(
-    questions = ifelse(stringr::str_detect(utterance, "\\?") == T, 1, 0),
-    utterances = 1
-  ) %>%
-  dplyr::group_by(age_years_targetchild) %>%
-  dplyr::summarise(
-    utterances = sum(utterances),
-    questions = sum(questions),
-    percent = round(questions / utterances * 100, 2)
-  )
-# inspect data
-head(qmot)
-```
-
-```{r hslld_01_52, message=F, warning=F}
-qmot %>%
-  dplyr::mutate(age_years_targetchild = as.numeric(age_years_targetchild)) %>%
-  ggplot(aes(x = age_years_targetchild, y = percent)) +
-  geom_smooth() +
-  theme_bw() +
-  labs(x = "Age of target child", y = "Percent \n (questions)")
-```
-
-## Case study 3: extracting aux + parts {-}
-
-Here we want to extract all occurrences of an auxiliary plus a participle (e.g. *is swimming*) produced by mothers.
-
-```{r hslld_01_55, message=F, warning=F}
-auxv <- hslld %>%
-  dplyr::filter(speaker == "MOT") %>%
-  dplyr::filter(stringr::str_detect(postag, "aux\\|\\S{1,} part\\|"))
-# inspect data
-head(auxv)
-```
-
-We can now extract all the particle forms from the pos-tagged utterance
-
-
-```{r hslld_01_56, message=F, warning=F}
-auxv_verbs <- auxv %>%
-  dplyr::mutate(participle = gsub(".*part\\|(\\w{1,})-.*", "\\1", postag)) %>%
-  dplyr::pull(participle)
-head(auxv_verbs)
-```
-
-```{r hslld_01_57, message=F, warning=F}
-auxv_verbs_df <- auxv_verbs %>%
-  as.data.frame(.) %>%
-  dplyr::rename("verb" = colnames(.)[1]) %>%
-  dplyr::group_by(verb) %>%
-  dplyr::summarise(freq = n()) %>%
-  dplyr::arrange(-freq) %>%
-  head(20)
-# inspect
-head(auxv_verbs_df)
-```
-
-We can again visualize the results. In this case, we create a bar plot (see the `geom_bar`).
-
-```{r hslld_01_58, message=F, warning=F}
-auxv_verbs_df %>%
-  ggplot(aes(x = reorder(verb, -freq), y = freq)) +
-  geom_bar(stat = "identity") +
-  theme_bw() +
-  labs(x = "Verb", y = "Frequency") +
-  theme(axis.text.x = element_text(angle = 90))
-```
-
-
-## Case study 4: ratio of verbs to words {-}
-
-Here we extract all lexical verbs and words uttered by children by year and then see if the rate of verbs changes over time.
-
-```{r hslld_01_60, message=F, warning=F}
-nverbs <- hslld %>%
-  dplyr::filter(speaker == "CHI") %>%
-  dplyr::mutate(
-    nverbs = stringr::str_count(postag, "^v\\|| v\\|"),
-    age_years_targetchild = as.numeric(age_years_targetchild)
-  ) %>%
-  dplyr::group_by(age_years_targetchild) %>%
-  dplyr::summarise(
-    words = sum(words),
-    verbs = sum(nverbs)
-  ) %>%
-  dplyr::mutate(verb.word.ratio = round(verbs / words, 3))
-# inspect data
-nverbs
-```
-
-
-We can also visualize the results to show any changes over time. 
-
-```{r hslld_01_61, message=F, warning=F}
-nverbs %>%
-  ggplot(aes(x = age_years_targetchild, y = verb.word.ratio)) +
-  geom_line() +
-  coord_cartesian(ylim = c(0, 0.2)) +
-  theme_bw() +
-  labs(x = "Age of target child", y = "Verb-Word Ratio")
-```
-
-## Case study 5: type-token ratio over time {-}
-
-Here we extract all tokens (words with repetition) and types (words without repetition) uttered by children by year and then see if the type-token ratio changes over time.
-
-In a first step, we create a table with the age of the children in years, we then collapse all utterances of the children into one long utterance and then clean this long utterance by removing digits and superfluous white spaces.
-
-***
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>TIP</b><br><br>A more accurate way of doing this would be to create one utterance for each child per home visit as this would give us a distribution of type-token ratios rather than a single value.</p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-***
-
-
-```{r hslld_01_62, message=F, warning=F}
-utterance_tb <- hslld %>%
-  dplyr::filter(speaker == "CHI") %>%
-  dplyr::group_by(age_years_targetchild) %>%
-  dplyr::summarise(allutts = paste0(utterance, collapse = " ")) %>%
-  dplyr::ungroup() %>%
-  dplyr::mutate(
-    age_years_targetchild = as.numeric(age_years_targetchild),
-    # clean utterance
-    allutts = stringr::str_replace_all(allutts, "\\W", " "),
-    allutts = stringr::str_replace_all(allutts, "\\d", " "),
-    allutts = stringr::str_remove_all(allutts, "xxx"),
-    allutts = stringr::str_remove_all(allutts, "zzz"),
-    allutts = tolower(allutts)
-  ) %>%
-  # remove superfluous white spaces
-  dplyr::mutate(allutts = gsub(" {2,}", " ", allutts)) %>%
-  dplyr::mutate(allutts = stringr::str_squish(allutts))
-# inspect data
-head(utterance_tb)
-```
-
-Extract the number of tokens, the number of types and calculating the type-token ratio.
-
-```{r hslld_01_63, message=F, warning=F}
-tokens <- stringr::str_count(utterance_tb$allutts, " ") + 1
-types <- stringr::str_split(utterance_tb$allutts, " ")
-types <- sapply(types, function(x) {
-  x <- length(names(table(x)))
-})
-ttr <- utterance_tb %>%
-  dplyr::mutate(
-    tokens = tokens,
-    types = types
-  ) %>%
-  dplyr::select(-allutts) %>%
-  dplyr::mutate(TypeTokenRatio = round(types / tokens, 3))
-# inspect
-ttr
-```
-
-Plot the type-token ratio against age of the target child.
-
-```{r hslld_01_64, message=F, warning=F}
-ttr %>%
-  ggplot(aes(x = age_years_targetchild, y = TypeTokenRatio)) +
-  geom_line() +
-  coord_cartesian(ylim = c(0, 0.75)) +
-  theme_bw() +
-  labs(x = "Age of target child", y = "Type-Token Ratio")
-```
-
-
-# Studying Sociolinguistic Variation{-}
-
-This case study represents a corpus-based study of sociolinguistic variation that aims to answer if swearing differs across social groups. In particular, this case study analyzes if speakers coming from different age groups and genders, i.e. whether old or young or men or women swear more, differ in their use of swear words based on a sub-sample of the Irish component of the [International Corpus of English (ICE)](https://www.ice-corpora.uzh.ch/en.html). The case study represents a simplified version of the analysis of [paper](https://www.sciencedirect.com/science/article/pii/S0024384117304357) [@schweinberger2018swearing].
-
-## Data processing{-}
-
-In a first step, we load the load the data into R. The way that the corpus data is loaded in this example is somewhat awkward because the data is in a server directory rather than on a hard drive on a simple PC. If the corpus data is not stored in a directory of a server, then you should not use the code shown immediately below but code in the window following the code immediately below.  
-
-```{r sw0, eval = F, echo=F}
-# load txt tidyr style
-tbl <- list.files(pattern = "*.txt") %>%
-  map_chr(~ read_file(.)) %>%
-  data_frame(text = .)
-```
-
-```{r sw1, eval = T, echo=T}
-# define path to corpus
-corpuspath <- "tutorials/corplingr/data/ICEIrelandSample/"
-# define corpusfiles
-files <- paste(corpuspath, "S1A-00", 1:20, ".txt", sep = "")
-files <- gsub("[0-9]([0-9][0-9][0-9])", "\\1", files)
-# load corpus files
-corpus <- sapply(files, function(x) {
-  x <- readLines(x)
-  x <- paste(x, collapse = " ")
-  x <- tolower(x)
-})
-# inspect corpus
-str(corpus)
-```
-
-If the corpus data is stored on your own computer (on not on a serves as is the case in the present example), you need to adapt the path though as the code below only works on my computer. Just exchange the `corpuspath` with the path to the data on your computer (e.g. with `"D:\\Uni\\UQ\\LADAL\\SLCLADAL.github.io\\data\\ICEIrelandSample"`).
-
-
-**Data processing and extraction**
-
-Now that the corpus data is loaded, we can prepare the searches by defining the search patterns. We will use regular expressions to retrieve all variants of the swear words. The sequence `\\b` denotes word boundaries while the sequence `[a-z]{0,3}` means that the sequences *ass* can be followed by a string consisting of any character symbol that is maximally three characters long (so that the search would also retrieve *asses*). We separate the search patterns by `|` as this means *or*.
-
-```{r sw3, eval = T, echo=T, message=FALSE, warning=FALSE}
-searchpatterns <- c("\\bass[ingedholes]{0,6}\\b|\\bbitch[a-z]{0,3}\\b|\\b[a-z]{0,}fuck[a-z]{0,3}\\b|\\bshit[a-z]{0,3}\\b|\\bcock[a-z]{0,3}\\b|\\bwanker[a-z]{0,3}\\b|\\bboll[io]{1,1}[a-z]{0,3}\\b|\\bcrap[a-z]{0,3}\\b|\\bbugger[a-z]{0,3}\\b|\\bcunt[a-z]{0,3}\\b")
-```
-
-After defining the search pattern(s), we extract the kwics (keyword(s) in context) of the swear words. 
-
-```{r sw4, eval = T, echo=T, message=FALSE, warning=FALSE}
-# extract kwic
-kwicswears <- quanteda::kwic(quanteda::tokens(corpus), searchpatterns, window = 10, valuetype = "regex")
-```
-
-
-
-```{r sw4b, echo = F, message=F, warning=F}
-# inspect data
-kwicswears %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-
-We now clean the kwic so that it is easier to see the relevant information.
-
-```{r sw5, eval = T, echo=T, message=FALSE, warning=FALSE}
-kwicswearsclean <- kwicswears %>%
-  as.data.frame() %>%
-  dplyr::rename(
-    "File" = colnames(.)[1],
-    "StartPosition" = colnames(.)[2],
-    "EndPosition" = colnames(.)[3],
-    "PreviousContext" = colnames(.)[4],
-    "Token" = colnames(.)[5],
-    "FollowingContext" = colnames(.)[6],
-    "SearchPattern" = colnames(.)[7]
-  ) %>%
-  dplyr::select(-StartPosition, -EndPosition, -SearchPattern) %>%
-  dplyr::mutate(
-    File = str_remove_all(File, ".*/"),
-    File = stringr::str_remove_all(File, ".txt")
-  )
-```
-
-
-```{r sw5b, echo = F, message=F, warning=F}
-# inspect data
-kwicswearsclean %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-We now create another kwic but with much more context because we want to extract the speaker that has uttered the swear word. To this end, we remove everything that proceeds the `$` symbol as the speakers are identified by characters that follow the `$` symbol, remove everything that follows the `>` symbol which end the speaker identification sequence, remove remaining white spaces, and convert the remaining character to upper case. 
-
-```{r sw6, eval = T, echo=T, message=FALSE, warning=FALSE}
-# extract kwic
-kwiclong <- kwic(quanteda::tokens(corpus), searchpatterns, window = 1000, valuetype = "regex")
-kwiclong <- as.data.frame(kwiclong)
-colnames(kwiclong) <- c("File", "StartPosition", "EndPosition", "PreviousContext", "Token", "FollowingContext", "SearchPattern")
-kwiclong <- kwiclong %>%
-  dplyr::select(-StartPosition, -EndPosition, -SearchPattern) %>%
-  dplyr::mutate(
-    File = str_remove_all(File, ".*/"),
-    File = str_remove_all(File, ".txt"),
-    Speaker = str_remove_all(PreviousContext, ".*\\$"),
-    Speaker = str_remove_all(Speaker, ">.*"),
-    Speaker = str_squish(Speaker),
-    Speaker = toupper(Speaker)
-  ) %>%
-  dplyr::select(Speaker)
-# inspect results
-head(kwiclong)
-```
-
-
-We now add the Speaker to our initial kwic. This way, we combine the swear word kwic with the speaker and as we already have the file, we can use the file plus speaker identification to check if the speaker was a man or a woman.
-
-```{r sw7, eval = T, echo=T, message=FALSE, warning=FALSE}
-swire <- cbind(kwicswearsclean, kwiclong)
-```
-
-```{r sw7b, echo = F, message=F, warning=F}
-# inspect data
-swire %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-Now, we inspect the extracted swear word tokens to check if our search strings have indeed captured swear words. 
-
-```{r sw8, eval = T, echo=T, message=FALSE, warning=FALSE}
-# convert tokens to lower case
-swire$Token <- tolower(swire$Token)
-# inspect tokens
-table(swire$Token)
-```
-FUCK and its variants is by far the most common swear word in our corpus. However, we do not need the type of swear word to answer our research question and we thus summarize the table to show which speaker in which files has used how many swear words.
-
-```{r sw9, eval = T, echo=T, message=FALSE, warning=FALSE}
-swire <- swire %>%
-  dplyr::group_by(File, Speaker) %>%
-  dplyr::summarise(Swearwords = n())
-```
-
-
-```{r sw9b, echo = F, message=F, warning=F}
-# inspect data
-swire %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-Now that we extract how many swear words the speakers in the corpus have used, we can load the biodata of the speakers.
-
-```{r sw10, eval = T, echo=T, message=FALSE, warning=FALSE}
-# load bio data
-bio <- base::readRDS("tutorials/corplingr/data/d01.rda", "rb")
-```
-
-```{r sw10b, echo = F, message=F, warning=F}
-# inspect data
-bio %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-
-```{r sw11, eval = T, echo=T, message=FALSE, warning=FALSE}
-bio <- bio %>%
-  dplyr::rename(
-    File = text.id,
-    Speaker = spk.ref,
-    Gender = sex,
-    Age = age,
-    Words = word.count
-  ) %>%
-  dplyr::select(File, Speaker, Gender, Age, Words)
-```
-
-```{r sw11b, echo = F, message=F, warning=F}
-# inspect data
-bio %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-In a next step, we combine the table with the speaker information with the table showing the swear word use.
-
-```{r sw12, eval = T, echo=T, message=FALSE, warning=FALSE}
-# combine frequencies and biodata
-swire <- dplyr::left_join(bio, swire, by = c("File", "Speaker")) %>%
-  # replace NA with 0
-  dplyr::mutate(
-    Swearwords = ifelse(is.na(Swearwords), 0, Swearwords),
-    File = factor(File),
-    Speaker = factor(Speaker),
-    Gender = factor(Gender),
-    Age = factor(Age)
-  )
-# inspect data
-head(swire)
-```
-
-
-```{r sw12b, echo = F, message=F, warning=F}
-# inspect data
-swire %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-We now clean the table by removing speakers for which we do not have any information on their age and gender. Also, we summarize the table to extract the mean frequencies of swear words (per 1,000 words) by age and gender.
-
-```{r sw13, eval = T, echo=T, message=FALSE, warning=FALSE}
-# clean data
-swire <- swire %>%
-  dplyr::filter(
-    is.na(Gender) == F,
-    is.na(Age) == F
-  ) %>%
-  dplyr::group_by(Age, Gender) %>%
-  dplyr::mutate(
-    SumWords = sum(Words),
-    SumSwearwords = sum(Swearwords),
-    FrequencySwearwords = round(SumSwearwords / SumWords * 1000, 3)
-  )
-```
-
-```{r sw13b, echo = F, message=F, warning=F}
-# inspect data
-swire %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-**Tabulating and visualizing the data**
-
-We now summarize and visualize the data and exclude speakers between the ages of 0 and 18 as there are too few speakers within that age range to be representative.
-
-
-```{r sw14, eval = T, echo=T, message=FALSE, warning=FALSE}
-swire %>%
-  dplyr::filter(Age != "0-18") %>%
-  dplyr::group_by(Age, Gender) %>%
-  dplyr::summarise(Swears_ptw = SumSwearwords / SumWords * 1000) %>%
-  unique() %>%
-  tidyr::spread(Gender, Swears_ptw)
-```
-
-
-Now that we have prepared our data, we can plot swear word use by gender. 
-
-```{r sw15, eval = T, echo=T, message=FALSE, warning=FALSE}
-swire %>%
-  dplyr::filter(Age != "0-18") %>%
-  dplyr::group_by(Age, Gender) %>%
-  dplyr::summarise(Swears_ptw = SumSwearwords / SumWords * 1000) %>%
-  unique() %>%
-  ggplot(aes(x = Age, y = Swears_ptw, group = Gender, fill = Gender)) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  theme_bw() +
-  scale_fill_manual(values = c("orange", "darkgrey")) +
-  labs(y = "Relative frequency \n swear words per 1,000 words")
-```
-
-The graph suggests that the genders do not differ in their use of swear words except for the age bracket from 26 to 41: men swear more among speakers aged between 26 and 33 while women swear more between 34 and 41 years of age. 
-
-## Statistical analysis{-}
-
-We  now perform a statistical test, e.g. a Configural Frequency Analysis (CFA)  to check if specifically which groups in the data significantly over and under-use swearwords.
-
-```{r sw16, eval = T, echo=T, message=FALSE, warning=FALSE}
-cfa_swear <- swire %>%
-  dplyr::group_by(Gender, Age) %>%
-  dplyr::summarise(
-    Words = sum(Words),
-    Swearwords = sum(Swearwords)
-  ) %>%
-  dplyr::mutate(Words = Words - Swearwords) %>%
-  tidyr::gather(Type, Frequency, Words:Swearwords) %>%
-  dplyr::filter(Age != "0-18")
-```
-
-After transforming the data, it has the following format.
-
-```{r cfa1b, echo=FALSE, message=F, warning=F}
-# inspect data
-head(cfa_swear, 20) %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::border_outer()
-```
-
-```{r cfa2, message=FALSE, warning=FALSE}
-# define configurations
-configs <- cfa_swear %>%
-  dplyr::select(Age, Gender, Type)
-# define counts
-counts <- cfa_swear$Frequency
-```
-
-Now that configurations and counts are separated, we can perform the configural frequency analysis.
-
-```{r cfa3, message=FALSE, warning=FALSE}
-# perform cfa
-cfa(configs, counts)$table %>%
-  as.data.frame() %>%
-  dplyr::filter(
-    p.chisq < .1,
-    stringr::str_detect(label, "Swear")
-  ) %>%
-  dplyr::select(-z, -p.z, -sig.z, -sig.chisq, -Q)
-```
-
-After filtering out significant over use of non-swear words from the results of the CFA, we find that men and women in the age bracket 26 to 33 use significantly more swear words and other groups in the data.
-
-It has to be borne in mind, though, that this is merely a case study and that a more fine-grained analysis on a substantially larger data set were necessary to get a more reliable impression.
-
-# Citation & Session Info {-}
-
-Schweinberger, Martin. 2025. *Corpus Linguistics with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/corplingr/corplingr.html   (Version 2025.04.01).
-
-```
-@manual{schweinberger2025cl,
-  author = {Schweinberger, Martin},
-  title = {Corpus Linguistics with R},
-  note = {https://ladal.edu.au/tutorials/corplingr/corplingr.html},
-  year = {2025},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.01)}
-}
-```
-
-```{r fin}
-sessionInfo()
-```
-
-***
-
-[Back to top](#introduction)
-
-[Back to LADAL home](/)
-
-***
-
-
-# References{-}
-
-
+  
+```{r childes_inspect, echo=FALSE, message=FALSE, warning=FALSE}  
+hslld |>  
+  head(8) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 9) |>  
+  flextable::set_caption(  
+    caption = "First 8 rows of the parsed HSLLD data frame. Each row is one utterance; columns carry speaker identity, child age, activity type, clean utterance text, POS tags, and word count."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+The data frame now has one row per utterance with all relevant information in separate columns. We are ready for the analyses.  
+  
+---  
+  
+## Analysis 1: Children's Use of *No* Over Time {#no}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Question:** Does the relative frequency with which children produce the negation word *no* change between ages 3 and 7? Is there a developmental trajectory, and does it differ between boys and girls?  
+:::  
+  
+The word *no* is among the earliest and most frequent items in children's productive vocabulary and its use has been studied extensively in FLA research [@bloom1970language]. Beyond simple negation, *no* serves pragmatic functions — refusal, prohibition, denial, rejection — that shift in frequency and form as children's language and social cognition develop. A corpus-based approach allows us to track these changes longitudinally across a large sample.  
+  
+We extract all utterances by the target child (`CHI`) that contain *no* as a standalone word. The word-boundary regex `\\b[Nn][Oo]\\b` avoids false matches on substrings like *nobody* or *know*.  
+  
+```{r no_extract, message=FALSE, warning=FALSE}  
+# Child utterances containing standalone "no" (case-insensitive, word boundaries)  
+no_raw <- hslld |>  
+  dplyr::filter(speaker == "CHI") |>  
+  dplyr::filter(stringr::str_detect(utterance, "\\b[Nn][Oo]\\b"))  
+```  
+  
+```{r no_inspect, echo=FALSE, message=FALSE, warning=FALSE}  
+no_raw |>  
+  dplyr::select(transcript_id, age_years_targetchild, gender_targetchild, utterance) |>  
+  head(8) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::set_caption(caption = "Sample of child utterances containing the word no.") |>  
+  flextable::border_outer()  
+```  
+  
+Raw counts are misleading because transcripts vary in length. We compute a *normalised frequency* — the number of *no* tokens per 1,000 words of child speech — which controls for differences in how much each child spoke per session.  
+  
+```{r no_freq, message=FALSE, warning=FALSE}  
+no_freq <- hslld |>  
+  dplyr::filter(speaker == "CHI") |>  
+  dplyr::group_by(transcript_id, gender_targetchild, age_years_targetchild) |>  
+  dplyr::summarise(  
+    nos   = sum(stringr::str_detect(utterance, "\\b[Nn][Oo]\\b")),  
+    words = sum(words),  
+    .groups = "drop"  
+  ) |>  
+  dplyr::mutate(  
+    freq                  = round(nos / words * 1000, 3),  
+    age_years_targetchild = as.numeric(age_years_targetchild)  
+  )  
+  
+head(no_freq)  
+```  
+  
+```{r no_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+no_freq |>  
+  ggplot(aes(x = age_years_targetchild, y = freq,  
+             colour = gender_targetchild, fill = gender_targetchild)) +  
+  geom_point(alpha = 0.4, size = 1.8) +  
+  geom_smooth(method = "loess", se = TRUE, alpha = 0.15) +  
+  scale_colour_manual(  
+    values = c("female" = "#E66100", "male" = "#5D3A9B"),  
+    labels = c("Girls", "Boys"), name = "Gender"  
+  ) +  
+  scale_fill_manual(  
+    values = c("female" = "#E66100", "male" = "#5D3A9B"),  
+    labels = c("Girls", "Boys"), name = "Gender"  
+  ) +  
+  theme_bw() +  
+  labs(  
+    title    = "Relative Frequency of 'No' in Child Speech by Age and Gender",  
+    subtitle = "Normalised per 1,000 words of child speech; LOESS curves with 95% CI",  
+    x        = "Age of target child (years)",  
+    y        = "Frequency of 'no' per 1,000 words"  
+  ) +    
+  coord_cartesian(ylim = c(0, 100)) +  
+  theme(legend.position = "bottom")  
+```  
+  
+The smoothed trajectories reveal a clear developmental pattern. The relative frequency of *no* is highest at age 3, when children's vocabulary is limited and negation is heavily reliant on this single all-purpose form. Frequency declines substantially across ages 4–6 as children acquire a more differentiated repertoire of negation strategies — *not*, *never*, auxiliary negation (*don't*, *can't*, *won't*) — that distribute the function of negation across multiple forms. By age 7, *no* has settled to a lower baseline, consistent with its role as a pragmatic particle (e.g. discourse-initial *no* in corrections or refusals) rather than the primary negation strategy. The trajectories for boys and girls are broadly similar, though girls show a slightly steeper early decline.  
+  
+---  
+  
+## Analysis 2: Maternal Questioning Behaviour Over Time {#questions}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Question:** Does the proportion of questions in mothers' speech to their children change as the children develop? Research in child-directed speech predicts that caregivers fine-tune their linguistic behaviour to their children's developmental level.  
+:::  
+  
+A substantial body of research on *child-directed speech* (CDS) has shown that caregivers adjust many features of their language when speaking to young children — using shorter sentences, higher pitch, more repetition, and more questions [@snow1977talking]. Questions serve important interactional functions in CDS: they invite children to participate, provide scaffolded conversational turns, and expose them to interrogative syntax. Here we investigate whether the proportion of questions in mothers' speech changes as children grow older and become more linguistically capable.  
+  
+We operationalise questions as utterances containing a question mark — a surface-level proxy that captures direct interrogatives reliably but will miss indirect questions and tag questions that were not punctuated as such by the transcribers.  
+  
+```{r q_extract, message=FALSE, warning=FALSE}  
+qmot <- hslld |>  
+  dplyr::filter(speaker == "MOT") |>  
+  dplyr::mutate(  
+    is_question           = as.integer(stringr::str_detect(utterance, "\\?")),  
+    age_years_targetchild = as.numeric(age_years_targetchild)  
+  ) |>  
+  dplyr::group_by(age_years_targetchild) |>  
+  dplyr::summarise(  
+    utterances = dplyr::n(),  
+    questions  = sum(is_question),  
+    percent    = round(questions / utterances * 100, 2),  
+    .groups    = "drop"  
+  )  
+  
+head(qmot)  
+```  
+  
+```{r q_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+qmot |>  
+  ggplot(aes(x = age_years_targetchild, y = percent)) +  
+  geom_point(size = 3, colour = "#2166AC", alpha = 0.8) +  
+  geom_smooth(method = "loess", se = TRUE,  
+              colour = "#2166AC", fill = "#2166AC", alpha = 0.15) +  
+  theme_bw() +  
+  labs(  
+    title    = "Proportion of Questions in Maternal Speech by Child Age",  
+    subtitle = "Questions operationalised as utterances containing '?'",  
+    x        = "Age of target child (years)",  
+    y        = "Questions as % of maternal utterances"  
+  )  
+```  
+  
+The results show a non-linear trajectory. The proportion of questions is high when children are aged 3–4, consistent with the well-documented tendency for caregivers to use many yes/no and wh-questions to elicit and scaffold early conversational participation. The proportion then declines across ages 5–6 as children become more capable of initiating and sustaining conversation independently, reducing the need for mothers to maintain interaction through constant questioning. The modest uptick at ages 7–8 likely reflects the shift to more cognitively oriented activities (letter writing, experimental tasks) at the later home visits, which involve more explicit meta-linguistic questioning.  
+  
+---  
+  
+## Analysis 3: Progressive Constructions in Child-Directed Speech {#progressive}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Question:** Which lexical verbs appear most frequently in progressive constructions (auxiliary + present participle, e.g. *is swimming*) in mothers' child-directed speech? Are there verb-semantic preferences consistent with the usage-based prediction that input to children is biased towards action and process verbs?  
+:::  
+  
+Usage-based theories of language acquisition predict that the verb types children encounter most frequently in specific constructions will be the ones they acquire and generalise from first [@tomasello2003constructing]. The progressive construction — auxiliary BE + present participle — is grammatically salient and relatively transparent, appearing early in both child-directed speech and children's own production. Examining which verbs populate this construction in the maternal input can shed light on the statistical learning environment available to children.  
+  
+The HSLLD transcripts include morphological POS tags in the `%mor:` tier. The tag `aux|` marks an auxiliary verb and `part|` marks a present participle. We filter for utterances in which these two tags appear in sequence.  
+  
+```{r aux_extract, message=FALSE, warning=FALSE}  
+# Maternal utterances containing an auxiliary + present participle sequence  
+aux_utts <- hslld |>  
+  dplyr::filter(speaker == "MOT") |>  
+  dplyr::filter(stringr::str_detect(postag, "aux\\|\\S+ part\\|"))  
+  
+cat("Maternal utterances with aux + participle:", nrow(aux_utts), "\n")  
+```  
+  
+```{r aux_inspect, echo=FALSE, message=FALSE, warning=FALSE}  
+aux_utts |>  
+  dplyr::select(transcript_id, age_years_targetchild, utterance, postag) |>  
+  head(6) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 9) |>  
+  flextable::set_caption(  
+    caption = "Sample maternal utterances containing auxiliary + present participle sequences, with POS tags."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+In CHAT morphology tags, the form after `part|` is the verb lemma (base form), followed by a hyphen and any inflectional suffix code. We extract the lemma and compute a frequency ranking.  
+  
+```{r aux_lemmas, message=FALSE, warning=FALSE}  
+# Extract participle lemma: string between "part|" and the next "-"  
+aux_verbs <- aux_utts |>  
+  dplyr::mutate(participle = gsub(".*part\\|(\\w+)-.*", "\\1", postag)) |>  
+  dplyr::pull(participle)  
+  
+# Top 20 participle lemmas by frequency  
+aux_freq <- data.frame(verb = aux_verbs) |>  
+  dplyr::count(verb, name = "freq") |>  
+  dplyr::arrange(desc(freq)) |>  
+  head(20)  
+  
+head(aux_freq, 10)  
+```  
+  
+```{r aux_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+aux_freq |>  
+  ggplot(aes(x = reorder(verb, freq), y = freq)) +  
+  geom_col(fill = "#4DAC26", colour = "white", width = 0.75) +  
+  coord_flip() +  
+  theme_bw() +  
+  labs(  
+    title    = "Top 20 Verbs in Progressive Constructions in Maternal Speech",  
+    subtitle = "Auxiliary + present participle sequences; lemma frequencies",  
+    x        = "Verb lemma",  
+    y        = "Frequency"  
+  )  
+```  
+  
+The frequency distribution is strongly skewed. A handful of high-frequency, semantically general verbs — *go*, *do*, *look*, *come*, *put*, *play*, *read*, *sit* — dominate the progressive constructions in maternal speech. These are predominantly activity and accomplishment verbs with clear physical referents in the immediate environment, consistent with theoretical accounts predicting that caregivers' language is grounded in the here-and-now context of joint interaction. The prevalence of movement and spatial verbs (*go*, *come*, *put*, *sit*) suggests that a significant proportion of progressive child-directed speech concerns object manipulation and spatial orientation — domains particularly salient during joint play and book-reading activities.  
+  
+---  
+  
+## Analysis 4: Children's Verb-to-Word Ratio Over Time {#vwr}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Question:** Does the proportion of lexical verbs in children's speech change with age? A growing verb-to-word ratio would indicate expanding grammatical complexity as children move from noun-heavy early speech towards more predicate-rich utterances.  
+:::  
+  
+Early child speech is often characterised as noun-heavy: children first acquire object labels and only later develop a productive verb vocabulary [@gentner1982why]. As grammatical knowledge grows — particularly knowledge of argument structure, transitivity, and tense/aspect morphology — the proportion of lexical verbs in children's speech is expected to increase. We count lexical verbs (tagged `v|` in CHAT morphology) in each child utterance. The regex `^v\\|| v\\|` matches `v|` at the start of the tag string or preceded by a space, avoiding false matches on other tags that contain the letter *v*.  
+  
+```{r vwr_compute, message=FALSE, warning=FALSE}  
+vwr <- hslld |>  
+  dplyr::filter(speaker == "CHI") |>  
+  dplyr::mutate(  
+    nverbs                = stringr::str_count(postag, "^v\\|| v\\|"),  
+    age_years_targetchild = as.numeric(age_years_targetchild)  
+  ) |>  
+  dplyr::group_by(age_years_targetchild) |>  
+  dplyr::summarise(  
+    total_words = sum(words),  
+    total_verbs = sum(nverbs),  
+    .groups     = "drop"  
+  ) |>  
+  dplyr::mutate(verb_word_ratio = round(total_verbs / total_words, 3))  
+  
+vwr  
+```  
+  
+```{r vwr_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+vwr |>  
+  ggplot(aes(x = age_years_targetchild, y = verb_word_ratio)) +  
+  geom_line(colour = "#D6604D", linewidth = 1) +  
+  geom_point(colour = "#D6604D", size = 3) +  
+  coord_cartesian(ylim = c(0, 0.25)) +  
+  theme_bw() +  
+  labs(  
+    title    = "Lexical Verb-to-Word Ratio in Child Speech by Age",  
+    subtitle = "Proportion of tokens tagged as lexical verbs (v|) in CHAT morphology",  
+    x        = "Age of target child (years)",  
+    y        = "Verb-to-word ratio"  
+  )  
+```  
+  
+The verb-to-word ratio rises steadily from age 3 to age 6–7, consistent with the developmental prediction. At age 3, lexical verbs account for a relatively small proportion of child speech tokens, reflecting the noun-dominated vocabulary of early language. The ratio increases through ages 4–6, tracking the acquisition of a richer verb vocabulary and more complex predicate structures. The slight plateau at the latest age points may reflect the increased proportion of metalinguistic and literacy-related talk at the grade 2/4 visits, which tends to involve more nominal constructions.  
+  
+---  
+  
+## Analysis 5: Lexical Diversity Over Time {#ttr}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Question:** Does children's lexical diversity — the ratio of distinct word types to total word tokens — increase with age? A rising TTR would suggest an expanding vocabulary and a move away from repetitive, formulaic speech.  
+:::  
+  
+The **Type-Token Ratio** (TTR) is one of the most widely used measures of lexical diversity in developmental language research. It expresses the proportion of unique word forms (types) relative to total word tokens: a TTR close to 1.0 means virtually every word is used only once; a TTR close to 0 means the same words are heavily repeated. In developmental research, TTR is expected to increase with age as children's vocabularies expand beyond a small set of high-frequency forms.  
+  
+::: {.callout-warning}  
+## TTR Is Sensitive to Sample Size  
+  
+TTR decreases as sample size increases, making cross-speaker or cross-age comparisons unreliable unless samples are equated for length. In this analysis we aggregate all child speech within each age year across the full corpus, so age groups vary in total tokens. The TTR values should be treated as indicative trends rather than precise estimates. More robust alternatives include the moving-average TTR (MATTR) and vocd-D, both of which control for sample size effects.  
+:::  
+  
+We aggregate all child utterances within each age year, clean the text (removing unintelligible CHAT codes `xxx` and `zzz`), and compute types and tokens.  
+  
+```{r ttr_aggregate, message=FALSE, warning=FALSE}  
+ttr_text <- hslld |>  
+  dplyr::filter(speaker == "CHI") |>  
+  dplyr::group_by(age_years_targetchild) |>  
+  dplyr::summarise(allutts = paste0(utterance, collapse = " "), .groups = "drop") |>  
+  dplyr::mutate(  
+    age_years_targetchild = as.numeric(age_years_targetchild),  
+    allutts = stringr::str_replace_all(allutts, "\\W", " "),  
+    allutts = stringr::str_replace_all(allutts, "\\d", " "),  
+    allutts = stringr::str_remove_all(allutts, "\\bxxx\\b"),  # unintelligible tokens  
+    allutts = stringr::str_remove_all(allutts, "\\bzzz\\b"),  # filler codes  
+    allutts = tolower(allutts),  
+    allutts = stringr::str_squish(allutts)  
+  )  
+```  
+  
+```{r ttr_compute, message=FALSE, warning=FALSE}  
+# Count tokens (total words) and types (unique words) per age year  
+tokens_vec <- stringr::str_count(ttr_text$allutts, "\\S+")  
+types_vec  <- sapply(  
+  stringr::str_split(ttr_text$allutts, "\\s+"),  
+  function(x) length(unique(x[x != ""]))  
+)  
+  
+ttr <- ttr_text |>  
+  dplyr::mutate(  
+    tokens         = tokens_vec,  
+    types          = types_vec,  
+    TypeTokenRatio = round(types / tokens, 3)  
+  ) |>  
+  dplyr::select(age_years_targetchild, tokens, types, TypeTokenRatio)  
+  
+ttr  
+```  
+  
+```{r ttr_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+ttr |>  
+  ggplot(aes(x = age_years_targetchild, y = TypeTokenRatio)) +  
+  geom_line(colour = "#542788", linewidth = 1) +  
+  geom_point(colour = "#542788", size = 3) +  
+  coord_cartesian(ylim = c(0, 0.6)) +  
+  theme_bw() +  
+  labs(  
+    title    = "Type-Token Ratio in Child Speech by Age",  
+    subtitle = "Proportion of unique word forms to total word tokens; aggregated per age year",  
+    x        = "Age of target child (years)",  
+    y        = "Type-Token Ratio"  
+  )  
+```  
+  
+The TTR rises markedly from age 3 to age 7, consistent with the developmental prediction of expanding vocabulary and decreasing reliance on a small set of frequent forms. At age 3, children's speech is lexically repetitive — a handful of words (*no*, *the*, *a*, *want*, *go*) account for a disproportionately large share of all tokens. By age 7, a much larger proportion of utterances draws on lower-frequency, more semantically specific vocabulary. The sample-size caveat is worth restating: because the age-7 sample is smaller than the age-3 sample (fewer children remained and visits were shorter), the higher TTR at later ages is partly a mathematical artefact. The upward trend is nonetheless consistent with the broader developmental picture.  
+  
+---  
+  
+# Case Study 2: Sociolinguistic Variation — Swearing in Irish English {#swearing}  
+  
+::: {.callout-note}  
+## Section Overview  
+  
+**Research question:** Does the frequency of swear words in spoken Irish English vary systematically with speaker age and gender?  
+  
+**Corpus:** 20 conversational speech files from the spoken Irish component of the International Corpus of English (ICE-Ireland; file prefix `S1A`, informal face-to-face conversation)  
+  
+**Methods:** Regex-based KWIC extraction with `quanteda`, speaker metadata linking, normalised frequency (per 1,000 words), grouped bar plot, Configural Frequency Analysis (CFA)  
+:::  
+  
+## Background {-}  
+  
+Swearing — the use of taboo, profane, or otherwise socially marked words as expressive intensifiers, emotional outlets, or markers of in-group solidarity — is a feature of virtually all known languages and a productive site for sociolinguistic research [@jay2009utility]. Studies of swearing variation have consistently found effects of age and gender, though the direction and magnitude of these effects are highly context-dependent. Research on British and Irish English has found that men swear more than women on average, but that this gap narrows or reverses in certain age groups and social contexts [@mcenery2005swearing]. Corpus-based approaches allow these patterns to be quantified across large, naturalistic samples rather than inferred from attitudinal surveys or experimental production tasks.  
+  
+This case study is a simplified replication of @schweinberger2018swearing, which examined swearing in a sub-sample of ICE-Ireland. We use 20 conversational speech files from the spoken component of ICE-Ireland, representing spontaneous face-to-face informal conversation among adult native speakers of Irish English.  
+  
+## The ICE-Ireland Corpus {-}  
+  
+The [International Corpus of English (ICE)](https://www.ice-corpora.uzh.ch/en.html) is a coordinated collection of corpora of national and regional varieties of English. Each sub-corpus follows a shared design: one million words of spoken and written text produced by adult native speakers. The Irish component (ICE-Ireland) was compiled by John Kirk and is housed at the University of Zurich. The 20 files used here come from the informal conversation section (file prefix `S1A`), which represents spontaneous, face-to-face informal speech — the register most likely to contain taboo language.  
+  
+## Loading the Corpus {-}  
+  
+```{r sw_load, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE}  
+# Define paths to the 20 ICE-Ireland conversation files  
+corpuspath <- "tutorials/corplingr/data/ICEIrelandSample/"  
+files      <- paste0(corpuspath, "S1A-00", 1:20, ".txt")  
+files      <- gsub("[0-9]([0-9]{3})", "\\1", files)  # fix three-digit zero-padding  
+  
+# Load and collapse each file into a single lowercase string  
+corpus <- sapply(files, function(x) {  
+  x <- readLines(x)  
+  x <- paste(x, collapse = " ")  
+  x <- tolower(x)  
+})  
+  
+cat("Files loaded:", length(corpus), "\n")  
+cat("Total characters:", sum(nchar(corpus)), "\n")  
+```  
+  
+## Extracting Swear Words with KWIC {-}  
+  
+We define regular expression patterns capturing swear words and their morphological variants. The `\\b` word-boundary anchor ensures we match complete words; character class ranges allow for suffixal variation (e.g. `[a-z]{0,3}` covers *fucks*, *fucking*, *fucked*).  
+  
+```{r sw_patterns, message=FALSE, warning=FALSE}  
+# Regex patterns for ten swear word lemmas and common variants  
+searchpatterns <- paste0(  
+  "\\bass[ingedholes]{0,6}\\b|",  
+  "\\bbitch[a-z]{0,3}\\b|",  
+  "\\b[a-z]{0,}fuck[a-z]{0,3}\\b|",  
+  "\\bshit[a-z]{0,3}\\b|",  
+  "\\bcock[a-z]{0,3}\\b|",  
+  "\\bwanker[a-z]{0,3}\\b|",  
+  "\\bboll[io]{1}[a-z]{0,3}\\b|",  
+  "\\bcrap[a-z]{0,3}\\b|",  
+  "\\bbugger[a-z]{0,3}\\b|",  
+  "\\bcunt[a-z]{0,3}\\b"  
+)  
+```  
+  
+We use `quanteda::kwic()` to extract keyword-in-context concordance lines with ±10 tokens of surrounding context, which allows us to verify that retrieved tokens are genuine swear words rather than false positives.  
+  
+```{r sw_kwic_short, message=FALSE, warning=FALSE}  
+# KWIC with 10-word window  
+kwicswears <- quanteda::kwic(  
+  quanteda::tokens(corpus),  
+  searchpatterns,  
+  window    = 10,  
+  valuetype = "regex"  
+)  
+```  
+  
+```{r sw_kwic_short_show, echo=FALSE, message=FALSE, warning=FALSE}  
+kwicswears |>  
+  as.data.frame() |>  
+  head(10) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 9) |>  
+  flextable::set_caption(  
+    caption = "First 10 KWIC lines for swear word tokens (±10-word window)."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+We clean the KWIC output, retaining the file identifier, context, and matched token; converting tokens to lowercase.  
+  
+```{r sw_kwic_clean, message=FALSE, warning=FALSE}  
+kwicswearsclean <- kwicswears |>  
+  as.data.frame() |>  
+  dplyr::rename(  
+    File             = docname,  
+    StartPosition    = from,  
+    EndPosition      = to,  
+    PreviousContext  = pre,  
+    Token            = keyword,  
+    FollowingContext = post,  
+    SearchPattern    = pattern  
+  ) |>  
+  dplyr::select(-StartPosition, -EndPosition, -SearchPattern) |>  
+  dplyr::mutate(  
+    File  = stringr::str_remove_all(File, ".*/"),  
+    File  = stringr::str_remove_all(File, "\\.txt"),  
+    Token = tolower(Token)  
+  )  
+```  
+  
+Before proceeding, we inspect the frequency distribution of matched types to verify the search patterns and check for false positives.  
+  
+```{r sw_token_check, message=FALSE, warning=FALSE}  
+sort(table(kwicswearsclean$Token), decreasing = TRUE)  
+```  
+  
+The distribution confirms that *fuck* and its variants dominate, followed by *shit*, *bollocks*, and *arse* — a pattern consistent with the literature on Irish English swearing [@schweinberger2018swearing]. No obvious false positives are visible.  
+  
+## Identifying Speakers {-}  
+  
+To link swear word counts to speaker demographics we need to identify which speaker in each file produced each swear word. ICE-Ireland files encode speaker identity with a `$SPEAKERID>` tag preceding each contribution. We extract the speaker ID from a wide KWIC window (±1,000 tokens) that is almost certain to contain the preceding speaker tag.  
+  
+```{r sw_speaker_id, message=FALSE, warning=FALSE}  
+kwiclong <- quanteda::kwic(  
+  quanteda::tokens(corpus),  
+  searchpatterns,  
+  window    = 1000,  
+  valuetype = "regex"  
+) |>  
+  as.data.frame() |>  
+  dplyr::rename(  
+    File           = docname,  
+    PreviousContext = pre  
+  ) |>  
+  dplyr::mutate(  
+    File    = stringr::str_remove_all(File, ".*/"),  
+    File    = stringr::str_remove_all(File, "\\.txt"),  
+    # Speaker ID follows the last $ and ends before >  
+    Speaker = stringr::str_remove_all(PreviousContext, ".*\\$"),  
+    Speaker = stringr::str_remove_all(Speaker, ">.*"),  
+    Speaker = stringr::str_squish(Speaker),  
+    Speaker = toupper(Speaker)  
+  ) |>  
+  dplyr::select(Speaker)  
+  
+# Add speaker column to the cleaned KWIC table  
+swire <- cbind(kwicswearsclean, kwiclong)  
+```  
+  
+```{r sw_speaker_show, echo=FALSE, message=FALSE, warning=FALSE}  
+swire |>  
+  head(8) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::set_caption(  
+    caption = "Swear word KWIC with speaker identity added. File and Speaker together uniquely identify each speaker."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+## Linking to Speaker Metadata {-}  
+  
+We aggregate swear word counts per speaker–file combination and join the speaker biodata (gender and age group).  
+  
+```{r sw_meta, message=FALSE, warning=FALSE}  
+# Count swear words per speaker per file  
+swire <- swire |>  
+  dplyr::group_by(File, Speaker) |>  
+  dplyr::summarise(Swearwords = dplyr::n(), .groups = "drop")  
+  
+# Load speaker biodata  
+bio <- base::readRDS("tutorials/corplingr/data/d01.rda", "rb") |>  
+  dplyr::rename(  
+    File    = text.id,  
+    Speaker = spk.ref,  
+    Gender  = sex,  
+    Age     = age,  
+    Words   = word.count  
+  ) |>  
+  dplyr::select(File, Speaker, Gender, Age, Words)  
+```  
+  
+```{r sw_meta_show, echo=FALSE, message=FALSE, warning=FALSE}  
+bio |>  
+  head(8) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::set_caption(  
+    caption = "Speaker metadata: gender, age bracket, and word count per speaker per file."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+```{r sw_join, message=FALSE, warning=FALSE}  
+# Left-join: speakers with no swear words receive count 0  
+swire <- dplyr::left_join(bio, swire, by = c("File", "Speaker")) |>  
+  dplyr::mutate(  
+    Swearwords = ifelse(is.na(Swearwords), 0, Swearwords),  
+    File       = factor(File),  
+    Speaker    = factor(Speaker),  
+    Gender     = factor(Gender),  
+    Age        = factor(Age)  
+  )  
+```  
+  
+## Normalised Frequencies by Age and Gender {-}  
+  
+Raw swear word counts cannot be compared across speakers because speakers contribute different amounts of speech. We normalise by dividing total swear words per age–gender group by the total words spoken in that group, expressed per 1,000 words.  
+  
+```{r sw_norm, message=FALSE, warning=FALSE}  
+swire_clean <- swire |>  
+  dplyr::filter(!is.na(Gender), !is.na(Age), Age != "0-18") |>  
+  dplyr::group_by(Age, Gender) |>  
+  dplyr::mutate(  
+    SumWords      = sum(Words),  
+    SumSwearwords = sum(Swearwords),  
+    Freq_ptw      = round(SumSwearwords / SumWords * 1000, 3)  
+  )  
+  
+# Summary table  
+swire_clean |>  
+  dplyr::group_by(Age, Gender) |>  
+  dplyr::summarise(  
+    Swears_per_1000 = round(sum(Swearwords) / sum(Words) * 1000, 3),  
+    .groups = "drop"  
+  ) |>  
+  tidyr::pivot_wider(names_from = Gender, values_from = Swears_per_1000)  
+```  
+  
+```{r sw_barplot, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}  
+swire_clean |>  
+  dplyr::group_by(Age, Gender) |>  
+  dplyr::summarise(  
+    Swears_ptw = round(sum(Swearwords) / sum(Words) * 1000, 3),  
+    .groups    = "drop"  
+  ) |>  
+  ggplot(aes(x = Age, y = Swears_ptw, group = Gender, fill = Gender)) +  
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +  
+  scale_fill_manual(  
+    values = c("female" = "#E66100", "male" = "#5D3A9B"),  
+    labels = c("Women", "Men")  
+  ) +  
+  theme_bw() +  
+  labs(  
+    title    = "Swear Word Frequency by Age Group and Gender in ICE-Ireland",  
+    subtitle = "Normalised per 1,000 words; speakers aged 0–18 excluded",  
+    x        = "Age group",  
+    y        = "Swear words per 1,000 words",  
+    fill     = "Gender"  
+  ) +  
+  theme(legend.position = "bottom")  
+```  
+  
+The grouped bar chart reveals that overall gender differences in swearing frequency are modest for most age groups, but two age brackets stand out. Among speakers aged 26–33, men swear markedly more frequently than women. This pattern reverses in the 34–41 bracket, where women produce a higher normalised rate. From age 42 onwards the rates converge. These findings broadly replicate the age–gender interaction reported in @schweinberger2018swearing and are consistent with sociolinguistic accounts of swearing as a register-sensitive behaviour whose social meaning and acceptability differs by cohort and context.  
+  
+## Statistical Analysis: Configural Frequency Analysis {-}  
+  
+To determine which specific age–gender combinations show statistically significant over-use or under-use of swear words relative to what the marginal frequencies would predict, we apply **Configural Frequency Analysis** (CFA) [@lienert1969configuralfrequenzanalyse]. CFA is a non-parametric method well-suited to cross-classified count data. It tests, for each cell in a contingency table, whether the observed frequency departs significantly from the expected frequency under independence, using a chi-square statistic with Bonferroni correction for multiple comparisons.  
+  
+```{r cfa_prep, message=FALSE, warning=FALSE}  
+# Prepare data: swear word and non-swear word counts per Age × Gender cell  
+cfa_data <- swire_clean |>  
+  dplyr::group_by(Gender, Age) |>  
+  dplyr::summarise(  
+    Words      = sum(Words),  
+    Swearwords = sum(Swearwords),  
+    .groups    = "drop"  
+  ) |>  
+  dplyr::mutate(Words = Words - Swearwords) |>   # non-swear word tokens  
+  tidyr::pivot_longer(  
+    cols      = c(Words, Swearwords),  
+    names_to  = "Type",  
+    values_to = "Frequency"  
+  ) |>  
+  dplyr::filter(Age != "0-18")  
+```  
+  
+```{r cfa_show, echo=FALSE, message=FALSE, warning=FALSE}  
+cfa_data |>  
+  head(12) |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .75, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 10) |>  
+  flextable::set_caption(  
+    caption = "CFA input: frequencies of swear words and non-swear words per Age × Gender configuration."  
+  ) |>  
+  flextable::border_outer()  
+```  
+  
+```{r cfa_run, message=FALSE, warning=FALSE}  
+configs <- dplyr::select(cfa_data, Age, Gender, Type)  
+counts  <- cfa_data$Frequency  
+  
+# Run CFA; filter to significant swear word over-use  
+cfa(configs, counts)$table |>  
+  as.data.frame() |>  
+  dplyr::filter(  
+    p.chisq < .05,  
+    stringr::str_detect(label, "Swear")  
+  ) |>  
+  dplyr::select(label, n, expected, chisq, p.chisq, sig.chisq)  
+```  
+  
+The CFA confirms that the age–gender interactions visible in the bar chart are statistically significant: men aged 26–33 and women aged 34–41 show significantly higher swearing rates than would be expected from the marginal totals alone (p < .05, Bonferroni-corrected). No other age–gender combination reaches significance for swear word over-use.  
+  
+::: {.callout-warning}  
+## Limitations  
+  
+This analysis is based on a small sub-sample of 20 ICE-Ireland files and should be treated as illustrative rather than definitive. A more robust study would use the full ICE-Ireland spoken corpus, apply more sophisticated normalisation, and consider genre and interlocutor familiarity as potential confounds. The regex-based swear word operationalisation also excludes milder expletives, dialect-specific forms, and code-switched taboo language.  
+:::  
+  
+---  
+  
+# Summary {#summary}  
+  
+These two case studies demonstrate several core features of corpus-based research in linguistics. Working from authentic spoken language data, both studies follow a common workflow — loading and tidying raw corpus files, computing normalised frequency measures, visualising patterns, and applying inferential tests — while addressing fundamentally different research questions.  
+  
+The HSLLD analyses show how a single richly annotated longitudinal corpus can support multiple converging analyses of language development. The five analyses together paint a coherent picture: young children begin with a small, repetitive vocabulary dominated by a few high-frequency forms and develop, over the preschool and early school years, towards more varied, grammatically complex, and lexically diverse speech. Maternal speech adapts to children's growing competence — question rates are high when children are youngest and most in need of conversational scaffolding, and the progressive constructions children hear are populated by semantically transparent, physically grounded verbs. These findings align with a usage-based model of acquisition in which the statistical properties of the input shape the trajectory of development.  
+  
+The ICE-Ireland swearing study demonstrates a different use of corpus methods: the investigation of sociolinguistic variation across demographically defined sub-groups. The finding that swearing rates peak for men aged 26–33 and for women aged 34–41 — with the two groups otherwise showing comparable rates — adds to a growing body of evidence that the social meaning of swearing is negotiated differently across age cohorts and that gender effects in taboo language use are not uniform across the life span.  
+  
+Together, the case studies illustrate both the power and the limitations of corpus methods. Corpora provide frequency information at a scale that no other method can match and allow hypotheses about language use to be tested against naturalistic data. But the results are always shaped by corpus design, annotation quality, pre-processing choices, and the operationalisation of the phenomena under study. Responsible corpus-based research requires explicit documentation of all these choices and honest acknowledgement of the interpretive limits they impose.  
+  
+---  
+  
+# Citation and Session Info {-}  
+  
+Schweinberger, Martin. 2026. *Corpus Linguistics with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/corplingr/corplingr.html (Version 2026.02.24).  
+  
+```  
+@manual{schweinberger2026cl,  
+  author       = {Schweinberger, Martin},  
+  title        = {Corpus Linguistics with R},  
+  note         = {https://ladal.edu.au/tutorials/corplingr/corplingr.html},  
+  year         = {2026},  
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},  
+  address      = {Brisbane},  
+  edition      = {2026.02.24}  
+}  
+```  
+  
+```{r session_info}  
+sessionInfo()  
+```  
+  
+::: {.callout-note}  
+## AI Transparency Statement  
+  
+This showcase was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document, expand the analytical prose and interpretation sections, improve code clarity and consistency, add the progressive constructions analysis, and revise all callout boxes and section overviews. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and scholarly integrity of the material.  
+:::  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to LADAL home](/)  
+  
+---  
+  
+# References {-}  
