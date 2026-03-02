@@ -1,100 +1,508 @@
 ---
-title: "Visualizing and Analyzing Questionnaire and Survey Data with R"
+title: "Visualising and Analysing Survey and Questionnaire Data with R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
 
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(checkdown)
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction
-
-This tutorial offers some advice on what to consider when creating surveys and questionnaires, provides tips on visualizing survey data, and exemplifies how survey and questionnaire data can be analyzed. As this tutorial is introductory, issues relating to what software to use when creating a survey (e.g. SurveyMonkey, Qualtrics, GoogleForms, etc.) or how to program questionnaires or online experiments in Java or R are not discussed. 
+# Introduction {#intro}
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to visualize and analyze survey and questionnaire data using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with surveys and questionnaires. 
+Surveys and questionnaires are among the most widely used research instruments across the social sciences, linguistics, psychology, education, and applied language research. They provide a comparatively efficient means of collecting structured data from large numbers of participants, and — when designed and analysed carefully — can yield robust and reproducible insights into attitudes, behaviours, and cognitive patterns that are otherwise difficult to access directly.
 
-**How to use the R Notebook for this tutorial**
+This tutorial covers the full survey research workflow in R: from design principles and the construction of survey instruments, through data visualisation, to statistical analysis. It is aimed at beginners and intermediate R users and does not assume prior knowledge of survey methodology or statistics beyond a basic familiarity with R. The goal is not to provide an exhaustive treatment of any single method but to offer a practical, reproducible introduction to the most important tools and techniques.
 
-As all calculations and visualizations in this tutorial rely on R, it is necessary to install R and RStudio. If these programs (or, in the case of R, environments) are not already installed on your machine, please search for them in your favorite search engine and add the term "download". Open any of the first few links and follow the installation instructions (they are easy to follow, do not require any specifications, and are pretty much self-explanatory).
+The tutorial is organised into five main parts:
 
-To follow this tutorial interactively (by using the R Notebook), follow the instructions listed below.
+1. **Survey design** — what to consider when constructing questions and scales
+2. **Creating surveys in R** — how to build deployable survey instruments using `shiny` and `surveydown`
+3. **Visualising survey data** — cumulative density plots, pie charts, bar plots, and Likert plots
+4. **Reliability** — Cronbach's α, Guttman's λ₆, and McDonald's ω
+5. **Statistical analysis** — factor analysis and PCA (merged), and ordinal regression with diagnostics
 
-1. Create a folder somewhere on your computer
-2. Download the [R Notebook](/tutorials/surveys/surveys.Rmd) and save it in the folder you have just created
-3. Open R Studio
-4. Click on "File" in the upper left corner of the R Studio interface
-5. Click on "New Project..."
-6. Select „Existing Directory“
-7. Browse to the folder you have just created and click on “Create New Project”
-8. Now click on "Files" above the lower right panel
-9. Click on the file "surveys.Rmd"
-  + The Markdown file of this tutorial should now be open in the upper left panel of R Studio. To execute the code blocks used in this session, simply click on the green arrows in the top right corner of the code boxes.
-  + To render a PDF of this tutorial, simply click on "Knit" above the upper left panel in R Studio.
+::: {.callout-note}
+## Prerequisite Tutorials
 
-# Design Basics
+Before working through this tutorial, familiarity with the following is recommended:
 
-A survey is a research method for gathering information based on a sample of people. Questionnaires are a research instrument and typically represent a part of a survey, i.e. that part where participants are asked to answer a set of questions. [@brown2001surveys, 6] defines questionnaires as "any written instruments that present respondents with a series of  questions or statements to which they are to react either by writing out their answers or selecting among existing answers."  
+- [Getting Started with R and RStudio](/tutorials/intror/intror.html)
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)
+- [Data Visualisation with ggplot2](/tutorials/ggplot2/ggplot2.html)
+- [Basic Inferential Statistics in R](/tutorials/basicstats/basicstats.html)
+:::
 
-Questionnaires elicit three types of data:
+::: {.callout-tip}
+## Learning Objectives
 
-* Factual 
-* Behavioral
-* Attitudinal
+By the end of this tutorial you will be able to:
 
-While factual and behavioral questions are about what the respondent is and does, attitudinal questions tap into what the respondent thinks or feels.
+1. Identify and apply core principles of questionnaire and survey design
+2. Distinguish between nominal, ordinal, and numeric scale types and select the appropriate scale for a research question
+3. Build a deployable browser-based survey using `shiny` and `surveydown`
+4. Visualise Likert-scaled data using cumulative density plots, bar plots, and the `likert` package
+5. Evaluate the internal consistency of a set of survey items using Cronbach's α, Guttman's λ₆, and McDonald's ω
+6. Use factor analysis and principal component analysis to identify latent structure in survey data
+7. Fit, interpret, and visualise an ordinal logistic regression model
+8. Calculate and interpret odds ratios and confidence intervals from ordinal regression output
+:::
 
-The advantages of surveys are that they 
-* offer a relative cheap, quick, and effective way to collect (targeted) data from a comparatively large set of people; and 
-* that they can be distributed or carried out in various formats (face-to-face, by telephone, by computer or via social media, or by postal service).
+::: {.callout-note}
+## Citation
 
-Disadvantages of questionnaires are that they are prone to providing unreliable or unnatural data. Data gathered via surveys can be unreliable due to the social desirability bias which is the tendency of respondents to answer questions in a manner that will be viewed favorably by others. Thus, the data that surveys provide may not necessarily be representative of actual natural behavior. 
+Schweinberger, Martin. 2026. *Visualising and Analysing Survey and Questionnaire Data with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/surveys/surveys.html (Version 2026.02.24).
+:::
 
-Questionnaires and surveys are widely used in language research and thus one of the most common research designs. In this section, we will discuss what needs to kept in mind when designing questionnaires and surveys, what pieces of software or platforms one can use, options for visualizing questionnaire and survey data, statistical methods that are used to evaluate questionnaire and survey data (reliability), and which statistical methods are used in analyzing the data.
+---
 
-# Things to consider
+# Survey Design {#design}
 
-Here are some rules to consider during the creation of questionnaires and before  any survey is distributed.
+::: {.callout-note}
+## Section Overview
 
-* Surveys should not be longer than they have to be while they have to be long enough to collect all the data that are needed. It is crucial that a questionnaire collects all necessary data (including socio-demographic details). 
+**What you'll learn:** The fundamental principles of questionnaire design, common pitfalls to avoid, and the properties of the four main scale types used in survey research
+:::
 
-* The language should be simple and easy to understand - this means that jargon should be avoided. Also, leading questions and value judgement on the side of the creators of questionnaires should be avoided to prevent social desirability bias.
+## What Is a Survey? {-}
 
-* Before distributing a questionnaire, it should be piloted. Piloting is essential to check if respondents understand the questions as intended, and to check how long it takes to answer the questions. Also, the people who are involved in the piloting should be allowed to provide feedback to avoid errors. 
+A **survey** is a research method for gathering information from a sample of people. A **questionnaire** is the instrument — typically a set of written questions or statements — used to collect that information. @brown2001surveys defines questionnaires as "any written instruments that present respondents with a series of questions or statements to which they are to react either by writing out their answers or selecting among existing answers."
 
-* When questions go beyond simply collecting socio-demographic details and if the data contains test and filler items, the order of questions (within blocks) should be quasi-randomized. Quasi-randomization means that test items are not asked in direct succession and that they do not appear as first or last items. Quasi-randomization helps to avoid fatigue effects or results that are caused by the ordering of questions. However, the questions should still follow an internally consistent logic so that related questions appear in the same block. Also, more specific questions should be asked after more general questions.
+Questionnaires elicit three broad types of data:
 
-* Questions must be unambiguous and they cannot ask multiple aspects at once. Take, for instance, the following question "Do you consider UQ to be a good university with respect to teaching and research?" If the respondent answers positively, then no issues arise but if the answer is negative, i.e. "No", then we do not know if the respondent thinks that UQ is not a good university with respect to teaching OR with respect to research OR both! In such cases, questions should be split:
+- **Factual** — what the respondent *is* (age, gender, first language, years of study)
+- **Behavioural** — what the respondent *does* (how often they use a language, which media they consume)
+- **Attitudinal** — what the respondent *thinks or feels* (attitudes towards language learning, motivation, anxiety)
 
-  + Do you consider UQ to be a good university with respect to teaching?
+Surveys are comparatively cheap and efficient, can reach large and geographically dispersed samples, and can be delivered in many formats (face-to-face, telephone, web, postal). Their main weakness is susceptibility to **social desirability bias** — the tendency of respondents to answer in ways they believe will be viewed favourably rather than in ways that reflect their actual behaviour or attitudes. Careful question wording, anonymity, and the inclusion of validity checks can reduce (but not eliminate) this bias.
 
-  + Do you consider UQ to be a good university with respect to research?"
+## Design Principles {-}
 
-* To check if respondents are concentrated, read the questions carefully, and answering truthfully, it is useful to include reverse questions, i.e. questions that have the opposite polarity. Reverse questions allow to check if respondents only answers "very satisfied" or "completely agree" without respect to the content of the question. Giving the same answer to questions which have opposite propositions would indicate that respondents do not read questions carefully or do not answer truthfully.
+The following principles are widely accepted in survey methodology and should be applied systematically before any questionnaire is distributed.
 
-* If questions are not open or unstructured, i.e. if different options to answer to a question are provided, it is crucial that the options are fine-grained enough so that the data that is collected allows us to answer the research question that we want to investigate. In this context, the scaling of answer options is important. Scales reflect different types of answering options and they come in three basic forms: nominal and categorical, ordinal, or numeric. 
+**Keep it as short as necessary.** A questionnaire should be long enough to collect all required data — including all relevant sociodemographic variables — but no longer. Every item adds to respondent burden and increases the risk of fatigue, inattention, and dropout. As a rough guideline, aim for a completion time of under 15 minutes for general-population surveys, and communicate this estimate to respondents at the outset.
 
-  + *Nominal and categorical scales*: 
-Nominal and categorical scales only list the membership of a particular class. Nominal scales offer exactly two options (yes/no or on/off), while categorical scales offer several options (e.g. the state in which someone was born).
+**Use simple, unambiguous language.** Avoid jargon, technical terminology, and double negatives. Each item should be interpretable in one and only one way by all respondents in your target population. Leading questions (e.g. *"Don't you think that public transport is underfunded?"*) and value-laden language should be avoided to minimise response bias.
 
-  + *Ordinal scales*: 
-With *ordinal scales* it is possible to rank the values, but the distances between the ranks can not be exactly quantified. An example of an ordinal scales is the ranking in a 100-meter run. The 2nd in a 100-meter run did not go twice as fast as the 4th. It is often the case that ordinal variables consist of integer, positive numbers (1, 2, 3, 4, etc.). In the context of surveys, ordinal scales are the most important as all Likert scales (after the psychologist Rensis Likert) are ordinal scales. The levels of the typical five-level Likert item could be: *Strongly disagree (1)*, *Disagree (2) *, *Neither agree nor disagree (3)*, *Agree (4)*, and *Strongly agree (5)*. As such, the Likert scale is a bipolar scale that can be balanced, if there is an uneven number of options with the center option being neutral, or unbalanced, if there are an even number of options which forces respondents to express a preferences for wither of the two poles (this is called a  "forced choice" method.
+**Ask one thing at a time.** Double-barrelled questions — those that contain two propositions in a single item — should always be split. For example, *"Do you find this course useful and enjoyable?"* should become two separate items: (1) *"Do you find this course useful?"* and (2) *"Do you find this course enjoyable?"*. If a respondent answers *No* to the combined question, it is impossible to know whether they mean the course is neither useful nor enjoyable, useful but not enjoyable, or not useful but enjoyable.
 
-  + *(True) Numeric scales*: 
-There are two basic types of numeric scales: *interval-scales* and *ratio-scales*. For *interval scales*, the differences between levels are significant, but not the relationship between levels. For instance, 20 degree Celsius is not twice as hot as 10 degree Celsius. For *ratio-scales* both the differences and the relationships between the levels are significant (e.g. the times in a 100-meter dash: 10 is exactly twice as high as 5 and half as much as 20).
+**Order questions logically.** Related items should be grouped into thematic blocks. Within blocks, move from more general to more specific questions. The very first and very last items in a questionnaire receive disproportionate attention, so do not place your most sensitive or most important items in these positions.
 
-Of these scales, numeric is the most informative and questionnaires should always aim to extract the most detailed information without becoming to long.
+**Randomise within blocks.** If a questionnaire contains both test items and filler items, or multiple items tapping into the same construct, quasi-randomise the order within each block. True randomisation ensures that the effects of item order are distributed across respondents; quasi-randomisation additionally ensures that test items do not appear consecutively or in the first/last position.
 
-# Visualizing survey data
+**Include reverse-coded items.** Reverse-coded (or reverse-polarity) items are questions that express the opposite proposition to the primary construct. For example, if the construct is *motivation*, a reverse item might be *"I rarely feel motivated to study this language."* Including such items allows you to detect respondents who are answering randomly or are simply ticking the same response option for every item (acquiescence bias). Responses to reverse items should be recoded before computing construct scores.
 
-Just as the data that is provided by surveys and questionnaires can take various forms, there are numerous ways to display survey data. In the following, we will have a look at some of the most common or useful ways in which survey and questionnaire data can be visualized. However, before we can begin, we need to set up our R session as shown below.
+**Pilot before distributing.** Always test your questionnaire on a small sample (5–10 people) from the target population before full deployment. The pilot reveals ambiguous wording, format problems, and unexpected interpretations, and provides an accurate estimate of completion time. Pilot participants should be encouraged to think aloud and provide written feedback.
 
-**Preparation and session set up**
+## Scale Types {-}
 
-To run the scripts shown below without errors, certain *packages* need to be installed from an R *library*. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+The type of scale used for each item determines what statistical methods can legitimately be applied to the resulting data. There are four main scale types, ordered here from least to most informative.
 
-```{r prep_01, echo=T, eval = F, message=FALSE, warning=FALSE}
-# install packages
+### Nominal Scales {-}
+
+A **nominal scale** (or **categorical scale**) classifies respondents into unordered categories. Dichotomous nominal scales have exactly two options (yes/no, male/female, L1 speaker/L2 learner). Polytomous nominal scales have more than two unordered categories (country of birth, native language, educational institution). Nominal data can only be summarised using frequencies and proportions; means and standard deviations are meaningless.
+
+### Ordinal Scales {-}
+
+An **ordinal scale** allows the values to be ranked, but the intervals between ranks are not necessarily equal or quantifiable. A classic example is a competition ranking: finishing 2nd is not exactly "twice as good" as finishing 4th. The most important ordinal scale in survey research is the **Likert scale**, introduced by the psychologist Rensis Likert [@likert1932technique].
+
+A typical five-point Likert item looks like this:
+
+| Value | Label |
+|-------|-------|
+| 1 | Strongly disagree |
+| 2 | Disagree |
+| 3 | Neither agree nor disagree |
+| 4 | Agree |
+| 5 | Strongly agree |
+
+: A balanced five-point Likert item {tbl-colwidths="[15,85]"}
+
+Likert scales can be **balanced** (odd number of options, with a neutral midpoint) or **unbalanced** (even number of options, which forces respondents to lean towards one pole — this is sometimes called a *forced-choice* format). Likert scales with 5 or 7 points are most common; 7-point scales provide finer resolution at the cost of greater cognitive demand.
+
+::: {.callout-tip}
+## Likert Items vs. Likert Scales
+
+Strictly speaking, a **Likert item** is a single statement with a rating response; a **Likert scale** is the composite score computed from multiple related Likert items. Much published research uses the two terms interchangeably, but the distinction matters for statistical analysis: individual Likert items are ordinal, while a composite Likert scale score (the sum or mean of several items) is often treated as approximately interval-level for the purposes of parametric testing.
+:::
+
+### Interval Scales {-}
+
+For an **interval scale**, the distances between adjacent values are equal and meaningful, but the scale has no true zero point. Temperature measured in Celsius or Fahrenheit is the canonical example: 20°C is not twice as hot as 10°C, because 0°C is an arbitrary reference point rather than the complete absence of heat. In survey research, composite Likert scores and many psychological scales are often treated as interval-level data, which allows the use of means, standard deviations, and parametric statistics.
+
+### Ratio Scales {-}
+
+A **ratio scale** has equal intervals *and* a true zero point, meaning that ratios between values are interpretable: a reaction time of 1,000 ms is exactly twice as long as 500 ms. Frequency counts, response times, and age measured in years are ratio-scale variables. Ratio-scale data are the most statistically flexible and support the full range of parametric methods.
+
+::: {.callout-warning}
+## Choosing the Right Scale
+
+Always aim to collect data at the highest meaningful level of measurement. A question about income, for example, could be measured nominally (above/below median), ordinally (low/medium/high income bracket), or on a ratio scale (actual income in dollars). The ratio-scale version preserves the most information and can always be collapsed to a lower level of measurement during analysis — but the reverse is not possible.
+:::
+
+---
+
+::: {.callout-tip}
+## Check Your Understanding: Survey Design
+:::
+
+**Q1. A researcher asks: "Do you find learning English grammar difficult and time-consuming?" What is the main problem with this item?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q1"
+check_question(
+  "It is a double-barrelled question — it asks about two distinct constructs (difficulty and time consumption) in a single item, making the response uninterpretable if the answer is negative",
+  options = c(
+    "It is a double-barrelled question — it asks about two distinct constructs (difficulty and time consumption) in a single item, making the response uninterpretable if the answer is negative",
+    "The question uses leading language by implying that grammar is difficult",
+    "The question is too short to be useful in a validated questionnaire",
+    "The question uses a ratio scale when it should use a Likert scale"
+  ),
+  type = "radio",
+  q_id = "SUR_Q1",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! A double-barrelled question conflates two separate propositions into a single item. If a respondent answers 'No', it is impossible to determine which proposition they are rejecting: they might find grammar easy but time-consuming, difficult but not time-consuming, or both easy and quick. The fix is simple: split into two items — (1) 'Do you find learning English grammar difficult?' and (2) 'Do you find learning English grammar time-consuming?' — each of which has an unambiguous interpretation.",
+  wrong = "Look carefully at the conjunction 'and' in the question. What does a 'No' answer actually tell you about the respondent's views on difficulty versus time consumption?"
+)
+```
+
+---
+
+**Q2. Which of the following variables is measured on a ratio scale?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q2"
+check_question(
+  "The time (in milliseconds) a participant takes to respond to a stimulus",
+  options = c(
+    "The time (in milliseconds) a participant takes to respond to a stimulus",
+    "A participant's self-rated motivation on a 1–5 Likert scale",
+    "A participant's country of birth",
+    "A participant's proficiency level categorised as beginner / intermediate / advanced"
+  ),
+  type = "radio",
+  q_id = "SUR_Q2",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Response time in milliseconds is a ratio-scale variable: it has a true zero point (0 ms = no time elapsed), equal intervals (the difference between 100 ms and 200 ms is the same as between 500 ms and 600 ms), and interpretable ratios (400 ms is exactly twice as long as 200 ms). A Likert rating is ordinal; country of birth is nominal; and beginner/intermediate/advanced is ordinal.",
+  wrong = "Recall that a ratio scale requires both equal intervals AND a true zero point (zero means the complete absence of the measured property). Which of the options satisfies both conditions?"
+)
+```
+
+---
+
+# Creating Surveys in R {#creating}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to build deployable, browser-based survey instruments entirely within R using two complementary tools — `shiny` (a general-purpose interactive web application framework) and `surveydown` (a dedicated survey-building package built on Quarto and Shiny) — and how to choose between them for a given use case
+:::
+
+One of the most compelling recent developments for survey researchers who work in R is the ability to design, deploy, and collect data from surveys entirely within the R ecosystem. This eliminates the dependency on commercial platforms (Qualtrics, SurveyMonkey, Google Forms) and their associated licensing costs and data-sharing terms, and keeps the full pipeline — from instrument construction to analysis — in a single reproducible environment.
+
+Two tools are particularly well-suited for this purpose: **Shiny** and **surveydown**.
+
+## Shiny Surveys {#shiny-surveys}
+
+[Shiny](https://shiny.posit.co/) is a general-purpose framework for building interactive web applications in R. A Shiny survey is an R script (or pair of scripts) that defines both a user interface (the questions respondents see) and server logic (how responses are stored and processed). Shiny surveys can range from a simple single-page form to a complex adaptive instrument with branching logic, multimedia stimuli, and real-time feedback.
+
+### A Minimal Shiny Survey {-}
+
+The example below illustrates the essential structure of a Shiny survey. It collects three items: the respondent's native language (text input), their self-rated English proficiency (5-point Likert scale), and their agreement with a motivation statement (5-point Likert scale). Responses are written to a CSV file on submission.
+
+::: {.callout-warning}
+## Running Shiny Apps Locally
+
+To run a Shiny app, paste the code below into an R script, save it as `app.R`, and run `shiny::runApp("app.R")` in the R console, or click the **Run App** button that appears in RStudio when the file is open. The app will open in your default browser. For deployment to the web (so that respondents can access it without running R), use [shinyapps.io](https://www.shinyapps.io/) (free tier available) or a self-hosted Shiny Server.
+:::
+
+```{r shiny_install, eval=FALSE, echo=TRUE}
+# Install once if not already present
+install.packages("shiny")
+```
+
+```{r shiny_example, eval=FALSE, echo=TRUE}
+library(shiny)
+
+# --- User Interface -----------------------------------------------------------
+ui <- fluidPage(
+  titlePanel("Language Learning Survey"),
+
+  # Progress indicator
+  tags$p(style = "color: grey; font-size: 0.9em;",
+         "Please answer all questions below, then click Submit."),
+
+  # Q1: native language (free text)
+  textInput(
+    inputId     = "native_lang",
+    label       = "Q1. What is your native language?",
+    placeholder = "e.g. Mandarin, German, Arabic ..."
+  ),
+
+  # Q2: proficiency (Likert — radio buttons)
+  radioButtons(
+    inputId  = "proficiency",
+    label    = "Q2. How would you rate your overall English proficiency?",
+    choices  = c(
+      "1 — Beginner"      = 1,
+      "2 — Elementary"    = 2,
+      "3 — Intermediate"  = 3,
+      "4 — Upper-intermediate" = 4,
+      "5 — Advanced/Native-like" = 5
+    ),
+    selected = character(0)   # no default selection
+  ),
+
+  # Q3: motivation (Likert — radio buttons)
+  radioButtons(
+    inputId  = "motivation",
+    label    = "Q3. I am motivated to improve my English skills.",
+    choices  = c(
+      "1 — Strongly disagree"         = 1,
+      "2 — Disagree"                  = 2,
+      "3 — Neither agree nor disagree" = 3,
+      "4 — Agree"                     = 4,
+      "5 — Strongly agree"            = 5
+    ),
+    selected = character(0)
+  ),
+
+  # Submit button
+  actionButton("submit", "Submit", class = "btn-primary"),
+
+  # Feedback message area
+  uiOutput("feedback")
+)
+
+# --- Server Logic -------------------------------------------------------------
+server <- function(input, output, session) {
+
+  observeEvent(input$submit, {
+
+    # Validate: require all fields
+    if (input$native_lang == "" ||
+        length(input$proficiency) == 0 ||
+        length(input$motivation)  == 0) {
+      output$feedback <- renderUI(
+        tags$p(style = "color: red;",
+               "Please complete all questions before submitting.")
+      )
+      return()
+    }
+
+    # Build response row
+    response <- data.frame(
+      timestamp   = Sys.time(),
+      native_lang = input$native_lang,
+      proficiency = as.integer(input$proficiency),
+      motivation  = as.integer(input$motivation)
+    )
+
+    # Append to CSV (create file if it does not exist)
+    results_file <- "survey_responses.csv"
+    write.table(
+      response,
+      file      = results_file,
+      sep       = ",",
+      col.names = !file.exists(results_file),
+      row.names = FALSE,
+      append    = TRUE
+    )
+
+    # Confirmation message and disable submit button
+    output$feedback <- renderUI(
+      tags$p(style = "color: green; font-weight: bold;",
+             "Thank you — your response has been recorded!")
+    )
+    shinyjs::disable("submit")
+  })
+}
+
+# --- Launch ------------------------------------------------------------------
+shiny::shinyApp(ui = ui, server = server)
+```
+
+::: {.callout-tip}
+## Extending the Shiny Survey
+
+The minimal example above can be extended in several ways:
+
+- **Branching logic**: use `conditionalPanel()` or `observe()` + `updateUI()` to show or hide questions based on previous responses
+- **Multiple pages**: use `tabsetPanel()` or a custom page-counter reactive value to split a long survey across screens
+- **Randomisation**: use `sample()` on a vector of question labels at the start of each session to randomise item order
+- **Database backend**: replace the CSV write with a `DBI` / `RSQLite` or `pool` connection for more robust multi-user data collection
+- **Timer**: record response latencies using `Sys.time()` at question render and at submission
+:::
+
+## surveydown {#surveydown}
+
+[`surveydown`](https://surveydown.org/) is a dedicated survey-building package for R that takes a different approach from Shiny. Instead of writing UI and server code, you write your survey as a **Quarto document** — using familiar markdown syntax for text and standard R code chunks for question definitions — and `surveydown` compiles it into a Shiny app automatically. This makes it significantly faster to author surveys, easier to version-control (the survey is plain text), and more natural for researchers already working in Quarto.
+
+```{r surveydown_install, eval=FALSE, echo=TRUE}
+# Install once
+install.packages("surveydown")
+```
+
+A `surveydown` survey consists of two files:
+
+1. **`survey.qmd`** — the Quarto document containing your questions
+2. **`app.R`** — a minimal launcher script that connects to a database and runs the app
+
+### The Survey Document (`survey.qmd`) {-}
+
+```{r surveydown_qmd, eval=FALSE, echo=TRUE}
+# Contents of survey.qmd
+# (This is a Quarto document, not an R chunk — shown here for illustration)
+
+# ---
+# server: shiny
+# ---
+#
+# ```{r setup}
+# #| include: false
+# library(surveydown)
+# ```
+#
+# ::: {#welcome .sd-page}
+# # Language Learning Survey
+#
+# Thank you for participating. This survey takes approximately 3 minutes.
+# Please answer all questions honestly — your responses are anonymous.
+#
+# ```{r}
+# sd_next(next_page = "questions")
+# ```
+# :::
+#
+# ::: {#questions .sd-page}
+# ```{r}
+# sd_question(
+#   type   = "text",
+#   id     = "native_lang",
+#   label  = "What is your native language?"
+# )
+#
+# sd_question(
+#   type    = "mc",
+#   id      = "proficiency",
+#   label   = "How would you rate your overall English proficiency?",
+#   options = c(
+#     "1 — Beginner"               = "1",
+#     "2 — Elementary"             = "2",
+#     "3 — Intermediate"           = "3",
+#     "4 — Upper-intermediate"     = "4",
+#     "5 — Advanced / Native-like" = "5"
+#   )
+# )
+#
+# sd_question(
+#   type    = "mc",
+#   id      = "motivation",
+#   label   = "I am motivated to improve my English skills.",
+#   options = c(
+#     "1 — Strongly disagree"          = "1",
+#     "2 — Disagree"                   = "2",
+#     "3 — Neither agree nor disagree" = "3",
+#     "4 — Agree"                      = "4",
+#     "5 — Strongly agree"             = "5"
+#   )
+# )
+#
+# sd_next(next_page = "end")
+# ```
+# :::
+#
+# ::: {#end .sd-page}
+# # Thank you!
+# Your response has been recorded.
+# :::
+```
+
+### The Launcher (`app.R`) {-}
+
+```{r surveydown_app, eval=FALSE, echo=TRUE}
+library(surveydown)
+
+# Connect to a local SQLite database to store responses
+db <- sd_database(
+  host   = "localhost",
+  dbname = "survey_results.db",
+  table  = "responses"
+)
+
+# Run the survey
+sd_server(db = db)
+```
+
+### Shiny vs. surveydown: When to Use Which {-}
+
+| Feature | Shiny | surveydown |
+|--------|-------|------------|
+| Authoring format | R script (UI + server) | Quarto markdown |
+| Learning curve | Moderate — requires Shiny knowledge | Low — familiar markdown + R chunks |
+| Branching/skip logic | Full flexibility via `observe()` | Built-in `sd_skip_if()` and `sd_show_if()` |
+| Question types | Manual — any HTML widget | Built-in: text, MC, matrix, slider, etc. |
+| Version control | R script | Plain text Quarto doc |
+| Data storage | Any (CSV, SQLite, PostgreSQL, etc.) | SQLite or Supabase (PostgreSQL) via `sd_database()` |
+| Deployment | shinyapps.io, Shiny Server | shinyapps.io, Posit Connect |
+| Best for | Complex adaptive surveys, experiments | Standard questionnaires, Likert surveys |
+
+: Comparison of Shiny and surveydown for survey authoring {tbl-colwidths="[30,35,35]"}
+
+As a rule of thumb: use **surveydown** for standard questionnaires and Likert-based surveys where rapid authoring, readability, and version control matter; use **Shiny** directly when you need full programmatic control, complex adaptive branching, experimental timing, or integration with custom data pipelines.
+
+---
+
+::: {.callout-tip}
+## Check Your Understanding: Creating Surveys in R
+:::
+
+**Q3. You are designing an experiment that presents participants with audio stimuli and requires them to respond within a 3-second window, with their response latency recorded to the nearest millisecond. Which tool is more appropriate, and why?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q3"
+check_question(
+  "Shiny — because it provides full programmatic control over stimulus timing, response window enforcement, and latency recording via Sys.time() or JavaScript integration, which are not available in surveydown's declarative markdown-based authoring model",
+  options = c(
+    "Shiny — because it provides full programmatic control over stimulus timing, response window enforcement, and latency recording via Sys.time() or JavaScript integration, which are not available in surveydown's declarative markdown-based authoring model",
+    "surveydown — because it is built on Quarto which has better multimedia support than plain Shiny",
+    "surveydown — because sd_question() supports a built-in timer argument that records latencies automatically",
+    "Neither — response latency experiments require a dedicated package like PsychoPy that cannot be replicated in R"
+  ),
+  type = "radio",
+  q_id = "SUR_Q3",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Shiny's reactive programming model gives you complete control over when stimuli are rendered, when the response window opens and closes, and how timestamps are recorded. You can use Sys.time() to capture start and end times, JavaScript callbacks via shinyjs for sub-millisecond precision, and observeEvent() to enforce response deadlines. surveydown's declarative markdown format is excellent for standard questionnaires but does not expose the low-level event hooks required for precise experimental timing.",
+  wrong = "Think about what 'full programmatic control' means in this context. Which tool lets you write arbitrary R (and JavaScript) code to manage exact timing, stimulus presentation, and data capture?"
+)
+```
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep_01, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once to install — comment out after installation
 install.packages("tidyverse")
 install.packages("likert")
 install.packages("MASS")
@@ -104,770 +512,847 @@ install.packages("here")
 install.packages("flextable")
 install.packages("GPArotation")
 install.packages("ufs")
+install.packages("brant")
+install.packages("checkdown")
 ```
 
-You can now activate the packages by running the code chunk below. 
+## Loading Packages {-}
 
 ```{r prep_02, message=FALSE, warning=FALSE}
-# set options
-options(stringsAsFactors = F) # no automatic data transformation
-options("scipen" = 100, "digits" = 4) # suppress math annotation
-# install packages
-library(tidyverse)
-library(likert)
-library(MASS)
-library(psych)
-library(ggplot2)
-library(here)
-library(flextable)
-library(ufs)
-```
+# Load at the start of every session
+library(tidyverse)    # dplyr, ggplot2, stringr, tidyr
+library(likert)       # Likert-scale visualisation
+library(MASS)         # polr() for ordinal regression
+library(psych)        # alpha(), factor analysis
+library(ggplot2)      # visualisation
+library(here)         # portable file paths
+library(flextable)    # formatted display tables
+library(GPArotation)  # rotation methods for factor analysis
+library(ufs)          # scaleStructure() for omega
+library(brant)        # Brant test for proportional odds assumption
+library(checkdown)    # interactive quiz questions
 
-Once you have installed R, RStudio, and have also initiated the session by executing the code shown above, you are good to go.
-
-## Line graphs for Likert-scaled data{-}
-
-A special case of line graphs is used when dealing with Likert-scaled variables (we will talk about Likert scales in more detail below). In such cases, the line graph displays the density of cumulative frequencies of responses. The difference between the cumulative frequencies of responses displays differences in preferences. We will only focus on how to create such graphs using the `ggplot` environment here as it has an in-build function (`ecdf`) which is designed to handle such data.
-
-In a first step, we load a data set (ldat) which contains Likert-scaled variables. This data set represents fictitious rating of students from courses about how satisfied they were with their learning experience. The response to the Likert item is numeric so that *strongly disagree/very dissatisfied* would get the lowest (1) and *strongly agree/very satisfied* the highest numeric value (5).
-
-```{r line_0a1, message=FALSE, warning=FALSE}
-# define color vectors
+# define colour palettes used throughout
 clrs3 <- c("firebrick4", "gray70", "darkblue")
 clrs5 <- c("firebrick4", "firebrick1", "gray70", "blue", "darkblue")
-# load data
+```
+
+---
+
+# Visualising Survey Data {#visualising}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to visualise Likert-scaled data using cumulative density line plots, pie charts (and their limitations), grouped and faceted bar plots, and the specialised Likert diverging stacked bar plot from the `likert` package
+:::
+
+## Loading the Data {-}
+
+We use a fictitious data set (`ldat`) containing satisfaction ratings from students enrolled in three language courses (German, Japanese, Chinese). The `Satisfaction` column contains integer values 1–5 representing the response to a Likert item ranging from *very dissatisfied* (1) to *very satisfied* (5).
+
+```{r line_0a1, message=FALSE, warning=FALSE}
 ldat <- base::readRDS("tutorials/surveys/data/lid.rda", "rb")
 ```
 
-Let's briefly inspect the `ldat` data set.
-
-```{r line_01b, echo = F}
-ldat %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the ldat data set.") %>%
+```{r line_01b, echo=FALSE, message=FALSE, warning=FALSE}
+ldat |>
+  head(10) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "First 10 rows of the ldat data set.") |>
   flextable::border_outer()
 ```
 
-The ldat data set has only two columns: a column labeled *Course* which has three levels (*German*, *Japanese*, and *Chinese*) and a column labeled *Satisfaction* which contains values from 1 to 5 which represent values ranging from *very dissatisfied* to *very satisfied*. Now that we have data resembling a Likert-scaled item from a questionnaire, we will display the data in a cumulative line graph.
+## Cumulative Density Line Plots {-}
 
-```{r line_03, echo=T, message=FALSE, warning=FALSE}
-# create cumulative density plot
-ldat %>%
+A **cumulative density plot** (or empirical CDF plot) is particularly well-suited to Likert-scaled data. The y-axis shows the cumulative proportion of respondents who gave a rating *at or below* each value. If the curve for one group lies *below* another at all x-values, that group has systematically higher (more positive) ratings — fewer of their respondents gave low scores.
+
+```{r line_03, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+ldat |>
   ggplot(aes(x = Satisfaction, color = Course)) +
-  geom_step(aes(y = ..y..), stat = "ecdf") +
-  labs(y = "Cumulative Density") +
-  scale_x_discrete(
-    limits = c("1", "2", "3", "4", "5"),
-    breaks = c(1, 2, 3, 4, 5),
-    labels = c(
-      "very dissatisfied", "dissatisfied",
-      "neutral", "satisfied", "very satisfied"
-    )
+  geom_step(aes(y = after_stat(y)), stat = "ecdf", linewidth = 1) +
+  scale_x_continuous(
+    breaks = 1:5,
+    labels = c("very\ndissatisfied", "dissatisfied", "neutral",
+               "satisfied", "very\nsatisfied")
   ) +
   scale_colour_manual(values = clrs3) +
-  theme_bw()
+  theme_bw() +
+  labs(
+    title    = "Cumulative Satisfaction Ratings by Language Course",
+    subtitle = "Lower curves indicate higher satisfaction (fewer low ratings)",
+    x        = "Satisfaction rating",
+    y        = "Cumulative proportion",
+    colour   = "Course"
+  )
 ```
 
+The Chinese course (blue) has the lowest cumulative curve, indicating the highest satisfaction: relatively few students gave ratings of 1 or 2. The German course (red) has the highest cumulative curve, indicating the lowest satisfaction. The Japanese course lies between the two.
 
-The satisfaction of the German course was the lowest as the red line shows the highest density (frequency of responses) of *very dissatisfied* and *dissatisfied* ratings. The students in our fictitious data set were most satisfied with the Chinese course as the blue line is the lowest for *very dissatisfied* and "dissatisfied" ratings while the difference between the courses shrinks for "satisfied" and *very satisfied*. The Japanese language course is in-between the German and the Chinese course.  
+## Preparing Frequency Data {-}
 
-## Pie charts{-}
+For bar charts and pie charts, we first summarise the raw data into frequencies and percentages.
 
-Most commonly, the data for visualization comes from tables of absolute frequencies associated with a categorical or nominal variable. The default way to visualize such frequency tables are pie charts and bar plots. In a first step, we modify the data to get counts and percentages. 
-
-```{r pie_01, echo = T, eval=T, message=FALSE, warning=FALSE}
-# create bar plot data
-bdat <- ldat %>%
-  dplyr::group_by(Satisfaction) %>%
-  dplyr::summarise(Frequency = n()) %>%
-  dplyr::mutate(Percent = round(Frequency / sum(Frequency) * 100, 1)) %>%
-  # order the levels of Satisfaction manually so that the order is not alphabetical
-  dplyr::mutate(Satisfaction = factor(Satisfaction,
-    levels = 1:5,
-    labels = c(
-      "very dissatisfied",
-      "dissatisfied",
-      "neutral",
-      "satisfied",
-      "very satisfied"
-    )
-  ))
-```
-
-
-Let's briefly inspect the new data set.
-
-```{r pie_02, echo = F}
-bdat %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Overview of the bardata data set.") %>%
-  flextable::border_outer()
-```
-
-Before creating bar plots, we will briefly turn to pie charts because pie charts are very common despite suffering from certain shortcomings. Consider the following example which highlights some of the issues that arise when using pie charts.
-
-```{r pie_03, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create pie chart
-bdat %>%
-  ggplot(aes("", Percent, fill = Satisfaction)) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
-  coord_polar("y", start = 0) +
-  scale_fill_manual(values = clrs5) +
-  theme_void()
-```
-
-
-If the slices of the pie chart are not labelled, it is difficult to see which slices are smaller or bigger compared to other slices. This problem can easily be avoided when using a bar plot instead. This issue can be avoided by adding labels to pie charts. The labeling of pie charts is, however, somewhat tedious as the positioning is tricky. Below is an example for adding labels without specification.
-
-```{r pie_05, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create pie chart
-bdat %>%
-  ggplot(aes("", Percent, fill = Satisfaction)) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
-  coord_polar("y", start = 0) +
-  scale_fill_manual(values = clrs5) +
-  theme_void() +
-  geom_text(aes(y = Percent, label = Percent), color = "white", size = 6)
-```
-
-To place the labels where they make sense, we will add another variable to the data called "Position".
-
-```{r pie_07, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-pdat <- bdat %>%
-  dplyr::arrange(desc(Satisfaction)) %>%
-  dplyr::mutate(Position = cumsum(Percent) - 0.5 * Percent)
-```
-
-Let's briefly inspect the new data set.
-
-```{r pie_08, echo = F}
-pdat %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Overview of the new data.") %>%
-  flextable::border_outer()
-```
-
-Now that we have specified the position, we can include it into the pie chart.
-
-```{r pie_09, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create pie chart
-pdat %>%
-  ggplot(aes("", Percent, fill = Satisfaction)) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
-  coord_polar("y", start = 0) +
-  scale_fill_manual(values = clrs5) +
-  theme_void() +
-  geom_text(aes(y = Position, label = Percent), color = "white", size = 6)
-```
-
-
-We will now create separate pie charts for each course. In a first step, we create a data set that does not only contain the Satisfaction levels and their frequency but also the course.
-
-```{r pie_11, message=FALSE, warning=FALSE}
-# create grouped pie data
-gldat <- ldat %>%
-  dplyr::group_by(Course, Satisfaction) %>%
-  dplyr::summarise(Frequency = n()) %>%
+```{r pie_01, message=FALSE, warning=FALSE}
+bdat <- ldat |>
+  dplyr::group_by(Satisfaction) |>
+  dplyr::summarise(Frequency = dplyr::n(), .groups = "drop") |>
   dplyr::mutate(
-    Percent = round(Frequency / sum(Frequency) * 100, 1),
-    Satisfaction = factor(Satisfaction,
-      levels = 1:5,
-      labels = c(
-        "very dissatisfied",
-        "dissatisfied",
-        "neutral",
-        "satisfied",
-        "very satisfied"
-      )
-    )
-  ) %>%
-  dplyr::arrange(desc(Satisfaction)) %>%
-  dplyr::mutate(Position = cumsum(Percent) - 0.5 * Percent)
+    Percent      = round(Frequency / sum(Frequency) * 100, 1),
+    Satisfaction = factor(Satisfaction, levels = 1:5,
+                          labels = c("very dissatisfied", "dissatisfied",
+                                     "neutral", "satisfied", "very satisfied"))
+  )
 ```
 
-
-Let's briefly inspect the new data set.
-
-```{r pie_12, echo = F}
-gldat %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Overview of the grouped piedata.") %>%
+```{r pie_02, echo=FALSE, message=FALSE, warning=FALSE}
+bdat |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Frequency and percentage of each satisfaction rating.") |>
   flextable::border_outer()
 ```
 
-Now that we have created the data, we can plot separate pie charts for each course.
+## Pie Charts and Their Limitations {-}
 
-```{r pie_15, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create pie chart
-gldat %>%
-  ggplot(aes("", Percent, fill = Satisfaction)) +
-  facet_wrap(~Course) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
+Pie charts are visually familiar and widely used in reports aimed at general audiences. However, they have a well-documented perceptual weakness: humans are poor at judging the relative sizes of angles and arc lengths, making it difficult to compare slices accurately — particularly when slices are similar in size. For this reason, pie charts should generally be replaced by bar charts in scientific publications.
+
+```{r pie_09, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+# Add label positions for centred text within each slice
+pdat <- bdat |>
+  dplyr::arrange(desc(Satisfaction)) |>
+  dplyr::mutate(Position = cumsum(Percent) - 0.5 * Percent)
+
+pdat |>
+  ggplot(aes(x = "", y = Percent, fill = Satisfaction)) +
+  geom_bar(stat = "identity", width = 1, colour = "white") +
   coord_polar("y", start = 0) +
   scale_fill_manual(values = clrs5) +
+  geom_text(aes(y = Position, label = paste0(Percent, "%")),
+            colour = "white", size = 4) +
   theme_void() +
-  geom_text(aes(y = Position, label = Percent), color = "white", size = 4)
+  labs(title = "Overall Satisfaction Ratings (Pie Chart)",
+       fill  = "Rating")
 ```
 
-## Bar plots{-}
+To show course-level breakdowns, we facet by `Course`:
 
-Like pie charts, bar plot display frequency information across categorical variable levels.
+```{r pie_15, message=FALSE, warning=FALSE, fig.width=10, fig.height=4}
+gldat_pie <- ldat |>
+  dplyr::group_by(Course, Satisfaction) |>
+  dplyr::summarise(Frequency = dplyr::n(), .groups = "drop") |>
+  dplyr::mutate(
+    Percent      = round(Frequency / sum(Frequency) * 100, 1),
+    Satisfaction = factor(Satisfaction, levels = 1:5,
+                          labels = c("very dissatisfied", "dissatisfied",
+                                     "neutral", "satisfied", "very satisfied"))
+  ) |>
+  dplyr::arrange(desc(Satisfaction)) |>
+  dplyr::group_by(Course) |>
+  dplyr::mutate(Position = cumsum(Percent) - 0.5 * Percent)
 
-```{r bar_01, echo = T, results='hide', message=FALSE, warning=FALSE}
-# bar plot
-bdat %>%
-  ggplot(aes(Satisfaction, Percent, fill = Satisfaction)) +
-  # determine type of plot
-  geom_bar(stat = "identity") +
-  # use black & white theme
-  theme_bw() +
-  # add and define text
-  geom_text(aes(y = Percent - 5, label = Percent), color = "white", size = 3) +
-  # add colors
+gldat_pie |>
+  ggplot(aes(x = "", y = Percent, fill = Satisfaction)) +
+  facet_wrap(~Course) +
+  geom_bar(stat = "identity", width = 1, colour = "white") +
+  coord_polar("y", start = 0) +
   scale_fill_manual(values = clrs5) +
-  # suppress legend
-  theme(legend.position = "none")
+  geom_text(aes(y = Position, label = paste0(Percent, "%")),
+            colour = "white", size = 3) +
+  theme_void() +
+  labs(title = "Satisfaction by Course (Faceted Pie Charts)", fill = "Rating")
 ```
 
+## Bar Plots {-}
 
-Compared with the pie chart, it is much easier to grasp the relative size and order of the percentage values which shows that pie charts are unfit to show relationships between elements in a graph and, as a general rule of thumb, should be avoided.
+Bar plots encode magnitude as length rather than angle and are therefore considerably easier to interpret. The same data that produced the pie chart above is shown below as a bar plot — the relative sizes of the satisfaction categories are immediately obvious.
 
-Bar plots can be grouped which adds another layer of information that is particularly useful when dealing with frequency counts across multiple categorical variables. But before we can create grouped bar plots, we need to create an appropriate data set. 
-
-```{r bar_03, echo = T, results='hide', message=FALSE, warning=FALSE}
-# create bar plot data
-gldat <- ldat %>%
-  dplyr::group_by(Course, Satisfaction) %>%
-  dplyr::summarise(Frequency = n()) %>%
-  dplyr::mutate(Percent = round(Frequency / sum(Frequency) * 100, 1)) %>%
-  dplyr::mutate(Satisfaction = factor(Satisfaction,
-    levels = 1:5,
-    labels = c(
-      "very dissatisfied",
-      "dissatisfied",
-      "neutral",
-      "satisfied",
-      "very satisfied"
-    )
-  ))
+```{r bar_01, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+bdat |>
+  ggplot(aes(x = Satisfaction, y = Percent, fill = Satisfaction)) +
+  geom_col() +
+  geom_text(aes(y = Percent - 3, label = paste0(Percent, "%")),
+            colour = "white", size = 3.5) +
+  scale_fill_manual(values = clrs5, guide = "none") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)) +
+  labs(
+    title = "Overall Satisfaction Ratings (Bar Chart)",
+    x     = "Satisfaction rating",
+    y     = "Percentage of respondents"
+  )
 ```
 
+### Grouped Bar Plots {-}
 
-Let's briefly inspect the data set.
+A grouped bar plot adds a second categorical variable (here, `Course`) encoded as fill colour, making cross-group comparisons immediate.
 
-```{r bar_04, echo = F}
-gldat %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Overview of the grouped bardata.") %>%
-  flextable::border_outer()
-```
+```{r bar_05, message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+gldat_bar <- ldat |>
+  dplyr::group_by(Course, Satisfaction) |>
+  dplyr::summarise(Frequency = dplyr::n(), .groups = "drop") |>
+  dplyr::mutate(
+    Satisfaction = factor(Satisfaction, levels = 1:5,
+                          labels = c("very dissatisfied", "dissatisfied",
+                                     "neutral", "satisfied", "very satisfied"))
+  )
 
-We have now added *Course* as an additional categorical variable and will include Course as the "fill" argument in our bar plot. To group the bars, we use the command "position=position_dodge()".
-
-```{r bar_05, echo = T, results='hide', message=FALSE, warning=FALSE}
-# bar plot
-gldat %>%
-  ggplot(aes(Satisfaction, Frequency, fill = Course)) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  # define colors
+gldat_bar |>
+  ggplot(aes(x = Satisfaction, y = Frequency, fill = Course)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_text(aes(label = Frequency),
+            position = position_dodge(0.8), vjust = 1.5,
+            colour = "white", size = 3) +
   scale_fill_manual(values = clrs3) +
-  # add text
-  geom_text(aes(label = Frequency),
-    vjust = 1.6, color = "white",
-    # define text position and size
-    position = position_dodge(0.9), size = 3.5
-  ) +
-  theme_bw()
-```
-
-Bar plots are particularly useful when visualizing data obtained through Likert items. As this is a very common issue that empirical researchers face. There are two basic ways to display Likert items using bar plots: grouped bar plots and more elaborate scaled bar plots.
-
-Although we have seen above how to create grouped bar plots, we will repeat it here with the language course example used above when we used cumulative density line graphs to visualize how to display Likert data.  
-
-In a first step, we recreate the data set which we have used above. The data set consists of a Likert-scaled variable (Satisfaction) which represents rating of students from three courses about how satisfied they were with their language-learning course. The response to the Likert item is numeric so that "strongly disagree/very dissatisfied" would get the lowest and "strongly agree/very satisfied" the highest numeric value. 
-
-Again, we can also plot separate bar graphs for each class by specifying "facets".
-
-```{r bar_13, echo=T, message=FALSE, warning=FALSE}
-# create grouped bar plot
-gldat %>%
-  ggplot(aes(Satisfaction, Frequency,
-    fill = Satisfaction,
-    color = Satisfaction
-  )) +
-  facet_grid(~Course) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  geom_line() +
-  # define colors
-  scale_fill_manual(values = clrs5) +
-  scale_color_manual(values = clrs5) +
-  # add text and define color
-  geom_text(aes(label = Frequency),
-    vjust = 1.6, color = "white",
-    # define text position and size
-    position = position_dodge(0.9), size = 3.5
-  ) +
   theme_bw() +
-  theme(axis.text.x = element_blank())
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)) +
+  labs(
+    title = "Satisfaction by Course — Grouped Bar Chart",
+    x     = "Satisfaction rating",
+    y     = "Number of respondents",
+    fill  = "Course"
+  )
 ```
 
-Another and very interesting way to display such data is by using the Likert package. In a first step, we need to activate the package, clean the data, and extract a subset for the data visualization example.
+### Faceted Bar Plots {-}
 
-One aspect that is different to previous visualizations is that, when using the Likert package, we need to transform the data into a "likert" object (which is, however, very easy and is done by using the "likert()" function as shown below).
+Faceting creates separate panels for each group, which can be cleaner than a grouped bar chart when there are many categories.
 
-```{r likert1}
+```{r bar_13, message=FALSE, warning=FALSE, fig.width=10, fig.height=4}
+gldat_bar |>
+  ggplot(aes(x = Satisfaction, y = Frequency,
+             fill = Satisfaction, colour = Satisfaction)) +
+  facet_wrap(~Course) +
+  geom_col(position = position_dodge()) +
+  geom_text(aes(label = Frequency), vjust = 1.6,
+            colour = "white", position = position_dodge(0.9), size = 3) +
+  scale_fill_manual(values   = clrs5, guide = "none") +
+  scale_colour_manual(values = clrs5, guide = "none") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(
+    title = "Satisfaction by Course — Faceted Bar Charts",
+    x     = NULL,
+    y     = "Number of respondents"
+  )
+```
+
+## Likert Diverging Stacked Bar Plots {-}
+
+The `likert` package produces **diverging stacked bar plots** — arguably the most information-dense and perceptually effective visualisation for Likert survey data. The bars are split at the neutral midpoint and extend left (negative) and right (positive), making it easy to compare the balance of agreement and disagreement across items and groups simultaneously.
+
+We load a second, larger data set (`sdat`) containing responses to 10 survey items.
+
+```{r likert1, message=FALSE, warning=FALSE}
 sdat <- base::readRDS("tutorials/surveys/data/sdd.rda", "rb")
 ```
 
-```{r likert2, echo = F}
-sdat %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the survey data.") %>%
-  flextable::border_outer()
-```
+We clean the column names — adding a question number prefix, replacing dots with spaces, and appending a question mark — and then convert numeric responses to ordered factor labels.
 
-As you can see, we need to clean and adapt the column names. To do this, we will 
+```{r likert7, message=FALSE, warning=FALSE}
+# Add "Q 01: ...", "Q 02: ..." prefixes and clean up dots/spaces
+colnames(sdat)[3:ncol(sdat)] <- paste0(
+  "Q ", stringr::str_pad(1:10, 2, "left", "0"), ": ",
+  colnames(sdat)[3:ncol(sdat)]
+) |>
+  stringr::str_replace_all("\\.", " ") |>
+  stringr::str_squish() |>
+  stringr::str_replace("$", "?")
 
-* add an identifier which shows which question we are dealing with (e.g. Q 1: question text)
-* remove the dots between words with spaces
-* add a question mark at the end of questions
-* remove superfluous white spaces
+# Convert numeric values 1–5 to ordered factor labels
+lbs <- c("disagree", "somewhat disagree",
+         "neither agree nor disagree",
+         "somewhat agree", "agree")
 
-```{r likert7}
-# clean column names
-colnames(sdat)[3:ncol(sdat)] <- paste0("Q ", str_pad(1:10, 2, "left", "0"), ": ", colnames(sdat)[3:ncol(sdat)]) %>%
-  stringr::str_replace_all("\\.", " ") %>%
-  stringr::str_squish() %>%
-  stringr::str_replace_all("$", "?")
-# inspect column names
-colnames(sdat)
-```  
-
-Now, that we have nice column names, we will replace the numeric values (1 to 5) with labels ranging from *disagree* to *agree* and convert our data into a data frame.
-
-```{r likert9}
-lbs <- c("disagree", "somewhat disagree", "neither agree nor disagree", "somewhat agree", "agree")
-survey <- sdat %>%
-  dplyr::mutate_if(is.character, factor) %>%
-  dplyr::mutate_if(is.numeric, factor, levels = 1:5, labels = lbs) %>%
-  drop_na() %>%
+survey <- sdat |>
+  dplyr::mutate(dplyr::across(where(is.character), factor)) |>
+  dplyr::mutate(dplyr::across(where(is.numeric),
+                               ~factor(.x, levels = 1:5, labels = lbs))) |>
+  tidyr::drop_na() |>
   as.data.frame()
 ```
 
-```{r likert11, echo = F}
-survey %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the edited survey data.") %>%
+```{r likert11, echo=FALSE, message=FALSE, warning=FALSE}
+survey |>
+  head(5) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::set_caption(caption = "First 5 rows of the recoded survey data.") |>
   flextable::border_outer()
 ```
 
-Now, we can use the `plot` and the `likert` function to visualize the survey data.
+### All Items — Overall {-}
 
-```{r likert13}
-plot(likert(survey[, 3:12]), ordered = F, wrap = 60)
+```{r likert13, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+plot(likert(survey[, 3:12]), ordered = FALSE, wrap = 60)
 ```
 
-To save this plot, you can use the `save_plot` function from the `cowplot` package as shown below.
+### Items by Group {-}
 
-```{r likert15, eval = F}
-survey_p1 <- plot(likert(survey[, 3:12]), ordered = F, wrap = 60)
-# save plot
-cowplot::save_plot(here("images", "stu_p1.png"), # where to save the plot
-  survey_p1, # object to plot
-  base_asp = 1.5, # ratio of space fro questions vs space for plot
-  base_height = 8
-) # size! higher for smaller font size
-```
+The `grouping` argument splits the diverging stacked bars by a categorical variable — here, the first column of `survey` (which identifies the respondent group).
 
-
-An additional and very helpful feature is that the `likert` package enables grouping the data as shown below. The display columns 3 to 8 and use column 1 for grouping.
-
-```{r likert17, fig.height = 10, fig.width = 8, fig.align = "center"}
-# create plot
+```{r likert17, fig.width=10, fig.height=8, message=FALSE, warning=FALSE}
 plot(likert(survey[, 3:8], grouping = survey[, 1]))
 ```
 
+::: {.callout-tip}
+## Saving Likert Plots
 
-# Useful statistics
+To save a `likert` plot to a file, use `cowplot::save_plot()`:
 
-This section introduces some statistical measures or tests that useful when dealing with survey data. We will begin with measures of reliability (Cronbach's $\alpha$), then move on to methods for merging variables (Factor analysis and principle component analysis), and finally to ordinal regression which tests which variables correlate with a certain outcome.
+```{r likert_save, eval=FALSE}
+survey_plot <- plot(likert(survey[, 3:12]), ordered = FALSE, wrap = 60)
+cowplot::save_plot(
+  here::here("images", "survey_plot.png"),
+  survey_plot,
+  base_asp    = 1.5,
+  base_height = 8
+)
+```
+:::
 
-## Evaluating the reliability of questions{-}
+## Mosaic Plots {-}
 
-### Cronbach's Alpha{-}
+A **mosaic plot** is useful for visualising the joint distribution of two categorical variables. The area of each tile is proportional to the frequency of that cell in the contingency table, making over- and under-represented combinations immediately visible.
 
-Oftentimes several questions in one questionnaire aim to tap into the same cognitive concept or attitude or whatever we are interested in. The answers to these related questions should be internally consistent, i.e. the responses should correlate strongly and positively. 
-
-Cronbach's $\alpha$ [@cronbach1951alpha] is measure of internal consistency or reliability that provides information on how strongly the responses to a set of questions correlate. The formula for Cronbach's $\alpha$ is shown below (N: number of items, $\bar c$: average inter-item co-variance among items, $\bar v$: average variance).
-
-$\alpha = \frac{N*\bar c}{\bar v + (N-1)\bar c}$
-
-If the values for Cronbach's $\alpha$ are low (below .7), then this indicates that the questions are not internally consistent (and do not tap into the same concept) or that the questions are not uni-dimensional (as they should be). 
-
-While Cronbach's $\alpha$ is the most frequently used measures of reliability (probably because it is conceptually simple and can be computed very easily), it underestimates the reliability of a test and overestimates the first factor saturation. This can be a problem is the data is *lumpy*. Thus, various other measures of reliability have been proposed. Also,Cronbach's $\alpha$ assumes that scale items are repeated measurements, an assumption that is often violated.
-
-An alternative reliability measure that takes the amount of variance per item into account and thus performs better when dealing with *lumpy* data (although it is still affected by *lumpiness*) is Guttman's Lambda 6 (G6) [@guttman1945lambda]. In contrast to Cronbach's $\alpha$, G6 is mostly used to evaluate the reliability of individual test items though. This means that it provides information about how well individual questions reflect the concept that they aim to tap into. 
-
-Probably the best measures of reliability are $\omega$ (*omega*) measures. Hierarchical $\omega$ provides more appropriate estimates of the general factor saturation while total $\omega$ is a better estimate of the reliability of the total test compared to both Cronbach's $\alpha$ and G6 [@revelle2009coefficients].
-
-**Calculating Cronbach's alpha in R**
-
-We will now calculate Cronbach's $\alpha$ in R. In a first step, we activate the "psych" package and load as well as inspect the data. 
-
-```{r cron_01, message=FALSE, warning=FALSE}
-# load data
-surveydata <- base::readRDS("tutorials/surveys/data/sud.rda", "rb")
+```{r mosaic, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+ldat |>
+  dplyr::mutate(Satisfaction = factor(Satisfaction, levels = 1:5,
+                                      labels = c("very dissatisfied",
+                                                 "dissatisfied", "neutral",
+                                                 "satisfied", "very satisfied"))) |>
+  dplyr::group_by(Course, Satisfaction) |>
+  dplyr::summarise(n = dplyr::n(), .groups = "drop") |>
+  dplyr::group_by(Course) |>
+  dplyr::mutate(prop = n / sum(n)) |>
+  ggplot(aes(x = Course, y = prop, fill = Satisfaction)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(values = clrs5) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  labs(
+    title = "Stacked Bar Chart: Satisfaction by Course",
+    x     = "Course",
+    y     = "Proportion of respondents",
+    fill  = "Satisfaction"
+  )
 ```
 
+::: {.callout-note}
+## Mosaic Plots Require ggmosaic
 
-```{r cron_02a, echo = F}
-surveydata %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Overview of the survey data.") %>%
-  flextable::border_outer()
-```
+The mosaic plot above uses `geom_mosaic()` from the `ggmosaic` package. Install it with `install.packages("ggmosaic")` and add `library(ggmosaic)` to your setup chunk if you wish to use it.
+:::
 
+---
 
-The inspection of the data shows that the responses of participants represent the rows and that the questions represent columns. The column names show that we have 15 questions and that the first five questions aim to test how outgoing respondents are. To check if the first five questions reliably test "outgoingness" (or "extraversion"), we calculate Cronbach's alpha for these five questions.
+::: {.callout-tip}
+## Check Your Understanding: Visualising Survey Data
+:::
 
-Thus, we use the "alpha()" function and provide the questions that tap into the concept we want to assess. In addition to Cronbach's $\alpha$, the "alpha()" function also reports Guttman's lambda_6 which is an alternative measure for reliability. This is an advantage because Cronbach's $\alpha$ underestimates the reliability of a test and overestimates the first factor saturation.
+**Q4. A diverging stacked bar chart for a Likert item shows that the bar for Group A extends further to the right (positive side) than the bar for Group B, while both bars are of equal total length. What does this tell us?**
 
-```{r cron_02b, message=FALSE, warning=FALSE}
-# calculate cronbach's alpha
-Cronbach <- psych::alpha(surveydata[c(
-  "Q01_Outgoing",
-  "Q02_Outgoing",
-  "Q03_Outgoing",
-  "Q04_Outgoing",
-  "Q05_Outgoing"
-)], check.keys = F)
-# inspect results
-Cronbach
-```
-
-The output of the "alpha()" function  is rather extensive and we will only interpret selected output here. 
-
-The value under alpha is Cronbach's $\alpha$ and it should be above 0.7. The values to its left and right are the lower and upper bound of its confidence interval. The values in the column with the header "G6" show how well each question represents the concept it aims to reflect. Low values indicate that the question does not reflect the underlying concept while high values (.7 and higher) indicate that the question captures that concept well (or to an acceptable degree).
-
-### Omega{-}
-
-The omega ($\omega$) coefficient is also a reliability measure of internal consistency. $\omega$ represents an estimate of the general factor saturation of a test that was proposed by McDonald. [@zinbarg2005cronbach] compare McDonald's Omega to Cronbach's $\alpha$ and Revelle's $\beta$. They conclude that omega is the best estimate [@zinbarg2006estimating].
-
-A very handy way to calculate McDonald's $\omega$ is to use the `scaleStructure()` function from the `ufs` package (which also provides Cronbach's $\alpha$ and the Greatest Lower Bound (GLB) estimate which is also a very good and innovative measure of reliability) [see also @peters2014alpha]. 
-
-```{r omeg_02, message=FALSE, warning=FALSE}
-# extract reliability measures
-reliability <- ufs::scaleStructure(surveydata[c(
-  "Q01_Outgoing",
-  "Q02_Outgoing",
-  "Q03_Outgoing",
-  "Q04_Outgoing",
-  "Q05_Outgoing")])
-# inspect results
-print(reliability)
-```
-
-## Factor analysis{-}
-
-When dealing with many variables it is often the case that several variables are related and represent a common, underlying factor. To find such underlying factors, we can use a factor analysis.
-
-Factor analysis is a method that allows to find commonalities or structure in data. This is particularly useful when dealing with many variables. Factors can be considered hidden latent variables or driving forces that affect or underlie several variables at once.
-
-This becomes particularly apparent when considering socio-demographic variables as behaviors are not only dependent on single variables, e.g., economic status, but on the interaction of several additional variables such as education level, marital status, number of children, etc. All of these variables can be combined into a single factor (or hidden latent variable).
-
-```{r fa_01, message=FALSE, warning=FALSE}
-# remove respondent
-surveydata <- surveydata %>%
-  dplyr::select(-Respondent)
-factoranalysis <- factanal(surveydata, 3, rotation = "varimax")
-print(factoranalysis, digits = 2, cutoff = .2, sort = TRUE)
-```
-
-The results of a factor analysis can be visualized so that questions which reflect the same underlying factor are grouped together.
-
-```{r fa_04, message=FALSE, warning=FALSE}
-# plot factor 1 by factor 2
-load <- factoranalysis$loadings[, 1:2]
-# set up plot
-plot(load, type = "n", xlim = c(-1.5, 1.5))
-# add variable names
-text(load,
-  # define labels
-  labels = names(surveydata),
-  # define font size
-  # (smaller than default = values smaller than 1)
-  cex = .7
+```{r}
+#| echo: false
+#| label: "SUR_Q4"
+check_question(
+  "Group A has a higher proportion of agree/strongly agree responses and a lower proportion of disagree/strongly disagree responses than Group B, even though both groups have the same number of respondents",
+  options = c(
+    "Group A has a higher proportion of agree/strongly agree responses and a lower proportion of disagree/strongly disagree responses than Group B, even though both groups have the same number of respondents",
+    "Group A has more respondents than Group B",
+    "Group A and Group B have identical distributions because the total bar lengths are equal",
+    "Group B has a more extreme distribution because its bar extends further to the left"
+  ),
+  type = "radio",
+  q_id = "SUR_Q4",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! In a diverging stacked bar chart, the total bar length represents the total number of respondents (or 100% if shown as proportions). The bar is split at the neutral midpoint: the right segment represents the proportion of positive responses (agree + strongly agree) and the left segment represents the proportion of negative responses. If Group A's bar extends further right than Group B's, Group A has a higher proportion of positive responses — regardless of total group size, since the chart shows proportions, not raw counts.",
+  wrong = "Remember that in a diverging stacked bar chart the bars are shown as proportions and split at the neutral midpoint. What does the direction and length of each half represent?"
 )
 ```
 
-The plot shows that the questions form groups which indicates that the questions do a rather good job at reflecting the concepts that they aim to tap into. The only problematic question is question 10 (Q10) which aimed to tap into the intelligence of respondents but appears not to correlate strongly with the other questions that aim to extract information about the respondents intelligence. In such cases, it makes sense, to remove a question (in this case Q10) from the survey as it does not appear to reflect what we wanted it to.
+---
 
-## Principle component analysis{-}
+# Reliability Analysis {#reliability}
 
-Principal component analysis is used when several questions or variables reflect a common factor and they should be combined into a single variable, e.g. during  the statistical analysis of the data. Thus, principal component analysis can be used to collapse different variables (or questions) into one. 
+::: {.callout-note}
+## Section Overview
 
-Imagine you have measured lengths of sentences in different ways (in words, syllables, characters, time it takes to pronounce, etc.). You could combine all these different measures of length by applying a PCA to those measures and using the first principal component as a single proxy for all these different measures. 
+**What you'll learn:** How to evaluate the internal consistency of a set of Likert items using Cronbach's α, Guttman's λ₆, and McDonald's ω, and how to interpret the output of the `psych::alpha()` and `ufs::scaleStructure()` functions
+:::
+
+When multiple survey items are intended to measure the same underlying construct (e.g. motivation, anxiety, attitude), we need to verify that they are **internally consistent** — that respondents who score high on one item tend to score high on the others, and vice versa. If the items are not internally consistent, they are probably measuring different things and should not be combined into a composite score.
+
+We load a data set (`surveydata`) containing responses to 15 items from three hypothetical constructs (5 items each: outgoingness, conscientiousness, and intelligence).
+
+```{r cron_01, message=FALSE, warning=FALSE}
+surveydata <- base::readRDS("tutorials/surveys/data/sud.rda", "rb")
+```
+
+```{r cron_02a, echo=FALSE, message=FALSE, warning=FALSE}
+surveydata |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::set_caption(caption = "Survey data: 15 items across three constructs (5 items per construct).") |>
+  flextable::border_outer()
+```
+
+## Cronbach's α {-}
+
+**Cronbach's α** [@cronbach1951alpha] is the most widely used measure of internal consistency. It can be understood as the average of all possible split-half correlations among the items. Values above .70 are conventionally considered acceptable; values above .80 are good; values above .90 are excellent (though very high values may indicate item redundancy).
+
+The formula is:
+
+$$\alpha = \frac{N \cdot \bar{c}}{\bar{v} + (N-1) \cdot \bar{c}}$$
+
+where $N$ is the number of items, $\bar{c}$ is the average inter-item covariance, and $\bar{v}$ is the average item variance.
+
+**Limitations of Cronbach's α**: it assumes that all items contribute equally to the construct (tau-equivalence), an assumption that is often violated in practice. When this assumption is violated, α *underestimates* true reliability. It also assumes unidimensionality — that all items tap into a single underlying factor.
+
+```{r cron_02b, message=FALSE, warning=FALSE}
+# Cronbach's alpha for the five "outgoingness" items
+cronbach_out <- psych::alpha(
+  surveydata[c("Q01_Outgoing", "Q02_Outgoing", "Q03_Outgoing",
+               "Q04_Outgoing", "Q05_Outgoing")],
+  check.keys = FALSE
+)
+print(cronbach_out)
+```
+
+In the output, focus on:
+
+- **raw_alpha**: Cronbach's α for the full item set — should be ≥ .70
+- **G6(smc)**: Guttman's λ₆ — the squared multiple correlation of each item with the remaining items; values close to 1 indicate that the item is well-explained by the others
+- **alpha if deleted**: what α would be if each item were removed — if removing an item *increases* α substantially, that item may be worth reconsidering
+
+## Guttman's λ₆ {-}
+
+**Guttman's λ₆** [@guttman1945lambda] estimates reliability by computing the squared multiple correlation (SMC) of each item with all other items. It is less affected by violations of tau-equivalence than Cronbach's α and is generally considered a better lower bound on reliability when items differ in how strongly they relate to the construct. It is reported in the `G6(smc)` column of `psych::alpha()` output.
+
+## McDonald's ω {-}
+
+**McDonald's ω** (omega) is currently considered the most accurate measure of internal consistency for most survey data [@revelle2009coefficients; @zinbarg2005cronbach]. It estimates reliability without requiring the tau-equivalence assumption that Cronbach's α relies on. There are two variants:
+
+- **ω hierarchical** (ωₕ): estimates the proportion of item variance attributable to a single general factor — useful when you want to know how much of the variance is due to the primary construct
+- **ω total** (ωₜ): estimates the reliability of the total scale score, taking all common variance (including group factors) into account
+
+```{r omeg_02, message=FALSE, warning=FALSE}
+# McDonald's omega and other reliability measures via ufs::scaleStructure()
+reliability_out <- ufs::scaleStructure(
+  surveydata[c("Q01_Outgoing", "Q02_Outgoing", "Q03_Outgoing",
+               "Q04_Outgoing", "Q05_Outgoing")]
+)
+print(reliability_out)
+```
+
+`scaleStructure()` reports Cronbach's α, Guttman's λ₆, McDonald's ωₕ and ωₜ, and the Greatest Lower Bound (GLB) — all in one call, making it easy to compare the estimates and choose the most appropriate one to report.
+
+::: {.callout-tip}
+## Which Reliability Measure to Report?
+
+For most survey research, **McDonald's ω total** is the recommended measure to report, as it does not require the tau-equivalence assumption and provides an accurate estimate even when items differ in their factor loadings. Report Cronbach's α as well for comparability with older literature, but note its limitations. If α and ω are very similar, the tau-equivalence assumption is approximately satisfied and the choice matters less.
+:::
+
+---
+
+::: {.callout-tip}
+## Check Your Understanding: Reliability
+:::
+
+**Q5. You compute Cronbach's α for a 6-item scale and obtain α = .61. The "alpha if deleted" column shows that removing item 3 would raise α to .79. What is the most appropriate course of action?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q5"
+check_question(
+  "Inspect item 3 carefully — it may be measuring a different construct, be reverse-coded but not recoded, or be ambiguously worded. If substantive review confirms it is problematic, remove it and re-evaluate the remaining 5 items",
+  options = c(
+    "Inspect item 3 carefully — it may be measuring a different construct, be reverse-coded but not recoded, or be ambiguously worded. If substantive review confirms it is problematic, remove it and re-evaluate the remaining 5 items",
+    "Automatically remove item 3 from the scale, since the alpha-if-deleted criterion is a sufficient justification",
+    "Conclude that the scale is reliable because α = .61 is close to the .70 threshold",
+    "Replace Cronbach's α with McDonald's ω, which will always produce a value above .70 for the same items"
+  ),
+  type = "radio",
+  q_id = "SUR_Q5",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! A large jump in alpha-if-deleted is a flag for inspection, not an automatic instruction to delete. The most common causes are: (1) the item is reverse-coded but was not recoded before analysis — check.keys = TRUE in psych::alpha() can catch this; (2) the item is measuring a related but distinct construct; (3) the item is ambiguously worded and respondents interpreted it differently from the others. Always justify item removal on substantive as well as statistical grounds. Switching to McDonald's omega is good practice but will not automatically fix a problematic item.",
+  wrong = "The alpha-if-deleted statistic tells you what alpha WOULD be if the item were removed — it is a diagnostic flag, not an instruction. What should you do before removing an item from a scale?"
+)
+```
+
+---
+
+# Factor Analysis and Principal Component Analysis {#factorpca}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to use **factor analysis** to identify latent structure in survey data and evaluate whether items load onto their intended constructs, and how to use **principal component analysis (PCA)** to reduce a set of correlated items to a smaller number of composite scores
+
+**Key functions:** `psych::factanal()`, `stats::princomp()`
+:::
+
+Factor analysis and PCA both reduce a large set of observed variables to a smaller number of latent dimensions, but they differ in their goals and assumptions:
+
+- **Factor analysis** (FA) is a *model-based* method. It assumes that the observed item correlations arise from a set of underlying latent factors plus item-specific error. The goal is to *discover* or *confirm* the latent structure of a set of items.
+- **Principal Component Analysis** (PCA) is a *data reduction* method. It finds linear combinations of the original variables that capture the maximum variance, without assuming any underlying model. The goal is to *summarise* the variance of a set of items in as few components as possible.
+
+In survey research, FA is typically used to evaluate construct validity (do the items designed to measure the same construct cluster together?), while PCA is used to create composite scores that can be used as predictors or outcomes in further analyses.
+
+## Factor Analysis {-}
+
+We apply `factanal()` with `rotation = "varimax"` to the full 15-item survey data set (excluding the respondent ID column). Varimax rotation maximises the variance of the squared loadings within each factor, producing a solution in which each item loads strongly on at most one factor — which makes interpretation easier.
+
+```{r fa_01, message=FALSE, warning=FALSE}
+surveydata_items <- surveydata |>
+  dplyr::select(-Respondent)
+
+fa_result <- factanal(surveydata_items, factors = 3, rotation = "varimax")
+print(fa_result, digits = 2, cutoff = 0.3, sort = TRUE)
+```
+
+In the output, each row is an item and each column is a factor. The values are **factor loadings** — correlations between each item and each factor. Loadings above .40 (in absolute value) are conventionally considered substantively meaningful. Items that load strongly on the same factor are measuring the same underlying construct.
+
+The `cutoff = 0.3` argument suppresses loadings below .30 from the printed output, which reduces clutter and makes the factor structure easier to read.
+
+```{r fa_04, message=FALSE, warning=FALSE, fig.width=7, fig.height=6}
+# Visualise Factor 1 vs Factor 2 loadings
+loadings_mat <- fa_result$loadings[, 1:2]
+plot(loadings_mat,
+     type = "n",
+     xlim = c(-0.2, 1.1),
+     ylim = c(-0.2, 1.1),
+     xlab = "Factor 1",
+     ylab = "Factor 2",
+     main = "Factor Loadings: Factor 1 vs Factor 2")
+abline(h = 0, v = 0, col = "grey70", lty = 2)
+text(loadings_mat,
+     labels = names(surveydata_items),
+     cex    = 0.75)
+```
+
+Items that cluster together in the loading plot reflect the same underlying factor. Items that plot near the origin (loadings close to zero on both factors) are not well captured by the two-factor solution and may warrant review.
+
+::: {.callout-warning}
+## Choosing the Number of Factors
+
+The number of factors to extract is one of the most consequential decisions in a factor analysis. Common criteria include: the **eigenvalue-greater-than-one rule** (Kaiser criterion), the **scree plot** (look for the elbow), and **parallel analysis** (compare eigenvalues to those from random data). In practice, the choice should be guided by theoretical considerations as well as data-driven criteria — always ask whether the factor solution makes conceptual sense.
+:::
+
+## Principal Component Analysis {-}
+
+We apply PCA to the five *outgoingness* items to illustrate data reduction. The goal is to determine whether these five items can be adequately summarised by a single composite score.
 
 ```{r pca_03, message=FALSE, warning=FALSE}
-# entering raw data and extracting PCs  from the correlation matrix
-PrincipalComponents <- princomp(surveydata[c(
-  "Q01_Outgoing",
-  "Q02_Outgoing",
-  "Q03_Outgoing",
-  "Q04_Outgoing",
-  "Q05_Outgoing"
-)], cor = TRUE)
-summary(PrincipalComponents) # print variance accounted for
+pca_out <- princomp(
+  surveydata[c("Q01_Outgoing", "Q02_Outgoing", "Q03_Outgoing",
+               "Q04_Outgoing", "Q05_Outgoing")],
+  cor = TRUE   # use correlation matrix (standardises variables)
+)
+summary(pca_out)   # cumulative proportion of variance explained
 ```
-
-The output shows that the first component (Comp.1) explains 91.58 percent of the variance. This shows that we only lose 8.42 percent of the variance if we use this component as a proxy for "outgoingness" if we use the collapsed component rather than the five individual items.
 
 ```{r pca_05, message=FALSE, warning=FALSE}
-loadings(PrincipalComponents) # pc loadings
+loadings(pca_out)   # component loadings
 ```
 
-We now check if the five questions that are intended to tap into "outgoingness" represent one (and not more) underlying factors. Do check this, we create a scree plot. 
-
-```{r pca_07, message=FALSE, warning=FALSE}
-plot(PrincipalComponents, type = "lines") # scree plot
+```{r pca_07, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+# Scree plot: look for the elbow to determine how many components to retain
+plot(pca_out, type = "lines",
+     main = "Scree Plot — Outgoingness Items")
 ```
 
-The scree plot shown above indicates that we only need a single component to explain the variance as there is a steep decline from the first to the second component. This confirms that the questions that tap into "outgoingness" represent one (and not more) underlying factors.
+The scree plot shows a steep drop after the first component, with subsequent components contributing relatively little additional variance. This confirms that the five outgoingness items can be well summarised by a single principal component.
 
 ```{r pca_09, message=FALSE, warning=FALSE}
-PrincipalComponents$scores # the principal components
+# Extract component scores (rows = respondents, columns = components)
+head(pca_out$scores, 10)
 ```
 
-You could now replace the five items which tap into "outgoingness" with the single first component shown in the table above.
+The first column (`Comp.1`) is the composite score for outgoingness. This score can replace the five individual items in subsequent regression or group comparison analyses, reducing both collinearity and the number of predictors.
 
-## Ordinal Regression{-}
+---
 
-Ordinal regression is very similar to multiple linear regression but takes an ordinal dependent variable [@agresti2010analysis]. For this reason, ordinal regression is one of the key methods in analyzing Likert data. 
+::: {.callout-tip}
+## Check Your Understanding: Factor Analysis and PCA
+:::
 
-To see how an ordinal regression is implemented in R, we load and inspect the "ordinaldata" data set. The data set consists of 400 observations of students that were either educated at this school (Internal = 1) or not (Internal = 0). Some of the students have been abroad (Exchange = 1) while other have not (Exchange = 0). In addition, the data set contains the students' final score of a language test (FinalScore) and the dependent variable which the recommendation of a committee for an additional, very prestigious program. The recommendation has three levels ("very likely", "somewhat likely", and "unlikely") and reflects the committees’ assessment of whether the student is likely to succeed in the program.
+**Q6. A factor analysis of a 12-item scale intended to measure three constructs (4 items each) produces a solution in which item Q4 loads strongly on Factor 2 (.71) rather than Factor 1 (.12), where it was theoretically expected. What are the most appropriate next steps?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q6"
+check_question(
+  "Re-read the wording of Q4 carefully to determine whether it is conceptually closer to Factor 2 than Factor 1; if so, either revise the item or remove it; if not, check for reverse-coding errors or translation issues",
+  options = c(
+    "Re-read the wording of Q4 carefully to determine whether it is conceptually closer to Factor 2 than Factor 1; if so, either revise the item or remove it; if not, check for reverse-coding errors or translation issues",
+    "Accept the result as evidence that the three-construct theory is wrong and revise the entire theoretical framework",
+    "Run the analysis again with a different rotation method until Q4 loads on Factor 1",
+    "Automatically remove Q4 because any cross-loading above .40 disqualifies an item from inclusion"
+  ),
+  type = "radio",
+  q_id = "SUR_Q6",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! An unexpected factor loading is a diagnostic signal that warrants substantive review before any action is taken. The most common explanations are: (1) the item wording is ambiguous or unintentionally taps into the adjacent construct; (2) the item is reverse-coded but was not recoded; (3) the item was misassigned to the wrong construct during questionnaire design. The response is to investigate, not to automatically delete or change the rotation. Different rotations will redistribute loadings across factors but cannot fundamentally change which items are most intercorrelated.",
+  wrong = "Factor loadings tell you where the statistical variance in an item is located, but they do not by themselves tell you why. What substantive questions should you ask before deciding what to do with an unexpectedly loading item?"
+)
+```
+
+---
+
+# Ordinal Regression {#ordinal}
+
+::: {.callout-note}
+## Section Overview
+
+**What you'll learn:** How to fit, diagnose, interpret, and visualise an ordinal logistic regression model using `MASS::polr()`, including the computation of odds ratios, confidence intervals, p-values, and a test of the proportional odds assumption
+
+**Key functions:** `MASS::polr()`, `brant::brant()`, `confint()`, `predict()`
+:::
+
+**Ordinal logistic regression** (also called the *proportional odds model* or *cumulative link model*) is the appropriate regression method when the outcome variable is ordinal — when it has a natural ordering of categories but the distances between categories cannot be assumed to be equal [@agresti2010analysis]. It is therefore one of the key statistical tools for analysing Likert-scale outcome variables in survey research.
+
+The model predicts the *log-odds of being in category $j$ or below* as a linear function of the predictors. The proportional odds assumption requires that the effect of each predictor is the same across all category thresholds — this is both the model's key strength (parsimony) and its key assumption (which must be tested).
+
+## The Data {-}
+
+We use a data set of 400 students. The outcome variable is `Recommend` — a committee's recommendation for a prestigious programme, with three ordered levels: *unlikely*, *somewhat likely*, and *very likely*. The predictors are: `Internal` (whether the student attended the focal school), `Exchange` (whether the student participated in an exchange programme), and `FinalScore` (a test score, continuous).
 
 ```{r orr1, message=FALSE, warning=FALSE}
-# load data
 ordata <- base::readRDS("tutorials/surveys/data/oda.rda", "rb")
-# inspect data
 str(ordata)
 ```
 
-In a first step, we need to re-level the ordinal variable to represent an ordinal factor (or a progression from "unlikely" over "somewhat likely" to "very likely". And we will also factorize Internal and Exchange to make it easier to interpret the output later on.
-
-
 ```{r orr2, message=FALSE, warning=FALSE}
-# relevel data
-ordata <- ordata %>%
-  dplyr::mutate(Recommend = factor(Recommend,
-    levels = c("unlikely", "somewhat likely", "very likely"),
-    labels = c("unlikely", "somewhat likely", "very likely")
-  )) %>%
-  dplyr::mutate(Exchange = ifelse(Exchange == 1, "Exchange", "NoExchange")) %>%
-  dplyr::mutate(Internal = ifelse(Internal == 1, "Internal", "External"))
+# Re-level Recommend as an ordered factor; recode binary predictors
+ordata <- ordata |>
+  dplyr::mutate(
+    Recommend = factor(Recommend,
+                       levels = c("unlikely", "somewhat likely", "very likely"),
+                       ordered = TRUE),
+    Exchange = ifelse(Exchange == 1, "Exchange",   "NoExchange"),
+    Internal = ifelse(Internal == 1, "Internal",   "External")
+  )
 ```
 
-Now that the dependent variable is re-leveled, we check the distribution of the variable levels by tabulating the data. To get a better understanding of the data we create frequency tables across variables rather than viewing the variables in isolation.
+## Exploratory Analysis {-}
+
+Before fitting the model, we inspect the data through cross-tabulation and a visualisation.
 
 ```{r orr3, message=FALSE, warning=FALSE}
-## three way cross tabs (xtabs) and flatten the table
-ftable(xtabs(~ Exchange + Recommend + Internal, data = ordata))
+# Three-way cross-tabulation: Exchange × Recommend × Internal
+ftable(xtabs(~Exchange + Recommend + Internal, data = ordata))
 ```
 
-We also check the mean and standard deviation of the final score as final score is a numeric variable and cannot be tabulated (unless we convert it to a factor).
-
 ```{r orr4, message=FALSE, warning=FALSE}
+# Summary statistics for the continuous predictor
 summary(ordata$FinalScore)
 sd(ordata$FinalScore)
 ```
 
-The lowest score is 1.9 and the highest score is a 4.0 with a mean of approximately 3. Finally, we inspect the distributions graphically.
-
-```{r orr5, message=FALSE, warning=FALSE}
-# visualize data
-ordata %>%
+```{r orr5, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+ordata |>
   ggplot(aes(x = Recommend, y = FinalScore)) +
-  geom_boxplot(size = .75) +
-  geom_jitter(alpha = .5) +
-  facet_grid(Exchange ~ Internal, margins = TRUE) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  geom_jitter(alpha = 0.3, width = 0.15, size = 1) +
+  facet_grid(Exchange ~ Internal) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+  theme(axis.text.x = element_text(angle = 25, hjust = 1)) +
+  labs(
+    title    = "Final Score by Recommendation Category",
+    subtitle = "Faceted by Exchange participation and Internal/External status",
+    x        = "Recommendation",
+    y        = "Final Score"
+  )
 ```
 
-We see that we have only few students that have taken part in an exchange program and there are also only few internal students overall. With respect to recommendations, only few students are considered to very likely succeed in the program. We can now start with the modelling by using the "polr" function. To make things easier for us, we will only consider the main effects here as this tutorial only aims to how to implement an ordinal regression but not how it should be done in a proper study - then, the model fitting and diagnostic procedures would have to be performed accurately, of course. 
+The boxplots suggest that internal students and higher-scoring students tend to receive more positive recommendations, while exchange participation shows less clear separation.
+
+## Fitting the Model {-}
 
 ```{r orr6, message=FALSE, warning=FALSE}
-## fit ordered logit model and store results 'm'
-m <- polr(Recommend ~ Internal + Exchange + FinalScore, data = ordata, Hess = TRUE)
-## view a summary of the model
+m <- MASS::polr(Recommend ~ Internal + Exchange + FinalScore,
+                data  = ordata,
+                Hess  = TRUE)
 summary(m)
 ```
 
-The results show that having studied here at this school increases the chances of receiving a positive recommendation but that having been on an exchange has a negative but insignificant effect on the recommendation. The final score also correlates positively with a positive recommendation but not as much as having studied here.
+The model output includes coefficient estimates (on the log-odds scale) and their standard errors for each predictor, plus threshold coefficients (`unlikely|somewhat likely` and `somewhat likely|very likely`) that represent the log-odds of being *at or below* each cut-point when all predictors are zero.
 
-```{r orr7, message=FALSE, warning=FALSE}
-## store table
-(ctable <- coef(summary(m)))
-```
+## Computing p-values {-}
 
-As the regression report does not provide p-values, we have to calculate them separately (after having calculated them, we add them to the coefficient table).
+`polr()` does not provide p-values by default (because the appropriate reference distribution for the t-value in ordinal logistic regression is debated). We compute approximate p-values using the normal approximation.
 
 ```{r orr8, message=FALSE, warning=FALSE}
-## calculate and store p values
-p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
-## combined table
-(ctable <- cbind(ctable, "p value" = p))
+coef_table <- coef(summary(m))
+p_values   <- pnorm(abs(coef_table[, "t value"]), lower.tail = FALSE) * 2
+coef_table <- cbind(coef_table, "p value" = round(p_values, 4))
+coef_table
 ```
-As predicted, Exchange does not have a significant effect but FinalScore and Internal both correlate significantly with the likelihood of receiving a positive recommendation.
+
+Both `InternalInternal` and `FinalScore` are significant predictors of recommendation (p < .05). `ExchangeNoExchange` does not reach significance.
+
+## Odds Ratios and Confidence Intervals {-}
+
+Exponentiation of the log-odds coefficients gives **odds ratios** (ORs), which are easier to interpret. An OR > 1 means the predictor increases the odds of receiving a higher recommendation category.
 
 ```{r orr9, message=FALSE, warning=FALSE}
-# extract profiled confidence intervals
-ci <- confint(m)
-# calculate odds ratios and combine them with profiled CIs
+ci <- confint(m)   # profile likelihood CIs (preferred over Wald CIs)
 exp(cbind(OR = coef(m), ci))
 ```
 
-The odds ratios show that internal students are 2.85 or 285 percent more likely compared to non-internal students to receive positive evaluations and that a 1-point increase in the test score lead to a 1.85 or 185 percent increase in the chances of receiving a positive recommendation. The effect of an exchange is slightly negative but, as we have seen above, not significant.
+The OR for `InternalInternal` indicates that internal students have substantially higher odds of receiving a positive recommendation compared to external students, holding other predictors constant. Each one-unit increase in `FinalScore` also meaningfully increases the odds of a more positive recommendation. The `ExchangeNoExchange` OR is close to 1 and its confidence interval includes 1, consistent with the non-significant p-value.
 
-In a final step, we will visualize the results of the ordinal regression model. To do that, we need to reformat the data and add the predictions.
+## Testing the Proportional Odds Assumption {-}
+
+The proportional odds model assumes that the effect of each predictor is the same across all threshold comparisons (i.e. the same predictor effect for *unlikely vs. somewhat+very likely* and for *unlikely+somewhat vs. very likely*). This is known as the **proportional odds assumption** (or parallel lines assumption). It can be tested using the **Brant test** [@brant1990assessing].
+
+```{r orr_brant, message=FALSE, warning=FALSE}
+brant::brant(m)
+```
+
+A non-significant Brant test (p > .05 for each predictor and for the omnibus test) indicates no evidence against the proportional odds assumption. If the assumption is violated for one or more predictors, alternatives include the partial proportional odds model or multinomial logistic regression.
+
+::: {.callout-warning}
+## When the Proportional Odds Assumption Is Violated
+
+If the Brant test is significant for a predictor, the effect of that predictor differs across threshold comparisons — the single coefficient estimated by `polr()` is a compromise that may misrepresent the true relationship. In such cases, consider: (1) fitting a partial proportional odds model using the `VGAM` package; (2) fitting a multinomial logistic regression using `nnet::multinom()`; or (3) collapsing the outcome to a binary variable if the research question permits.
+:::
+
+## Visualising Model Predictions {-}
+
+We extract the predicted probabilities for each outcome category from the model and visualise how the predicted probability of each recommendation changes with `FinalScore`, separately for each combination of `Internal` and `Exchange`.
 
 ```{r orr11, message=FALSE, warning=FALSE}
-# extract predictions
-predictions <- predict(m, data = ordata, type = "prob")
-# add predictions to the data
-newordata <- cbind(ordata, predictions)
-# rename columns
-colnames(newordata)[6:7] <- c("somewhat_likely", "very_likely")
-# reformat data
-newordata <- newordata %>%
-  dplyr::select(-Recommend) %>%
-  tidyr::gather(Recommendation, Probability, unlikely:very_likely) %>%
-  dplyr::mutate(Recommendation = factor(Recommendation,
-    levels = c(
-      "unlikely",
-      "somewhat_likely",
-      "very_likely"
-    )
-  ))
+# Attach predicted probabilities to the data
+predictions <- predict(m, data = ordata, type = "probs")
+colnames(predictions) <- c("unlikely", "somewhat_likely", "very_likely")
+
+newordata <- cbind(ordata, predictions) |>
+  dplyr::select(-Recommend) |>
+  tidyr::pivot_longer(
+    cols      = c(unlikely, somewhat_likely, very_likely),
+    names_to  = "Recommendation",
+    values_to = "Probability"
+  ) |>
+  dplyr::mutate(
+    Recommendation = factor(Recommendation,
+                             levels = c("unlikely", "somewhat_likely", "very_likely"),
+                             labels = c("Unlikely", "Somewhat likely", "Very likely"))
+  )
 ```
 
-```{r orr11b, message=FALSE, warning=FALSE}
-newordata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the newordata.") %>%
-  flextable::border_outer()
-```
-
-
-
-We can now visualize the predictions of the model.
-
-```{r orr13, message=FALSE, warning=FALSE}
-# bar plot
-newordata %>%
-  ggplot(aes(
-    x = FinalScore, Probability,
-    color = Recommendation,
-    group = Recommendation
-  )) +
+```{r orr13, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
+newordata |>
+  ggplot(aes(x = FinalScore, y = Probability,
+             colour = Recommendation, group = Recommendation)) +
   facet_grid(Exchange ~ Internal) +
-  geom_smooth() +
-  # define colors
-  scale_fill_manual(values = clrs3) +
-  scale_color_manual(values = clrs3) +
-  theme_bw()
+  geom_smooth(method = "loess", se = TRUE, alpha = 0.15) +
+  scale_colour_manual(values = clrs3) +
+  theme_bw() +
+  labs(
+    title    = "Predicted Recommendation Probabilities by Final Score",
+    subtitle = "Faceted by Exchange participation and Internal/External status",
+    x        = "Final Score",
+    y        = "Predicted probability",
+    colour   = "Recommendation"
+  )
 ```
 
-For more information about regression modeling, model fitting, and model diagnostics, please have a look at the tutorial on [regression analysis](/tutorials/regression/regression.html).
+The plot confirms the model's key findings: as `FinalScore` increases, the probability of a *very likely* recommendation rises while the probability of *unlikely* falls. Internal students show a higher baseline probability of positive recommendation at all score levels compared to external students. The effect of exchange participation is small and inconsistent across the score range, consistent with its non-significance in the model.
 
+---
 
-# Citation & Session Info {-}
+::: {.callout-tip}
+## Check Your Understanding: Ordinal Regression
+:::
 
-Schweinberger, Martin. 2025. *Visualizing and Analyzing Questionnaire and Survey Data with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/surveys/surveys.html (Version 2025.04.02).
+**Q7. The Brant test for your ordinal logistic regression model returns p = .03 for the predictor `Proficiency`. What does this indicate, and what should you do?**
+
+```{r}
+#| echo: false
+#| label: "SUR_Q7"
+check_question(
+  "The proportional odds assumption is violated for Proficiency — its effect on the outcome differs across threshold comparisons. Consider a partial proportional odds model, multinomial logistic regression, or collapsing the outcome",
+  options = c(
+    "The proportional odds assumption is violated for Proficiency — its effect on the outcome differs across threshold comparisons. Consider a partial proportional odds model, multinomial logistic regression, or collapsing the outcome",
+    "Proficiency is a significant predictor (p = .03 < .05), which confirms it should be kept in the model",
+    "The model is over-fitted and Proficiency should be removed from the predictor set",
+    "The Brant test p-value indicates the confidence interval for Proficiency's odds ratio does not include 1"
+  ),
+  type = "radio",
+  q_id = "SUR_Q7",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! The Brant test is a test of the proportional odds assumption, not of predictor significance. A significant result (p < .05) means the effect of that predictor varies across the threshold comparisons in the ordinal model — the single coefficient estimated by polr() is not an adequate summary of the predictor's relationship with the outcome. The appropriate response is to consider alternative models that relax this assumption, such as the partial proportional odds model (VGAM::vglm() with cumulative family and parallel = FALSE for the offending predictor), multinomial logistic regression, or — if theoretically defensible — collapsing the outcome into a binary variable.",
+  wrong = "The Brant test is not a test of predictor significance. What does it actually test, and what would a significant result imply about the model's assumptions?"
+)
+```
+
+---
+
+# Summary {#summary}
+
+This tutorial has walked through the complete survey research workflow in R: from designing questionnaire items with appropriate scale types, through building deployable survey instruments, to visualising, evaluating, and statistically analysing the resulting data.
+
+The key practical takeaways are:
+
+**Design before you collect.** Most problems in survey data analysis — unclear findings, low reliability, violated model assumptions — have their root in the design phase. Invest time in clear question wording, appropriate scale selection, piloting, and randomisation before deployment.
+
+**Match your visualisation to your question.** Cumulative density plots are ideal for comparing ordinal distributions across groups. Diverging stacked bar plots are the most information-dense visualisation for Likert data. Bar charts are almost always preferable to pie charts for scientific communication.
+
+**Report multiple reliability measures.** McDonald's ω total is the most accurate single estimate of internal consistency, but report Cronbach's α as well for comparability with existing literature. Use the alpha-if-deleted and item-total correlation statistics to diagnose individual problematic items rather than dropping items solely on statistical grounds.
+
+**Test your assumptions.** The proportional odds assumption of ordinal logistic regression is frequently violated. Always run the Brant test and be prepared to use alternative models if the assumption does not hold.
+
+**Keep the full pipeline reproducible.** From survey authoring (`surveydown`, `shiny`) through data cleaning (`dplyr`, `tidyr`) to analysis (`psych`, `MASS`) and visualisation (`ggplot2`, `likert`), R supports a fully transparent and reproducible research workflow. Document every decision in your code.
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Visualising and Analysing Survey and Questionnaire Data with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/surveys/surveys.html (Version 2026.02.24).
 
 ```
-@manual{schweinberger2025survey,
-  author = {Schweinberger, Martin},
-  title = {Visualizing and Analyzing Questionnaire and Survey Data with R},
-  note = {https://ladal.edu.au/tutorials/surveys/surveys.html},
-  year = {2025},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.02}
+@manual{schweinberger2026surveys,
+  author       = {Schweinberger, Martin},
+  title        = {Visualising and Analysing Survey and Questionnaire Data with R},
+  note         = {https://ladal.edu.au/tutorials/surveys/surveys.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.02.24}
 }
 ```
 
-
-```{r fin}
+```{r session_info}
 sessionInfo()
 ```
 
+::: {.callout-note}
+## AI Transparency Statement
 
-# References{-}
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, write the new "Creating Surveys in R" section covering `shiny` and `surveydown`, expand the design principles and scale types sections, add the mosaic plot and cumulative density plot examples, expand the ordinal regression section with the Brant test and improved visualisation, write the `checkdown` quiz questions and feedback strings, and revise all callout boxes, section overviews, and the summary section. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material.
+:::
 
-***
+---
 
-[Back to top](#introduction)
+[Back to top](#intro)
 
-[Back to HOME](/index.html)
+[Back to LADAL home](/)
 
-***
+---
 
+# References {-}
