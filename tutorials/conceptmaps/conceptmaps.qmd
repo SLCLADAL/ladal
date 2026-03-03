@@ -8,7 +8,6 @@ format:
     code-fold: show
     code-tools: true
     theme: cosmo
-bibliography: references.bib
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
@@ -20,13 +19,13 @@ options("scipen" = 100, "digits" = 12)
 
 # Introduction {#intro}
 
-This tutorial introduces **conceptual maps** — a family of visualisation techniques that represent semantic relationships between words or concepts as a spatial network, where proximity encodes similarity. Conceptual maps have become an increasingly popular tool in corpus linguistics, cognitive linguistics, and digital humanities for exploring how words cluster into meaning domains, how concepts relate across registers or time periods, and how semantic structure can be revealed from large bodies of text [@schneider2020conceptual].
+This tutorial introduces **conceptual maps** — a family of visualisation techniques that represent semantic relationships between words or concepts as a spatial network, where proximity encodes similarity. Conceptual maps have become an increasingly popular tool in corpus linguistics, cognitive linguistics, and digital humanities for exploring how words cluster into meaning domains, how concepts relate across registers or time periods, and how semantic structure can be revealed from large bodies of text [@schneider2024visualisation].
 
 ![](/images/wcloud.png){ width=15% style="float:right; padding:10px" }
 
 The key idea is simple: words that tend to appear in similar contexts — or that share distributional properties — are semantically related. By converting this distributional information into a similarity matrix and then applying a **spring-layout algorithm** (or a related graph-drawing method), we can produce two-dimensional maps where semantically close words cluster together and semantically distant words are pushed apart. The maps are not just aesthetically appealing; they are analytically informative, revealing lexical fields, semantic neighbourhoods, and conceptual organisation that would be invisible in a table of numbers.
 
-Gerold Schneider and colleagues have been prominent advocates of conceptual maps as a practical and accessible visualisation tool for linguists [@schneider2020conceptual], making the case that spring-layout graphs offer a more interpretively transparent alternative to purely statistical dimensionality-reduction techniques such as PCA or MDS.
+Gerold Schneider and colleagues have been prominent advocates of conceptual maps as a practical and accessible visualisation tool for linguists [@schneider2024visualisation], making the case that spring-layout graphs offer a more interpretively transparent alternative to purely statistical dimensionality-reduction techniques such as PCA or MDS.
 
 ::: {.callout-note}
 ## Prerequisite Tutorials
@@ -353,10 +352,18 @@ cooc_edges <- cooc_pmi |>
 g_cooc <- igraph::graph_from_data_frame(cooc_edges, directed = FALSE)
 
 # Add semantic domain as a node attribute for colouring
-domain_lookup <- tibble::tibble(
-  word   = target_words,
-  domain = c(rep("Emotion", 13), rep("Social", 11), rep("Character", 6))
-)
+# Using case_when avoids fragile rep() counts that break if target_words changes
+domain_lookup <- tibble::tibble(word = target_words) |>
+  dplyr::mutate(domain = dplyr::case_when(
+    word %in% c("love", "hope", "fear", "joy", "pain", "grief", "happiness",
+                "sorrow", "pleasure", "affection", "passion", "anxiety",
+                "distress", "comfort", "delight", "misery", "pride",
+                "shame", "anger")                                   ~ "Emotion",
+    word %in% c("friendship", "marriage", "family", "sister", "mother",
+                "heart", "feeling", "sensibility", "sense", "honour",
+                "duty")                                             ~ "Social",
+    TRUE                                                            ~ "Character"
+  ))
 
 domain_vec <- domain_lookup$domain[match(V(g_cooc)$name, domain_lookup$word)]
 V(g_cooc)$domain <- domain_vec
@@ -945,7 +952,7 @@ ppmi_dist <- as.dist(1 - ppmi_norm)
 
 # Classical MDS using smacof for stress-1 minimisation
 set.seed(2024)
-mds_result <- smacof::smacof(ppmi_dist, ndim = 2, verbose = FALSE)
+mds_result <- smacof::smacofSym(ppmi_dist, ndim = 2, verbose = FALSE)
 
 mds_coords <- as.data.frame(mds_result$conf) |>
   tibble::rownames_to_column("word") |>
@@ -1020,7 +1027,7 @@ The two methods are not interchangeable views of the same thing — they optimis
 
 ## Community Detection {-}
 
-**Community detection** algorithms identify clusters of densely interconnected nodes — lexical fields in a semantic map. We use the Louvain algorithm [@blondel2008louvain], which is fast and performs well on weighted graphs.
+**Community detection** algorithms identify clusters of densely interconnected nodes — lexical fields in a semantic map. We use the Louvain algorithm [@hendrickx2008graphs], which is fast and performs well on weighted graphs.
 
 ```{r community, message=FALSE, warning=FALSE, fig.width=9, fig.height=7}
 set.seed(2024)
@@ -1301,7 +1308,7 @@ sessionInfo()
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to draft the tutorial structure, all explanatory text, all R code chunks, callouts, quiz questions and answers, tables, and the reproducibility checklist. All content was reviewed and is the responsibility of the named author.
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, expand the theoretical introduction, add the new sections and accompanying callouts, expand  interpretation guidance across all sections, write the new  quiz questions and detailed answer explanations, and produce the comparison summary table. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for its accuracy.
 :::
 
 ---
