@@ -1,712 +1,1570 @@
 ---
 title: "String Processing in R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
 
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
+# Introduction {#intro}
 
-# Introduction{-}
+This tutorial introduces string processing in R — the art of manipulating, searching, extracting, and transforming character data. String processing is a foundational skill for linguistic research: nearly every corpus study, text-mining project, or annotation pipeline begins with reading raw text and ends with cleaned, structured character data ready for analysis.
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial introduces string processing. It is aimed at beginners and intermediate users of R and it aims to showcase how to work with and process textual data using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful functions and methods associated with text processing. 
+The tutorial is aimed at beginners and intermediate R users. It covers a progression from basic string operations in base R and the `stringr` package, through regular expressions, through text-cleaning pipelines, to tokenisation with `quanteda`. Each section introduces functions with linguistic examples and includes worked exercises.
 
+::: {.callout-note}
+## Prerequisite Tutorials
 
+Before working through this tutorial, you should be familiar with:
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-</ul>
-</p>
-</span>
-</div>
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio orientation
+- [Loading, Saving, and Simulating Data in R](/tutorials/load/load.html) — reading and writing files, file paths with `here`
+- [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr` verbs, piping with `|>`
 
-<br>
+If you are new to R, work through *Getting Started with R* first.
+:::
 
+::: {.callout-note}
+## Learning Objectives
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-**LADAL TOOL** 
-</p>
-<p style='margin-top:1em; text-align:center'></p>
+By the end of this tutorial you will be able to:
 
-```{r}
-#| echo: false
+1. Apply core base R string functions (`nchar`, `paste`, `substr`, `gsub`, `grep`, `tolower`, `toupper`)
+2. Use the full suite of `stringr` functions for detecting, extracting, replacing, splitting, padding, and combining strings
+3. Use `str_glue()` and `str_glue_data()` for string interpolation in reports and data pipelines
+4. Work with factors as strings using `forcats` — relabel, reorder, collapse, and filter factor levels
+5. Format strings for table output using padding, truncation, and number formatting
+6. Handle Unicode, encoding issues, and non-ASCII characters (IPA, non-Latin scripts)
+7. Write regular expressions including character classes, quantifiers, anchors, alternation, named capture groups, and lookahead/lookbehind
+8. Build reproducible text-cleaning pipelines combining multiple string operations
+9. Tokenise text using `quanteda` and understand the difference between word, sentence, and character tokenisation
+:::
 
-# Define base components
-base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
-repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *String Processing in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/string/string.html (Version 2026.02.24).
+:::
+
+---
+
+::: {.callout-note}
+## Interactive Notebook
+
+An interactive, notebook-based version of this tutorial is available via the Binder link below. It allows you to upload your own texts, apply cleaning operations, and download the results without installing anything locally.
+
+```{r binder_url, echo=FALSE, message=FALSE, warning=FALSE}
+base_url      <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url      <- "https://github.com/SLCLADAL/interactive-notebooks"
 notebook_path <- "interactive-notebooks/notebooks/stringtool.ipynb"
-
-# Manually encode each parameter
-repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
-notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
-
-# Combine parameters with 'git-pull' and 'branch'
-params <- paste0(
-    "urlpath=git-pull%3F",
-    repo_param,
-    "%26",
-    notebook_param,
-    "%26branch=main"
-)
-
-# Combine into the final URL
-binder_url <- paste0(base_url, "?", params)
+repo_param    <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+nb_param      <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
+params        <- paste0("urlpath=git-pull%3F", repo_param, "%26", nb_param, "%26branch=main")
+binder_url    <- paste0(base_url, "?", params)
 ```
 
 ::: {.text-center}
 [![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
 
-Click [**here**](`r binder_url`) to open an notebook-based tool <br> that allows you upload your own text(s), to clean the texts, and download the resulting cleaned texts.
+Click [**here**](`r binder_url`) to open the interactive string-processing notebook.
+:::
 :::
 
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+---
 
-<br>
+# Setup {#setup}
 
+## Installing Packages {-}
 
-
-**Preparation and session set up**
-
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorial, we need to install certain *packages* from an R *library* so that the scripts shown below can be executed without errors. Before turning to the code in the sections below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code. Don't worry if it takes a while - it may take up to 5 minutes to install all of the packages.
-
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("tidyverse")
-install.packages("htmlwidgets")
-install.packages("checkdown")
-# install klippy for copy-to-clipboard button in code chunks
+```{r prep0, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("tidyverse")   # stringr, dplyr, tidyr, purrr, ggplot2, forcats
+install.packages("here")        # reproducible file paths
+install.packages("flextable")   # formatted tables
+install.packages("quanteda")    # tokenisation and corpus tools
+install.packages("tm")          # text-mining utilities (stopwords, stemming)
+install.packages("checkdown")   # interactive quiz questions
 install.packages("remotes")
 remotes::install_github("rlesur/klippy")
 ```
 
-Now that we have installed the packages, we can activate them as shown below.
+## Loading Packages {-}
 
-```{r prep2, message=FALSE, warning=FALSE} 
-# load packages
-library(tidyverse)
+```{r prep1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)   # loads stringr, dplyr, purrr, ggplot2, forcats
+library(here)
+library(flextable)
+library(quanteda)
+library(tm)
 library(checkdown)
-# activate klippy for copy-to-clipboard button
 klippy::klippy()
 ```
 
-Once you have installed RStudio and initiated the session by executing the code shown above, you are good to go.
+## Loading Example Texts {-}
 
-Before we start with string processing, we will load some example texts on which we will perform the processing. 
+Throughout this tutorial we work with four example texts loaded from the LADAL data repository.
 
-The first example text represents a paragraph about grammar.
-
-```{r readdat1, message=FALSE, warning=FALSE}
-# read in text
+```{r load_texts, message=FALSE, warning=FALSE}
+# Text 1: paragraph about grammar (single string)
 exampletext <- base::readRDS("tutorials/string/data/tx1.rda", "rb")
-# inspect
-exampletext
-```
 
-The second example text represents the same paragraph about grammar, but split into individual sentences.
-
-```{r readdat2, message=FALSE, warning=FALSE}
-# read in text
+# Text 2: same paragraph split into sentences (character vector)
 splitexampletext <- base::readRDS("tutorials/string/data/tx2.rda", "rb")
-# inspect
-splitexampletext
-```
 
-The third example text represents a paragraph about Ferdinand de Saussure - the founder of modern linguistics.
-
-```{r readdat3, message=FALSE, warning=FALSE}
+# Text 3: paragraph about Ferdinand de Saussure (single string)
 additionaltext <- base::readRDS("tutorials/string/data/tx3.rda", "rb")
-# inspect
-additionaltext
-```
 
-The fourth example text consists of 3 short plain sentences.
-
-```{r readdat4, message=FALSE, warning=FALSE}
+# Text 4: three short sentences (character vector)
 sentences <- base::readRDS("tutorials/string/data/tx4.rda", "rb")
-# inspect
-sentences
+
+# Inspect
+cat("exampletext (first 120 chars):\n", substr(exampletext, 1, 120), "\n\n")
+cat("splitexampletext:\n"); print(splitexampletext); cat("\n")
+cat("sentences:\n"); print(sentences)
 ```
 
-In the following, we will perform various operations on the example texts.
+::: {.callout-tip}
+## Character Vectors in R
 
-# Basic String Processing {-}
+A **character vector** is R's basic data structure for text. Each element is a separate string — `exampletext` is length 1 (one long string), while `splitexampletext` is length *n* (one element per sentence). Most `stringr` functions are **vectorised**: they accept vectors of any length and return a result of the same length, making it easy to process many strings at once.
+:::
 
-Before turning to functions provided in the `stringr`, let us just briefly focus on some base functions that are extremely useful when working with texts.
+---
 
-A very useful function is `tolower` which converts everything to lower case. 
+# Base R String Functions {#base}
 
-```{r lwr, message=FALSE, warning=FALSE}
-tolower(exampletext)
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The most important string functions available in base R — no packages required. These underpin everything else and appear throughout code you will encounter in the wild.
+:::
+
+## Case Conversion {-}
+
+```{r base_case, message=FALSE, warning=FALSE}
+tolower(exampletext) |> substr(1, 80)
+toupper(exampletext) |> substr(1, 80)
 ```
 
-Conversely, `toupper` converts everything to upper case. 
+## String Length {-}
 
-```{r upr, message=FALSE, warning=FALSE}
-toupper(exampletext)
+```{r base_nchar, message=FALSE, warning=FALSE}
+# Number of characters per element
+nchar(splitexampletext)
+
+# NA-safe version
+nchar(c("hello", NA, "world"), keepNA = TRUE)
 ```
 
+## Substrings {-}
 
-The `stringr` package (see [here](https://raw.githubusercontent.com/rstudio/cheatsheets/main/strings.pdf)) is part of the so-called *tidyverse* - a collection of packages that allows you to write R code in a readable manner - and it is the most widely used package for string processing in R. The advantage of using `stringr` is that it makes string processing very easy. All `stringr` functions share a common structure:
+```{r base_substr, message=FALSE, warning=FALSE}
+# Extract characters 1–60
+substr(exampletext, 1, 60)
 
-`str_function(string, pattern)`
-
-The two arguments in the structure of `stringr` functions are:  *string*, which is the character string to be processed, and a pattern, which is either a simple sequence of characters, a regular expression, or a combination of both. Because the *string* comes first, the `stringr` functions are ideal for piping and thus use in the tidyverse style R. 
-
-All function names of `stringr` begin with str, then an underscore and then the name of the action to be performed.  For example, to replace the first occurrence of a pattern in a string, we should use `str_replace()`. In the following, we will use `stringr` functions to perform various operations on the example text. As we have already loaded the `tidyverse` package, we can start right away with using `stringr` functions as shown below.
-
-Like `nchar` in `base`, `str_count` provides the number of characters of a text.
-
-```{r stringr2, message=FALSE, warning=FALSE}
-str_count(splitexampletext)
+# Replacement: overwrite a substring in-place
+tmp <- exampletext
+substr(tmp, 1, 7) <- "[REDACTED]"  # pads/truncates to match width
+substr(tmp, 1, 25)
 ```
 
-The function `str_detect` shows whether a pattern is present in a text and outputs a logical vector with *TRUE* if the pattern occurs and *FALSE* if it does not.
+## Combining Strings {-}
 
-```{r stringr3, message=FALSE, warning=FALSE}
-str_detect(splitexampletext, "and")
-```	
-
-The function `str_extract` extracts the first occurrence of a pattern, if that pattern is present in a text.
-
-```{r stringr4, message=FALSE, warning=FALSE}
-str_extract(exampletext, "and")
-```	
-
-The function `str_extract_all` extracts all occurrences of a pattern, if that pattern is present in a text.
-
-```{r stringr5, message=FALSE, warning=FALSE}
-str_extract_all(exampletext, "and")
-```	
-
-The function `str_locate` provides the start and end position of the match of the pattern in a text.
-
-```{r stringr6, message=FALSE, warning=FALSE}
-str_locate(exampletext, "and")
+```{r base_paste, message=FALSE, warning=FALSE}
+paste("Participant", 1:4, sep = "_")       # with separator
+paste0("Item", LETTERS[1:4])               # no separator
+paste(sentences, collapse = " | ")         # collapse vector to one string
 ```
 
-The function `str_locate_all` provides the start and end positions of the match of the pattern in a text and displays the result in matrix-form.
+## Pattern Matching and Replacement {-}
 
-```{r stringr7, message=FALSE, warning=FALSE}
-str_locate_all(exampletext, "and")
+```{r base_grep, message=FALSE, warning=FALSE}
+# grep: indices of matching elements
+grep("grammar", splitexampletext)
+
+# grepl: logical vector
+grepl("grammar", splitexampletext)
+
+# sub: replace FIRST match per string
+sub("grammar", "GRAMMAR", exampletext) |> substr(1, 80)
+
+# gsub: replace ALL matches per string
+gsub("\\band\\b", "&", exampletext) |> substr(1, 80)
+
+# ignore.case
+grep("grammar", splitexampletext, ignore.case = TRUE)
 ```
 
-The function `str_match` extracts the first occurrence of the pattern in a text.
+::: {.callout-tip}
+## `gsub()` vs. `str_replace_all()`
 
+Both replace all occurrences of a pattern. The key practical difference is argument order: `gsub(pattern, replacement, string)` puts the string last (inconvenient for pipes), while `str_replace_all(string, pattern, replacement)` puts the string first (pipe-friendly). For new code, prefer `stringr`. For reading legacy code, recognise `gsub`.
+:::
 
-```{r stringr8, message=FALSE, warning=FALSE}
-str_match(exampletext, "and")
+## Splitting Strings {-}
+
+```{r base_strsplit, message=FALSE, warning=FALSE}
+# strsplit returns a LIST — one element per input string
+words_list <- strsplit(exampletext, "\\s+")
+head(words_list[[1]], 10)
+
+# Flatten to a plain vector
+words_vec <- strsplit(exampletext, "\\s+")[[1]]
+length(words_vec)
 ```
 
-The function `str_match_all` extracts all occurrences of the pattern from a text.
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 1
 
-```{r stringr9, message=FALSE, warning=FALSE}
-str_match_all(exampletext, "and")
+**You have a character vector `texts` with 50 sentences. You want the indices of sentences that contain the word "the" (case-insensitive). Which call is correct?**
+
+a) `grep("the", texts, ignore.case = TRUE)` — returns matching indices
+b) `gsub("the", "", texts)` — removes "the" from each sentence
+c) `grepl("the", texts, ignore.case = TRUE)` — returns a logical vector, not indices
+d) `sub("the", "THE", texts)` — replaces the first match only
+
+<details>
+<summary>**Answer**</summary>
+
+**a) `grep("the", texts, ignore.case = TRUE)`**
+
+`grep()` returns the *positions* (indices) of matching elements. `grepl()` (option c) is also useful but returns `TRUE`/`FALSE` — use it when filtering with `texts[grepl(...)]`. Options b and d perform replacements.
+
+</details>
+:::
+
+---
+
+# Core `stringr` Functions {#stringr}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The complete set of `stringr` functions for detecting, extracting, replacing, splitting, padding, ordering, and combining strings — all following the consistent `str_verb(string, pattern)` convention that makes them ideal for pipelines.
+:::
+
+## Detecting Patterns {-}
+
+```{r stringr_detect, message=FALSE, warning=FALSE}
+str_detect(splitexampletext, "grammar")           # logical vector
+str_starts(splitexampletext, "[A-Z]")             # starts with capital
+str_ends(splitexampletext,   "\\.")               # ends with full stop
+str_which(splitexampletext,  "grammar")           # indices of matches
+str_count(exampletext, "\\band\\b")               # count occurrences
 ```
 
-The function `str_remove` removes the first occurrence of a pattern in a text.
+## Extracting Patterns {-}
 
-```{r stringr10, message=FALSE, warning=FALSE}
-str_remove(exampletext, "and")
+```{r stringr_extract, message=FALSE, warning=FALSE}
+# First match per element
+str_extract(splitexampletext, "\\b[A-Z][a-z]+\\b")
+
+# All matches per element (returns a list)
+str_extract_all(exampletext, "\\b[A-Z][a-z]+\\b")[[1]]
+
+# First match plus capture groups (matrix: col 1 = full match, col 2+ = groups)
+str_match(exampletext, "\\bthe (\\w+)\\b")
+
+# All matches plus groups
+str_match_all(exampletext, "\\bthe (\\w+)\\b")[[1]] |> head(5)
 ```
 
-The function `str_remove_all` removes all occurrences of a pattern from a text.
+## Replacing and Removing Patterns {-}
 
-```{r stringr11, message=FALSE, warning=FALSE}
-str_remove_all(exampletext, "and")
+```{r stringr_replace, message=FALSE, warning=FALSE}
+str_replace(exampletext, "grammar", "GRAMMAR") |> substr(1, 80)
+str_replace_all(exampletext, "\\band\\b", "&") |> substr(1, 80)
+str_remove(exampletext, "\\bgrammar\\b") |> substr(1, 80)
+str_remove_all(exampletext, "[,;.]") |> substr(1, 80)
 ```
 
-The function `str_replace` replaces the first occurrence of a pattern with something else in a text.
+## Splitting Strings {-}
 
-```{r stringr12, message=FALSE, warning=FALSE}
-str_replace(exampletext, "and", "AND")
+```{r stringr_split, message=FALSE, warning=FALSE}
+# str_split: returns a list
+str_split(exampletext, "\\s+")[[1]] |> head(8)
+
+# str_split_fixed: returns a matrix with exactly n columns
+str_split_fixed(sentences, "\\s+", n = 3)
+
+# Split on sentence boundaries (lookbehind for .!?)
+str_split(exampletext, "(?<=[.!?])\\s+")[[1]]
 ```
 
-The function `str_replace_all` replaces all occurrences of a pattern with something else in a text.
+## Subsetting Strings {-}
 
-```{r stringr13, message=FALSE, warning=FALSE}
-str_replace_all(exampletext, "and", "AND")
+```{r stringr_sub, message=FALSE, warning=FALSE}
+str_sub(exampletext, 1, 60)                           # by character position
+str_subset(splitexampletext, "grammar|syntax")        # keep matching elements
+str_trunc(splitexampletext, width = 45)               # truncate with "..."
 ```
 
-The function `str_starts` tests whether a given text begins with a certain pattern and outputs a logical vector.
+## Padding, Whitespace, and Truncation {-}
 
-```{r stringr14, message=FALSE, warning=FALSE}
-str_starts(exampletext, "and")
+String formatting for table output, report generation, and aligned displays is one of the most practically useful areas of `stringr`.
+
+```{r stringr_pad, message=FALSE, warning=FALSE}
+# str_trim: remove leading and trailing whitespace
+messy <- "  This   has  extra   spaces.  "
+str_trim(messy)
+
+# str_squish: remove leading/trailing AND internal runs of whitespace
+str_squish(messy)
+
+# str_pad: add characters to reach a target width
+# Useful for aligning columns in plain-text reports
+words_ex <- c("the", "corpus", "linguistics", "syntax")
+str_pad(words_ex, width = 15, side = "right")   # left-aligned (pad right)
+str_pad(words_ex, width = 15, side = "left")    # right-aligned (pad left)
+str_pad(words_ex, width = 15, side = "both")    # centred
+
+# Custom pad character (e.g. for dot-leaders in a table of contents)
+str_pad(words_ex, width = 20, side = "right", pad = ".")
+
+# str_trunc with different sides
+str_trunc("A very long sentence about linguistics.", width = 25, side = "right")
+str_trunc("A very long sentence about linguistics.", width = 25, side = "left")
+str_trunc("A very long sentence about linguistics.", width = 25, side = "center")
 ```
 
-The function `str_ends` tests whether a text ends with a certain pattern and outputs a logical vector.
+```{r stringr_format_table, message=FALSE, warning=FALSE}
+# Practical example: create an aligned plain-text frequency table
+word_freqs <- data.frame(
+  word = c("grammar", "syntax", "morphology", "phonology", "semantics"),
+  freq = c(42, 38, 27, 19, 14),
+  stringsAsFactors = FALSE
+)
 
-```{r stringr15, message=FALSE, warning=FALSE}
-str_ends(exampletext, "and")
+# Format for aligned display
+word_freqs |>
+  dplyr::mutate(
+    word_padded = str_pad(word, width = 12, side = "right"),
+    freq_padded = str_pad(as.character(freq), width = 6, side = "left"),
+    pct         = round(100 * freq / sum(freq), 1),
+    pct_padded  = str_pad(paste0(pct, "%"), width = 7, side = "left")
+  ) |>
+  dplyr::mutate(row = paste(word_padded, freq_padded, pct_padded)) |>
+  dplyr::pull(row) |>
+  (\(x) c("Word         Count    Pct",
+           paste(rep("-", 27), collapse = ""),
+           x))() |>
+  cat(sep = "\n")
 ```
 
-Like `strsplit`, the function `str_split` splits a text when a given pattern occurs. If no pattern is provided, then the text is split into individual symbols.
+::: {.callout-tip}
+## Number Formatting with `formatC()` and `sprintf()`
 
-```{r stringr16, message=FALSE, warning=FALSE}
-str_split(exampletext, "and")
+For numeric string formatting, base R's `formatC()` and `sprintf()` complement `str_pad()`:
+
+```r
+# Fixed decimal places
+formatC(3.14159, digits = 3, format = "f")   # "3.142"
+
+# Thousands separator
+formatC(12345678, format = "d", big.mark = ",")  # "12,345,678"
+
+# sprintf: C-style formatting
+sprintf("Mean RT = %.1f ms (SD = %.1f)", 612.4, 87.3)
+
+# Percentage formatting
+sprintf("%.1f%%", 0.347 * 100)   # "34.7%"
 ```
+:::
 
-The function `str_split_fixed` splits a text when a given pattern occurs but only so often as is indicated by the argument `n`. So, even if the patter occurs more often than `n`, `str_split_fixed` will only split the text `n` times.
+## Combining and Interpolating Strings {-}
 
-```{r stringr17, message=FALSE, warning=FALSE}
-str_split_fixed(exampletext, "and", n = 3)
-```
+### `str_c()` and `str_flatten()` {-}
 
-The function `str_subset` extracts subsets of a text that contain a certain pattern.  
+```{r stringr_combine, message=FALSE, warning=FALSE}
+# str_c: concatenate element-wise (NA-safe unlike paste0)
+str_c("P", str_pad(1:5, 2, pad = "0"), sep = "")   # P01, P02, ...
 
-```{r stringr18, message=FALSE, warning=FALSE}
-str_subset(splitexampletext, "and")
-```
+# str_c with NA: propagates NA (unlike paste0 which gives "NA")
+str_c("prefix_", c("a", NA, "c"))
+paste0("prefix_", c("a", NA, "c"))    # compare: NA becomes "prefixNA"
 
-The function `str_which` provides a vector with the indices of the texts that contain a certain pattern. 
-
-```{r stringr19, message=FALSE, warning=FALSE}
-str_which(splitexampletext, "and")
-```
-
-The function `str_view` shows the locations of the first instances of a pattern in a text or vector of texts.
-
-
-```{r stringr20, message=FALSE, warning=FALSE}
-str_view(splitexampletext, "and")
-```
-
-The function `str_view_all` shows the locations of all instances of a pattern in a text or vector of texts.
-
-```{r stringr21, message=FALSE, warning=FALSE}
-str_view_all(exampletext, "and")
-```
-
-The function `str_pad` adds white spaces to a text or vector of texts so that they reach a given number of symbols.
-
-```{r stringr22, message=FALSE, warning=FALSE}
-# create text with white spaces
-text <- " this    is a    text   "
-str_pad(text, width = 30)
-```
-
-The function `str_trim` removes white spaces from the beginning(s) and end(s) of a text or vector of texts.
-
-```{r stringr23, message=FALSE, warning=FALSE}
-str_trim(text)
-```
-
-The function `str_squish` removes white spaces that occur within a text or vector of texts.
-
-```{r stringr24, message=FALSE, warning=FALSE}
-str_squish(text)
-```
-
-The function `str_wrap` removes white spaces  from the beginning(s) and end(s) of a text or vector of texts and also white spaces that occur within a text or vector of texts.
-
-```{r stringr25, message=FALSE, warning=FALSE}
-str_wrap(text)
-```
-
-The function `str_order` provides a vector that represents the order of a vector of texts according to the lengths of texts in that vector.
-
-```{r stringr26, message=FALSE, warning=FALSE}
-str_order(splitexampletext)
-```
-
-The function `str_sort` orders a vector of texts according to the lengths of texts in that vector.
-
-```{r stringr27, message=FALSE, warning=FALSE}
-str_sort(splitexampletext)
-```
-
-The function `str_to_upper` converts all symbols in a text or vector of texts to upper case.
-
-```{r stringr28, message=FALSE, warning=FALSE}
-str_to_upper(exampletext)
-```
-
-The function `str_to_lower` converts all symbols in a text or vector of texts to lower case.
-
-```{r stringr29, message=FALSE, warning=FALSE}
-str_to_lower(exampletext)
-```
-
-The function `str_c` combines texts into one text.
-
-```{r stringr30, message=FALSE, warning=FALSE}
-str_c(exampletext, additionaltext)
-```
-
-The function `str_conv` converts a text into a certain type of encoding, e.g. into `UTF-8` or `Latin1`.
-
-```{r stringr31, message=FALSE, warning=FALSE}
-str_conv(exampletext, encoding = "UTF-8")
-```
-
-The function `str_dup` reduplicates a text or a vector of texts `n` times.
-
-```{r stringr32, message=FALSE, warning=FALSE}
-str_dup(exampletext, times = 2)
-```
-
-The function `str_flatten` combines a vector of texts into one text. The argument `collapse` defines the symbol that occurs between the combined texts. If the argument `collapse` is left out, the texts will be combined without any symbol between the combined texts.
-
-
-```{r stringr33, message=FALSE, warning=FALSE}
+# str_flatten: collapse a vector to a single string
 str_flatten(sentences, collapse = " ")
+str_flatten(c("cat", "dog", "bird"), collapse = ", ", last = " and ")
 ```
 
- If the argument `collapse` is left out, the texts will be combined without any symbol between the combined texts.
+### `str_glue()`: String Interpolation {-}
 
-```{r stringr34, message=FALSE, warning=FALSE}
-str_flatten(sentences)
-```
+`str_glue()` embeds R expressions directly in strings using `{...}` placeholders. This is far more readable than nested `paste()` calls and is the recommended approach for generating report text, axis labels, and data-driven narrative.
 
-The function `str_length` provides the length of texts in characters.
+```{r str_glue_basic, message=FALSE, warning=FALSE}
+# Basic interpolation
+speaker  <- "P03"
+n_tokens <- 1247
+lang     <- "English"
 
-```{r stringr35, message=FALSE, warning=FALSE}
-str_length(exampletext)
-```
+str_glue("Speaker {speaker} (L1: {lang}) produced {n_tokens} tokens.")
 
-The function `str_replace_na` replaces NA in texts. It is important to note that NA, if it occurs within a string, is considered to be the literal string `NA`.
+# Arithmetic inside {}
+str_glue("Mean rate: {round(n_tokens / 60, 1)} tokens per minute.")
 
-```{r stringr36, message=FALSE, warning=FALSE}
-# create sentences with NA
-sentencesna <- c("Some text", NA, "Some more text", "Some NA text")
-# apply str_replace_na function
-str_replace_na(sentencesna, replacement = "Something new")
-```
+# Conditional text
+proficiency <- "Advanced"
+str_glue("Speaker {speaker} is {tolower(proficiency)}.",
+         " ",
+         "Their token count was {ifelse(n_tokens > 1000, 'above', 'below')} 1,000.")
 
-The function `str_trunc` ends strings with ... after a certain number of characters.
-
-```{r stringr37, message=FALSE, warning=FALSE}
-str_trunc(sentences, width = 20)
-```
-
-The function `str_sub` extracts a string from a text from a start location to an end position (expressed as character positions).
-
-```{r stringr38, message=FALSE, warning=FALSE}
-str_sub(exampletext, 5, 25)
-```
-
-The function `word` extracts words from a text (expressed as word positions).
-
-
-```{r stringr39, message=FALSE, warning=FALSE}
-word(exampletext, 2:7)
-```
-
-
-The function `str_glue` combines strings and allows you to input variables.
-
-```{r stringr40, message=FALSE, warning=FALSE}
-name <- "Fred"
-age <- 50
-anniversary <- as.Date("1991-10-12")
+# Multi-line glue (newlines are preserved unless you collapse)
 str_glue(
-  "My name is {name}, ",
-  "my age next year is {age + 1}, ",
-  "and my anniversary is {format(anniversary, '%A, %B %d, %Y')}."
+  "--- Speaker Report ---\n",
+  "ID:          {speaker}\n",
+  "L1:          {lang}\n",
+  "Tokens:      {n_tokens}\n",
+  "Proficiency: {proficiency}"
 )
 ```
 
-The function `str_glue_data` is particularly useful when it is used in data pipelines. The data set `mtcars` is a built-in data set that is loaded automatically when starting R.
+### `str_glue_data()`: Interpolation Over a Data Frame {-}
 
-```{r stringr41, message=FALSE, warning=FALSE}
-mtcars %>%
-  str_glue_data("{rownames(.)} has {hp} hp")
+`str_glue_data()` applies the template to every row of a data frame. This is ideal for generating per-participant summaries, axis labels, or APA-style results sentences.
+
+```{r str_glue_data, message=FALSE, warning=FALSE}
+# Sample participant data
+participants <- data.frame(
+  id          = paste0("P", str_pad(1:6, 2, pad = "0")),
+  l1          = c("English", "German", "French", "Japanese", "Spanish", "Mandarin"),
+  tokens      = c(1247, 983, 1105, 876, 1031, 942),
+  accuracy    = c(0.92, 0.87, 0.89, 0.84, 0.91, 0.86),
+  proficiency = c("Advanced", "Intermediate", "Advanced",
+                  "Intermediate", "Advanced", "Intermediate"),
+  stringsAsFactors = FALSE
+)
+
+# Generate one summary sentence per participant
+participants |>
+  str_glue_data(
+    "Speaker {id} (L1: {l1}, {proficiency}) produced {tokens} tokens ",
+    "with {round(accuracy * 100, 1)}% accuracy."
+  )
 ```
 
+```{r str_glue_apa, message=FALSE, warning=FALSE}
+# Generate APA-style result sentences for each comparison
+results_df <- data.frame(
+  comparison = c("Primed vs. Unprimed", "High- vs. Low-Frequency"),
+  beta       = c(-0.082, -0.051),
+  se         = c(0.018, 0.013),
+  t_val      = c(-4.56, -3.92),
+  p_val      = c(0.0001, 0.0009),
+  stringsAsFactors = FALSE
+)
 
+results_df |>
+  str_glue_data(
+    "{comparison}: β = {round(beta, 3)}, SE = {round(se, 3)}, ",
+    "t = {round(t_val, 2)}, p {ifelse(p_val < .001, '< .001', paste0('= ', round(p_val, 3)))}."
+  )
+```
 
+::: {.callout-tip}
+## When to Use `str_glue()` vs. `paste()`
+
+Use `str_glue()` whenever you have more than one or two variables to embed in a string. The `{variable}` syntax reads naturally as prose and supports arbitrary R expressions, while `paste()` becomes hard to read as the number of arguments grows. For vectorised row-by-row generation from a data frame, always prefer `str_glue_data()` over `apply()` + `paste()`.
+:::
+
+## Sorting and Ordering {-}
+
+```{r stringr_sort, message=FALSE, warning=FALSE}
+str_sort(sentences)                                    # default locale
+str_sort(sentences, decreasing = TRUE)
+
+# Locale matters for non-English alphabets
+nordic <- c("ångström", "öl", "äpple", "banan", "citron")
+str_sort(nordic)                     # incorrect for Swedish
+str_sort(nordic, locale = "sv")      # correct Swedish alphabetical order
+
+str_order(sentences)                 # returns ordering indices
+```
 
 :::: {.content-visible when-format="html"}
 ::: {.callout-tip collapse="false" icon="false"}
 #### Your turn! {.unnumbered}
 
-[**Q1**]{style="color:purple;"} Imagine you have a transcript of an interview. Which stringr function would you use to anonymise the transcript by changing all instances of the participant's name to a pseudonym?
+[**Q2**]{style="color:purple;"} You have an interview transcript and want to replace every occurrence of a participant's real name ("Sarah") with the pseudonym "P01". Which `stringr` function is correct?
 
-```{r}
-#| echo: false
-#| label: "Q1"
-
-check_question("str_replace_all",
-                 options = c("str_replace_all",
-                 "str_remove_all",
-                 "str_replace",
-                 "str_locate"), 
-               type = "radio", 
-               q_id = "Q1", 
-               random_answer_order = TRUE,
-               button_label = "Check answer",
-               right = "That's right! You would need str_replace_all to find all occurances of the participant's name and replace them with a consistent pseudonym.",
-               wrong = "No, that's not quite right. Try again.")
-
+```{r q2, echo=FALSE, label="Q2"}
+check_question(
+  "str_replace_all",
+  options = c("str_replace_all", "str_remove_all", "str_replace", "str_locate"),
+  type = "radio", q_id = "Q2", random_answer_order = TRUE,
+  button_label = "Check answer",
+  right  = "Correct! str_replace_all replaces every occurrence.",
+  wrong  = "Not quite — you need a function that replaces ALL occurrences, not just the first."
+)
 ```
 
-[**Q2**]{style="color:purple;"} Which of the following stringr functions edit the amount of white space in a text? 
+[**Q3**]{style="color:purple;"} Which `stringr` functions manipulate whitespace? (Select all that apply.)
 
-```{r}
-#| echo: false
-#| label: "Q2"
-
-check_question(c("str_trim",
-                 "str_squish",
-                 "str_pad"),
-                 options = c("str_pad",
-                 "str_squish",
-                 "str_trim",
-                 "str_match",
-                 "str_sort"), 
-               type = "check", 
-               q_id = "Q2", 
-               random_answer_order = TRUE,
-               alignment = "vertical",
-               button_label = "Check answer",
-               right = "Well done, those all alter white spaces in a text or vector of texts!",
-               wrong = "No, not quite. Hint: there are three correct answers here.")
-
+```{r q3, echo=FALSE, label="Q3"}
+check_question(
+  c("str_trim", "str_squish", "str_pad"),
+  options = c("str_pad", "str_squish", "str_trim", "str_match", "str_sort"),
+  type = "check", q_id = "Q3", random_answer_order = TRUE, alignment = "vertical",
+  button_label = "Check answer",
+  right = "Correct — all three manipulate whitespace in different ways.",
+  wrong = "Three correct answers. Think about adding, removing, and collapsing spaces."
+)
 ```
-
 :::
 ::::
 
-# Advanced String Processing {-}
+---
 
-Above, we have used functions and regular expressions to extract and find patterns in textual data. Here, we will focus on common methods for cleaning text data that are applied before implementing certain methods.
+# Working with Factors as Strings {#factors}
 
-We start by installing and then loading some additional packages, e.g., the `quanteda` (see [here](https://raw.githubusercontent.com/rstudio/cheatsheets/main/quanteda.pdf) for a cheat sheet for the `quanteda` package), the `tm`, and the `udpipe` package, which are extremely useful when dealing with more advanced text processing.
+::: {.callout-note}
+## Section Overview
 
+**What you will learn:** How factors differ from character vectors; why factor level ordering matters for plots and models; and how to use `forcats` to relabel, reorder, collapse, and filter factor levels — tasks that arise constantly when working with categorical linguistic data (POS tags, speaker groups, genre labels, annotation codes)
+:::
 
-```{r atp0, eval = F, message=F, warning=F}
-install.packages("quanteda")
-install.packages("tm")
-install.packages("udpipe")
+## Factors vs. Character Vectors {-}
+
+A **factor** is a categorical variable stored as integers with a character **levels** attribute. Factors are essential for:
+
+- Controlling the order of categories in plots (without factors, ggplot2 sorts alphabetically)
+- Setting reference levels in regression models
+- Summarising data by a fixed set of categories (including empty ones)
+
+```{r factor_basics, message=FALSE, warning=FALSE}
+# Character vector vs. factor
+pos_chars  <- c("NN", "VBZ", "DT", "NN", "JJ", "NN", "VBZ", "RB")
+pos_factor <- factor(pos_chars,
+                     levels = c("DT", "JJ", "NN", "RB", "VBZ"))
+
+# Key differences
+class(pos_chars)       # "character"
+class(pos_factor)      # "factor"
+levels(pos_factor)     # the defined level set, in order
+nlevels(pos_factor)    # number of levels
+
+# A factor remembers ALL levels even if some are absent in the data
+absent_level <- factor(c("A", "B"), levels = c("A", "B", "C"))
+table(absent_level)    # C appears with count 0
 ```
 
+## The `forcats` Package {-}
 
-```{r atp1, message=F, warning=F}
-library(quanteda)
-library(tm)
-library(udpipe)
+`forcats` (loaded as part of the tidyverse) provides a coherent set of functions for working with factors. All function names begin with `fct_`.
+
+### Reordering Levels {-}
+
+```{r forcats_reorder, message=FALSE, warning=FALSE}
+# Sample annotation data
+anno_df <- data.frame(
+  token = c("the", "corpus", "contains", "very", "interesting", "data",
+            "the", "speaker", "spoke", "quite", "quickly", "today"),
+  upos  = c("DT", "NN", "VBZ", "RB", "JJ", "NN",
+             "DT", "NN", "VBD", "RB", "RB", "NN"),
+  stringsAsFactors = FALSE
+)
+
+# Without forcats: alphabetical order in plot (rarely what we want)
+ggplot(anno_df, aes(x = upos)) +
+  geom_bar(fill = "steelblue") +
+  theme_bw() +
+  labs(title = "POS distribution (alphabetical — default)")
+
+# fct_infreq: order by descending frequency
+anno_df |>
+  dplyr::mutate(upos = forcats::fct_infreq(upos)) |>
+  ggplot(aes(x = upos)) +
+  geom_bar(fill = "steelblue") +
+  theme_bw() +
+  labs(title = "POS distribution (ordered by frequency)")
+
+# fct_rev: reverse current level order
+anno_df |>
+  dplyr::mutate(upos = forcats::fct_rev(forcats::fct_infreq(upos))) |>
+  ggplot(aes(x = upos)) +
+  geom_col(stat = "count", fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "POS distribution (frequency order, horizontal)")
 ```
 
-One common procedure is to split texts into sentences, which we can do by using the  `tokenize_sentence` function from the `quanteda` package. I also unlist the data to have a vector to work with (rather than a list).
+```{r forcats_reorder2, message=FALSE, warning=FALSE}
+# fct_reorder: order a factor by a summary statistic of another variable
+rt_df <- data.frame(
+  condition   = rep(c("Primed", "Unprimed", "Filler"), each = 40),
+  rt          = c(rnorm(40, 580, 60), rnorm(40, 650, 70), rnorm(40, 700, 80))
+)
 
+# Without reordering: arbitrary condition order
+rt_df |>
+  dplyr::mutate(condition = forcats::fct_reorder(condition, rt, .fun = median)) |>
+  ggplot(aes(x = condition, y = rt, fill = condition)) +
+  geom_boxplot(show.legend = FALSE) +
+  theme_bw() +
+  labs(title = "RT by condition (ordered by median RT)",
+       x = "Condition", y = "Reaction time (ms)")
+```
 
-```{r atp3, message=F, warning=F}
-et_sent <- quanteda::tokenize_sentence(exampletext) %>%
+### Relabelling Levels {-}
+
+```{r forcats_recode, message=FALSE, warning=FALSE}
+# fct_recode: rename individual levels
+pos_factor_labelled <- forcats::fct_recode(
+  factor(anno_df$upos),
+  "Determiner"  = "DT",
+  "Adjective"   = "JJ",
+  "Noun"        = "NN",
+  "Adverb"      = "RB",
+  "Verb (past)" = "VBD",
+  "Verb (pres)" = "VBZ"
+)
+levels(pos_factor_labelled)
+table(pos_factor_labelled)
+
+# fct_relabel: apply a function to ALL level names at once
+pos_lower <- forcats::fct_relabel(factor(anno_df$upos), tolower)
+levels(pos_lower)
+```
+
+### Collapsing and Lumping Levels {-}
+
+When a factor has many levels, it is often useful to collapse rare or related levels into a single catch-all category.
+
+```{r forcats_lump, message=FALSE, warning=FALSE}
+# Simulate a larger POS-tagged corpus
+set.seed(42)
+all_pos <- sample(
+  c("NN", "VBZ", "DT", "JJ", "RB", "IN", "PRP", "VBD", "NNS", "VBP",
+    "CC", "MD", "WP", "EX", "UH"),
+  size    = 200,
+  replace = TRUE,
+  prob    = c(0.20, 0.12, 0.11, 0.09, 0.08, 0.07, 0.06, 0.06,
+              0.05, 0.04, 0.04, 0.03, 0.02, 0.02, 0.01)
+)
+
+pos_factor_full <- factor(all_pos)
+nlevels(pos_factor_full)  # 15 levels — hard to visualise
+
+# fct_lump_n: keep the n most frequent levels, collapse the rest to "Other"
+pos_lumped_5 <- forcats::fct_lump_n(pos_factor_full, n = 5)
+table(pos_lumped_5)
+
+# fct_lump_prop: keep levels accounting for > prop of observations
+pos_lumped_prop <- forcats::fct_lump_prop(pos_factor_full, prop = 0.05)
+table(pos_lumped_prop)
+
+# fct_other: manually specify which levels to keep (all others → "Other")
+pos_content <- forcats::fct_other(
+  pos_factor_full,
+  keep = c("NN", "NNS", "VBZ", "VBD", "VBP", "JJ"),
+  other_level = "Function"
+)
+table(pos_content)
+```
+
+### Adding and Dropping Levels {-}
+
+```{r forcats_levels, message=FALSE, warning=FALSE}
+# fct_drop: remove levels that have no observations
+all_genres <- factor(c("academic", "fiction", "news"),
+                     levels = c("academic", "fiction", "news", "spoken", "web"))
+nlevels(all_genres)           # 5 levels
+nlevels(forcats::fct_drop(all_genres))  # 3 levels
+
+# fct_expand: add new levels (useful before rbind-ing data frames)
+expanded <- forcats::fct_expand(all_genres, "social_media", "blog")
+levels(expanded)
+
+# fct_na_value_to_level: treat NA as an explicit factor level
+with_na  <- factor(c("academic", NA, "fiction", NA, "news"))
+with_na_level <- forcats::fct_na_value_to_level(with_na, level = "Unknown")
+table(with_na_level, useNA = "always")
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 4
+
+**A researcher has a factor `genre` with levels in alphabetical order: `"academic"`, `"fiction"`, `"news"`, `"spoken"`. She wants to reorder the bars in a ggplot2 bar chart so that the most frequent genre appears first. Which `forcats` function should she use?**
+
+a) `fct_reorder(genre, genre)` — reorder by alphabetical value
+b) `fct_infreq(genre)` — reorder levels by descending frequency of observations
+c) `fct_rev(genre)` — reverse the current alphabetical order
+d) `fct_recode(genre)` — rename the level labels
+
+<details>
+<summary>**Answer**</summary>
+
+**b) `fct_infreq(genre)` — reorder levels by descending frequency of observations**
+
+`fct_infreq()` reorders factor levels so that the most frequently occurring level comes first, which is exactly what places it as the first bar in a bar chart. `fct_reorder()` (option a) reorders by a *summary statistic of another variable* (e.g. median RT), not by the factor's own frequency. `fct_rev()` only reverses the existing order without considering frequency. `fct_recode()` changes level names, not order.
+
+</details>
+:::
+
+---
+
+# Unicode, Encoding, and Non-ASCII Characters {#unicode}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What text encoding is and why it matters for linguistic data; how to detect and fix encoding problems; how to work with IPA symbols, non-Latin scripts, and Unicode special characters in R; and locale-aware case conversion for non-English languages
+:::
+
+## What Is Text Encoding? {-}
+
+A **character encoding** maps characters to binary numbers. The most important encodings for linguistic research are:
+
+| Encoding | Coverage | When you encounter it |
+|----------|----------|----------------------|
+| **UTF-8** | All Unicode characters (~150,000) | Modern files, web data, recommended default |
+| **Latin-1 / ISO-8859-1** | Western European languages | Older files, Windows legacy |
+| **Windows-1252 (CP1252)** | Western European + smart quotes | Files created on Windows |
+| **UTF-16** | All Unicode (2 or 4 bytes) | Some Windows apps, older XML |
+
+: Common text encodings {tbl-colwidths="[20,30,50]"}
+
+::: {.callout-important}
+## Always Use UTF-8
+
+Save all R scripts and data files in **UTF-8**. In RStudio: **File → Save with Encoding → UTF-8**. Set your default in **Tools → Global Options → Code → Saving → Default text encoding: UTF-8**. Nearly all encoding headaches arise from mixing UTF-8 and Latin-1 files.
+:::
+
+## Detecting and Converting Encodings {-}
+
+```{r encode_detect, message=FALSE, warning=FALSE}
+# str_conv: convert encoding
+latin1_text <- iconv("café résumé naïve", to = "latin1")
+utf8_text   <- stringr::str_conv(latin1_text, encoding = "latin1")
+utf8_text
+
+# iconv: lower-level conversion with error handling
+# sub = "byte": replace invalid bytes with their hex code (never fails)
+# sub = NA:     return NA for strings with invalid bytes (for detection)
+mixed <- c("valid UTF-8", iconv("caf\xe9", from = "latin1", to = "UTF-8"))
+iconv(mixed, from = "UTF-8", to = "UTF-8", sub = NA)
+
+# Detect encoding of an unknown file (requires stringi)
+# stringi::stri_enc_detect(readBin("unknown_file.txt", "raw", 10000))
+```
+
+## IPA and Phonetic Symbols {-}
+
+IPA symbols are fully supported in R as UTF-8 Unicode code points:
+
+```{r encode_ipa, message=FALSE, warning=FALSE}
+# IPA transcriptions
+ipa <- c(
+  "linguistics"  = "/lɪŋˈɡwɪstɪks/",
+  "phonology"    = "/fəˈnɒlədʒi/",
+  "morphology"   = "/mɔːˈfɒlədʒi/",
+  "syntax"       = "/ˈsɪntæks/",
+  "semantics"    = "/sɪˈmæntɪks/"
+)
+
+nchar(ipa)                              # character count per transcription
+str_detect(ipa, "ɪ")                   # detect the IPA SMALL CAPITAL I
+str_extract_all(ipa, "[ˈˌ][^ˈˌ/]+")   # extract stressed syllables
+
+# Remove stress marks and syllable boundaries
+str_remove_all(ipa, "[ˈˌ.\\-]")
+
+# Extract only vowels (broad IPA vowel symbols)
+vowels_ipa <- "[aeiouæɑɒɔəɛɜɪʊʌ]"
+str_extract_all(ipa, vowels_ipa) |>
+  purrr::map(~ paste(.x, collapse = "")) |>
   unlist()
-# inspect
-et_sent
 ```
 
-Another common procedure is to remove stop words, i.e., words that do not have semantic or referential meaning (like nouns such as *tree* or *cat*, or verbs like *sit* or *speak* or adjectives such as *green* or *loud*) but that indicate syntactic relations, roles, or features.(e.g., articles and pronouns). We can remove stopwords using, e.g., the  `removeWords` function from the `tm` package
+## Non-Latin Scripts {-}
 
+```{r encode_nonlatin, message=FALSE, warning=FALSE}
+# R handles any Unicode script natively
+arabic   <- "اللغويات"          # Arabic: "linguistics"
+chinese  <- "语言学"             # Mandarin: "linguistics"
+japanese <- "言語学"             # Japanese: "linguistics"
+greek    <- "γλωσσολογία"        # Greek: "glōssología"
+russian  <- "лингвистика"        # Russian: "lingvistika"
+hindi    <- "भाषाविज्ञान"       # Hindi: "bhāṣāvijñāna"
 
-```{r atp5, message=F, warning=F}
-et_wostop <- tm::removeWords(exampletext, tm::stopwords("english"))
-# inspect
-et_wostop
+scripts  <- c(arabic, chinese, japanese, greek, russian, hindi)
+nchar(scripts)                   # character count (code points)
+
+# str_length is an alias for nchar in stringr
+str_length(scripts)
+
+# Detect Cyrillic characters
+str_detect(scripts, "\\p{Script=Cyrillic}")
+
+# Detect CJK characters (Chinese/Japanese/Korean)
+str_detect(scripts, "\\p{Script=Han}")
 ```
 
-To remove the superfluous white spaces, we can use the  `stripWhitespace` function from the `tm` package.
+::: {.callout-tip}
+## Unicode Script Properties in Regex
 
-```{r atp6, message=F, warning=F}
-et_wows <- tm::stripWhitespace(et_wostop)
-# inspect
-et_wows
+PCRE (which `stringr` uses) supports Unicode property escapes of the form `\p{Property=Value}`. Useful ones for linguists:
+
+| Pattern | Matches |
+|---------|---------|
+| `\p{L}` | Any Unicode letter |
+| `\p{Lu}` | Uppercase letter |
+| `\p{Ll}` | Lowercase letter |
+| `\p{N}` | Any numeric character |
+| `\p{Script=Latin}` | Latin-script characters |
+| `\p{Script=Arabic}` | Arabic-script characters |
+| `\p{Script=Han}` | CJK characters |
+
+: Unicode property escapes {tbl-colwidths="[30,70]"}
+:::
+
+## Locale-Aware Case Conversion {-}
+
+```{r encode_locale, message=FALSE, warning=FALSE}
+# Turkish has dotted/dotless i — standard tolower/toupper fails
+str_to_upper("istanbul", locale = "tr")   # İSTANBUL (correct for Turkish)
+str_to_upper("istanbul", locale = "en")   # ISTANBUL (English behaviour)
+
+str_to_lower("İSTANBUL", locale = "tr")   # istanbul
+str_to_lower("İSTANBUL", locale = "en")   # i̇stanbul (wrong for Turkish)
+
+# German sharp s
+str_to_upper("straße", locale = "de")     # STRASSE (ß → SS in uppercase)
+
+# str_to_title: capitalise first letter of each word
+str_to_title("the quick brown fox", locale = "en")
 ```
 
-It can also be useful to remove numbers. We can do this using the  `removeNumbers` function from the `tm` package.
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 5
 
+**You are processing a corpus of files downloaded from an older German website. After reading the files with `readLines()`, some strings contain the bytes `\xfc` (ü), `\xe4` (ä), and `\xf6` (ö), appearing as garbled characters. What is the most likely cause and the correct fix?**
 
-```{r atp7, message=F, warning=F}
-et_wonum <- tm::removeNumbers("This is the 1 and only sentence I will write in 2022.")
-# inspect
-et_wonum
+a) The files are corrupted — re-download them
+b) The files are encoded in Latin-1 (or Windows-1252), not UTF-8. Use `readLines(f, encoding = "latin1")` or `iconv(text, from = "latin1", to = "UTF-8")`
+c) R does not support German characters — use Python instead
+d) Use `str_squish()` to clean the garbled bytes
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The files are encoded in Latin-1 (or Windows-1252), not UTF-8**
+
+The byte values `\xfc`, `\xe4`, and `\xf6` are the Latin-1 encodings of ü, ä, and ö — common German characters. When R reads a file assuming UTF-8 but the file is Latin-1, these multi-byte characters appear garbled. The fix is to read with the correct encoding: `readLines(f, encoding = "latin1")`, or convert afterwards with `iconv(text, from = "latin1", to = "UTF-8")`. Option (d) is wrong — `str_squish()` handles whitespace only and has no effect on byte values.
+
+</details>
+:::
+
+---
+
+# Regular Expressions {#regex}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to write regex patterns using character classes, quantifiers, anchors, alternation, groups, named capture groups, and lookahead/lookbehind — with linguistic examples throughout. The focus is on patterns that arise in real linguistic data processing.
+:::
+
+## Special Characters and Escaping {-}
+
+Most characters match themselves literally. The following have special meaning and must be escaped with `\\` in R strings:
+
+`. * + ? ^ $ ( ) [ ] { } | \`
+
+```{r regex_escape, message=FALSE, warning=FALSE}
+# Match a literal full stop (. means "any character" in regex)
+str_detect(c("end.", "end!"), "end\\.")   # only "end." matches
+
+# Match a literal parenthesis
+str_extract("Syntax (Chomsky 1957)", "\\([^)]+\\)")
 ```
 
-We may also want to remove any type of punctuation using the  `removePunctuation` function from the `tm` package.
+## Character Classes {-}
 
+```{r regex_classes, message=FALSE, warning=FALSE}
+str_extract_all("linguistics", "[aeiou]")[[1]]          # vowels only
+str_extract_all("Word1 word2", "[A-Za-z]+")[[1]]        # letter sequences
+str_extract_all("Score: 4/5", "[^A-Za-z: /]")[[1]]     # negated class
 
+# Shorthand classes
+# \\d = [0-9]   \\D = [^0-9]
+# \\w = [A-Za-z0-9_]   \\W = non-word
+# \\s = whitespace      \\S = non-whitespace
+# \\b = word boundary (zero-width)
 
-```{r atp9, message=F, warning=F}
-et_wopunct <- tm::removePunctuation(exampletext)
-# inspect
-et_wopunct
+str_extract_all("Call 0412 345 678", "\\d+")[[1]]
+str_extract_all("one two three", "\\b\\w+\\b")[[1]]
 ```
 
-We may also want to stem the words in a  document, i.e. remove the ends of words to be able to group together semantically related words such as *walk*, *walks*, *walking*, *walked*, which would all be stemmed into *walk*. We can stem a text using the  `stemDocument` function from the `tm` package.
+## Quantifiers {-}
 
+| Quantifier | Meaning | Example |
+|------------|---------|---------|
+| `?` | 0 or 1 | `colou?r` → colour, color |
+| `*` | 0 or more | `\\d*` → zero or more digits |
+| `+` | 1 or more | `\\d+` → one or more digits |
+| `{n}` | Exactly n | `\\w{4}` → four-letter words |
+| `{n,m}` | Between n and m | `\\d{2,4}` → 2–4 digits |
+| `*?` `+?` | Lazy (minimal) | Match as little as possible |
 
-```{r atp11, message=F, warning=F}
-et_stem <- tm::stemDocument(exampletext, language = "en")
-# inspect
-et_stem
+: Regex quantifiers {tbl-colwidths="[15,30,55]"}
+
+```{r regex_quant, message=FALSE, warning=FALSE}
+verbs <- c("walk", "walks", "walking", "walked", "runner")
+
+str_subset(verbs, "\\w+ing$")           # -ing forms
+str_subset(verbs, "\\w+ed$")            # -ed forms
+str_subset(verbs, "^\\w{4}$")           # exactly 4 characters
+str_detect(c("colour", "color"), "colou?r")  # optional u
+
+# Greedy vs. lazy
+quoted <- 'She said "very" and he said "quite good"'
+str_extract(quoted, '".*"')             # greedy: first to last "
+str_extract(quoted, '".*?"')            # lazy:  first to next "
+```
+
+## Anchors and Word Boundaries {-}
+
+```{r regex_anchors, message=FALSE, warning=FALSE}
+lines <- c("Grammar is structural.", "The grammar of English.", "grammar matters.")
+
+str_subset(lines, "^[A-Z]")            # starts with capital letter
+str_subset(lines, "\\.$")              # ends with full stop
+
+# Word boundaries prevent partial matches
+str_count(exampletext, "the")          # matches "the", "other", "there"...
+str_count(exampletext, "\\bthe\\b")    # only the exact word "the"
+```
+
+## Alternation and Groups {-}
+
+```{r regex_groups, message=FALSE, warning=FALSE}
+# Alternation: | inside ()
+str_subset(
+  c("very nice", "quite good", "so interesting", "fairly common"),
+  "\\b(very|quite|so|fairly)\\b"
+)
+
+# Grouping for quantifiers
+str_detect(c("haha", "hahaha", "ha", "hahahahaha"), "(ha){2,}")
+
+# Back-references: \\1 matches what group 1 captured
+redupl <- c("so so tired", "very very slowly", "quite good")
+str_detect(redupl, "\\b(\\w+) \\1\\b")   # reduplicated word
+str_match(redupl, "\\b(\\w+) \\1\\b")[, 2]  # extract the word
+
+# Match colour/color
+str_detect(c("colour", "color", "colouring"), "colou?r")
+```
+
+## Named Capture Groups {-}
+
+Named capture groups (`(?<name>...)`) make complex extraction readable and robust. The group's value can be accessed by name from the result matrix, which is safer than relying on column position.
+
+```{r regex_named, message=FALSE, warning=FALSE}
+# Extract structured information from POS-tagged text
+# Format: WORD/POS/LEMMA
+tagged <- c("The/DT/the", "corpus/NN/corpus", "contains/VBZ/contain",
+            "very/RB/very", "interesting/JJ/interesting", "data/NN/datum")
+
+pattern <- "(?<word>[^/]+)/(?<pos>[^/]+)/(?<lemma>[^/]+)"
+m <- str_match(tagged, pattern)
+
+anno_df <- data.frame(
+  word  = m[, "word"],
+  pos   = m[, "pos"],
+  lemma = m[, "lemma"],
+  stringsAsFactors = FALSE
+)
+anno_df
+
+# Extract IPA transcriptions from formatted dictionary entries
+dict <- c(
+  "linguistics /lɪŋˈɡwɪstɪks/ noun",
+  "phonology /fəˈnɒlədʒi/ noun",
+  "morphology /mɔːˈfɒlədʒi/ noun",
+  "syntax /ˈsɪntæks/ noun"
+)
+ipa_pattern <- "(?<word>\\w+) /(?<ipa>[^/]+)/ (?<pos>\\w+)"
+ipa_m       <- str_match(dict, ipa_pattern)
+
+data.frame(
+  word = ipa_m[, "word"],
+  ipa  = ipa_m[, "ipa"],
+  pos  = ipa_m[, "pos"],
+  stringsAsFactors = FALSE
+)
+```
+
+```{r regex_named2, message=FALSE, warning=FALSE}
+# Named groups with str_match_all for multiple matches per string
+# Extract all citation references: Author (Year) format
+text_with_cites <- paste(
+  "As Chomsky (1957) argued, and later confirmed by Labov (1972),",
+  "sociolinguistic variation (Trudgill 1974; Milroy 1980) is systematic."
+)
+
+cite_pattern <- "(?<author>[A-Z][a-z]+)\\s+\\((?<year>\\d{4})\\)"
+cite_matches <- str_match_all(text_with_cites, cite_pattern)[[1]]
+
+data.frame(
+  author = cite_matches[, "author"],
+  year   = as.integer(cite_matches[, "year"]),
+  stringsAsFactors = FALSE
+)
+```
+
+## Lookahead and Lookbehind {-}
+
+Lookaround assertions match a *position* relative to a pattern without including the pattern itself in the match result.
+
+| Assertion | Syntax | Meaning |
+|-----------|--------|---------|
+| Positive lookahead | `(?=...)` | Position followed by ... |
+| Negative lookahead | `(?!...)` | Position NOT followed by ... |
+| Positive lookbehind | `(?<=...)` | Position preceded by ... |
+| Negative lookbehind | `(?<!...)` | Position NOT preceded by ... |
+
+: Lookaround syntax {tbl-colwidths="[25,20,55]"}
+
+```{r regex_lookaround, message=FALSE, warning=FALSE}
+# Words immediately preceding "grammar"
+str_extract_all(exampletext, "\\w+(?=\\s+grammar)")[[1]]
+
+# Words immediately following "the"
+str_extract_all(exampletext, "(?<=\\bthe\\s)\\w+")[[1]]
+
+# Amplified adjectives: adjectives following "very" or "quite"
+amp_sent <- "The very beautiful garden and the quite interesting lecture."
+str_extract_all(amp_sent, "(?<=very |quite )\\w+")[[1]]
+
+# Split on sentence boundaries WITHOUT consuming the punctuation
+# (?<=[.!?]) = preceded by sentence-final punctuation
+sentences_split <- str_split(exampletext, "(?<=[.!?])\\s+")[[1]]
+sentences_split
+```
+
+## Practical Regex for Linguistic Data {-}
+
+```{r regex_practical, message=FALSE, warning=FALSE}
+# 1. Extract all -ing forms
+str_extract_all(exampletext, "\\b\\w+ing\\b")[[1]]
+
+# 2. Remove XML/HTML tags (common in corpus data)
+tagged_text <- "<p>The <hi rend=\"italic\">corpus</hi> contains <b>data</b>.</p>"
+str_remove_all(tagged_text, "<[^>]+>")
+
+# 3. Extract quoted speech
+narrative <- 'She said "I will return" and he replied "Good luck".'
+str_extract_all(narrative, '"([^"]+)"')[[1]]
+
+# 4. Extract year references from academic text
+academic <- "Chomsky (1957), Labov (1972), and Trudgill (1974) all contributed."
+str_extract_all(academic, "\\d{4}")[[1]]
+
+# 5. Detect passive constructions (rough heuristic)
+passive_pat <- "\\b(is|are|was|were|been)\\s+\\w+ed\\b"
+str_detect(splitexampletext, passive_pat)
+
+# 6. Anonymise emails
+emails_text <- "Contact martin@ladal.edu.au or admin@university.org for details."
+str_replace_all(emails_text,
+                "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+                "[EMAIL REDACTED]")
 ```
 
 :::: {.content-visible when-format="html"}
 ::: {.callout-tip collapse="false" icon="false"}
 #### Your turn! {.unnumbered}
 
-[**Q3**]{style="color:purple;"} The following text is a sentence that has undergone a common data cleaning procedure. Which of the following functions was most likely used?
+[**Q6**]{style="color:purple;"} Which regex correctly matches whole words ending in `-tion` or `-sion` (e.g. *intention*, *tension*)?
 
-'cat sat mat'
+```{r q6, echo=FALSE, label="Q6"}
+check_question(
+  "\\\\b\\\\w+(tion|sion)\\\\b",
+  options = c("\\\\b\\\\w+(tion|sion)\\\\b",
+              "\\\\w*tion|sion",
+              "(tion|sion)$",
+              "\\\\w+[tion|sion]"),
+  type = "radio", q_id = "Q6", random_answer_order = TRUE,
+  button_label = "Check answer",
+  right  = "Correct! \\b word boundaries, \\w+ matches the stem, and (tion|sion) alternates the suffixes.",
+  wrong  = "Think about word boundaries and alternation between two suffixes."
+)
+```
 
-```{r}
-#| echo: false
-#| label: "Q3"
+[**Q7**]{style="color:purple;"} You want to extract the word *immediately after* "very" in a text, without including "very" in the result. Which regex feature achieves this?
 
-check_question("removeWords",
-                 options = c("removeWords",
-                 "tokenize_sentence",
-                 "str_remove",
-                 "removePunctuation"),
-               type = "radio",
-               q_id = "Q3",
-               random_answer_order = TRUE,
-               button_label = "Check answer",
-               right = "That's right! This text looks like it has had stop words removed, likely using the removeWords package.",
-               wrong = "No, that's not quite right. Try again.")
-
+```{r q7, echo=FALSE, label="Q7"}
+check_question(
+  "Positive lookbehind: (?<=very )\\\\w+",
+  options = c("Positive lookbehind: (?<=very )\\\\w+",
+              "Positive lookahead: \\\\w+(?= very)",
+              "Back-reference: \\\\b(very) \\\\1\\\\b",
+              "Character class: [very]\\\\w+"),
+  type = "radio", q_id = "Q7", random_answer_order = TRUE,
+  button_label = "Check answer",
+  right  = "Correct! (?<=very ) matches a position preceded by 'very ', so only the following word is captured.",
+  wrong  = "You want to match something AFTER 'very' without including 'very' in the match."
+)
 ```
 :::
 ::::
 
-**Tokenisation, lemmatisation, pos-tagging, and dependency parsing**
+---
 
-A far better option than stemming is lemmatisation, as lemmatisation is based on proper morphological information and vocabularies. For lemmatisation, we can use the `udpipe` package, which also tokenises texts, adds part-of-speech tags, and provides information about dependency relations. 
+# Text Cleaning Pipelines {#cleaning}
 
-Before we can tokenise, lemmatise, pos-tag and parse though, we need to download a pre-trained language model.
+::: {.callout-note}
+## Section Overview
 
-```{r atp12, eval = F, message=F, warning=F}
-# download language model
-m_eng <- udpipe::udpipe_download_model(language = "english-ewt")
+**What you will learn:** How to combine multiple string operations into a single reusable cleaning function; common preprocessing steps for corpus linguistics; a `tm`-based pipeline and a `stringr`-based alternative; and how to apply either to a full directory of texts
+:::
+
+## Why Build a Pipeline? {-}
+
+Text cleaning for corpus analysis chains many steps — lowercasing, removing markup, stripping punctuation, removing numbers, eliminating stopwords, collapsing whitespace — and you need to apply the exact same sequence to every text. Encoding the pipeline as a function ensures reproducibility, transparency, and reusability.
+
+::: {.callout-warning}
+## When NOT to Remove Stopwords
+
+Stopword removal is appropriate for topic modelling and keyword extraction. But it is **inappropriate** for grammatical analysis (function words are the data), discourse analysis (markers like *well*, *so*, *I mean* are usually stopwords but often exactly what you want), and sentiment analysis (negation words like *not*, *never* are on stopword lists but reverse polarity). Always check whether the words you remove are relevant to your research question.
+:::
+
+## The `tm` Building Blocks {-}
+
+```{r cleaning_tm_blocks, message=FALSE, warning=FALSE}
+raw <- paste(
+  "The study of Grammar (including <b>Syntax</b>, Morphology, and Phonology) is central",
+  "to Linguistics. There are 3 main branches — explored by linguists since the 19th century."
+)
+
+tm::removeNumbers(raw)
+tm::removePunctuation(raw)
+tm::removeWords(raw, tm::stopwords("english"))
+tm::stripWhitespace(raw)
+tm::stemDocument(raw, language = "en")
 ```
 
+## A Reusable `tm`-Based Pipeline {-}
 
-If you have downloaded a model once, you can also load the model directly from the place where you stored it on your computer. In my case, I have stored the model in a folder called udpipemodels.
+```{r cleaning_pipeline_tm, message=FALSE, warning=FALSE}
+clean_text_tm <- function(text,
+                           lowercase     = TRUE,
+                           rm_markup     = TRUE,
+                           rm_punct      = TRUE,
+                           rm_numbers    = TRUE,
+                           rm_stopwords  = TRUE,
+                           stopword_lang = "english",
+                           stem          = FALSE,
+                           squish_ws     = TRUE) {
+  out <- text
+  if (rm_markup)    out <- stringr::str_remove_all(out, "<[^>]+>")
+  if (lowercase)    out <- tolower(out)
+  if (rm_punct)     out <- tm::removePunctuation(out)
+  if (rm_numbers)   out <- tm::removeNumbers(out)
+  if (rm_stopwords) out <- tm::removeWords(out, tm::stopwords(stopword_lang))
+  if (stem)         out <- tm::stemDocument(out, language = stopword_lang)
+  if (squish_ws)    out <- tm::stripWhitespace(out)
+  stringr::str_trim(out)
+}
 
-```{r atp14, message=F, warning=F}
-# load language model from your computer after you have downloaded it once
-m_eng <- udpipe_load_model(file = here::here(
-  "udpipemodels",
-  "english-ewt-ud-2.5-191206.udpipe"
-))
+clean_text_tm(raw)
+clean_text_tm(raw, rm_stopwords = FALSE) |> substr(1, 80)
+clean_text_tm(raw, stem = TRUE) |> substr(1, 80)
 ```
 
-We can now use the model to annotate our text.
+## A `stringr`-Based Pipeline {-}
 
-```{r atp17, message=F, warning=F}
-# tokenise, tag, dependency parsing
-text_anndf <- udpipe::udpipe_annotate(m_eng, x = exampletext) %>%
-  as.data.frame() %>%
-  dplyr::select(-sentence)
-# inspect
-head(text_anndf, 10)
+The `stringr` alternative gives more control over punctuation rules and handles Unicode better:
+
+```{r cleaning_pipeline_stringr, message=FALSE, warning=FALSE}
+clean_text_stringr <- function(text,
+                                lowercase     = TRUE,
+                                rm_markup     = TRUE,
+                                rm_punct      = TRUE,
+                                rm_numbers    = TRUE,
+                                rm_stopwords  = TRUE,
+                                keep_hyphens  = TRUE,
+                                squish_ws     = TRUE) {
+  out <- text
+
+  # 1. Remove XML/HTML markup
+  if (rm_markup)  out <- str_remove_all(out, "<[^>]+>")
+
+  # 2. Lowercase
+  if (lowercase)  out <- str_to_lower(out)
+
+  # 3. Remove punctuation (optionally keep internal hyphens)
+  if (rm_punct) {
+    if (keep_hyphens) {
+      out <- str_remove_all(out, "[^\\w\\s\\-]")   # keep - inside words
+    } else {
+      out <- str_remove_all(out, "[^\\w\\s]")
+    }
+  }
+
+  # 4. Remove numbers
+  if (rm_numbers) out <- str_remove_all(out, "\\d+")
+
+  # 5. Remove stopwords with word-boundary matching
+  if (rm_stopwords) {
+    stops   <- tm::stopwords("english")
+    pattern <- str_c("\\b(", str_c(stops, collapse = "|"), ")\\b")
+    out     <- str_remove_all(out, pattern)
+  }
+
+  # 6. Collapse whitespace
+  if (squish_ws) out <- str_squish(out)
+
+  out
+}
+
+clean_text_stringr(raw)
+
+# Demonstrate keep_hyphens option
+hyphen_text <- "Well-known socio-linguistic phenomena include code-switching."
+clean_text_stringr(hyphen_text, rm_stopwords = FALSE, keep_hyphens = TRUE)
+clean_text_stringr(hyphen_text, rm_stopwords = FALSE, keep_hyphens = FALSE)
 ```
 
-We could, of course, perform many more manipulations of textual data, but this should suffice to get you started.
+## Applying a Pipeline to a Corpus {-}
+
+```{r cleaning_corpus, message=FALSE, warning=FALSE}
+# Simulate a small corpus (in practice: read from files)
+corpus_raw <- c(
+  T01 = "The <b>grammar</b> of English has changed since the 1800s.",
+  T02 = "Syntax deals with sentence structure — 3 main frameworks exist.",
+  T03 = "Morphology examines word formation and the structure of words.",
+  T04 = "Phonology studies the sound systems of languages (44 phonemes in English)."
+)
+
+# Apply pipeline to all texts
+corpus_clean <- purrr::map_chr(corpus_raw, clean_text_stringr)
+
+# Display before/after
+data.frame(
+  id     = names(corpus_raw),
+  before = str_trunc(corpus_raw,   60),
+  after  = str_trunc(corpus_clean, 60)
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Corpus texts before and after cleaning pipeline")
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 8
+
+**A researcher applies the pipeline `lowercase → removePunctuation → removeStopwords → stripWhitespace` to her corpus. She later finds that "not interesting" has become just "interesting" throughout, reversing the intended meaning of many sentences. Which step caused this and how should she fix it?**
+
+a) `lowercase` — preserving capitalisation would have prevented this
+b) `removePunctuation` — punctuation carries semantic information
+c) `removeStopwords` — "not" is on the English stopword list; she should use a custom stopword list that excludes negation words, or skip stopword removal entirely for this analysis
+d) `stripWhitespace` — collapsing spaces altered the word sequence
+
+<details>
+<summary>**Answer**</summary>
+
+**c) `removeStopwords`**
+
+English stopword lists include negation words like *not*, *never*, *no*, *nor*, *neither*. Removing them from text that will be analysed for meaning or sentiment is a serious error because these words reverse the polarity of surrounding words. The fix: create a custom stopword list that excludes all negation words, or skip stopword removal and rely on your analysis method to handle function words appropriately.
+
+</details>
+:::
+
+---
+
+# Tokenisation with `quanteda` {#tokenisation}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What tokenisation is; the difference between word, sentence, and character tokenisation; how to use `quanteda`'s `tokens()` function with various options; and how to inspect, filter, and work with the resulting token objects
+:::
+
+## What Is Tokenisation? {-}
+
+**Tokenisation** is the process of splitting a text into a sequence of discrete units called **tokens**. A token is typically a word, but it can also be a sentence, character, n-gram, or any other unit depending on your analytical goal.
+
+| Unit | Function | Returns | Typical use |
+|------|----------|---------|-------------|
+| Sentence | `quanteda::tokenize_sentence()` | List of sentence strings | Sentence-level analysis, KWIC |
+| Word | `quanteda::tokens(what = "word")` | `tokens` object | Frequency analysis, collocations |
+| Character | `quanteda::tokens(what = "character")` | `tokens` object | Character n-grams, orthographic analysis |
+| N-gram | `quanteda::tokens_ngrams()` | `tokens` object | Collocation, language models |
+
+: Tokenisation options in `quanteda` {tbl-colwidths="[15,30,20,35]"}
+
+## Sentence Tokenisation {-}
+
+```{r tok_sentence, message=FALSE, warning=FALSE}
+# Split text into sentences
+et_sentences <- quanteda::tokenize_sentence(exampletext) |> unlist()
+et_sentences
+
+# Works on a vector of texts too
+multi_sent <- quanteda::tokenize_sentence(
+  c(exampletext, additionaltext)
+)
+lengths(multi_sent)   # how many sentences per text?
+```
+
+## Word Tokenisation {-}
+
+```{r tok_word, message=FALSE, warning=FALSE}
+# Build a quanteda corpus first
+corp <- quanteda::corpus(
+  c(exampletext, additionaltext),
+  docnames = c("grammar", "saussure")
+)
+
+# Default word tokenisation (preserves punctuation)
+toks_default <- quanteda::tokens(corp, what = "word")
+head(as.character(toks_default[[1]]), 20)
+
+# Clean tokenisation: remove punctuation, symbols, numbers, URLs
+toks_clean <- quanteda::tokens(
+  corp,
+  what           = "word",
+  remove_punct   = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = FALSE,
+  remove_url     = TRUE,
+  split_hyphens  = FALSE   # keep "well-known" as one token
+)
+head(as.character(toks_clean[[1]]), 20)
+
+# Token counts
+lengths(toks_clean)
+```
+
+## Removing Stopwords in `quanteda` {-}
+
+```{r tok_stopwords, message=FALSE, warning=FALSE}
+# quanteda has built-in stopword lists
+head(quanteda::stopwords("en"), 20)
+
+# Remove stopwords from tokens object
+toks_nostop <- quanteda::tokens_remove(
+  toks_clean,
+  pattern = quanteda::stopwords("en"),
+  padding = FALSE   # TRUE replaces removed tokens with "" (preserves positions)
+)
+
+head(as.character(toks_nostop[[1]]), 20)
+
+# Compare token counts before/after stopword removal
+data.frame(
+  text     = names(toks_clean),
+  with_sw  = lengths(toks_clean),
+  without_sw = lengths(toks_nostop)
+) |>
+  dplyr::mutate(pct_removed = round(100 * (1 - without_sw / with_sw), 1))
+```
+
+## Selecting and Filtering Tokens {-}
+
+```{r tok_select, message=FALSE, warning=FALSE}
+# Keep only tokens matching a pattern
+toks_nouns <- quanteda::tokens_select(
+  toks_clean,
+  pattern   = c("grammar", "syntax", "morphology", "phonology",
+                "language", "linguistic*"),   # * is a glob wildcard
+  valuetype = "glob"
+)
+as.character(toks_nouns[[1]])
+
+# tokens_select with regex
+toks_ing <- quanteda::tokens_select(
+  toks_clean,
+  pattern   = "\\w+ing",
+  valuetype = "regex"
+)
+as.character(toks_ing[[1]])
+```
+
+## N-Grams {-}
+
+N-grams are consecutive sequences of n tokens. Bigrams (n=2) and trigrams (n=3) are especially useful for collocation analysis and language modelling.
+
+```{r tok_ngrams, message=FALSE, warning=FALSE}
+# Extract bigrams
+toks_bigrams <- quanteda::tokens_ngrams(toks_nostop, n = 2)
+head(as.character(toks_bigrams[[1]]), 15)
+
+# Skipgrams: pairs with up to k tokens skipped between them
+toks_skip2 <- quanteda::tokens_ngrams(toks_nostop, n = 2, skip = 0:2)
+head(as.character(toks_skip2[[1]]), 15)
+
+# Convert to a document-feature matrix for analysis
+dfm_bigrams <- quanteda::dfm(toks_bigrams)
+# Top features by frequency
+quanteda::topfeatures(dfm_bigrams, n = 10)
+```
+
+## Document-Feature Matrix (DFM) {-}
+
+The **document-feature matrix** (DFM) represents a corpus as a matrix where rows are documents and columns are features (tokens). It is the standard input for most corpus-statistical analyses.
+
+```{r tok_dfm, message=FALSE, warning=FALSE}
+# Build DFM from clean tokens
+dfm_clean <- quanteda::dfm(toks_clean)
+dfm_clean
+
+# Dimensions: documents × features
+dim(dfm_clean)
+
+# Top features across the corpus
+quanteda::topfeatures(dfm_clean, n = 15)
+
+# Weight by TF-IDF (downweights features common across all documents)
+dfm_tfidf <- quanteda::dfm_tfidf(dfm_clean)
+quanteda::topfeatures(dfm_tfidf, n = 10)
+
+# Simple frequency plot
+top15 <- quanteda::topfeatures(dfm_clean, n = 15)
+data.frame(word = names(top15), freq = top15) |>
+  ggplot(aes(x = reorder(word, freq), y = freq)) +
+  geom_col(fill = "steelblue", color = "white") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top 15 tokens in example corpus",
+       x = "Token", y = "Frequency")
+```
 
 :::: {.content-visible when-format="html"}
 ::: {.callout-tip collapse="false" icon="false"}
+#### Your turn! {.unnumbered}
+
+[**Q9**]{style="color:purple;"} You tokenise a text with `quanteda::tokens(corp, remove_punct = TRUE)` and then run `tokens_remove(toks, stopwords("en"), padding = TRUE)`. What does `padding = TRUE` do?
+```{r q9, echo=FALSE}
+check_question(
+  "Replaces each removed stopword with an empty string '', preserving the original token positions",
+  options = c(
+    "Replaces each removed stopword with an empty string '', preserving the original token positions",
+    "Adds extra blank tokens at the start and end of each document",
+    "Pads short documents with NA to match the length of the longest document",
+    "Has no effect — padding is only relevant for character tokenisation"
+  ),
+  type = "radio", q_id = "Q9", random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! padding = TRUE replaces removed tokens with '' so that positional indices of remaining tokens are unchanged. This matters for window-based analyses like collocations.",
+  wrong = "Think about what 'preserving positions' means for tokens that come after the removed ones."
+)
+```
+
+[**Q10**]{style="color:purple;"} What is a document-feature matrix (DFM), and which of the following correctly describes its structure?
+```{r q10, echo=FALSE}
+check_question(
+  "A matrix where rows are documents and columns are features (tokens), with cell values representing feature counts or weights",
+  options = c(
+    "A matrix where rows are documents and columns are features (tokens), with cell values representing feature counts or weights",
+    "A matrix where rows are tokens and columns are their character positions within each document",
+    "A list of token vectors, one element per document",
+    "A data frame where each row is a bigram and each column is a document"
+  ),
+  type = "radio", q_id = "Q10", random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! A DFM has one row per document, one column per unique token (feature), and cell values representing how often that token occurs in that document.",
+  wrong = "Think about what the two dimensions of the matrix represent."
+)
+```
+
 #### Challenge! {.unnumbered}
 
-For the following two questions, you will put together a few things you've learned today and in previous tutorials to perform some string processing on real data. 
-
-First, download the file 'linguistics04.txt' from the GitHub repository for this tutorial [here](https://github.com/SLCLADAL/ladal/tree/main/tutorials/string/data/testcorpus). 
-
-Now, proceed with the questions below. If you get stuck, don't worry! You may need to consult [Getting Started with R](/tutorials/intror/intror.html) and [Loading, Saving, and Generating Data in R](/tutorials/load/load.html).
-
-[**Q4**]{style="color:purple;"} How many words does the text consist of?
-
-```{r}
-#| echo: false
-#| label: "Q4"
-  
-check_question(answer = "101",
-               q_id = "Q4",
-               right = "That's right!",
-               wrong = "Not quite. Try again, get a hint, or check the solution below.")
-check_hint("Remember, you can use piping to combine operations, taking the output of one function as the input of the next!", hint_title = "Hover for a hint", type = "onmouseover")
-
+[**Q11**]{style="color:purple;"} How many word tokens does `linguistics04.txt` contain?
+```{r q11, echo=FALSE}
+check_question("101", q_id = "Q11",
+               right = "Correct!",
+               wrong = "Not quite. Load the file with readLines(), then split on whitespace and count.")
+check_hint("Use readLines() → paste(collapse=' ') → str_split('\\\\s+') → unlist() → length().",
+           hint_title = "Hover for a hint", type = "onmouseover")
 ```
-
-
-```{r}
+```{r q11_sol}
+#| echo: true
 #| code-fold: true
-#| code-summary: "Show code to answer Q4."
+#| code-summary: "Show solution"
 #| eval: false
-
-readLines("tutorials/string/data/testcorpus/linguistics04.txt") %>%
-  strsplit(" ") %>%
-  unlist() %>%
+readLines(here::here("data/testcorpus/linguistics04.txt")) |>
+  paste(collapse = " ") |>
+  str_split("\\s+") |>
+  unlist() |>
   length()
 ```
-[**Q5**]{style="color:purple;"} How many characters does the text consist of?
-               
-```{r}
-#| echo: false 
-#| label: "Q5"
 
-check_question(answer = "673",
-               q_id = "Q5",
-               right = "That's right!",
-               wrong = "Not quite. Try again, or check the solution below.")
-check_hint("Remember, you can use piping to combine operations, taking the output of one function as the input of the next!", hint_title = "Hover for a hint", type = "onmouseover")
+[**Q12**]{style="color:purple;"} How many individual characters does `linguistics04.txt` contain?
+```{r q12, echo=FALSE}
+check_question("673", q_id = "Q12",
+               right = "Correct!",
+               wrong = "Try splitting into individual characters with strsplit(text, '').")
+check_hint("Read the file, paste lines together, then strsplit on '' and count.",
+           hint_title = "Hover for a hint", type = "onmouseover")
 ```
-
-```{r}
+```{r q12_sol}
+#| echo: true
 #| code-fold: true
-#| code-summary: "Show code to answer Q5."
+#| code-summary: "Show solution"
 #| eval: false
-
-readLines("tutorials/string/data/testcorpus/linguistics04.txt") %>%
-  strsplit("") %>%
-  unlist() %>%
+readLines(here::here("data/testcorpus/linguistics04.txt")) |>
+  paste(collapse = " ") |>
+  strsplit("") |>
+  unlist() |>
   length()
 ```
 
 :::
 ::::
 
-# Citation & Session Info {-}
+---
 
-Schweinberger, Martin. 2025. *String processing in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/string/string.html (Version 2025.04.01).
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *String Processing in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/string/string.html (Version 2026.02.24).
 
 ```
-@manual{schweinberger2025string,
-  author = {Schweinberger, Martin},
-  title = {String processing in R},
-  note = {tutorials/string/string.html},
-  year = {2025},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.01}
+@manual{schweinberger2026string,
+  author       = {Schweinberger, Martin},
+  title        = {String Processing in R},
+  note         = {https://ladal.edu.au/tutorials/string/string.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.02.24}
 }
 ```
 
-
-
-```{r fin}
+```{r session_info}
 sessionInfo()
 ```
 
-***
+::: {.callout-note}
+## AI Transparency Statement
 
-[Back to top](#introduction)
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial, adding the base R reference section, the full `stringr` coverage, `str_glue` and `str_glue_data` interpolation examples, the `forcats` section, string padding and formatting for table output, the encoding and Unicode section, the regular expressions section (including named capture groups and lookaround assertions), the text-cleaning pipelines section, and the expanded `quanteda` tokenisation section. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+---
+
+[Back to top](#intro)
 
 [Back to LADAL home](/)
 
-***
+---
 
-
+# References {-}
