@@ -72,7 +72,6 @@ install.packages("effects")
 install.packages("flextable")
 install.packages("ggplot2")
 install.packages("ggpubr")
-install.packages("glmulti")
 install.packages("Hmisc")
 install.packages("lme4")
 install.packages("MASS")
@@ -108,7 +107,6 @@ library(emmeans)
 library(flextable)
 library(ggplot2)
 library(ggpubr)
-library(glmulti)
 library(Hmisc)
 library(lme4)
 library(MASS)
@@ -163,7 +161,7 @@ A particularly striking consequence of ignoring the grouping structure of data i
 
 The figure below illustrates this with simulated data that mirrors a common situation in language research. Suppose we are studying how speaking rate (words per minute) varies with utterance complexity across speakers. Looking at all data points together suggests a clear **negative** relationship — more complex utterances are produced faster. But when we look at each speaker individually, every single speaker shows a **positive** relationship: their speech rate increases with complexity.
 
-```{r simpsons_paradox, echo=TRUE, message=FALSE, warning=FALSE}
+```{r simpsons_paradox, echo=F, message=FALSE, warning=FALSE}
 set.seed(2024)
 
 # Simulate data: 6 speakers, each with their own baseline rate
@@ -451,18 +449,18 @@ RT ~ Condition + (1 | Participant) + (1 | Item)
 ::: {.callout-important}
 ## A Common Mistake
 
-Many researchers who should be fitting **crossed** random effects for participants and items mistakenly aggregate over items and fit only a by-participant random effect (or vice versa). @clark1973language famously demonstrated that ignoring item-level random effects inflates Type I error substantially. Always fit random effects for both participants **and** items in psycholinguistic experiments.
+Many researchers who should be fitting **crossed** random effects for participants and items mistakenly aggregate over items and fit only a by-participant random effect (or vice versa). @murayama2014type famously demonstrated that ignoring item-level random effects inflates Type I error substantially. Always fit random effects for both participants **and** items in psycholinguistic experiments.
 :::
 
 **Summary of random effects structure notation in `lme4`:**
 
 | Structure | Formula | Example |
 |-----------|---------|---------|
-| Random intercept for `G` | `(1 \| G)` | `(1 \| Speaker)` |
-| Random slope for `X` by `G` (with correlation) | `(1 + X \| G)` | `(1 + Age \| Speaker)` |
-| Random slope for `X` by `G` (no correlation) | `(1 + X \|\| G)` | `(1 + Age \|\| Speaker)` |
-| Nested: levels of `G2` within `G1` | `(1 \| G1/G2)` | `(1 \| Author/Text)` |
-| Crossed: separate random effects | `(1 \| G1) + (1 \| G2)` | `(1 \| Participant) + (1 \| Item)` |
+| Random intercept for `G` | `(1 | G)` | `(1 | Speaker)` |
+| Random slope for `X` by `G` (with correlation) | `(1 + X | G)` | `(1 + Age | Speaker)` |
+| Random slope for `X` by `G` (no correlation) | `(1 + X | G)` | `(1 + Age || Speaker)` |
+| Nested: levels of `G2` within `G1` | `(1 | G1/G2)` | `(1 | Author/Text)` |
+| Crossed: separate random effects | `(1 | G1) + (1 | G2)` | `(1 | Participant) + (1 | Item)` |
 
 : Random effects structure notation in lme4 {tbl-colwidths="[30,35,35]"}
 
@@ -600,6 +598,8 @@ A safer approach is to set contrasts **locally on individual factor columns** us
 :::
 
 
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 2
 
 **In a study where 40 participants each respond to 20 experimental items (every participant sees every item), which random effects structure is most appropriate?**
 

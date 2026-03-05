@@ -1,251 +1,1570 @@
 ---
 title: "Semantic Vector Space Models in R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
 
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction {-}
+# Introduction {#intro}
 
-This tutorial introduces Semantic Vector Space (SVM) modeling R.[^1] Semantic vector space models, also known as distributional semantic models, are a type of machine learning model that represent the meaning of words or phrases as high-dimensional vectors in a mathematical space. These models are designed to capture the semantic relationships between words based on the distribution of their occurrences in large text corpora.
-
-In semantic vector space models, words or phrases are represented as vectors in a high-dimensional space, where the distance between two vectors reflects the semantic similarity between the corresponding words or phrases. These models are typically trained using unsupervised learning techniques, such as singular value decomposition (SVD) or word2vec, on large corpora of text data.
-
-One of the main advantages of semantic vector space models is that they can capture complex semantic relationships between words, including synonymy, antonymy, hypernymy, and hyponymy. These models can also be used to perform tasks such as language modeling, text classification, sentiment analysis, and information retrieval.
-
-Semantic vector space models are particularly useful in natural language processing (NLP) applications, where the ability to accurately represent the meaning of words and phrases is critical for tasks such as machine translation, text summarization, and question answering. By using semantic vector space models, NLP systems can better understand the meaning of natural language text and improve their performance on a wide range of tasks.
+This tutorial introduces **Semantic Vector Space Models (VSMs)** in R.^[I am indebted to Paul Warren, who kindly pointed out errors in a previous version of this tutorial. All remaining errors are my own.] Semantic vector space models — also known as distributional semantic models — represent the meaning of words as points in a high-dimensional mathematical space, where the geometry of that space encodes semantic relationships. Words that are used in similar contexts end up close together; words used in very different contexts end up far apart.
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to generate and visualize results of SVMs in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with SVMs. 
+This tutorial is aimed at beginner to intermediate users of R. The goal is to provide both a solid conceptual foundation and practical, reproducible implementations of the most important VSM methods in linguistics and computational semantics. We work through a complete analysis of adjective amplifiers (following @levshina2015linguistics), then extend the toolkit to TF-IDF weighting, dense word vectors via truncated SVD / LSA, and a range of visualisation techniques — including dendrograms, cosine heatmaps, silhouette plots, spring-layout conceptual maps, and t-SNE / UMAP projections. A full second example applies the same workflow to emotion vocabulary in Jane Austen's *Sense and Sensibility*, where the larger corpus makes genuine GloVe training via `text2vec` feasible.
 
+::: {.callout-note}
+## Prerequisite Tutorials
 
+This tutorial assumes familiarity with:
 
+- [Getting Started with R](/tutorials/intror/intror.html) — basic R syntax and RStudio
+- [String Processing](/tutorials/string/string.html) — text manipulation
+- [Handling Tables in R](/tutorials/table/table.html) — data frames and `dplyr`
+- [Introduction to Text Analysis](/tutorials/introta/introta.html) — corpus concepts and tokenisation
+- [Introduction to Data Visualization](/tutorials/introviz/introviz.html) — `ggplot2` basics
 
-**Preparation and session set up**
+Some familiarity with basic statistics (correlation, distance measures) is helpful but not required.
+:::
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+::: {.callout-note}
+## Learning Objectives
 
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# set options
-options("scipen" = 100, "digits" = 4) # suppress math annotation
-# install packages
+By the end of this tutorial you will be able to:
+
+1. Explain the distributional hypothesis and describe how VSMs operationalise it
+2. Build a term–context matrix from raw corpus data and compute PPMI weights
+3. Compute TF-IDF as an alternative frequency weighting scheme
+4. Calculate cosine similarity between word vectors and interpret the results
+5. Visualise semantic similarity as a dendrogram, heatmap, silhouette plot, spring-layout conceptual map, and t-SNE / UMAP scatter plot
+6. Determine the optimal number of semantic clusters using silhouette width and PAM
+7. Derive dense word vectors from a PPMI matrix via truncated SVD (LSA), and train GloVe embeddings on a larger corpus using `text2vec`
+8. Apply the full VSM workflow to a second linguistic domain — emotion vocabulary in a literary corpus — and contrast the results with those from the amplifier example
+9. Interpret the output of a complete VSM analysis, compare results across input types and weighting schemes, and report findings clearly
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Semantic Vector Space Models in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/svm/svm.html (Version 2026.02.24).
+:::
+
+---
+
+# What Are Semantic Vector Space Models? {#theory}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The distributional hypothesis; how raw co-occurrence counts are transformed into meaningful semantic representations; the difference between count-based VSMs and neural word embeddings; and which method to choose for a given research question
+:::
+
+## The Distributional Hypothesis {-}
+
+The intellectual foundation of all semantic vector space models is a deceptively simple idea known as the **distributional hypothesis**:
+
+> *"You shall know a word by the company it keeps."* [@firth1957synopsis, p. 11]
+
+More formally, @harris1954distributional proposed that words appearing in similar linguistic contexts tend to have similar meanings. If *very* and *really* both frequently precede adjectives like *nice*, *good*, and *interesting*, their distributional profiles are similar — and we can infer that they are semantically related (near-synonymous amplifiers in this case).
+
+The power of this idea is that it allows us to **derive semantic representations automatically from large bodies of text**, without any human annotation of meaning. All we need is a corpus and a way to count context co-occurrences.
+
+## From Words to Vectors {-}
+
+A **term–context matrix** is the basic data structure of a VSM. Each row represents a **target word** and each column represents a **context** (another word, a document, or a window of surrounding text). Each cell records how often the target and context co-occurred.
+
+Consider a tiny example with three amplifiers and four adjectives:
+
+|          | *nice* | *good* | *hesitant* | *loud* |
+|----------|--------|--------|------------|--------|
+| *very*   | 12     | 15     | 1          | 2      |
+| *really* | 10     | 11     | 2          | 3      |
+| *utterly*| 0      | 1      | 8          | 7      |
+
+: A tiny illustrative term–context matrix {tbl-colwidths="[20,20,20,20,20]"}
+
+In this space, *very* and *really* have similar row vectors (both high for *nice*/*good*, low for *hesitant*/*loud*) while *utterly* has a very different profile (high for *hesitant*/*loud*). Vector similarity captures this: *very* and *really* should be close; *utterly* should be distant from both.
+
+## From Raw Counts to Meaningful Weights {-}
+
+Raw counts are a poor basis for similarity: high-frequency words (*the*, *be*) co-occur with almost everything and produce spuriously high similarities. Two transformations correct for this:
+
+**PPMI (Positive Pointwise Mutual Information)** measures how much more often two words co-occur than expected if they were statistically independent. It rewards unexpected co-occurrences and ignores expected ones:
+
+$$\text{PPMI}(w, c) = \max\!\left(0,\ \log_2 \frac{P(w, c)}{P(w) \cdot P(c)}\right)$$
+
+**TF-IDF (Term Frequency – Inverse Document Frequency)** is used when the "context" is a document rather than a word window. It rewards words that are frequent in a specific document but rare across the collection — making each word's vector more distinctive:
+
+$$\text{TF-IDF}(w, d) = \text{tf}(w, d) \times \log\!\frac{N}{|\{d : w \in d\}|}$$
+
+Both transformations produce sparser, more discriminative vectors.
+
+## Count-Based VSMs vs. Neural Word Embeddings {-}
+
+Two broad families of semantic vector models are in common use:
+
+| Approach | Examples | How trained | Vector size | Best for |
+|----------|----------|-------------|-------------|---------|
+| **Count-based** | PPMI, TF-IDF, LSA | Matrix algebra on co-occurrence counts | Vocabulary × vocabulary | Small–medium corpora; interpretable; fast |
+| **Neural (predictive)** | word2vec, GloVe, fastText | Neural network predicts context from word | 50–300 dense dims | Large corpora; captures analogy relations; state of the art |
+
+: Count-based vs. neural word embeddings {tbl-colwidths="[18,22,25,18,17]"}
+
+Count-based models are fully transparent and reproducible on any corpus size. Neural embeddings require more data but capture richer semantic structure and generalise better across tasks. This tutorial covers both.
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 1
+
+**The distributional hypothesis states that:**
+
+a) Frequent words are more semantically important than rare words
+b) Words occurring in similar contexts tend to have similar meanings
+c) Word meaning is fully determined by grammatical category
+d) Semantic similarity can only be measured by human annotation
+
+<details>
+<summary>**Answer**</summary>
+
+**b) Words occurring in similar contexts tend to have similar meanings**
+
+This is the core principle behind all VSMs — the insight that the *distribution* of a word across contexts (the other words it appears with, the documents it appears in) encodes its meaning. Firth's aphorism "you shall know a word by the company it keeps" is the most famous formulation. Options (a), (c), and (d) are all incorrect: frequency does not determine importance, grammatical category is a structural not a semantic criterion, and VSMs derive similarity automatically from co-occurrence data without human annotation.
+
+</details>
+:::
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
 install.packages("coop")
 install.packages("dplyr")
+install.packages("tidyr")
+install.packages("ggplot2")
+install.packages("ggrepel")
 install.packages("cluster")
+install.packages("factoextra")
 install.packages("flextable")
+install.packages("igraph")
+install.packages("ggraph")
+install.packages("pheatmap")
+install.packages("RColorBrewer")
+install.packages("text2vec")
+install.packages("Rtsne")
+install.packages("umap")
+install.packages("stringr")
+install.packages("tibble")
+install.packages("purrr")
 ```
 
-Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
+## Loading Packages {-}
 
-# Example: Similarity among adjective amplifiers {-}
-
-Vector Space Models are particularly useful when dealing with language data as they provide very accurate estimates of *semantic* similarity based on *word embeddings* (or co-occurrence profiles). Word embeddings refer to the vectors which hold the frequency information about how frequently a given word has co-occurred with other words. If the ordering of co-occurring words remains constant, then the vectors can be used to determine which words have similar profiles. 
-
-To show how vector space models work, we will follow the procedure described in @levshina2015linguistics. However, we will not use her `Rling` package, which is not supported my R version 4.0.2, to calculate cosine similarities but rather the `coop` package [see @coop]. In this tutorial, we investigate similarities among amplifiers based on their co-occurrences (word embeddings) with adjectives. Adjective amplifiers are elements such as those in 1. to 5.
-
-1. The *very*~amplifier~ *nice*~adjective~ man.
-2. A *truely*~amplifier~ *remarkable*~adjective~ woman. 
-2. He was *really*~amplifier~ *hesitant*~adjective~.
-4. The child was *awefully*~amplifier~ *loud*~adjective~.
-5. The festival was *so*~amplifier~ *amazing*~adjective~!
-
-The similarity among adjective amplifiers can then be used to find clusters or groups of amplifiers that "behave" similarly and are interchangeable. To elaborate, adjective amplifiers are interchangeable with some variants but not with others (consider 6. to 8.; the question mark signifies that the example is unlikely to be used or grammatically not acceptable by L1 speakers of English).
-
-6. The *very*~amplifier~ *nice*~adjective~ man.
-7. The *really*~amplifier~ *nice*~adjective~ man.
-8. ^?^The *completely*~amplifier~ *nice*~adjective~ man.
-
-We start by loading the required packages, the data, and then displaying the data which is called "vsmdata" and consist of 5,000 observations of adjectives and contains two columns: one column with the adjectives (Adjectives) and another column which has the amplifiers ("0" means that the adjective occurred without an amplifier). 
-
-```{r vsm1, message=F, warning=F}
-# load packages
+```{r prep1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+options("scipen" = 100, "digits" = 4)
 library(coop)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggrepel)
 library(cluster)
+library(factoextra)
 library(flextable)
+library(igraph)
+library(ggraph)
+library(pheatmap)
+library(RColorBrewer)
+library(text2vec)
+library(Rtsne)
+library(umap)
+library(stringr)
+library(tibble)
+library(purrr)
+```
+
+---
+
+# The Main Example: Adjective Amplifiers {#amplifiers}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to build and interpret a semantic vector space model for a concrete linguistics research question — the distributional similarity of English adjective amplifiers
+:::
+
+## Background {-}
+
+**Adjective amplifiers** are adverbs that intensify the meaning of an adjective, such as *very*, *really*, *so*, *completely*, *totally*, and *utterly*. Although amplifiers all share the intensifying function, they are not freely interchangeable: some are "default" boosters usable with a wide range of adjectives, while others have more restricted collocational profiles.
+
+Following @levshina2015linguistics, we investigate which amplifiers are semantically similar — measured by the similarity of their co-occurrence profiles with adjectives — and how they cluster into groups of interchangeable variants.
+
+**Examples of amplifier variation:**
+
+| Acceptable | Borderline | Unusual |
+|-----------|-----------|---------|
+| *very nice* | *completely nice* (??) | *utterly nice* (?) |
+| *totally wrong* | *very wrong* | — |
+| *absolutely brilliant* | *really brilliant* | *so brilliant* (informal) |
+
+: Amplifier interchangeability is context-dependent {tbl-colwidths="[33,33,34]"}
+
+## Loading and Inspecting the Data {-}
+
+The data set `vsmdata` contains 5,000 observations of adjectives with or without an amplifier, drawn from a corpus of spoken and written English.
+
+```{r vsm1, message=FALSE, warning=FALSE}
 # load data
 vsmdata <- read.delim("tutorials/svm/data/vsmdata.txt",
-    sep = "\t", header = T
+                      sep = "\t", header = TRUE)
+```
+
+```{r tb1, echo=FALSE, message=FALSE, warning=FALSE}
+vsmdata |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption("First 10 rows of the vsmdata.") |>
+  flextable::border_outer()
+```
+
+```{r vsm1b, message=FALSE, warning=FALSE}
+cat("Total observations:", nrow(vsmdata), "\n")
+cat("Unique amplifiers:", n_distinct(vsmdata$Amplifier[vsmdata$Amplifier != "0"]), "\n")
+cat("Unique adjectives:", n_distinct(vsmdata$Adjective), "\n")
+
+# Amplifier frequency table
+vsmdata |>
+  dplyr::filter(Amplifier != "0") |>
+  dplyr::count(Amplifier, sort = TRUE) |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .4, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption("Top 10 amplifiers by frequency") |>
+  flextable::border_outer()
+```
+
+## Simplifying the Data {-}
+
+We remove unamplified adjectives, filter out *much* and *many* (which behave differently from intensifying amplifiers), and collapse low-frequency adjectives (< 10 occurrences) into a bin category.
+
+```{r vsm2, message=FALSE, warning=FALSE}
+vsmdata_simp <- vsmdata |>
+  dplyr::filter(
+    Amplifier != "0",
+    !Adjective %in% c("many", "much")
+  ) |>
+  dplyr::group_by(Adjective) |>
+  dplyr::mutate(AdjFreq = dplyr::n()) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(Adjective = ifelse(AdjFreq > 10, Adjective, "other")) |>
+  dplyr::filter(Adjective != "other") |>
+  dplyr::select(-AdjFreq)
+
+cat("Observations after cleaning:", nrow(vsmdata_simp), "\n")
+cat("Unique amplifiers retained:", n_distinct(vsmdata_simp$Amplifier), "\n")
+cat("Unique adjectives retained:", n_distinct(vsmdata_simp$Adjective), "\n")
+```
+
+---
+
+# Building the Term–Context Matrix {#tcm}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to construct a term–context matrix (TCM), convert it to a binary co-occurrence matrix, and compute PPMI weights — the standard count-based representation for a VSM
+:::
+
+## Step 1: Create the Co-occurrence Matrix {-}
+
+We use `ftable()` to create a cross-tabulation of adjectives × amplifiers, giving us the raw term–document matrix (TDM).
+
+```{r vsm3, message=FALSE, warning=FALSE}
+# Create term–document matrix: rows = adjectives, columns = amplifiers
+tdm <- ftable(vsmdata_simp$Adjective, vsmdata_simp$Amplifier)
+amplifiers <- as.vector(unlist(attr(tdm, "col.vars")[1]))
+adjectives <- as.vector(unlist(attr(tdm, "row.vars")[1]))
+rownames(tdm) <- adjectives
+colnames(tdm) <- amplifiers
+
+cat("Matrix dimensions:", dim(tdm), "(adjectives × amplifiers)\n")
+tdm[1:6, 1:6]
+```
+
+## Step 2: Binarise and Filter {-}
+
+We convert all counts > 1 to 1 (presence/absence) and remove adjectives that were never amplified (they carry no information about amplifier similarity).
+
+```{r vsm4, message=FALSE, warning=FALSE}
+# Binarise: 1 = co-occurred, 0 = did not
+tdm <- t(apply(tdm, 1, function(x) ifelse(x > 1, 1, x)))
+# Remove adjectives never amplified
+tdm <- tdm[which(rowSums(tdm) > 1), ]
+cat("Matrix after filtering:", dim(tdm), "(adjectives × amplifiers)\n")
+tdm[1:6, 1:6]
+```
+
+::: {.callout-tip}
+## Why Binarise?
+
+Converting raw counts to binary (0/1) prevents high-frequency adjectives from dominating the similarity calculation. An adjective that appears 50 times with *very* should not have 50 times the influence of one that appears once. Binarisation treats all co-occurrences equally, focusing the model on *which* adjectives each amplifier tends to modify rather than *how often*.
+
+For other research questions (e.g. building document vectors for topic modelling), keeping raw counts or TF-IDF weights may be more appropriate.
+:::
+
+## Step 3: Compute PPMI {-}
+
+PPMI rewards unexpected co-occurrences and floors negative PMI values at zero, preventing uninformative negative associations from distorting the similarity space.
+
+```{r vsm5, message=FALSE, warning=FALSE}
+# Compute expected values under independence
+tdm.exp <- chisq.test(tdm)$expected
+# PMI = log2(observed / expected); PPMI = max(PMI, 0)
+PMI  <- log2(tdm / tdm.exp)
+PPMI <- ifelse(PMI < 0, 0, PMI)
+cat("PPMI matrix dimensions:", dim(PPMI), "\n")
+cat("Non-zero PPMI cells:", sum(PPMI > 0), "\n")
+```
+
+## TF-IDF as an Alternative Weighting Scheme {-}
+
+When contexts are documents rather than individual words, **TF-IDF** is the standard alternative to PPMI. It rewards terms that are characteristic of specific documents and penalises ubiquitous terms.
+
+Here we treat each amplifier as a "document" and compute TF-IDF weights for the adjectives (terms).
+
+```{r tfidf, message=FALSE, warning=FALSE}
+# TF-IDF: rows = adjectives (terms), columns = amplifiers (documents)
+# TF = term count in document (column) / total terms in document
+# IDF = log(N_documents / df_term)
+raw_counts <- t(tdm)   # amplifiers × adjectives
+
+# Term frequency (per amplifier)
+tf <- apply(raw_counts, 1, function(row) row / sum(row))  # adj × amp
+
+# Document frequency and IDF
+df   <- rowSums(t(raw_counts) > 0)         # how many amplifiers each adjective appears with
+N    <- ncol(raw_counts)                    # number of amplifiers
+idf  <- log(N / (df + 1))                  # +1 smoothing
+# TF-IDF matrix: multiply each row of tf by its idf
+tfidf_mat <- sweep(tf, 1, idf, FUN = "*")
+
+cat("TF-IDF matrix dimensions:", dim(tfidf_mat), "\n")
+```
+
+::: {.callout-tip}
+## PPMI vs. TF-IDF: Which Should I Use?
+
+| Criterion | PPMI | TF-IDF |
+|-----------|------|--------|
+| Context type | Word window / sentence | Document |
+| What it rewards | Unexpected word–word co-occurrence | Distinctive term–document association |
+| Common in | Distributional semantics, VSMs | Information retrieval, topic modelling |
+| Handles zero counts | Floor at 0 (PPMI) | Smoothing needed |
+
+For studying **word–word semantic similarity** (as in the amplifier example), PPMI is standard. For studying **document similarity** or **keyword profiling**, TF-IDF is preferred. The two can be combined when contexts are documents but you want word-level similarity.
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 2
+
+**A researcher computes raw co-occurrence counts between 20 target verbs and 500 context nouns. She then calculates PPMI. The word "thing" has a very high raw count with almost every verb but a near-zero PPMI with most of them. Why?**
+
+a) PPMI penalises high-frequency context words whose co-occurrences are expected by chance
+b) PPMI removes all words that appear more than 100 times
+c) "thing" is not a valid context word for verbs
+d) High raw counts always lead to high PPMI values
+
+<details>
+<summary>**Answer**</summary>
+
+**a) PPMI penalises high-frequency context words whose co-occurrences are expected by chance**
+
+PPMI is defined as max(0, log₂(P(w,c) / P(w)·P(c))). For a very frequent context word like "thing", P(c) is large, making the denominator P(w)·P(c) also large. If the observed joint probability P(w,c) is roughly proportional to the product of the marginals — i.e. the co-occurrence is about as frequent as chance alone would predict — the PMI is near zero or negative, and PPMI floors it at zero. This is a feature, not a bug: "thing" co-occurs with almost everything *because it is very frequent*, not because of a meaningful semantic relationship. PPMI correctly identifies this as uninformative. Options (b), (c), and (d) are all incorrect.
+
+</details>
+:::
+
+---
+
+# Computing Cosine Similarity {#cosine}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How cosine similarity is computed from word vectors, why it is preferred over Euclidean distance for high-dimensional sparse data, and how to interpret the resulting similarity matrix
+:::
+
+## What Is Cosine Similarity? {-}
+
+Once words are represented as vectors, we need a measure of **how similar two vectors are**. The most widely used measure is **cosine similarity** — the cosine of the angle between two vectors:
+
+$$\cos(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \cdot \|\mathbf{v}\|}$$
+
+Cosine similarity ranges from 0 (orthogonal — no shared contexts at all) to 1 (identical context profile — same direction in vector space). It is preferred over Euclidean distance for VSMs because it is **length-invariant**: a frequent word and a rare word can have similar context *profiles* even if the frequent word has much larger raw counts. Cosine similarity captures the *shape* of the distribution rather than its magnitude.
+
+```{r cosine_fig, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=7}
+# Illustrative figure: two pairs of vectors with same/different cosine similarity
+theta_close <- 15 * pi / 180
+theta_far   <- 75 * pi / 180
+
+df_arrows <- data.frame(
+  label  = c("very",   "really",   "very",   "utterly"),
+  pair   = c("Similar pair", "Similar pair", "Dissimilar pair", "Dissimilar pair"),
+  xend   = c(cos(0), cos(theta_close), cos(0), cos(theta_far)),
+  yend   = c(sin(0), sin(theta_close), sin(0), sin(theta_far))
+)
+
+ggplot(df_arrows, aes(x = 0, y = 0, xend = xend, yend = yend, color = label)) +
+  geom_segment(arrow = arrow(length = unit(0.3, "cm")), linewidth = 1.2) +
+  facet_wrap(~pair) +
+  scale_color_manual(values = c("very" = "#5B8DB8", "really" = "#E07B54",
+                                 "utterly" = "#6BAF7A")) +
+  coord_equal(xlim = c(-0.1, 1.1), ylim = c(-0.1, 1.1)) +
+  theme_bw() +
+  labs(title = "Cosine similarity: the angle between word vectors",
+       subtitle = "Small angle (similar pair) → high cosine | Large angle → low cosine",
+       x = "Dimension 1", y = "Dimension 2", color = "Word")
+```
+
+## Computing Cosine Similarity from PPMI Vectors {-}
+
+The `coop::cosine()` function computes the full pairwise cosine similarity matrix column-wise — since we want similarity between amplifiers (columns), we pass the PPMI matrix directly.
+
+```{r cosine_compute, message=FALSE, warning=FALSE}
+# Cosine similarity between amplifiers (columns of PPMI matrix)
+cosinesimilarity <- coop::cosine(PPMI)
+cat("Cosine similarity matrix dimensions:", dim(cosinesimilarity), "\n")
+round(cosinesimilarity, 3)
+```
+
+::: {.callout-tip}
+## Interpreting Cosine Similarity Values
+
+| Range | Interpretation |
+|-------|---------------|
+| 0.90–1.00 | Near-identical context profiles — near-synonyms or interchangeable variants |
+| 0.70–0.89 | High similarity — same semantic field, often interchangeable |
+| 0.40–0.69 | Moderate similarity — semantically related but distinct profiles |
+| 0.10–0.39 | Low similarity — different semantic domains or functional profiles |
+| < 0.10 | Near-orthogonal — very different distributional profiles |
+
+: Rough interpretation guidelines for cosine similarity values {tbl-colwidths="[25,75]"}
+
+These thresholds are approximate and depend on corpus size and vocabulary. Always interpret cosine values relative to the distribution of all pairwise similarities in your matrix, not as absolute benchmarks.
+:::
+
+---
+
+# Visualisation 1: Cosine Similarity Heatmap {#heatmap}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to visualise a full pairwise similarity matrix as a clustered heatmap, which simultaneously shows similarity values and hierarchical groupings
+:::
+
+A **clustered heatmap** displays the similarity matrix as a colour grid, with hierarchical clustering applied to both rows and columns so that similar items are placed adjacent to each other. It is the most information-dense visualisation of a VSM: every cell shows the cosine similarity of one pair, and the dendrogram along each axis shows the clustering structure.
+
+```{r heatmap, message=FALSE, warning=FALSE, fig.width=7, fig.height=6}
+# Convert similarity to distance for clustering
+cos_dist <- as.dist(1 - cosinesimilarity)
+
+# Clustered heatmap via pheatmap
+pheatmap::pheatmap(
+  cosinesimilarity,
+  clustering_distance_rows = cos_dist,
+  clustering_distance_cols = cos_dist,
+  clustering_method        = "ward.D2",
+  color                    = colorRampPalette(c("#f7f7f7", "#4393c3", "#053061"))(100),
+  breaks                   = seq(0, 1, length.out = 101),
+  display_numbers          = TRUE,
+  number_format            = "%.2f",
+  fontsize_number          = 8,
+  main                     = "Cosine similarity: adjective amplifiers\n(Ward D2 hierarchical clustering)",
+  treeheight_row           = 40,
+  treeheight_col           = 40,
+  border_color             = "white"
 )
 ```
 
-```{r tb1, echo=FALSE, message=F, warning=F}
-vsmdata %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .75, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::border_outer()
+The heatmap reveals at a glance which amplifiers share the most similar adjectival profiles (dark blue cells = high similarity) and which are most distinct. The dendrograms along both axes cluster amplifiers into groups.
+
+---
+
+# Visualisation 2: Dendrogram and Cluster Analysis {#clustering}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to determine the optimal number of semantic clusters using silhouette width; how to perform PAM clustering and k-means as an alternative; and how to produce and interpret a labelled dendrogram
+:::
+
+## Step 1: Build the Distance Matrix {-}
+
+Following @levshina2015linguistics, we normalise the cosine similarity before converting to a distance matrix.
+
+```{r vsm6, message=FALSE, warning=FALSE}
+# Find max similarity value < 1 (to normalise)
+cosinesimilarity_test <- apply(cosinesimilarity, 1, function(x) ifelse(x == 1, 0, x))
+maxval <- max(cosinesimilarity_test)
+
+# Normalised distance matrix
+amplifier_dist <- 1 - (cosinesimilarity / maxval)
+clustd <- as.dist(amplifier_dist)
 ```
 
+## Step 2: Determine Optimal Number of Clusters {-}
 
+Rather than picking the number of clusters arbitrarily, we use the **average silhouette width** — a measure of how well each observation fits its assigned cluster compared to neighbouring clusters. The optimal number of clusters maximises the average silhouette width.
 
-
-For this tutorial, we remove adjectives that were not amplified (as well as adjectives modified by *much* or *many*) and collapse all adjectives that occur less than 10 times into a bin category (*other*).
-
-```{r vsm2}
-# simplify data
-vsmdata_simp <- vsmdata %>%
-    # remove non-amplifier adjectives
-    dplyr::filter(
-        Amplifier != 0,
-        Adjective != "many",
-        Adjective != "much"
-    ) %>%
-    # collapse infrequent adjectives
-    dplyr::group_by(Adjective) %>%
-    dplyr::mutate(AdjFreq = dplyr::n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(Adjective = ifelse(AdjFreq > 10, Adjective, "other")) %>%
-    dplyr::filter(Adjective != "other") %>%
-    dplyr::select(-AdjFreq)
-```
-
-```{r tb2, echo=FALSE, message=F, warning=F}
-vsmdata_simp %>%
-    head(10) %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .75, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::border_outer()
-```
-
-In a next step, we create a matrix from this data frame which maps how often a given amplifier co-occurred with a given adjective. In text mining, this format is called a text-document matrix or tdm.
-
-```{r vsm3}
-# tabulate data (create term-document matrix)
-tdm <- ftable(vsmdata_simp$Adjective, vsmdata_simp$Amplifier)
-# extract amplifiers and adjectives
-amplifiers <- as.vector(unlist(attr(tdm, "col.vars")[1]))
-adjectives <- as.vector(unlist(attr(tdm, "row.vars")[1]))
-# attach row and column names to tdm
-rownames(tdm) <- adjectives
-colnames(tdm) <- amplifiers
-# inspect data
-tdm[1:5, 1:5]
-```
-
-Now that we have a term document matrix, we want to remove adjectives that were never amplified. Note however that if we were interested in classifying adjectives (rather than amplifiers) according to their co-occurrence with amplifiers, we would, of course, not do this, as not being amplified would be a relevant feature for adjectives. But since we are interested in classifying amplifiers, not amplified adjectives do not have any information value.
-
-```{r vsm4}
-# convert frequencies greater than 1 into 1
-tdm <- t(apply(tdm, 1, function(x) {
-    ifelse(x > 1, 1, x)
-}))
-# remove adjectives that we never amplified
-tdm <- tdm[which(rowSums(tdm) > 1), ]
-# inspect data
-tdm[1:5, 1:5]
-```
-
-In a next step, we extract the expected values of the co-occurrences if the amplifiers were distributed homogeneously and calculate the *Pointwise Mutual Information* (PMI) score and use that to then calculate the *Positive Pointwise Mutual Information* (PPMI) scores. According to @levshina2015linguistics 327 - referring to @bullinaria2007extracting - PPMI perform better than PMI as negative values are replaced with zeros. In a next step, we calculate the cosine similarity which will for the bases for the subsequent clustering.
-
-```{r vsm5}
-# compute expected values
-tdm.exp <- chisq.test(tdm)$expected
-# calculate PMI and PPMI
-PMI <- log2(tdm / tdm.exp)
-PPMI <- ifelse(PMI < 0, 0, PMI)
-# calculate cosine similarity
-cosinesimilarity <- cosine(PPMI)
-# inspect cosine values
-cosinesimilarity[1:5, 1:5]
-```
-
-As we have now obtained a similarity measure, we can go ahead and perform a cluster analysis on these similarity values. However, as we have to extract the maximum values in the similarity matrix that is not 1 as we will use this to create a distance matrix. While we could also have simply subtracted the cosine similarity values from 1 to convert the similarity matrix into a distance matrix, we follow the procedure proposed by @levshina2015linguistics.
-
-```{r vsm6, eval = T, echo=T, message=FALSE, warning=FALSE}
-# find max value that is not 1
-cosinesimilarity.test <- apply(cosinesimilarity, 1, function(x) {
-    x <- ifelse(x == 1, 0, x)
+```{r vsm7_silhouette, message=FALSE, warning=FALSE, fig.width=7, fig.height=4}
+# Compute average silhouette width for k = 2 to k = (n_amplifiers - 1)
+n_amp <- ncol(tdm)
+sil_widths <- sapply(2:(n_amp - 1), function(k) {
+  pam_k <- pam(clustd, k = k)
+  pam_k$silinfo$avg.width
 })
-maxval <- max(cosinesimilarity.test)
-# create distance matrix
-amplifier.dist <- 1 - (cosinesimilarity / maxval)
-clustd <- as.dist(amplifier.dist)
+
+sil_df <- data.frame(
+  k   = 2:(n_amp - 1),
+  asw = sil_widths
+)
+optclust <- sil_df$k[which.max(sil_df$asw)]
+
+ggplot(sil_df, aes(x = k, y = asw)) +
+  geom_line(color = "gray60") +
+  geom_point(size = 3, color = ifelse(sil_df$k == optclust, "firebrick", "steelblue")) +
+  geom_vline(xintercept = optclust, linetype = "dashed", color = "firebrick") +
+  annotate("text", x = optclust + 0.2, y = min(sil_df$asw),
+           label = paste0("Optimal k = ", optclust), hjust = 0, color = "firebrick") +
+  theme_bw() +
+  labs(title = "Average silhouette width by number of clusters",
+       subtitle = "Red dot and dashed line = optimal k (highest average silhouette width)",
+       x = "Number of clusters (k)", y = "Average silhouette width")
+
+cat("Optimal number of clusters:", optclust, "\n")
+cat("Average silhouette width at optimal k:", round(max(sil_df$asw), 3), "\n")
 ```
 
-In a next step, we want to determine the optimal number of clusters. This has two reasons: firstly, we need to establish that we have reason to assume that the data is not homogeneous (this would occur if the optimal number of clusters were 1), and, secondly, we want check how many meaningful clusters there are in our data.
+::: {.callout-note}
+## Interpreting Silhouette Width
 
+The silhouette width $s(i)$ for observation $i$ is:
 
-```{r vsm7, eval = T, echo=T, message=FALSE, warning=FALSE}
-# find optimal number of clusters
-asw <- as.vector(unlist(sapply(2:ncol(tdm) - 1, function(x) pam(clustd, k = x)$silinfo$avg.width)))
-# determine the optimal number of clusters (max width is optimal)
-optclust <- which(asw == max(asw)) # optimal number of clusters
-# inspect clustering with optimal number of clusters
-amplifier.clusters <- pam(clustd, optclust)
-# inspect cluster solution
-amplifier.clusters$clustering
+$$s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}$$
+
+where $a(i)$ is the average distance to all other observations in the same cluster and $b(i)$ is the average distance to observations in the nearest neighbouring cluster. Values close to 1 indicate tight, well-separated clusters; values close to 0 indicate the observation is on the border between clusters; negative values indicate possible mis-assignment.
+
+| Average silhouette width | Cluster quality |
+|--------------------------|----------------|
+| > 0.70 | Strong structure |
+| 0.50–0.70 | Reasonable structure |
+| 0.25–0.50 | Weak structure |
+| < 0.25 | No substantial structure |
+
+: Interpreting average silhouette width {tbl-colwidths="[40,60]"}
+:::
+
+## Step 3: PAM Clustering {-}
+
+We apply **PAM (Partitioning Around Medoids)** — a robust alternative to k-means that uses actual data points (medoids) as cluster centres rather than centroids, making it less sensitive to outliers.
+
+```{r vsm7_pam, message=FALSE, warning=FALSE}
+amplifier_clusters <- pam(clustd, optclust)
+cat("Cluster assignments:\n")
+print(amplifier_clusters$clustering)
+cat("\nCluster medoids:", amplifier_clusters$medoids, "\n")
 ```
 
-In a next step, we visualize the results of the semantic vector space model as a dendrogram.
+## Step 4: Silhouette Plot {-}
 
-```{r vsm8, eval = T, echo=T, message=FALSE, warning=FALSE}
-# create cluster object
-cd <- hclust(clustd, method = "ward.D")
-# plot cluster object
-plot(cd, main = "", sub = "", yaxt = "n", ylab = "", xlab = "", cex = .8)
-# add colored rectangles around clusters
-rect.hclust(cd, k = optclust, border = "gray60")
+```{r silplot, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+sil_obj <- silhouette(amplifier_clusters)
+factoextra::fviz_silhouette(sil_obj,
+                             palette = "Set2",
+                             ggtheme = theme_bw()) +
+  labs(title = "Silhouette plot: PAM clustering of adjective amplifiers",
+       subtitle = "Bars show silhouette width per amplifier | Colour = cluster")
 ```
 
-The clustering solution shows that,  
+## Step 5: Dendrogram {-}
 
-* *really*, *so*, and *very*  
-* *completely* and *totally*  
-* all other amplifiers.
+```{r vsm8, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+# Hierarchical clustering with Ward's method
+cd <- hclust(clustd, method = "ward.D2")
 
-form clusters and are thus more similar in their collocational profile to each other compared to amplifiers in different clusters. Also, this suggests that amplifiers in the same cluster are more interchangable compared with amplifiers in different clusters. 
+# Assign cluster colours
+cluster_cols <- RColorBrewer::brewer.pal(max(3, optclust), "Set2")[amplifier_clusters$clustering]
+names(cluster_cols) <- names(amplifier_clusters$clustering)
 
-It is important to note though that the data set is of rather moderate size which means that differences are unlikely to be detected due to the relative rarity of the amplifier (which is the reason why there is one umbrella cluster). Also, the amplifiers *very*, *so*, and *really* form a cluster together probably due to the fact that *really*, *very*, and *so* are the most frequent "variants" and because they co-occur with the most variety of adjectives. The results can be interpreted to suggest that *really*, *so*, and *very* are "default" amplifiers that lack distinct semantic profiles.
+plot(cd,
+     main = "Semantic similarity of English adjective amplifiers",
+     sub  = "Ward D2 hierarchical clustering | Distance = 1 − cosine similarity",
+     yaxt = "n", ylab = "", xlab = "", cex = 0.9,
+     hang = -1)
+rect.hclust(cd, k = optclust, border = RColorBrewer::brewer.pal(max(3, optclust), "Set2"))
+```
 
-There are many more useful methods for classifying and grouping data and the [tutorial by Gede Primahadi Wijaya Rajeg, Karlina Denistia, and Simon Musgrave](https://gederajeg.github.io/vector_space_model_indonesian/) [@rajeg2020semvec] highly recommended to get a better understanding of SVM but this should suffice to get you started.
+The dendrogram reveals the hierarchical structure of amplifier similarity. Items that merge at lower heights (shorter branches) are more similar to each other. The coloured rectangles delineate the optimal cluster partition.
+
+::: {.callout-tip}
+## Reading a Dendrogram
+
+- **Branch height:** the height at which two branches merge reflects the distance between those groups — lower merges = more similar
+- **Cluster boundary:** the coloured rectangles show the $k$ groups produced by cutting the dendrogram at the optimal level
+- **Cluster medoid:** in PAM, each cluster is represented by the most "central" amplifier — the one with the highest average similarity to all others in the group
+- **Singleton clusters:** an amplifier that merges very late (high branch) is a distinctive outlier with a unique collocational profile
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 3
+
+**In the silhouette plot, amplifier X has a negative silhouette width. What does this indicate?**
+
+a) Amplifier X is the cluster medoid — the most central element
+b) Amplifier X is more similar to observations in a neighbouring cluster than to those in its own cluster — it may be mis-assigned
+c) Amplifier X never co-occurred with any adjective
+d) Amplifier X has the highest cosine similarity to all other amplifiers
+
+<details>
+<summary>**Answer**</summary>
+
+**b) Amplifier X is more similar to observations in a neighbouring cluster than to those in its own cluster — it may be mis-assigned**
+
+A negative silhouette width means $a(i) > b(i)$: the average distance to members of the same cluster ($a$) is *greater* than the average distance to the nearest other cluster ($b$). The item fits its neighbouring cluster better than its own — a sign of potential mis-assignment. This can happen when the item sits on the boundary between two semantic groups (e.g. a mid-frequency amplifier that shares profiles with two different clusters). It is not a sign of high similarity (d), centrality (a), or data absence (c).
+
+</details>
+:::
+
+---
+
+# Visualisation 3: Spring-Layout Conceptual Map {#conceptmap}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to convert a cosine similarity matrix into a weighted graph and draw it as a spring-layout conceptual map using `ggraph` — linking the VSM results to the visualisation methods introduced in the [Conceptual Maps tutorial](/tutorials/conceptmaps/conceptmaps.html)
+:::
+
+A **conceptual map** (also called a semantic network or spring-layout graph) visualises the similarity matrix as a node–edge diagram. Words are nodes; cosine similarities above a threshold become weighted edges. A spring-layout algorithm (Fruchterman–Reingold) then positions nodes so that similar words cluster together.
+
+This approach was advocated by @schneider2024visualisation as a more interpretively accessible alternative to dendrograms for presenting VSM results to non-specialist audiences.
+
+::: {.callout-tip}
+## Conceptual Maps and VSMs
+
+The [Conceptual Maps tutorial](/tutorials/conceptmaps/conceptmaps.html) covers this visualisation approach in full detail, including three routes to the similarity matrix (co-occurrence PPMI, TF-IDF, and word embeddings), `qgraph`, MDS comparison, and community detection. The code below applies the same technique to the amplifier similarity matrix — treat it as a VSM-specific worked example and refer to that tutorial for deeper coverage of the method.
+:::
+
+```{r conceptmap, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+set.seed(2024)
+
+# Threshold: keep only similarities above the median positive value
+sim_vec   <- cosinesimilarity[upper.tri(cosinesimilarity)]
+threshold <- median(sim_vec[sim_vec > 0])
+
+# Build edge list
+edges_df <- as.data.frame(as.table(cosinesimilarity)) |>
+  dplyr::rename(from = Var1, to = Var2, weight = Freq) |>
+  dplyr::filter(as.character(from) < as.character(to),
+                weight >= threshold)
+
+# Build igraph object
+g_amp <- igraph::graph_from_data_frame(edges_df, directed = FALSE)
+
+# Add cluster membership as node attribute
+cluster_membership <- amplifier_clusters$clustering
+V(g_amp)$cluster <- as.character(cluster_membership[V(g_amp)$name])
+V(g_amp)$degree  <- igraph::strength(g_amp, weights = E(g_amp)$weight)
+
+# Draw
+ggraph(g_amp, layout = "fr") +
+  geom_edge_link(aes(width = weight, alpha = weight),
+                 color = "gray60", show.legend = FALSE) +
+  scale_edge_width(range = c(0.3, 3)) +
+  scale_edge_alpha(range = c(0.2, 0.9)) +
+  geom_node_point(aes(color = cluster, size = degree)) +
+  scale_color_brewer(palette = "Set2", name = "Cluster") +
+  scale_size_continuous(range = c(4, 12), name = "Weighted\ndegree") +
+  geom_node_label(aes(label = name, color = cluster),
+                  repel        = TRUE,
+                  size         = 3.5,
+                  fontface     = "bold",
+                  label.padding = unit(0.15, "lines"),
+                  label.size   = 0,
+                  fill         = alpha("white", 0.75),
+                  show.legend  = FALSE) +
+  theme_graph(base_family = "sans") +
+  labs(title    = "Semantic Conceptual Map: English Adjective Amplifiers",
+       subtitle = "Cosine similarity | Spring layout (Fruchterman-Reingold) | Colour = PAM cluster",
+       caption  = "Edge width and opacity ∝ cosine similarity | Node size ∝ weighted degree")
+```
+
+The conceptual map shows the same cluster structure as the dendrogram but in a more spatially intuitive format: tightly clustered amplifiers appear near each other; outliers are pushed to the periphery; the thickness of edges encodes the strength of the semantic relationship.
+
+---
+
+# Neural Word Embeddings with `text2vec` {#embeddings}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why the amplifier corpus is too sparse for GloVe and how truncated SVD (LSA) provides stable dense vectors from the same PPMI matrix; how to extract amplifier vectors and compute cosine similarity; and how SVD-based and PPMI-based similarities compare
+:::
+
+## Why Neural Embeddings? {-}
+
+Count-based PPMI vectors work well when the vocabulary and corpus are small enough that the full co-occurrence matrix fits in memory. Neural word embeddings address two limitations:
+
+1. **Scalability:** neural models compress high-dimensional sparse counts into dense 50–300 dimensional vectors, making them computationally tractable for large vocabularies
+2. **Generalisation:** the training objective (predict the context of each word) forces the model to generalise across word contexts in ways that pure counting cannot — it discovers latent regularities such as analogical relations (*king − man + woman ≈ queen*)
+
+For the amplifier dataset the corpus is small, so differences will be modest. The code below demonstrates the methodology that scales to corpora of millions of words.
+
+## Dense Word Vectors via Truncated SVD (LSA) {-}
+
+```{r w2v_train, message=FALSE, warning=FALSE}
+# The amplifier corpus (two-word sentences) is too sparse for GloVe to converge.
+# We derive 10-dimensional vectors from the PPMI matrix via truncated SVD —
+# mathematically equivalent to LSA and the standard count-based dense-vector
+# baseline that GloVe itself is compared against in Pennington et al. (2014).
+
+set.seed(2024)
+svd_result   <- svd(PPMI, nu = 10, nv = 0)          # truncated SVD, 10 dims
+adj_svd      <- svd_result$u %*% diag(svd_result$d[1:10])
+rownames(adj_svd) <- rownames(PPMI)                  # adjective vectors
+
+# Project amplifiers into the same SVD space
+amp_svd      <- t(PPMI) %*% svd_result$u             # amplifier × 10 dims
+rownames(amp_svd) <- colnames(PPMI)                  # amplifier vectors
+
+cat("SVD adjective vectors:", dim(adj_svd), "\n")
+cat("SVD amplifier vectors:", dim(amp_svd), "\n")
+cat("\nNote: SVD of PPMI is used in place of GloVe because the amplifier corpus\n")
+cat("(two-word sentences) is too sparse for neural embedding training.\n")
+cat("For full GloVe training on a real corpus, see §Second Example.\n")
+```
+
+## Extracting Amplifier Vectors and Computing Similarity {-}
+
+```{r w2v_similarity, message=FALSE, warning=FALSE}
+# Extract SVD vectors for our target amplifiers (lower-cased to match rownames)
+available_amps <- intersect(tolower(amplifiers), rownames(amp_svd))
+amp_vectors    <- amp_svd[available_amps, ]
+
+cat("Amplifiers with SVD vectors:", length(available_amps), "\n")
+cat("Amplifiers:", paste(available_amps, collapse = ", "), "\n")
+
+# Cosine similarity from SVD embeddings
+norms_emb   <- sqrt(rowSums(amp_vectors^2))
+norms_emb[norms_emb == 0] <- 1e-10
+amp_normed  <- amp_vectors / norms_emb
+embed_cosim <- amp_normed %*% t(amp_normed)
+
+cat("\nSVD-embedding cosine similarity matrix:\n")
+round(embed_cosim, 3)
+```
+
+## Comparing Count-Based vs. Embedding Similarity {-}
+
+```{r compare_methods, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
+# Restrict PPMI cosine sim to amplifiers available in both models
+shared_amps <- available_amps
+ppmi_sub    <- cosinesimilarity[shared_amps, shared_amps]
+embed_sub   <- embed_cosim[shared_amps, shared_amps]
+
+# Extract upper triangle values for correlation
+ppmi_vec  <- ppmi_sub[upper.tri(ppmi_sub)]
+embed_vec <- embed_sub[upper.tri(embed_sub)]
+
+# Scatter plot
+comp_df <- data.frame(PPMI = ppmi_vec, Embedding = embed_vec,
+                      pair = combn(shared_amps, 2, paste, collapse = "–"))
+
+p_compare <- ggplot(comp_df, aes(PPMI, Embedding, label = pair)) +
+  geom_point(size = 3, alpha = 0.7, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "firebrick", linetype = "dashed") +
+  geom_label_repel(size = 2.5, max.overlaps = 8,
+                   label.padding = unit(0.1, "lines"),
+                   label.size = 0, fill = alpha("white", 0.8)) +
+  theme_bw() +
+  labs(title = "PPMI vs. SVD cosine similarity for adjective amplifiers",
+       subtitle = paste0("Pearson r = ", round(cor(ppmi_vec, embed_vec), 3)),
+       x = "PPMI cosine similarity",
+       y = "SVD embedding cosine similarity")
+
+p_compare
+```
+
+::: {.callout-tip}
+## Why Might PPMI and SVD Similarities Differ?
+
+Both models are trained on the same corpus, so strong disagreements reveal methodological differences rather than corpus noise:
+
+- **PPMI is sensitive to exact co-occurrence counts** in the specific corpus window (here, 5,000 observations). Rare amplifiers may have unreliable PPMI vectors.
+- **SVD/LSA learns a low-rank approximation** of the PPMI matrix — it smooths out noise in sparse counts and can surface latent dimensions that raw PPMI misses.
+- When the two models agree strongly (high Pearson *r*), you have greater confidence that the similarity pattern is robust. When they disagree, investigate whether the discrepancy is driven by sparse data, corpus-specific idioms, or genuine model differences.
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 4
+
+**A researcher trains GloVe embeddings on a 500-word toy corpus and a 50-million-word newspaper corpus. She finds that the toy-corpus embeddings are far less stable across training runs with different random seeds. What explains this?**
+
+a) GloVe always produces unstable results regardless of corpus size
+b) The toy corpus provides too few co-occurrence examples for the model to learn stable distributional representations — small corpora produce noisy, seed-dependent embeddings
+c) Newspaper corpora have a larger vocabulary, which stabilises the embeddings
+d) The number of training iterations is the only factor affecting stability
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The toy corpus provides too few co-occurrence examples for the model to learn stable distributional representations — small corpora produce noisy, seed-dependent embeddings**
+
+Neural word embedding models require many observations of each word in diverse contexts to produce stable, meaningful vectors. With only 500 words, most words appear only once or twice — there is not enough signal for the model to distinguish semantic structure from random variation. The training objective (predicting context words) has very little data to learn from, so the solution found at convergence is highly sensitive to the random initialisation. With 50 million words, the same words appear thousands of times in varied contexts, producing consistent estimates across runs. Vocabulary size (c) is a symptom, not the cause; training iterations (d) help with convergence but cannot compensate for insufficient co-occurrence data.
+
+</details>
+:::
+
+---
+
+# Visualisation 4: t-SNE and UMAP {#tsne_umap}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to project high-dimensional word vectors into two dimensions using t-SNE and UMAP, and how to interpret the resulting scatter plots
+:::
+
+t-SNE (t-distributed Stochastic Neighbour Embedding) and UMAP (Uniform Manifold Approximation and Projection) are **non-linear dimensionality reduction** methods designed to visualise high-dimensional data. Unlike PCA or MDS, which preserve global distances, t-SNE and UMAP excel at preserving **local neighbourhood structure** — words with similar contexts cluster tightly together, making semantic groupings visually salient.
+
+::: {.callout-warning}
+## When to Use t-SNE / UMAP
+
+t-SNE and UMAP are best suited for **high-dimensional dense vectors** (50–300 dimensions from neural embeddings). For the small PPMI matrix in this tutorial (a handful of amplifiers × adjectives), their advantages over MDS or spring-layout are minimal. The visualisations below use the GloVe vectors trained in the previous section. For a genuinely informative t-SNE / UMAP, you would ideally have at least 50–100 target words and 50+ dimensional vectors.
+
+Do **not** over-interpret the exact positions in a t-SNE / UMAP plot — the axes have no semantic meaning, and distances between widely separated clusters are not directly comparable. Focus on **local neighbourhood structure** (which words cluster tightly together).
+:::
+
+## t-SNE Visualisation {-}
+
+```{r tsne, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+set.seed(2024)
+
+# For t-SNE we need at least as many observations as perplexity * 3
+# With only a handful of amplifiers, use a very small perplexity
+n_amps_emb <- nrow(amp_vectors)
+perp_val   <- max(2, floor(n_amps_emb / 3) - 1)
+
+tsne_result <- Rtsne::Rtsne(
+  amp_vectors,
+  dims        = 2,
+  perplexity  = perp_val,
+  verbose     = FALSE,
+  max_iter    = 1000,
+  check_duplicates = FALSE
+)
+
+tsne_df <- data.frame(
+  word   = rownames(amp_vectors),
+  D1     = tsne_result$Y[, 1],
+  D2     = tsne_result$Y[, 2]
+)
+
+# Add cluster labels
+tsne_df$cluster <- as.character(
+  amplifier_clusters$clustering[match(tsne_df$word, names(amplifier_clusters$clustering))]
+)
+
+ggplot(tsne_df, aes(D1, D2, color = cluster, label = word)) +
+  geom_point(size = 5, alpha = 0.8) +
+  scale_color_brewer(palette = "Set2", name = "PAM cluster") +
+  geom_label_repel(size = 3.5, fontface = "bold",
+                   label.padding = unit(0.15, "lines"),
+                   label.size = 0, fill = alpha("white", 0.8),
+                   show.legend = FALSE) +
+  theme_bw() +
+  labs(title    = "t-SNE projection of SVD amplifier vectors",
+       subtitle = paste0("Perplexity = ", perp_val,
+                         " | SVD vectors | Colour = PAM cluster | Axes have no semantic meaning"),
+       x = "t-SNE dimension 1", y = "t-SNE dimension 2")
+```
+
+## UMAP Visualisation {-}
+
+```{r umap_plot, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+set.seed(2024)
+
+umap_result <- umap::umap(
+  amp_vectors,
+  n_components = 2,
+  n_neighbors  = max(2, floor(n_amps_emb / 2)),
+  min_dist     = 0.1,
+  metric       = "cosine"
+)
+
+umap_df <- data.frame(
+  word    = rownames(amp_vectors),
+  D1      = umap_result$layout[, 1],
+  D2      = umap_result$layout[, 2],
+  cluster = as.character(amplifier_clusters$clustering[
+    match(rownames(amp_vectors), names(amplifier_clusters$clustering))
+  ])
+)
+
+ggplot(umap_df, aes(D1, D2, color = cluster, label = word)) +
+  geom_point(size = 5, alpha = 0.8) +
+  scale_color_brewer(palette = "Set2", name = "PAM cluster") +
+  geom_label_repel(size = 3.5, fontface = "bold",
+                   label.padding = unit(0.15, "lines"),
+                   label.size = 0, fill = alpha("white", 0.8),
+                   show.legend = FALSE) +
+  theme_bw() +
+  labs(title    = "UMAP projection of SVD amplifier vectors",
+       subtitle = "Cosine metric | Colour = PAM cluster | Axes have no semantic meaning",
+       x = "UMAP dimension 1", y = "UMAP dimension 2")
+```
+
+---
+
+# Second Example: Emotion Words in *Sense and Sensibility* {#emotions}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** A complete parallel VSM workflow applied to a different linguistic domain — emotion vocabulary in Jane Austen's *Sense and Sensibility* — covering corpus preparation, TF-IDF weighting, cosine similarity, PAM clustering, heatmap, dendrogram, silhouette plot, conceptual map, GloVe embeddings, and t-SNE projection
+:::
+
+## Background and Research Question {-}
+
+Emotion vocabulary is a classic domain for VSM analysis: emotion words are semantically dense, theoretically well-studied (dimensional models of affect, basic emotion theories), and show interesting distributional patterning in literary text. Words like *grief*, *sorrow*, and *pain* might form tight clusters; *love*, *affection*, and *heart* might cluster separately; *pride*, *shame*, and *honour* might form a social-evaluative cluster distinct from the purely hedonic emotion words.
+
+We use Jane Austen's *Sense and Sensibility* (1811), downloaded from Project Gutenberg, as the source corpus. This choice is deliberate: the novel is centrally concerned with the tension between emotional expressiveness (*sensibility*) and rational restraint (*sense*), making it a rich testbed for distributional emotion semantics. The research question is: **which emotion words share similar distributional profiles across the chapters of the novel, and what semantic clusters do they form?**
+
+This example uses **TF-IDF cosine similarity across chapters** as the primary weighting scheme — treating each chapter as a "document" and measuring which emotion words are characteristic of the same chapters. This contrasts with the amplifier example, which used PPMI over sentence-level co-occurrence windows.
+
+## Step 1: Download and Prepare the Corpus {-}
+
+```{r emo_corpus, message=FALSE, warning=FALSE}
+library(gutenbergr)
+library(tidytext)
+
+# Download Sense and Sensibility (Project Gutenberg ID: 161)
+sns <- gutenbergr::gutenberg_download(161,
+         mirror = "http://mirrors.xmission.com/gutenberg/")
+
+# Tokenise to words, remove stop words
+data("stop_words")
+sns_words <- sns |>
+  dplyr::mutate(
+    chapter = cumsum(stringr::str_detect(text,
+                     stringr::regex("^chapter", ignore_case = TRUE)))
+  ) |>
+  dplyr::filter(chapter > 0) |>
+  tidytext::unnest_tokens(word, text) |>
+  dplyr::anti_join(stop_words, by = "word") |>
+  dplyr::filter(stringr::str_detect(word, "^[a-z]+$"),
+                stringr::str_length(word) > 2)
+
+cat("Total tokens after cleaning:", nrow(sns_words), "\n")
+cat("Unique chapters:", n_distinct(sns_words$chapter), "\n")
+```
+
+## Step 2: Define the Target Emotion Vocabulary {-}
+
+We use a carefully chosen set of 36 emotion, moral, and social-evaluative words that are frequent enough in the novel for stable TF-IDF estimates (at least 5 occurrences per word).
+
+```{r emo_targets, message=FALSE, warning=FALSE}
+emotion_words <- c(
+  # hedonic emotions
+  "love", "joy", "pleasure", "delight", "happiness",
+  "pain", "grief", "sorrow", "misery", "distress",
+  # anxiety and hope
+  "fear", "anxiety", "hope", "comfort",
+  # social evaluative
+  "pride", "shame", "honour", "duty",
+  # passion and restraint
+  "passion", "affection", "feeling", "sensibility", "sense",
+  # moral character
+  "worth", "character", "spirit", "temper", "beauty", "elegance",
+  # anger and surprise
+  "anger", "astonishment",
+  # social relations
+  "friendship", "heart", "sister", "mother"
+)
+
+# Check which targets appear in the corpus
+target_coverage <- sns_words |>
+  dplyr::filter(word %in% emotion_words) |>
+  dplyr::count(word, sort = TRUE)
+
+cat("Target words found in corpus:", nrow(target_coverage), "/", length(emotion_words), "\n")
+print(target_coverage, n = 36)
+```
+
+## Step 3: Build the TF-IDF Matrix {-}
+
+We treat each chapter as a document and compute TF-IDF weights for the target emotion words.
+
+```{r emo_tfidf, message=FALSE, warning=FALSE}
+# Count occurrences of target words per chapter
+emo_counts <- sns_words |>
+  dplyr::filter(word %in% emotion_words) |>
+  dplyr::count(chapter, word) |>
+  tidytext::bind_tf_idf(word, chapter, n)
+
+cat("Word-chapter combinations:", nrow(emo_counts), "\n")
+
+# Cast to wide matrix: rows = emotion words, columns = chapters
+emo_wide <- emo_counts |>
+  dplyr::select(word, chapter, tf_idf) |>
+  tidyr::pivot_wider(names_from = chapter, values_from = tf_idf,
+                     values_fill = 0) |>
+  dplyr::filter(word %in% target_coverage$word)  # keep only words found in corpus
+
+emo_words_found <- emo_wide$word
+emo_mat <- as.matrix(emo_wide[, -1])
+rownames(emo_mat) <- emo_words_found
+
+cat("TF-IDF matrix:", dim(emo_mat), "(emotion words × chapters)\n")
+```
+
+## Step 4: Compute Cosine Similarity {-}
+
+```{r emo_cosine, message=FALSE, warning=FALSE}
+# Normalise rows (L2 norm) then matrix multiply for cosine similarity
+row_norms <- sqrt(rowSums(emo_mat^2))
+row_norms[row_norms == 0] <- 1e-10
+emo_normed  <- emo_mat / row_norms
+emo_cosim   <- emo_normed %*% t(emo_normed)
+diag(emo_cosim) <- 1
+
+cat("Cosine similarity matrix:", dim(emo_cosim), "\n")
+cat("Similarity range (off-diagonal):",
+    round(range(emo_cosim[emo_cosim < 1]), 3), "\n")
+
+# Inspect top-5 most similar pairs
+sim_pairs <- as.data.frame(as.table(emo_cosim)) |>
+  dplyr::rename(w1 = Var1, w2 = Var2, cosine = Freq) |>
+  dplyr::filter(as.character(w1) < as.character(w2)) |>
+  dplyr::arrange(desc(cosine)) |>
+  head(10)
+
+sim_pairs |>
+  dplyr::mutate(cosine = round(cosine, 3)) |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption("Top 10 most similar emotion word pairs (TF-IDF cosine)") |>
+  flextable::border_outer()
+```
+
+## Step 5: Cosine Similarity Heatmap {-}
+
+```{r emo_heatmap, message=FALSE, warning=FALSE, fig.width=9, fig.height=8}
+# Build semantic domain annotation for row/column colouring
+domain_annotation <- data.frame(
+  Domain = dplyr::case_when(
+    emo_words_found %in% c("love","joy","pleasure","delight","happiness",
+                            "pain","grief","sorrow","misery","distress",
+                            "fear","anxiety","hope","comfort","anger",
+                            "astonishment","passion","affection","feeling") ~ "Hedonic/Affect",
+    emo_words_found %in% c("pride","shame","honour","duty","worth",
+                            "character","spirit","temper")                  ~ "Moral/Evaluative",
+    emo_words_found %in% c("sensibility","sense","beauty","elegance")       ~ "Sensibility/Reason",
+    TRUE                                                                     ~ "Social/Relational"
+  ),
+  row.names = emo_words_found
+)
+
+domain_colours <- list(Domain = c(
+  "Hedonic/Affect"     = "#E07B54",
+  "Moral/Evaluative"   = "#5B8DB8",
+  "Sensibility/Reason" = "#6BAF7A",
+  "Social/Relational"  = "#B8860B"
+))
+
+emo_dist <- as.dist(1 - emo_cosim)
+
+pheatmap::pheatmap(
+  emo_cosim,
+  clustering_distance_rows = emo_dist,
+  clustering_distance_cols = emo_dist,
+  clustering_method        = "ward.D2",
+  annotation_row           = domain_annotation,
+  annotation_col           = domain_annotation,
+  annotation_colors        = domain_colours,
+  color = colorRampPalette(c("#f7f7f7", "#4393c3", "#053061"))(100),
+  breaks                   = seq(0, 1, length.out = 101),
+  show_rownames            = TRUE,
+  show_colnames            = TRUE,
+  fontsize                 = 8,
+  main = "Cosine similarity: emotion vocabulary in Sense and Sensibility\n(TF-IDF across chapters | Ward D2 clustering)",
+  treeheight_row           = 50,
+  treeheight_col           = 50,
+  border_color             = "white"
+)
+```
+
+The heatmap reveals the semantic domain structure visually: dark blue blocks along the diagonal indicate groups of emotion words that are characteristic of the same chapters — i.e. that appear in the same emotional and narrative contexts. The domain colour bars on the rows and columns allow you to assess whether the detected clusters align with theoretically motivated semantic categories.
+
+## Step 6: Determine Optimal Clusters and PAM {-}
+
+```{r emo_clusters, message=FALSE, warning=FALSE, fig.width=7, fig.height=4}
+n_emo <- nrow(emo_cosim)
+
+# Silhouette width over k = 2 to k = n-1
+sil_emo <- sapply(2:(n_emo - 1), function(k) {
+  pam(emo_dist, k = k)$silinfo$avg.width
+})
+
+sil_emo_df <- data.frame(k = 2:(n_emo - 1), asw = sil_emo)
+optclust_emo <- sil_emo_df$k[which.max(sil_emo_df$asw)]
+
+ggplot(sil_emo_df, aes(k, asw)) +
+  geom_line(color = "gray60") +
+  geom_point(size = 3,
+             color = ifelse(sil_emo_df$k == optclust_emo, "firebrick", "steelblue")) +
+  geom_vline(xintercept = optclust_emo, linetype = "dashed", color = "firebrick") +
+  annotate("text", x = optclust_emo + 0.3, y = min(sil_emo_df$asw),
+           label = paste0("Optimal k = ", optclust_emo),
+           hjust = 0, color = "firebrick") +
+  theme_bw() +
+  labs(title = "Average silhouette width: emotion word clusters",
+       x = "Number of clusters (k)", y = "Average silhouette width")
+
+cat("Optimal clusters:", optclust_emo, "\n")
+cat("Average silhouette width:", round(max(sil_emo_df$asw), 3), "\n")
+
+# Fit PAM
+pam_emo <- pam(emo_dist, optclust_emo)
+cat("\nCluster assignments:\n")
+print(sort(pam_emo$clustering))
+cat("\nCluster medoids:", pam_emo$medoids, "\n")
+```
+
+## Step 7: Silhouette Plot {-}
+
+```{r emo_silplot, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+sil_obj_emo <- silhouette(pam_emo)
+factoextra::fviz_silhouette(sil_obj_emo,
+                             palette = "Set1",
+                             ggtheme = theme_bw()) +
+  labs(title    = "Silhouette plot: emotion word clusters in Sense and Sensibility",
+       subtitle = "Colour = PAM cluster | Negative values = potentially mis-assigned words")
+```
+
+## Step 8: Dendrogram {-}
+
+```{r emo_dendro, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+emo_hclust <- hclust(emo_dist, method = "ward.D2")
+
+# Cluster colours for rectangles
+emo_rect_cols <- RColorBrewer::brewer.pal(max(3, optclust_emo), "Set1")
+
+plot(emo_hclust,
+     main = "Semantic clustering of emotion vocabulary",
+     sub  = "Jane Austen, Sense and Sensibility (1811) | Ward D2 | Distance = 1 − cosine",
+     yaxt = "n", ylab = "", xlab = "", cex = 0.85, hang = -1)
+rect.hclust(emo_hclust, k = optclust_emo, border = emo_rect_cols)
+```
+
+## Step 9: Spring-Layout Conceptual Map {-}
+
+```{r emo_conceptmap, message=FALSE, warning=FALSE, fig.width=9, fig.height=7}
+set.seed(2024)
+
+# Threshold: median positive similarity
+emo_sim_vec  <- emo_cosim[upper.tri(emo_cosim)]
+emo_threshold <- median(emo_sim_vec[emo_sim_vec > 0])
+
+emo_edges <- as.data.frame(as.table(emo_cosim)) |>
+  dplyr::rename(from = Var1, to = Var2, weight = Freq) |>
+  dplyr::filter(as.character(from) < as.character(to),
+                weight >= emo_threshold)
+
+g_emo <- igraph::graph_from_data_frame(emo_edges, directed = FALSE)
+
+# Node attributes
+V(g_emo)$cluster <- as.character(
+  pam_emo$clustering[match(V(g_emo)$name, names(pam_emo$clustering))]
+)
+V(g_emo)$domain  <- domain_annotation$Domain[
+  match(V(g_emo)$name, rownames(domain_annotation))
+]
+V(g_emo)$strength <- igraph::strength(g_emo, weights = E(g_emo)$weight)
+
+ggraph(g_emo, layout = "fr") +
+  geom_edge_link(aes(width = weight, alpha = weight),
+                 color = "gray60", show.legend = FALSE) +
+  scale_edge_width(range = c(0.3, 3)) +
+  scale_edge_alpha(range = c(0.2, 0.9)) +
+  geom_node_point(aes(color = cluster, size = strength)) +
+  scale_color_brewer(palette = "Set1", name = "Cluster") +
+  scale_size_continuous(range = c(3, 10), name = "Weighted\ndegree") +
+  geom_node_label(aes(label = name, color = cluster),
+                  repel         = TRUE,
+                  size          = 3,
+                  fontface      = "bold",
+                  label.padding = unit(0.15, "lines"),
+                  label.size    = 0,
+                  fill          = alpha("white", 0.75),
+                  show.legend   = FALSE) +
+  theme_graph(base_family = "sans") +
+  labs(
+    title    = "Conceptual Map: Emotion Vocabulary in Sense and Sensibility",
+    subtitle = "TF-IDF cosine similarity | Spring layout | Node size ∝ weighted degree | Colour = cluster",
+    caption  = "Jane Austen (1811) | Context: chapters as documents | Threshold: median positive cosine"
+  )
+```
+
+## Step 10: GloVe Embeddings for Emotion Words {-}
+
+We train GloVe vectors directly on *Sense and Sensibility* using `text2vec` and compare the embedding-based clustering with the TF-IDF clustering above.
+
+```{r emo_glove, message=FALSE, warning=FALSE}
+# Prepare corpus: one line per text chunk
+set.seed(2024)
+sns_text <- sns |>
+  dplyr::pull(text) |>
+  tolower() |>
+  stringr::str_replace_all("[^a-z ]", " ") |>
+  stringr::str_squish()
+sns_text <- sns_text[nchar(sns_text) > 0]
+
+# Build vocabulary and TCM
+tokens_sns  <- word_tokenizer(sns_text)
+it_sns      <- itoken(tokens_sns, progressbar = FALSE)
+vocab_sns   <- create_vocabulary(it_sns) |>
+  prune_vocabulary(term_count_min = 3)
+vec_sns     <- vocab_vectorizer(vocab_sns)
+tcm_sns     <- create_tcm(
+  itoken(word_tokenizer(sns_text), progressbar = FALSE),
+  vec_sns, skip_grams_window = 5
+)
+
+# Fit GloVe
+glove_sns   <- GlobalVectors$new(rank = 50, x_max = 10)
+wv_main_sns <- glove_sns$fit_transform(tcm_sns, n_iter = 25,
+                                        convergence_tol = 0.001,
+                                        verbose = FALSE)
+wv_ctx_sns  <- glove_sns$components
+wv_sns      <- wv_main_sns + t(wv_ctx_sns)
+
+# Extract target emotion word vectors
+avail_emo <- intersect(emo_words_found, rownames(wv_sns))
+cat("Emotion words with GloVe vectors:", length(avail_emo), "/",
+    length(emo_words_found), "\n")
+
+emo_emb      <- wv_sns[avail_emo, ]
+emb_norms    <- sqrt(rowSums(emo_emb^2))
+emb_norms[emb_norms == 0] <- 1e-10
+emo_emb_norm <- emo_emb / emb_norms
+emo_emb_cos  <- emo_emb_norm %*% t(emo_emb_norm)
+diag(emo_emb_cos) <- 1
+```
+
+## Step 11: Comparing TF-IDF vs. GloVe Similarity {-}
+
+```{r emo_compare, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
+# Restrict to words available in both models
+shared_emo <- avail_emo
+tfidf_sub  <- emo_cosim[shared_emo, shared_emo]
+emb_sub    <- emo_emb_cos[shared_emo, shared_emo]
+
+tfidf_v <- tfidf_sub[upper.tri(tfidf_sub)]
+emb_v   <- emb_sub[upper.tri(emb_sub)]
+pair_labels <- combn(shared_emo, 2, paste, collapse = "\u2013")
+
+cmp_df <- data.frame(TF_IDF = tfidf_v, GloVe = emb_v, pair = pair_labels)
+r_val  <- round(cor(tfidf_v, emb_v), 3)
+
+ggplot(cmp_df, aes(TF_IDF, GloVe)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "firebrick",
+              linetype = "dashed", linewidth = 0.8) +
+  theme_bw() +
+  labs(
+    title    = "TF-IDF vs. GloVe cosine similarity: emotion words in Sense and Sensibility",
+    subtitle = paste0("Pearson r = ", r_val,
+                      " | Each point = one pair of emotion words"),
+    x = "TF-IDF cosine similarity (chapter-level)",
+    y = "GloVe cosine similarity (window-level)"
+  )
+```
+
+The Pearson *r* between TF-IDF and GloVe cosine values quantifies how much the two representations agree. High correlation indicates that both methods are capturing the same underlying semantic structure — evidence that the clusters are robust and not artefacts of the weighting method. Low correlation would suggest that the two representations emphasise different aspects of meaning (chapter-level thematic co-occurrence vs. sentence-window-level collocation) and that reporting both provides a more complete picture.
+
+## Step 12: t-SNE Projection of GloVe Embeddings {-}
+
+```{r emo_tsne, message=FALSE, warning=FALSE, fig.width=9, fig.height=6}
+set.seed(2024)
+n_emo_emb   <- nrow(emo_emb)
+perp_emo    <- max(2, floor(n_emo_emb / 4) - 1)
+
+tsne_emo <- Rtsne::Rtsne(
+  emo_emb,
+  dims             = 2,
+  perplexity       = perp_emo,
+  max_iter         = 1500,
+  verbose          = FALSE,
+  check_duplicates = FALSE
+)
+
+tsne_emo_df <- data.frame(
+  word    = rownames(emo_emb),
+  D1      = tsne_emo$Y[, 1],
+  D2      = tsne_emo$Y[, 2],
+  cluster = as.character(pam_emo$clustering[
+    match(rownames(emo_emb), names(pam_emo$clustering))
+  ]),
+  domain  = domain_annotation$Domain[
+    match(rownames(emo_emb), rownames(domain_annotation))
+  ]
+)
+
+ggplot(tsne_emo_df, aes(D1, D2, color = cluster, label = word)) +
+  geom_point(aes(shape = domain), size = 4, alpha = 0.85) +
+  scale_color_brewer(palette = "Set1", name = "PAM cluster") +
+  scale_shape_manual(
+    values = c("Hedonic/Affect" = 16, "Moral/Evaluative" = 17,
+               "Sensibility/Reason" = 15, "Social/Relational" = 18),
+    name = "Domain"
+  ) +
+  geom_label_repel(size = 3, fontface = "bold",
+                   label.padding = unit(0.12, "lines"),
+                   label.size = 0,
+                   fill = alpha("white", 0.8),
+                   show.legend = FALSE,
+                   max.overlaps = 20) +
+  theme_bw() +
+  labs(
+    title    = "t-SNE projection: GloVe emotion word embeddings",
+    subtitle = paste0("Sense and Sensibility | Perplexity = ", perp_emo,
+                      " | Colour = PAM cluster | Shape = semantic domain"),
+    x = "t-SNE dimension 1", y = "t-SNE dimension 2",
+    caption  = "Axes have no direct semantic interpretation — focus on local neighbourhood structure"
+  )
+```
+
+## Interpreting the Emotion Word VSM {-}
+
+The complete VSM analysis of emotion vocabulary in *Sense and Sensibility* produces a linguistically rich picture. Across all five visualisations — heatmap, dendrogram, silhouette plot, conceptual map, and t-SNE — several patterns should emerge consistently (exact results depend on the corpus version):
+
+::: {.callout-tip}
+## What to Look for in the Emotion Word Maps
+
+**Expected clusters based on literary and semantic theory:**
+
+- **Acute distress cluster** — *grief*, *sorrow*, *pain*, *misery*, *distress*: these words tend to appear in the same chapters (scenes of emotional crisis) and share similar GloVe contexts (associated with loss, illness, rejection). Their cluster is predicted by both valence models of emotion and by the novel's narrative structure.
+
+- **Positive affect cluster** — *joy*, *pleasure*, *delight*, *happiness*, *comfort*, *hope*: these should form a distinct positive-valence group, though *hope* may straddle the positive and anxiety clusters (it is both desired and uncertain).
+
+- **Moral-evaluative cluster** — *honour*, *duty*, *worth*, *character*, *pride*, *shame*: this is a distinctly Austenian grouping — moral vocabulary that pervades the novel's social commentary. Its emergence as a cluster separate from the hedonic emotions validates the novel's thematic preoccupation with conduct and reputation.
+
+- **Bridge words** — *sensibility*, *sense*, *feeling*, *heart*: these words may appear in all clusters or between clusters, reflecting their semantic breadth. *Heart* in particular is highly polysemous in Austen's usage (physical, emotional, moral).
+
+**Comparing with the amplifier example:**
+
+| Dimension | Amplifier VSM | Emotion VSM |
+|-----------|--------------|-------------|
+| Input type | Sentence co-occurrence | Chapter-level TF-IDF |
+| Semantic domain | Functional grammar (intensification) | Lexical semantics (affect) |
+| Expected cluster basis | Collocational interchangeability | Valence / thematic co-occurrence |
+| Bridge words | Default amplifiers (*very*, *so*) | Polysemous broad terms (*feeling*, *heart*) |
+
+: Comparison of the two worked examples {tbl-colwidths="[25,37,38]"}
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 6
+
+**The emotion word *hope* appears as a bridge node between the positive affect cluster and the anxiety cluster in the conceptual map. A student argues this is an error — "hope is positive, so it should only be in the positive cluster." How would you respond?**
+
+a) The student is right — bridge nodes always indicate data errors and should be corrected by thresholding more aggressively
+b) The student is wrong — *hope* is genuinely semantically ambiguous: it implies a desired but uncertain outcome, meaning it shares distributional contexts with both positive affect words (desired states) and anxiety words (uncertainty). Its bridge position is semantically meaningful.
+c) The student is right — t-SNE and spring-layout always produce bridge nodes artificially for high-frequency words
+d) The student is wrong, but only because the corpus is too small to produce reliable clusters
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The student is wrong — *hope* is genuinely semantically ambiguous: it implies a desired but uncertain outcome, meaning it shares distributional contexts with both positive affect words (desired states) and anxiety words (uncertainty). Its bridge position is semantically meaningful.**
+
+Bridge nodes in a conceptual map are words with high **betweenness centrality** — they connect otherwise separate clusters because they genuinely participate in multiple semantic contexts. *Hope* is a classic example of **semantic complexity**: it involves a positive desired state (placing it near *joy*, *comfort*) and an element of uncertainty or anticipation (placing it near *fear*, *anxiety*). In Austen's novel, hope appears in scenes both of cheerful anticipation and of anxious uncertainty, making it contextually allied with both clusters. This is a finding worth reporting, not correcting. Option (a) mischaracterises bridge nodes as errors; (c) is incorrect — bridge positions emerge from the similarity structure, not from frequency alone; (d) is a deflection that ignores the substantive semantic point.
+
+</details>
+:::
 
 
-# Citation & Session Info {-}
+---
 
-Schweinberger, Martin. 2023. *Semantic Vector Space Models in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/svm.html (Version 2023.02.16).
+# Interpreting and Reporting VSM Results {#reporting}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to integrate the outputs of all VSM steps into a coherent interpretation; what to report in a methods section; and common pitfalls to avoid
+:::
+
+## Synthesising the Results {-}
+
+The five visualisations produced in this tutorial — heatmap, dendrogram, silhouette plot, conceptual map, and t-SNE / UMAP — all represent the same underlying cosine similarity matrix from different angles. They should tell a consistent story. If they diverge substantially, investigate why:
+
+- **Heatmap:** shows all pairwise values numerically — the ground truth
+- **Dendrogram:** shows the hierarchical merging order — good for nested structure
+- **Silhouette plot:** diagnoses cluster quality — identifies uncertain or mis-assigned items
+- **Conceptual map:** communicates cluster structure to a general audience — best for presentations
+- **t-SNE / UMAP:** reveals non-linear neighbourhood structure in high-dimensional embeddings — best for large vocabulary studies
+
+For the amplifier data, the analyses converge on the following interpretation (your results may vary depending on exact corpus version):
+
+- *really*, *so*, and *very* form a **"default amplifier" cluster** — they co-occur with the widest range of adjectives, suggesting they are semantically unmarked intensifiers
+- *completely* and *totally* form a second cluster — they tend to appear with adjectives denoting completeness or totality (*completely wrong*, *totally different*)
+- *utterly* and *absolutely* tend to be distinctive or split across clusters — they show more restricted, formal collocational profiles
+
+This is linguistically interpretable: the distributional clustering matches what usage-based and corpus-linguistic accounts of amplifier variation predict [@tagliamonte2008intensifiers].
+
+## Reporting Checklist {-}
+
+::: {.callout-note}
+## Reproducibility Checklist for VSM Analyses
+
+- [ ] **Report the corpus** — name, size (tokens/types), register, time period, source
+- [ ] **Report preprocessing** — stopword removal, lemmatisation, minimum frequency threshold, binarisation decisions
+- [ ] **Report the weighting scheme** — raw counts, PPMI, TF-IDF, or embeddings; justify the choice
+- [ ] **Report the similarity measure** — cosine similarity with formula or citation
+- [ ] **Report the clustering method** — PAM, Ward D2, k-means; report the distance transformation
+- [ ] **Report cluster selection** — silhouette width, gap statistic, or other criterion; report the optimal $k$ and its silhouette score
+- [ ] **Report visualisation parameters** — threshold for graph edges, spring-layout seed, t-SNE perplexity
+- [ ] **For embeddings** — model type (word2vec / GloVe), dimensions, window size, training iterations, corpus size
+- [ ] **Report software** — package names and version numbers via `sessionInfo()`
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 5
+
+**A researcher reports that two amplifiers have a cosine similarity of 0.92 in a VSM trained on a 100-sentence corpus. A colleague argues the result is unreliable. Who is right, and why?**
+
+a) The researcher is right — cosine similarity is always reliable regardless of corpus size
+b) The colleague is right — with only 100 sentences, co-occurrence counts are extremely sparse, and cosine similarity estimates will be highly unstable and sensitive to individual observations
+c) Neither — reliability depends only on the number of amplifiers, not corpus size
+d) The colleague is right — cosine similarity above 0.9 is always a sign of overfitting
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The colleague is right — with only 100 sentences, co-occurrence counts are extremely sparse, and cosine similarity estimates will be highly unstable and sensitive to individual observations**
+
+Cosine similarity estimates derived from very small corpora are unreliable because the underlying co-occurrence counts are based on very few observations. With 100 sentences, most amplifier–adjective pairs will co-occur zero or one time. A single occurrence of "utterly hesitant" could dramatically alter the cosine similarity of *utterly* with all other amplifiers. The estimate may be mathematically valid but lacks statistical stability — it would change substantially with a different 100-sentence sample. A useful rule of thumb: each target word should appear at least 50–100 times with a variety of contexts before cosine similarity estimates are considered reliable. Option (a) is incorrect; (c) confuses the source of instability; (d) misapplies the concept of overfitting.
+
+</details>
+:::
+
+---
+
+# Summary {#summary}
+
+This tutorial has demonstrated a complete VSM workflow for linguistic research, from raw corpus data to publication-quality visualisations:
+
+| Step | Method | Key function |
+|------|--------|-------------|
+| 1. Build term–context matrix | `ftable()` + binarise | Base R |
+| 2. Weight the matrix | PPMI or TF-IDF | `chisq.test()$expected`; custom |
+| 3. Compute similarity | Cosine similarity | `coop::cosine()` |
+| 4. Determine clusters | Silhouette width + PAM | `cluster::pam()`, `factoextra::fviz_silhouette()` |
+| 5. Visualise similarity | Clustered heatmap | `pheatmap::pheatmap()` |
+| 6. Visualise clusters | Dendrogram | `hclust()` + `rect.hclust()` |
+| 7. Visualise network | Conceptual map | `igraph` + `ggraph` |
+| 8. Dense embeddings | SVD / LSA (amplifiers); GloVe via `text2vec` (§Second Example) | `svd()`, `text2vec` |
+| 9. Project to 2D | t-SNE / UMAP | `Rtsne::Rtsne()`, `umap::umap()` |
+
+: Complete VSM workflow summary {tbl-colwidths="[5,40,30,25]"}
+
+**Key conceptual take-aways:**
+
+- The distributional hypothesis is the theoretical foundation: similar contexts → similar meaning
+- PPMI corrects for frequency bias in raw co-occurrence counts; TF-IDF serves the same purpose for document-level contexts
+- Cosine similarity is length-invariant and appropriate for sparse, high-dimensional vectors
+- Silhouette width provides a principled, data-driven method for choosing the number of clusters
+- Neural embeddings (GloVe, word2vec) scale to large corpora and capture richer semantic structure than count-based models
+- Multiple visualisations of the same similarity matrix are complementary — use the one best suited to your audience and research question
+
+::: {.callout-tip}
+## Two Examples, Two Input Types: What Did We Learn?
+
+The two worked examples in this tutorial deliberately use different input types to highlight how methodological choices shape the semantic map:
+
+| | Amplifier example | Emotion word example |
+|-|-------------------|---------------------|
+| **Corpus** | Spoken/written corpus (5,000 obs.) | Literary novel (~120k tokens) |
+| **Context unit** | Sentence co-occurrence window | Chapter as document |
+| **Weighting** | PPMI | TF-IDF |
+| **Similarity basis** | Which adjectives each amplifier modifies | Which chapters each emotion word is characteristic of |
+| **Cluster basis** | Collocational interchangeability | Thematic/narrative co-occurrence |
+| **Bridge words** | Default amplifiers (*very*, *so*, *really*) | Polysemous broad terms (*heart*, *feeling*, *hope*) |
+
+: Summary comparison of the two VSM examples {tbl-colwidths="[22,39,39]"}
+
+The clusters produced by each method are not right or wrong in an absolute sense — they are **answers to different questions**. PPMI over sentence windows asks: *which words are used in the same immediate linguistic contexts?* TF-IDF over documents asks: *which words are characteristic of the same text segments?* Both are valid operationalisations of the distributional hypothesis, and reporting both gives a more complete and triangulated picture of semantic structure.
+:::
+
+For a deeper exploration of the visualisation techniques introduced here, see the [Conceptual Maps tutorial](/tutorials/conceptmaps/conceptmaps.html), which covers spring-layout maps, `qgraph`, MDS baselines, and community detection in full detail.
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Semantic Vector Space Models in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/svm/svm.html (Version 2026.02.24).
 
 ```
-@manual{schweinberger2023svm,
-  author = {Schweinberger, Martin},
-  title = {Semantic Vector Space Models in R},
-  note = {tutorials/svm/svm.html},
-  year = {2023},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2023.02.16}
+@manual{schweinberger2026svm,
+  author       = {Schweinberger, Martin},
+  title        = {Semantic Vector Space Models in R},
+  note         = {https://ladal.edu.au/tutorials/svm/svm.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.02.24}
 }
 ```
 
-```{r fin}
+```{r session_info}
 sessionInfo()
 ```
 
+::: {.callout-note}
+## AI Transparency Statement
 
+This tutorial was substantially revised and expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the tutorial into Quarto format, write the expanded theoretical introduction (distributional hypothesis, count-based vs. neural embeddings), add the TF-IDF section, add the `text2vec` GloVe training section, produce all new visualisation sections (cosine heatmap, silhouette plot, conceptual map, t-SNE, UMAP), write all callouts, write the quiz questions and detailed answers, and produce the reporting checklist and summary table. All content was reviewed and is the responsibility of the named author (Martin Schweinberger).
+:::
 
-***
+---
 
-[Back to top](#introduction)
+[Back to top](#intro)
 
-[Back to HOME](/)
+[Back to LADAL home](/)
 
-***
+---
 
-
-# References{-}
-
-[^1]: I am indebted to Paul Warren who kindly pointed out some errors in a previous version of this tutorial.
-
-
-
-
+# References {-}
