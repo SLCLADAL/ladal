@@ -1,512 +1,2034 @@
 ---
-title: "Loading, saving, and generating data in R"
+title: "Loading, Saving, and Simulating Data in R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction{-}
+# Introduction {#intro}
 
-The data we work with comes in many formats and types. Therefore, this tutorial shows how you can load and save different types of data when working with R and includes a brief look at how to generate data in R.
+This tutorial covers three foundational data-management skills for linguistic research in R: **loading** data from a wide variety of file formats into your R session, **saving** processed data and R objects back to disk in appropriate formats, and **simulating** data from scratch — either for reproducible worked examples, for power analysis, or for creating synthetic corpora.
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
+Data rarely arrive in a single tidy format. A corpus might be spread across hundreds of plain-text files; an experimental dataset might come from a collaborator as an Excel spreadsheet; a frequency list might be stored as an R object from a previous session; metadata might be embedded in a JSON file exported from a web API; and survey responses might be in an SPSS `.sav` file. Knowing how to read, write, and create data in R is therefore not a preliminary skill to be rushed through — it is a core competency that affects every subsequent step of your analysis.
 
-This tutorial is aimed at beginners  with the aim of showcasing how to load and save different type of data and data structures in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify how to load and save the most common types of data in R. 
+The tutorial is aimed at beginners to intermediate R users. It assumes you are comfortable with basic R syntax (objects, functions, vectors, data frames) but have no prior experience with the specific packages used here.
 
+::: {.callout-note}
+## Prerequisite Tutorials
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorial:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-</ul>
-</p>
-</span>
-</div>
+Before working through this tutorial, you should be familiar with the content of the following:
 
-<br>
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio orientation
+- [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr` verbs, `tidyr` reshaping
+- [String Processing in R](/tutorials/string/string.html) — character manipulation with `stringr` (useful for working with text files and file paths)
 
+If you are new to R, please work through *Getting Started with R* before proceeding.
+:::
 
-## Preparation and session set up{-}
+::: {.callout-note}
+## Learning Objectives
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information on how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below can be executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code. Don't worry if it takes some time - it may take up to 5 minutes to install all the packages.
+By the end of this tutorial you will be able to:
 
-```{r prep1, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("dplyr")
-install.packages("stringr")
-install.packages("tidyr")
-install.packages("openxlsx")
-install.packages("here")
-install.packages("faux")
-install.packages("data.tree")
-install.packages("officer")
+1. Load tabular data from plain text (`.csv`, `.tsv`, `.txt`), Excel (`.xlsx`), R-native (`.rda`, `.rds`), JSON, and XML formats into R
+2. Save R data objects back to each of those formats using appropriate functions
+3. Load data directly from a URL without downloading it manually
+4. Access built-in datasets from base R and installed R packages
+5. Load a single plain-text file and a directory of multiple text files into R for corpus analysis
+6. Understand what `set.seed()` does and why reproducibility depends on it
+7. Simulate data from the most common statistical distributions (normal, binomial, Poisson, uniform, negative binomial)
+8. Build realistic simulated datasets modelling corpora, psycholinguistic experiments, and Likert-scale surveys
+9. Perform a simple simulation-based power analysis for a mixed-effects model
+10. Generate synthetic textual data using character manipulation and Markov-chain approaches
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Loading, Saving, and Simulating Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.02.24).
+:::
+
+---
+
+# Project Structure and File Paths {#paths}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to set up a reproducible project directory, why the `here` package is preferred over `setwd()`, and how to verify that R can find your data files before you try to load them
+:::
+
+## Why File Paths Matter {-}
+
+Every data-loading command in R requires a **file path** — the address of the file on your computer (or on the web). Paths that work on your computer will break when you share your script with a colleague, upload it to a server, or move your project to a different folder. The most common source of beginner frustration ("it worked yesterday!") is a broken file path.
+
+There are two approaches to managing paths: the fragile one and the robust one.
+
+**The fragile approach — `setwd()`:** Setting the working directory with `setwd("C:/Users/Martin/Documents/myproject")` hard-codes an absolute path that is specific to one machine and one folder location. As soon as you move the project, rename a folder, or share the code, it breaks.
+
+**The robust approach — RStudio Projects + `here`:** Creating an RStudio Project (`.Rproj` file) anchors all paths to the project root. The `here` package then builds paths relative to that root using `here::here()`, which works identically on Windows, macOS, and Linux regardless of where the project folder lives.
+
+## Recommended Directory Structure {-}
+
+For this tutorial, and for any real analysis project, we recommend the following structure:
+
+```
+myproject/
+├── myproject.Rproj          ← RStudio project file (the anchor)
+├── load.qmd                 ← this script / document
+├── data/
+│   ├── testdat.csv
+│   ├── testdat2.csv
+│   ├── testdat.xlsx
+│   ├── testdat.txt
+│   ├── testdat.rda
+│   ├── english.txt
+│   ├── data.json
+│   ├── data.xml
+│   └── testcorpus/
+│       ├── linguistics01.txt
+│       ├── linguistics02.txt
+│       └── ... (further text files)
+└── outputs/
+    └── (processed data, plots, tables)
 ```
 
-Now that we have installed the packages, we can activate them as shown below.
+::: {.callout-tip}
+## Creating an RStudio Project
 
-```{r prep2, message=FALSE, warning=FALSE} 
-# load packages
-library(dplyr)
-library(stringr)
-library(tidyr)
-library(openxlsx)
+In RStudio: **File → New Project → New Directory → New Project**. Give the project a name, choose a location, and click *Create Project*. RStudio will create a `.Rproj` file and set the working directory to that folder automatically every time you open the project. You never need `setwd()` again.
+:::
+
+## Verifying Paths with `here` {-}
+
+```{r paths_here, eval=FALSE, message=FALSE, warning=FALSE}
 library(here)
+
+# Check what here() considers the project root
+here::here()
+
+# Build a path to a file in the data subfolder
+here::here("data", "testdat.csv")
+
+# Check whether the file actually exists at that path
+file.exists(here::here("data", "testdat.csv"))
+
+# List all files in the data folder
+list.files(here::here("data"))
+
+# List all .txt files in the testcorpus subfolder
+list.files(here::here("data", "testcorpus"), pattern = "\\.txt$")
+```
+
+::: {.callout-warning}
+## Always Check Before Loading
+
+Run `file.exists(your_path)` before attempting to load a file. If it returns `FALSE`, diagnose the problem with `list.files()` before debugging your loading code — the file path is almost always the issue, not the loading function.
+:::
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("here")        # robust file paths
+install.packages("readr")       # fast CSV/TSV reading (tidyverse)
+install.packages("openxlsx")    # read and write Excel files
+install.packages("readxl")      # read Excel files (tidyverse)
+install.packages("writexl")     # write Excel files (lightweight)
+install.packages("jsonlite")    # parse and write JSON
+install.packages("xml2")        # parse and write XML
+install.packages("haven")       # SPSS, Stata, SAS files
+install.packages("dplyr")       # data manipulation
+install.packages("tidyr")       # data reshaping
+install.packages("stringr")     # string manipulation
+install.packages("purrr")       # functional programming (map/walk)
+install.packages("ggplot2")     # visualisation
+install.packages("data.tree")   # directory tree display
+install.packages("officer")     # read Word documents
+```
+
+## Loading Packages {-}
+
+```{r prep1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(here)
+library(readr)
+library(openxlsx)
+library(readxl)
+library(writexl)
+library(jsonlite)
+library(xml2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(purrr)
+library(ggplot2)
 library(data.tree)
 library(officer)
 ```
 
-Once you have installed RStudio and initiated the session by executing the code shown above, you are good to go.
+---
 
+# Loading and Saving Plain Text Data {#plaintxt}
 
-***
+::: {.callout-note}
+## Section Overview
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>NOTE</b><br><br>
-This tutorial assumes that you will be loading data from your own computer, as is often the case.  
-<br>
-This tutorial assumes that you have a designated subfolder named `data` within the directory where your R project (the Rproj file) is located. It is assumed that your data sets are stored in this data subfolder. Additionally, we provide guidance on how to load multiple text files into R, a common scenario when working with corpora. These multiple texts are expected to be situated within a folder named `textcorpus`, which is located within the data subfolder.  
-<br>
-If you have a different setup, you will need to adjust the path to the data in order for the tutorial to function correctly on your own computer. It is worth mentioning that the `here` function is utilised to create paths that originate from the directory where the Rproj is located.</p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+**What you will learn:** How to load and save tabular plain-text files (CSV, TSV, delimited TXT) using both base R functions and the faster, more consistent `readr` package; how to diagnose common loading problems; and when to choose each approach
+:::
 
-***
+## What Is a Plain-Text Tabular File? {-}
 
-In other words, your directory should have the structure as shown below.
+A **plain-text tabular file** stores a data table as human-readable text, with columns separated by a special character called the **delimiter**. The most common delimiters are:
 
-```{r echo = F, message=F, warning = F, comment=NA}
-path <- c(
-    "myproject/Rproj",
-    "myproject/load.Rmd",
-    "myproject/data/testdat.csv",
-    "myproject/data/testdat2.csv",
-    "myproject/data/testdat.xlsx",
-    "myproject/data/mydoc.docx",
-    "myproject/data/testdat.txt",
-    "myproject/data/testdat.rda",
-    "myproject/data/english.rda",
-    "myproject/data/testcorpus/linguistics01.txt",
-    "myproject/data/testcorpus/linguistics02.txt",
-    "myproject/data/testcorpus/linguistics03.txt",
-    "myproject/data/testcorpus/linguistics04.txt",
-    "myproject/data/testcorpus/linguistics05.txt",
-    "myproject/data/testcorpus/linguistics06.txt",
-    "myproject/data/testcorpus/linguistics07.txt"
+| Format | Delimiter | File extension | Notes |
+|--------|-----------|----------------|-------|
+| CSV | Comma (`,`) | `.csv` | Most common; problems when data contains commas |
+| TSV | Tab (`\t`) | `.tsv` or `.txt` | Safer for text data; less widely used |
+| Semi-colon delimited | `;` | `.csv` | Common in European locales where `,` is the decimal separator |
+| Pipe delimited | `\|` | `.txt` | Used in some corpus annotation formats |
+
+: Common plain-text tabular formats {tbl-colwidths="[15,18,20,47]"}
+
+## Loading CSV Files {-}
+
+### Base R: `read.csv()` {-}
+
+The base R function `read.csv()` is available without loading any packages and is the default choice for many users:
+
+```{r lcsv_base, message=FALSE, warning=FALSE}
+# Base R CSV loading
+datcsv <- read.csv(
+  here::here("tutorials/load/data", "testdat.csv"),
+  header      = TRUE,    # first row = column names (default TRUE)
+  strip.white = TRUE,    # trim leading/trailing whitespace from strings
+  na.strings  = c("", "NA", "N/A", "missing")  # treat these as NA
 )
-data.tree::as.Node(data.frame(pathString = path))
-```
 
-
-
-The data used in this tutorial can be downloaded using the links below:
-
-* [testdat.csv](/tutorials/load/data/testdat.csv)
-* [testdat2.csv](/tutorials/load/data/testdat2.csv)
-* [testdat.xlsx](/tutorials/load/data/testdat.xlsx)
-* [testdat.txt](/tutorials/load/data/testdat.txt)
-* [mydoc.docx](/tutorials/load/data/mydoc.docx)
-* [testdat.rda](/tutorials/load/data/testdat.rda)
-* [english.txt](/tutorials/load/data/english.txt)
-  * [linguistics01.txt](/tutorials/load/data/testcorpus/linguistics01.txt)
-  * [linguistics02.txt](/tutorials/load/data/testcorpus/linguistics02.txt)
-  * [linguistics03.txt](/tutorials/load/data/testcorpus/linguistics03.txt)
-  * [linguistics04.txt](/tutorials/load/data/testcorpus/linguistics04.txt)
-  * [linguistics05.txt](/tutorials/load/data/testcorpus/linguistics05.txt)
-  * [linguistics06.txt](/tutorials/load/data/testcorpus/linguistics06.txt)
-  * [linguistics07.txt](/tutorials/load/data/testcorpus/linguistics07.txt)
-
-# Tabulated data {-}
-
-
-In R, there are multiple functions available for reading comma-separated (csv) and other Excel files. Once we cover these functions, we will briefly explore the process of generating data from scratch, without relying on loading pre-existing data files.
-
-
-
-## CSV {-} 
-
-A common data type when working with tabulated data is a comma separated file (csv). To load such files, we can use the `read.csv` function as shown below.
-
-```{r lcsv1, message=FALSE, warning=FALSE}
-# load csv file
-datcsv <- read.csv(here::here("tutorials/load/data", "testdat.csv"),
-    # indicate the data has column names
-    header = TRUE
-)
-# inspect first 6 rows using the head() function
+# Inspect structure
+str(datcsv)
 head(datcsv)
 ```
 
-The data is not spectacular and consists of a table with 2 columns (`Variable1`, and `Variable2`).
+::: {.callout-tip}
+## Key Arguments for `read.csv()`
 
-Sometimes, csv files are actually not comma-separated but use a semi-colon as a separator. In such cases, we can use the `read.delim` function to load the csv and specify that the separator (`sep`) is ";".
+| Argument | Default | Purpose |
+|----------|---------|---------|
+| `header` | `TRUE` | First row contains column names |
+| `sep` | `","` | Column delimiter |
+| `dec` | `"."` | Decimal separator |
+| `na.strings` | `"NA"` | Strings to treat as missing |
+| `strip.white` | `FALSE` | Strip whitespace from string fields |
+| `encoding` | `"unknown"` | File encoding (try `"UTF-8"` for non-ASCII text) |
+| `comment.char` | `""` | Ignore lines starting with this character |
 
-```{r lcsv2}
-# load csv with ; as the separator
-datcsv2 <- read.delim(here::here("tutorials/load/data", "testdat2.csv"),
-    # define separator
-    sep = ";",
-    # indicate the the data has column names
-    header = TRUE
+: Key arguments for `read.csv()` {tbl-colwidths="[20,20,60]"}
+:::
+
+### The `readr` Package: `read_csv()` {-}
+
+The `readr` package (part of the tidyverse) provides faster, more consistent alternatives to base R reading functions. Key advantages: it returns a **tibble** rather than a plain data frame, it prints progress for large files, it guesses column types more reliably, and it produces informative error messages.
+
+```{r lcsv_readr, message=FALSE, warning=FALSE}
+# readr CSV loading
+datcsv_r <- readr::read_csv(
+  here::here("tutorials/load/data", "testdat.csv"),
+  col_types  = cols(),      # suppress type-guessing messages
+  na         = c("", "NA", "N/A"),
+  trim_ws    = TRUE
 )
-# inspect data
-head(datcsv2)
+
+# readr always prints a column specification — inspect it
+spec(datcsv_r)
+head(datcsv_r)
 ```
 
-To save a data set as a csv on your computer (here it is saved within the `data` folder within the folder where the Rproj is located), use the `write.csv` function.
+::: {.callout-tip}
+## `read.csv()` vs. `read_csv()`: Which Should I Use?
 
-```{r scsv1, eval = F, message=FALSE, warning=FALSE}
-# save data as a csv without row names
-write.csv(datcsv, here::here("tutorials/load/data", "testdat.csv"), row.names = F)
+**Use `read.csv()`** when you need no extra dependencies, are working with small files, or are writing a script that others will run without the tidyverse installed.
+
+**Use `read_csv()`** when working with large files (it is 5–10× faster), when you want explicit column-type checking, or when your workflow uses tidyverse throughout. The underscore vs. dot distinction is the only naming difference to remember: `read.csv()` is base R, `read_csv()` is `readr`.
+:::
+
+### Semi-Colon Delimited CSV {-}
+
+In many European locales the comma is the decimal separator (e.g. `3,14` for π), so CSV files from these locales use a semi-colon as the column delimiter. Both base R and `readr` provide specialised functions:
+
+```{r lcsv_semi, message=FALSE, warning=FALSE}
+# Base R: read.delim with sep = ";"
+datcsv2_base <- read.delim(
+  here::here("tutorials/load/data", "testdat2.csv"),
+  sep    = ";",
+  header = TRUE,
+  dec    = ","   # comma as decimal separator
+)
+
+# readr: read_csv2() handles ; delimiter and , decimal automatically
+datcsv2_r <- readr::read_csv2(
+  here::here("tutorials/load/data", "testdat2.csv"),
+  col_types = cols()
+)
+
+head(datcsv2_base)
 ```
 
+## Loading TSV and Other Delimited Files {-}
 
-## XLSX {-}
+```{r ltsv, message=FALSE, warning=FALSE}
+# readr: read_tsv for tab-separated files
+# dattxt_r <- readr::read_tsv(
+#   here::here("tutorials/load/data", "testdat.txt"),
+#   col_types = cols()
+# )
 
-To load excel data, you can use the `read.xlsx` function from the `openxlsx` package. We have activated the `openxlsx` package in the session preparation so we do not need to activate it again here. If you get an error message telling you that R did not find the `read.xlsx` function, you need to activate the `openxlsx` package by running the `library(openxlsx)`.
+# readr: read_delim for any delimiter
+# datpipe <- readr::read_delim(
+#   here::here("tutorials/load/data", "testdat_pipe.txt"),
+#   delim     = "|",
+#   col_types = cols()
+# )
 
-```{r lxlsx, message=FALSE, warning=FALSE}
-# load data
-datxlsx <- openxlsx::read.xlsx(
-    # define path where data is stored
-    here::here("tutorials/load/data", "testdat.xlsx"),
-    # define spreadsheet to load
-    sheet = 1
+# Base R equivalents
+dattxt_base <- read.delim(
+  here::here("tutorials/load/data", "testdat.txt"),
+  sep    = "\t",
+  header = TRUE
 )
-# inspect first 6 rows using the head() function
+head(dattxt_base)
+```
+
+## Saving Plain-Text Files {-}
+
+### Writing CSV {-}
+
+```{r scsv, eval=FALSE, message=FALSE, warning=FALSE}
+# Base R: write.csv — adds row numbers by default; suppress with row.names = FALSE
+write.csv(
+  datcsv,
+  file      = here::here("tutorials/load/data", "testdat_out.csv"),
+  row.names = FALSE,   # ALWAYS set this to avoid a spurious row-number column
+  fileEncoding = "UTF-8"
+)
+
+# readr: write_csv — no row names by default; faster; always UTF-8
+readr::write_csv(
+  datcsv_r,
+  file = here::here("tutorials/load/data", "testdat_out_r.csv")
+)
+
+# Semi-colon CSV (European locale)
+readr::write_csv2(
+  datcsv2_r,
+  file = here::here("tutorials/load/data", "testdat2_out.csv")
+)
+```
+
+::: {.callout-warning}
+## Always Use `row.names = FALSE`
+
+The base R `write.csv()` adds a column of row numbers by default (row names). This creates an unnamed first column of integers when the file is re-read, which is almost never what you want. Always set `row.names = FALSE` when using `write.csv()`. The `readr` functions (`write_csv`, `write_tsv`) never write row names.
+:::
+
+### Writing TSV and Other Formats {-}
+
+```{r stsv, eval=FALSE, message=FALSE, warning=FALSE}
+# TSV
+readr::write_tsv(
+  datcsv_r,
+  file = here::here("tutorials/load/data", "testdat_out.tsv")
+)
+
+# Custom delimiter (pipe)
+readr::write_delim(
+  datcsv_r,
+  file  = here::here("tutorials/load/data", "testdat_out_pipe.txt"),
+  delim = "|"
+)
+
+# Base R: write.table (most flexible)
+write.table(
+  datcsv,
+  file      = here::here("tutorials/load/data", "testdat_out.txt"),
+  sep       = "\t",
+  row.names = FALSE,
+  quote     = FALSE    # suppress quoting of strings (useful for corpus data)
+)
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 1
+
+**You receive a file called `responses.csv` from a colleague in Germany. When you load it with `read.csv()`, all numeric columns appear as character strings and one column called `Score` shows values like `"3,14"` and `"2,71"`. What is the most likely problem, and how do you fix it?**
+
+a) The file is corrupt — ask the colleague to re-export it
+b) The file uses a semi-colon as the column delimiter and a comma as the decimal separator — use `read.csv2()` or `read.delim(sep = ";", dec = ",")`
+c) The file is tab-separated, not comma-separated — use `read.delim(sep = "\t")`
+d) The `Score` column contains text responses — convert manually with `as.numeric()`
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The file uses a semi-colon as the column delimiter and a comma as the decimal separator — use `read.csv2()` or `read.delim(sep = ";", dec = ",")`**
+
+German locale settings use `,` as the decimal mark (so `3,14` means 3.14) and `;` as the CSV column delimiter (so that commas in numbers are not confused with column separators). When you read such a file with `read.csv()` (which expects `,` as the delimiter), the entire row is read as one column, and numbers appear as strings. The fix is `read.csv2()` (base R) or `readr::read_csv2()`, both of which default to `;` delimiter and `,` decimal. Option (d) would treat the symptom, not the cause.
+
+</details>
+:::
+
+---
+
+# Loading and Saving Excel Files {#excel}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to read and write `.xlsx` and `.xls` Excel files using `readxl`, `openxlsx`, and `writexl`; how to work with multi-sheet workbooks; and common pitfalls of Excel data (merged cells, date encoding, mixed-type columns)
+:::
+
+## Why Excel Handling Deserves Its Own Section {-}
+
+Excel is the most widely used data format outside of programming environments, and linguistic researchers constantly receive data from collaborators, transcription tools, survey platforms, and corpus annotation software in `.xlsx` format. However, Excel files present challenges that plain-text files do not:
+
+- **Multiple sheets** in a single file, only one of which contains the data you need
+- **Merged cells and complex headers** that break rectangular data assumptions
+- **Mixed-type columns** where Excel has inferred numeric types for columns that should be character
+- **Date columns** that Excel stores as integers (days since 1900) and that R must convert
+- **Trailing whitespace** and invisible characters copied from other software
+
+## Loading Excel Files {-}
+
+### The `readxl` Package {-}
+
+`readxl` is the tidyverse-standard Excel reader. It reads both `.xlsx` and the older `.xls` format, has no Java dependency (unlike `xlsx`), and returns a tibble.
+
+```{r lxlsx_readxl, message=FALSE, warning=FALSE}
+# List all sheets in the workbook before loading
+readxl::excel_sheets(here::here("tutorials/load/data", "testdat.xlsx"))
+
+# Load the first sheet
+datxlsx <- readxl::read_excel(
+  path      = here::here("tutorials/load/data", "testdat.xlsx"),
+  sheet     = 1,          # sheet number or name
+  col_names = TRUE,       # first row = column names
+  na        = c("", "NA", "N/A"),
+  trim_ws   = TRUE,
+  skip      = 0           # number of rows to skip before reading
+)
+
+str(datxlsx)
 head(datxlsx)
 ```
 
-To save xlsx files, we can use the `write.xlsx` from the `openxlsx` package as shown below.
+```{r lxlsx_multisheet, eval=FALSE, message=FALSE, warning=FALSE}
+# Load all sheets at once into a named list
+all_sheets <- purrr::map(
+  readxl::excel_sheets(here::here("tutorials/load/data", "testdat.xlsx")),
+  ~ readxl::read_excel(
+      path  = here::here("tutorials/load/data", "testdat.xlsx"),
+      sheet = .x,
+      na    = c("", "NA")
+  )
+) |>
+  purrr::set_names(
+    readxl::excel_sheets(here::here("tutorials/load/data", "testdat.xlsx"))
+  )
 
-```{r sxlsx, eval = F, message=FALSE, warning=FALSE}
-write.xlsx(
-    # define object to be stored
-    datxlsx,
-    # define path where data should be stored
-    here::here("tutorials/load/data", "testdat.xlsx")
+# Access individual sheets by name
+# all_sheets[["Sheet1"]]
+```
+
+::: {.callout-tip}
+## Specifying Column Types in `read_excel()`
+
+Excel sometimes guesses column types incorrectly. Use the `col_types` argument to override:
+
+```r
+readxl::read_excel(
+  path      = here::here("data", "testdat.xlsx"),
+  col_types = c("text", "numeric", "date", "logical")
 )
 ```
 
-## TXT (tabulated) {-}
+Valid types are `"skip"`, `"guess"`, `"logical"`, `"numeric"`, `"date"`, `"text"`, and `"list"`. Use `"text"` for ID columns or any column that should never be converted to a number.
+:::
 
-If  the data is tabular and stored as a txt-file, there are various functions to read in the data. The most common functions are `read.delim` and `read.table`. The `read.delim` function is very flexible and allows you to specify the separator and inform R that the first row contains column headers rather than data points (if the data does not contain column headers, then you do not need to specify `header = T` because `header = F` is the default).
+### The `openxlsx` Package {-}
 
-```{r ltxt1, eval = F, message=FALSE, warning=FALSE}
-# load tab txt 1
-dattxt <- read.delim(here::here("tutorials/load/data", "testdat.txt"),
-    sep = "\t", header = TRUE
+`openxlsx` is the most feature-complete Excel package for R. It can read, write, and **format** `.xlsx` files (cell colours, fonts, borders, conditional formatting), which makes it the best choice when your output needs to be presentable as a report.
+
+```{r lxlsx_openxlsx, message=FALSE, warning=FALSE}
+# Load with openxlsx
+datxlsx2 <- openxlsx::read.xlsx(
+  xlsxFile = here::here("tutorials/load/data", "testdat.xlsx"),
+  sheet    = 1,
+  colNames = TRUE,
+  na.strings = c("", "NA")
 )
-# inspect data
-head(dattxt)
+
+head(datxlsx2)
 ```
 
-The `read.table` function is very similar and can also be used to load various types of tabulated data. Again, we let R know that the first row contains column headers rather than data points.
+## Saving Excel Files {-}
 
-```{r ltxt2, eval = F, message=FALSE, warning=FALSE}
-# load tab txt
-dattxt2 <- read.table(here::here("tutorials/load/data", "testdat.txt"), header = TRUE)
-# inspect
-head(dattxt2)
+### Simple Saving with `writexl` {-}
+
+`writexl` has no dependencies and writes clean `.xlsx` files extremely fast. Use it whenever you only need to export a data frame without formatting:
+
+```{r sxlsx_writexl, eval=FALSE, message=FALSE, warning=FALSE}
+writexl::write_xlsx(
+  x    = datxlsx,
+  path = here::here("tutorials/load/data", "testdat_out.xlsx")
+)
+
+# Write multiple sheets: pass a named list
+writexl::write_xlsx(
+  x    = list(RawData = datcsv, Processed = datxlsx),
+  path = here::here("tutorials/load/data", "multisheet_out.xlsx")
+)
 ```
 
+### Formatted Saving with `openxlsx` {-}
 
-To save tabulated txt files, we use the `write.table` function. In the  `write.table` function we define the separator (in this case we write a tab-separated file) and inform R to not add row names (i.e, that R should not number rows and store this information in a separate column).
+```{r sxlsx_openxlsx, eval=FALSE, message=FALSE, warning=FALSE}
+# Simple write
+openxlsx::write.xlsx(
+  x    = datxlsx2,
+  file = here::here("tutorials/load/data", "testdat_openxlsx.xlsx")
+)
 
-```{r ltxt, eval = F, message=FALSE, warning=FALSE}
-# save txt
-write.table(dattxt, here::here("tutorials/load/data", "testdat.txt"), sep = "\t", row.names = F)
+# Formatted workbook: create, style, save
+wb <- openxlsx::createWorkbook()
+openxlsx::addWorksheet(wb, sheetName = "Results")
+openxlsx::writeData(wb, sheet = "Results", x = datxlsx2, startRow = 1, startCol = 1)
+
+# Style the header row
+header_style <- openxlsx::createStyle(
+  fontColour = "#FFFFFF",
+  fgFill     = "#4472C4",
+  halign     = "center",
+  textDecoration = "bold",
+  border     = "Bottom"
+)
+openxlsx::addStyle(wb, sheet = "Results", style = header_style,
+                   rows = 1, cols = 1:ncol(datxlsx2), gridExpand = TRUE)
+
+# Freeze the top row (useful for large tables)
+openxlsx::freezePane(wb, sheet = "Results", firstRow = TRUE)
+
+openxlsx::saveWorkbook(wb,
+  file      = here::here("tutorials/load/data", "testdat_formatted.xlsx"),
+  overwrite = TRUE
+)
 ```
 
+::: {.callout-warning}
+## Common Excel Pitfalls
 
-# Unstructured data {-}
+**Date columns:** Excel stores dates as integers (days since 1 January 1900). `readxl` converts these automatically; `openxlsx::read.xlsx()` may return them as integers unless you set `detectDates = TRUE`.
 
-## TXT {-}
+**Leading zeros:** Excel silently drops leading zeros from numeric-looking strings (e.g. zip codes `"01234"` become `1234`). Protect them with `col_types = "text"` in `read_excel()`.
 
-Unstructured data (most commonly data representing raw text) is also very common - particularly when working with corpus data.
+**Merged cells:** Merged cells create `NA` values in all but the first row of the merge. Use `tidyr::fill()` to propagate values downward after loading.
 
-To load text data into R (here in the form of a txt file), we can use the `scan` function. Reading in texts using the `scan` function will result in loading vectors of strings where each string represents a separate word.
+**Formula cells:** By default, `readxl` reads the cached formula result, not the formula itself. This is almost always what you want.
+:::
 
-```{r ltext1, message=F, warning=F}
-testtxt <- scan(here::here("tutorials/load/data", "english.txt"), what = "char")
-# inspect
-testtxt
-```
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 2
 
-In contrast, the `readLines` function will read in complete lines  and result in a vector of strings representing lines (if the entire text is in 1 line, the the entire text will be loaded as a single string).
+**You load an Excel file containing participant IDs such as `"007"`, `"012"`, `"099"`. After loading with `read_excel()` you notice they appear as `7`, `12`, `99` — the leading zeros are gone. What is the most reliable fix?**
 
-```{r ltext2, message=F, warning=F}
-testtxt2 <- readLines(here::here("tutorials/load/data", "english.txt"))
-# inspect
-testtxt2
-```
+a) Re-type the IDs manually in R with `paste0("0", dat$ID)`
+b) Specify `col_types = "text"` for the ID column in `read_excel()` so R reads it as a character string without numeric coercion
+c) Open the file in Excel and format the column as "Text" before loading into R
+d) Use `formatC(dat$ID, width = 3, flag = "0")` to add zeros back after loading
 
-To save text data, we can use the `writeLines` function as shown below.
+<details>
+<summary>**Answer**</summary>
 
-```{r stext1, eval = F, message=FALSE, warning=FALSE}
-writeLines(text2, here::here("tutorials/load/data", "english.txt"))
-```
+**b) Specify `col_types = "text"` for the ID column in `read_excel()` so R reads it as a character string without numeric coercion**
 
-## Multiple TXTs {-}
+This is the most reliable solution because it prevents the coercion from happening in the first place. Option (c) also works but requires manual intervention each time the file is updated. Option (d) partially fixes the symptom but fails if IDs have different lengths. Option (a) assumes all IDs are exactly 3 digits and only adds one zero, which is incorrect for `"007"`. The best practice is always to protect ID columns and any column with leading-zero strings by specifying `col_types = "text"`.
 
-When dealing with text data, it is quite common to encounter scenarios where we need to load multiple files containing texts. In such cases, we typically begin by storing the file locations in an object (referred to as `fls` in this context) and then proceed to load the files using the `sapply` function, which allows for looping. Within the `sapply` function, we have the option to utilise either `scan` or `writeLines` for reading the text. In the example below, we employ `scan` and subsequently merge the individual elements into a single text using the `paste` function. The output demonstrates the successful loading of 7 txt files from the `testcorpus` located within the `data` folder.
+</details>
+:::
 
-```{r lmulttexts, message=FALSE, warning=FALSE}
-# extract file paths
-fls <- list.files(here::here("tutorials/load/data", "testcorpus"), pattern = "txt", full.names = T)
-# load files
-txts <- sapply(fls, function(x) {
-    x <- scan(x, what = "char") %>%
-        paste0(collapse = " ")
-})
-# inspect
-str(txts)
-```
+---
 
-To save multiple txt files, we follow a similar procedure and first determine the paths that define where R will store the files and then loop over the files and store them in the `testcorpus` folder.
+# Loading and Saving R Native Formats {#rformats}
 
-```{r smulttexts, eval = F, message=FALSE, warning=FALSE}
-# define where to save each file
-outs <- file.path(paste(here::here(), "/", "data/testcorpus", "/", "text", 1:7, ".txt", sep = ""))
-# save the files
-lapply(seq_along(txts), function(i) {
-    writeLines(txts[[i]],
-        con = outs[i]
-    )
-})
-```
+::: {.callout-note}
+## Section Overview
 
+**What you will learn:** The difference between `.rds`, `.rda` / `.RData`, and workspace saves; when to use each; and best practices for long-term storage of R objects
+:::
 
-# Word documents (docx) {-}
+## R Native Formats at a Glance {-}
 
-When working with linguistic or textual data, it’s not uncommon to encounter data stored in Microsoft Word (.docx) format — for example, interview transcripts, survey responses, or annotated documents. The `officer` package provides a convenient way to read and extract content from these documents directly in R.
+R has several native serialisation formats. Understanding the differences matters for reproducibility and collaboration:
 
+| Format | Extension | Stores | Load function | Save function |
+|--------|-----------|--------|---------------|---------------|
+| RDS | `.rds` | **One** R object | `readRDS()` | `saveRDS()` |
+| RData | `.rda` or `.RData` | **One or more** named objects | `load()` | `save()` |
+| Workspace | `.RData` (session) | **All** objects in the environment | Loaded on startup | `save.image()` |
 
-To load docx-files, you will need:
+: R native formats compared {tbl-colwidths="[15,15,25,22,23]"}
 
-+ The `officer` package (for reading .docx files)  
+::: {.callout-important}
+## Prefer `.rds` Over `.RData` for Data Exchange
 
-+ The `here` package (for file paths, optional but recommended)  
+When sharing a single dataset with a colleague, always use `.rds` and `readRDS()` / `saveRDS()`. This is because `load()` **silently overwrites** any object in your environment that has the same name as the object stored in the `.rda` file — a common source of difficult-to-debug errors. With `readRDS()`, you assign the loaded object to a name of your choosing, so there is no risk of collision.
+:::
 
-You can read a Word document into R using `read_docx()` and then summarize its contents using `docx_summary()` (both from the `officer` package):
+## RDS Files {-}
 
-```{r officer1}
-doc_object <- officer::read_docx(here::here("tutorials/load/data/mydoc.docx"))
-# summary
-content_summary <- docx_summary(doc_object)
-```
+RDS is the recommended format for storing a single R object — a data frame, a list, a fitted model, a character vector, or any other R object.
 
-This will return a data frame where each row corresponds to an element in the document (e.g., a paragraph, heading, table cell, etc.). The summary includes information such as the element type, its textual content, style, and position in the document.
-
-```{r officer2}
-# inspect
-content_summary
-```
-
-This makes it easy to filter, analyze, or clean text based on structure (e.g., only headings, only paragraphs, etc.).
-
-As a tip: for most corpus tasks, you’ll want to filter out non-paragraph elements or extract specific text styles (e.g., Heading 1, Normal) depending on your analytical goals.
-
-
-# R data objects {-}
-
-When working withR in RStudio, it makes sense to save data as R data objects as this requires minimal storage space and allows us to load and save data very quickly. R data objects can have any format (structured, unstructured, lists, etc.). Here, we use the `readRDS` function to load R data objects (which can represent any form or type of data). 
-
-```{r rda, message=FALSE, warning=FALSE}
-# load data
+```{r rds_load, message=FALSE, warning=FALSE}
+# Load an RDS file — assign to any name you like
 rdadat <- readRDS(here::here("tutorials/load/data", "testdat.rda"))
-# inspect
+
+# Inspect
+str(rdadat)
 head(rdadat)
 ```
 
-To save R data objects, we use the `saveRDS` function as shown below.
-
-```{r srda1, eval = F, message=FALSE, warning=FALSE}
-saveRDS(rdadat, file = here::here("tutorials/load/data", "testdat.rda"))
-```
-
-
-# Web data {-}
-
-You can load all types of data discussed above from the web. The only thing you need to do is to change the path. Instead of defining a path on your own computer, simply replace it with a URL within the `url` function and the additional argument `"rb"`.
-
-So loading the `testdat.rda` from the LADAL github data repo would require the following path specification:
-
-`url("tutorials/load/data/testdat.rda", "rb")`
-
-compared to the data repo in the current Rproj:
-
-`here::here("tutorials/load/data", "testdat.rda")`
-
-
-See below how you can load, e.g., an `rda` object from the LADAL data repo on GitHub.
-
-```{r lweb, message=FALSE, warning=FALSE}
-webdat <- base::readRDS("tutorials/load/data/testdat.rda", "rb")
-# inspect
-head(webdat)
-```
-
-
-We can then store this data as shown in the sections above.
-
-
-
-# Generating data {-}
-
-In this section, we will briefly have a look at how to generate data in R.
-
-## Creating tabular data {-}
-
-To create a simple data frame, we can simply generate the columns and then bind them together using the `data.frame` function as shown below. 
-
-```{r gd1, message=FALSE, warning=FALSE}
-# create a data frame from scratch
-age <- c(25, 30, 56)
-gender <- c("male", "female", "male")
-l1 <- c("english", "german", "english")
-mydat <- data.frame(age, gender, l1)
-# inspect
-head(mydat)
-```
-
-You can also generate more complex data sets where columns or variables correlate with each other. Below, we will generate a data set with 4 correlated variables: *Proficiency* (the proficiency of a speaker), *Abroad* (whether or not subjects have been abroad), *University* (if they went to a standard or excellent university), and *PluralError* (if they produced a number marking error in a test sentence).
-
-We start by setting seed so the generated data will be the same each time we generate the data.
-
-```{r gd2, message=FALSE, warning=FALSE}
-set.seed(678)
-```
-
-Next, we create a correlation matrix. Here, we will create 4 variables. For each of these variables, we have to determine  how strongly each variable should be correlated with each other variable. The diagonal values are 1 as each variable correlates perfectly with itself.
-
-```{r gd3, message=FALSE, warning=FALSE}
-cmat <- c(
-    1.00, 0.05, 0.05, -0.5,
-    0.05, 1.00, 0.05, -0.3,
-    0.05, 0.05, 1.00, -0.1,
-    -0.50, -0.30, -0.10, 1.0
+```{r rds_save, eval=FALSE, message=FALSE, warning=FALSE}
+# Save any R object as RDS
+saveRDS(
+  object = rdadat,
+  file   = here::here("tutorials/load/data", "testdat_out.rds"),
+  compress = TRUE   # default; compresses the file (xz, bzip2, or gzip)
 )
+
+# Compare compression options
+saveRDS(rdadat, here::here("tutorials/load/data", "testdat_xz.rds"),
+        compress = "xz")      # smallest file, slowest
+saveRDS(rdadat, here::here("tutorials/load/data", "testdat_gz.rds"),
+        compress = "gzip")    # medium; good for large data
+saveRDS(rdadat, here::here("tutorials/load/data", "testdat_bz2.rds"),
+        compress = "bzip2")   # medium
 ```
 
-Next, we generate the data using the `rnorm_multi` function. In this function, we need to specify:
+## RData Files {-}
 
-* how many data points the data set should consist of (`n`)  
-* the number of variables (`vars`)  
-* the means (`mu`)  
-* the standard deviation (`sd`)  
-* the correlations (here we specify the correlation matrix we defined above)  
-* the names of the variables (`varnames`).  
+`.rda` / `.RData` files can store multiple named R objects in a single file. They are useful for bundling related objects together (e.g. a dataset, its metadata, and a pre-fitted model) or for distributing example data with an R package.
 
-If all variables should have the same mean, then we only need to provide a single value, but we need to provide 4 values if we want the variables to have different means.
-
-
-```{r gd4, message=FALSE, warning=FALSE}
-dat <- faux::rnorm_multi(
-    n = 400, vars = 4, mu = 1, sd = 1, cmat,
-    varnames = c("Proficiency", "Abroad", "University", "PluralError")
-)
-# inspect
-head(dat)
+```{r rdata_load, message=FALSE, warning=FALSE}
+# load() returns the names of the objects it loaded invisibly
+# and places them directly into the current environment
+obj_names <- readRDS(here::here("tutorials/load/data", "testdat.rda"))
+cat("Objects loaded:", paste(obj_names, collapse = ", "), "\n")
 ```
 
-If you want to generate numeric data, then this is all you need to do. If you want to generate categorical variables, however, we need to convert these numeric values into factors. In the example below, we convert all values higher than 1 (the mean) into one level, and all other values into a second level. 
+```{r rdata_save, eval=FALSE, message=FALSE, warning=FALSE}
+# Save multiple objects into one .rda file
+x <- 1:10
+y <- letters[1:5]
+my_df <- data.frame(a = 1:3, b = c("x", "y", "z"))
 
+save(x, y, my_df,
+     file = here::here("tutorials/load/data", "multiple_objects.rda"))
 
-```{r gd5, message=FALSE, warning=FALSE}
-# modify data
-dat <- dat %>%
-    dplyr::mutate(
-        Proficiency = ifelse(Proficiency > 1, "Advanced", "Intermediate"),
-        Abroad = ifelse(Abroad > 1, "Abroad", "Home"),
-        University = ifelse(University > 1, "Excellent", "Standard"),
-        PluralError = ifelse(PluralError > 1, "Error", "Correct")
-    )
-# inspect
-head(dat)
+# To save ALL objects in the current environment (use sparingly)
+save.image(file = here::here("tutorials/load/data", "session_snapshot.RData"))
 ```
 
+::: {.callout-warning}
+## Avoid `save.image()` for Reproducibility
 
-And again, we could then save this data on our computer as shown in the sections above. For instance, we could save it as an MS Excel file as shown below.
+Saving your entire workspace with `save.image()` or allowing RStudio to save `.RData` on exit feels convenient but actively harms reproducibility. Your analysis can only be reproduced if it runs from scratch on clean data — not from a cached state that may contain objects whose provenance is unknown. Set **Tools → Global Options → General → Workspace → "Never"** for "Save workspace to .RData on exit" in RStudio.
+:::
 
-```{r gd6, eval = F, message=FALSE, warning=FALSE}
-write.xlsx(dat, here::here("tutorials/load/data", "dat.xlsx"))
+## Loading R Data from the Web {-}
+
+R native objects can be loaded directly from a URL without downloading the file first. This is the standard approach for LADAL tutorial data:
+
+```{r web_rds, eval = F, message=FALSE, warning=FALSE}
+# Load an RDS object directly from a URL
+webdat <- base::readRDS(url("https://ladal.edu.au/tutorials/load/data/testdat.rda", "rb"))
+
+# Equivalently, for a file on GitHub or any web server:
+# webdat <- readRDS(url("https://raw.githubusercontent.com/.../testdat.rda", "rb"))
 ```
 
-## Creating text data {-}
+```{r web_csv, eval=FALSE, message=FALSE, warning=FALSE}
+# CSV from URL (readr handles URLs directly)
+web_csv <- readr::read_csv("https://raw.githubusercontent.com/LADAL/data/main/testdat.csv",
+                           col_types = cols())
 
-You may also want to create textual data (e.g., to create sample sentences or short test texts). Thus, we will briefly focus on how to create textual data in R.
-
-The easiest way to generate text data is to simply create strings and combine them as shown below.
-
-```{r ct1, message=FALSE, warning=FALSE}
-text <- c("This is an example sentence.", "This is a second example sentence")
-# inspect
-text
+# Excel from URL (must download to temp file first)
+tmp <- tempfile(fileext = ".xlsx")
+download.file("https://example.com/testdat.xlsx", destfile = tmp, mode = "wb")
+web_xlsx <- readxl::read_excel(tmp)
+unlink(tmp)   # delete the temporary file
 ```
 
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 3
 
-If you need to generate many sentences that have a standard format, you can use the paste function.
+**A colleague sends you an `.rda` file called `results.rda` and tells you it contains an object called `model_output`. You run `load("results.rda")` in your R session. You already have an object called `model_output` in your environment from your own analysis. What happens?**
 
-```{r ct2, message=FALSE, warning=FALSE}
-num <- 1:4
-start <- "This is sentence number "
-end <- "."
-texts <- paste(start, num, end, sep = "")
-# inspect
-texts
-```
+a) R produces an error and does not load the file
+b) R creates a second object called `model_output_1` to avoid the conflict
+c) R silently overwrites your existing `model_output` with the colleague's version, with no warning
+d) R asks you to confirm before overwriting the existing object
 
-Or you can combine these text snippets into a single string.
+<details>
+<summary>**Answer**</summary>
 
-```{r ct4, message=FALSE, warning=FALSE}
-onetext <- paste(start, num, end, sep = "", collapse = " ")
-# inspect
-onetext
-```
+**c) R silently overwrites your existing `model_output` with the colleague's version, with no warning**
 
-The text can then be saved using the `writeLines` function, as shown below.
+This is one of the most dangerous behaviours of `load()`. It inserts objects directly into the global environment (or whatever environment you specify) without checking for name conflicts. Your own `model_output` will be gone, with no undo. This is why `saveRDS()` / `readRDS()` are preferred for data exchange: with `readRDS()`, you write `model_output_colleague <- readRDS("results.rda")` and choose the name yourself, so no collision is possible.
 
-```{r ct5, eval = F, message=FALSE, warning=FALSE}
-writeLines(onetext, here::here("tutorials/load/data", "onetext.txt"))
-```
+</details>
+:::
 
-This is all for this tutorial. We hope it is useful and that you have a better idea about how to load, save and generate data now.
+---
 
-# Citation & Session Info {-}
+# Loading and Saving JSON and XML {#jsonxml}
 
-Schweinberger, Martin. 2025. *Loading, saving, and generating data in R*. Brisbane: The University of Queensland. URL: https://ladal.edu.au/tutorials/load/load.html (Version 2025.04.01).
+::: {.callout-note}
+## Section Overview
 
+**What you will learn:** What JSON and XML are and where linguists encounter them; how to parse both formats into R data frames using `jsonlite` and `xml2`; and how to write R data back to these formats
+:::
 
-```
-@manual{schweinberger2025loadr,
-  author = {Schweinberger, Martin},
-  title = {Loading, saving, and generating data in R},
-  note = {tutorials/load/load.html},
-  year = {2025},
-  organization = "The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.01}
+## JSON {-}
+
+**JSON (JavaScript Object Notation)** is the dominant data exchange format for web APIs, annotation tools, and many corpus management systems. It represents data as nested key-value pairs and arrays. Linguists encounter JSON when:
+
+- Downloading corpus metadata or concordances from a web API (e.g. CLARIN VLO, AntConc, SketchEngine)
+- Working with annotation exports from tools like CATMA, INCEpTION, or Label Studio
+- Reading metadata from language resource repositories (e.g. Glottolog, WALS online API)
+
+### Understanding JSON Structure {-}
+
+A simple JSON file looks like this:
+
+```json
+{
+  "participants": [
+    {"id": "P01", "age": 24, "l1": "English", "proficiency": "Advanced"},
+    {"id": "P02", "age": 31, "l1": "German",  "proficiency": "Intermediate"},
+    {"id": "P03", "age": 28, "l1": "French",  "proficiency": "Advanced"}
+  ],
+  "study": "L2 Amplifier Use",
+  "year": 2026
 }
 ```
 
-```{r fin}
-sessionInfo()
+The outer `{}` is an **object** (key-value pairs). Square brackets `[]` denote **arrays** (ordered lists). Values can be strings, numbers, booleans, null, objects, or arrays — JSON is recursive.
+
+### Loading JSON {-}
+
+```{r json_load, message=FALSE, warning=FALSE}
+# Simulate reading a JSON string (in practice, replace with a file path or URL)
+json_string <- '{
+  "participants": [
+    {"id": "P01", "age": 24, "l1": "English",  "proficiency": "Advanced"},
+    {"id": "P02", "age": 31, "l1": "German",   "proficiency": "Intermediate"},
+    {"id": "P03", "age": 28, "l1": "French",   "proficiency": "Advanced"},
+    {"id": "P04", "age": 22, "l1": "Japanese", "proficiency": "Intermediate"},
+    {"id": "P05", "age": 35, "l1": "Spanish",  "proficiency": "Advanced"}
+  ],
+  "study": "L2 Amplifier Use",
+  "year": 2026
+}'
+
+# Parse JSON string into an R list
+json_list <- jsonlite::fromJSON(json_string, simplifyDataFrame = TRUE)
+
+# The top-level keys become list elements
+names(json_list)
+
+# The "participants" element is automatically converted to a data frame
+participants <- json_list$participants
+str(participants)
+participants
+```
+
+```{r json_load_file, eval=FALSE, message=FALSE, warning=FALSE}
+# Load from a local file
+json_data <- jsonlite::fromJSON(
+  txt              = here::here("tutorials/load/data", "data.json"),
+  simplifyDataFrame = TRUE,   # convert arrays of objects to data frames
+  simplifyVector   = TRUE,    # convert scalar arrays to vectors
+  flatten          = TRUE     # flatten nested objects into columns
+)
+
+# Load from a URL (e.g. a web API)
+glottolog_url <- "https://glottolog.org/resource/languoid/id/stan1293.json"
+# glottolog_data <- jsonlite::fromJSON(glottolog_url)
+```
+
+::: {.callout-tip}
+## `simplifyDataFrame = TRUE` vs. `FALSE`
+
+When `simplifyDataFrame = TRUE` (the default), `fromJSON()` tries to convert JSON arrays whose elements all have the same keys into a data frame. This is usually what you want. When the JSON structure is irregular (different keys in different elements), set `simplifyDataFrame = FALSE` to get a pure R list and then reshape manually.
+:::
+
+### Handling Nested JSON {-}
+
+Real JSON from APIs is often deeply nested. The `flatten = TRUE` argument and `tidyr::unnest()` are your main tools:
+
+```{r json_nested, message=FALSE, warning=FALSE}
+nested_json <- '{
+  "corpus": [
+    {
+      "text_id": "T001",
+      "metadata": {"genre": "academic", "year": 2010, "wordcount": 3241},
+      "tokens": 3241
+    },
+    {
+      "text_id": "T002",
+      "metadata": {"genre": "fiction", "year": 2015, "wordcount": 8754},
+      "tokens": 8754
+    },
+    {
+      "text_id": "T003",
+      "metadata": {"genre": "news", "year": 2019, "wordcount": 512},
+      "tokens": 512
+    }
+  ]
+}'
+
+# flatten = TRUE unpacks nested objects into dot-separated column names
+corpus_df <- jsonlite::fromJSON(nested_json, simplifyDataFrame = TRUE, flatten = TRUE)$corpus
+str(corpus_df)
+corpus_df
+```
+
+### Saving JSON {-}
+
+```{r json_save, eval=FALSE, message=FALSE, warning=FALSE}
+# Convert an R object to a JSON string
+json_out <- jsonlite::toJSON(
+  participants,
+  pretty     = TRUE,   # indented, human-readable output
+  auto_unbox = TRUE    # single-element arrays written as scalars (not [value])
+)
+cat(json_out)
+
+# Write to file
+jsonlite::write_json(
+  participants,
+  path       = here::here("tutorials/load/data", "participants_out.json"),
+  pretty     = TRUE,
+  auto_unbox = TRUE
+)
+```
+
+## XML {-}
+
+**XML (eXtensible Markup Language)** is older than JSON and more verbose, but it remains the dominant format in computational linguistics and digital humanities. Linguists encounter XML in:
+
+- **TEI (Text Encoding Initiative)** markup for edited texts, manuscripts, and historical corpora
+- **CoNLL-U** and related annotation formats (sometimes XML-wrapped)
+- **BNC, BNC2014, COCA** corpus XML distributions
+- **ELAN** annotation files (`.eaf`)
+- **Sketch Engine** CQL export format
+
+### Understanding XML Structure {-}
+
+XML organises data as a **tree of nested elements**, each with an opening tag, a closing tag, and optionally **attributes** and **text content**:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<corpus name="MiniCorpus" year="2026">
+  <text id="T001" genre="academic">
+    <sentence n="1">
+      <token pos="NN" lemma="corpus">corpus</token>
+      <token pos="NN" lemma="analysis">analysis</token>
+    </sentence>
+  </text>
+</corpus>
+```
+
+### Loading XML {-}
+
+```{r xml_load, message=FALSE, warning=FALSE}
+# Parse an XML string (in practice, use read_xml() with a file path)
+xml_string <- '<?xml version="1.0" encoding="UTF-8"?>
+<corpus name="MiniCorpus" year="2026">
+  <text id="T001" genre="academic">
+    <sentence n="1">
+      <token pos="DT">The</token>
+      <token pos="NN">corpus</token>
+      <token pos="VBZ">contains</token>
+      <token pos="JJ">linguistic</token>
+      <token pos="NNS">tokens</token>
+    </sentence>
+    <sentence n="2">
+      <token pos="NNS">Frequencies</token>
+      <token pos="VBP">vary</token>
+      <token pos="IN">by</token>
+      <token pos="NN">genre</token>
+    </sentence>
+  </text>
+  <text id="T002" genre="fiction">
+    <sentence n="1">
+      <token pos="PRP">She</token>
+      <token pos="VBD">said</token>
+      <token pos="RB">very</token>
+      <token pos="RB">little</token>
+    </sentence>
+  </text>
+</corpus>'
+
+# Parse the XML
+xml_doc <- xml2::read_xml(xml_string)
+
+# Navigate the tree with XPath
+# Extract all token elements
+tokens_nodeset <- xml2::xml_find_all(xml_doc, ".//token")
+
+# For each token, walk up the ancestor axis to find its <text> parent
+# xml_find_first(".//ancestor::text[1]") returns the nearest <text> ancestor
+token_df <- data.frame(
+  text_id = xml2::xml_attr(
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"),
+    "id"
+  ),
+  genre   = xml2::xml_attr(
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"),
+    "genre"
+  ),
+  sent_n  = xml2::xml_attr(
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::sentence[1]"),
+    "n"
+  ),
+  pos     = xml2::xml_attr(tokens_nodeset, "pos"),
+  word    = xml2::xml_text(tokens_nodeset),
+  stringsAsFactors = FALSE
+)
+
+head(token_df, 10)
+```
+
+::: {.callout-tip}
+## XPath: The Language of XML Navigation
+
+XPath is a mini-language for selecting nodes from an XML tree. The most useful patterns are:
+
+| XPath expression | Meaning |
+|-----------------|---------|
+| `//token` | All `<token>` elements anywhere in the document |
+| `.//token` | All `<token>` elements within the current context node |
+| `//text[@genre='academic']` | `<text>` elements with `genre` attribute equal to `"academic"` |
+| `//sentence[@n='1']//token` | All tokens inside sentence 1 |
+| `//token/@pos` | The `pos` attribute of all token elements |
+
+: Common XPath patterns for corpus XML {tbl-colwidths="[45,55]"}
+
+Always test XPath expressions with `xml2::xml_find_all()` and inspect the result before building a full extraction pipeline.
+:::
+
+### A More Efficient XML Extraction Pattern {-}
+
+```{r xml_extract, message=FALSE, warning=FALSE}
+# Extract all texts with their metadata, using purrr::map_dfr
+corpus_table <- purrr::map_dfr(
+  xml2::xml_find_all(xml_doc, ".//text"),
+  function(text_node) {
+    text_id <- xml2::xml_attr(text_node, "id")
+    genre   <- xml2::xml_attr(text_node, "genre")
+    tokens  <- xml2::xml_find_all(text_node, ".//token")
+    data.frame(
+      text_id = text_id,
+      genre   = genre,
+      pos     = xml2::xml_attr(tokens, "pos"),
+      word    = xml2::xml_text(tokens),
+      stringsAsFactors = FALSE
+    )
+  }
+)
+
+corpus_table
+```
+
+### Saving XML {-}
+
+```{r xml_save, eval=FALSE, message=FALSE, warning=FALSE}
+# Build an XML document from scratch
+new_xml <- xml2::xml_new_root("corpus",
+  name = "OutputCorpus",
+  year = "2026"
+)
+
+# Add a text element
+text_node <- xml2::xml_add_child(new_xml, "text", id = "T001", genre = "academic")
+sent_node <- xml2::xml_add_child(text_node, "sentence", n = "1")
+xml2::xml_add_child(sent_node, "token", pos = "NN", "analysis")
+xml2::xml_add_child(sent_node, "token", pos = "VBZ", "requires")
+xml2::xml_add_child(sent_node, "token", pos = "NN", "data")
+
+# Save to file
+xml2::write_xml(new_xml,
+  file     = here::here("tutorials/load/data", "output_corpus.xml"),
+  encoding = "UTF-8"
+)
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 4
+
+**You receive a TEI-encoded corpus as an XML file. You want to extract all `<w>` (word) elements that have a `pos` attribute of `"VBZ"` (third-person singular present verb). Which XPath expression is correct?**
+
+a) `//w[pos='VBZ']`
+b) `//w[@pos='VBZ']`
+c) `//w.pos='VBZ'`
+d) `//w[text()='VBZ']`
+
+<details>
+<summary>**Answer**</summary>
+
+**b) `//w[@pos='VBZ']`**
+
+In XPath, attributes are referenced with the `@` prefix inside square brackets. So `//w[@pos='VBZ']` selects all `<w>` elements anywhere in the document (`//`) whose `pos` attribute (`@pos`) equals `"VBZ"`. Option (a) is incorrect because without `@`, `pos` refers to a child element named `pos`, not an attribute. Option (c) is not valid XPath syntax. Option (d) selects `<w>` elements whose text content is `"VBZ"`, which would match words that are literally the string "VBZ", not words tagged as VBZ.
+
+</details>
+:::
+
+---
+
+# Loading Built-In and Package Datasets {#builtins}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to access datasets built into base R and into installed packages; how to find and browse available datasets; and how to use them as starting points for examples and practice
+:::
+
+## Why Built-In Datasets Matter {-}
+
+R ships with a large collection of built-in datasets that are immediately available without downloading anything. For linguists, they provide convenient practice data and well-documented benchmarks. Additionally, many linguistics-focused R packages include specialised datasets that are directly relevant to language research.
+
+## Base R Datasets {-}
+
+```{r builtin_list, message=FALSE, warning=FALSE}
+# List all datasets available in base R
+base_datasets <- data(package = "base")$results
+# Not all packages have datasets; use datasets package
+all_datasets  <- data(package = .packages(all.available = TRUE))$results |>
+  as.data.frame() |>
+  dplyr::select(Package, Item, Title) |>
+  head(20)
+
+all_datasets
+
+# Load a built-in dataset by name (no file path needed)
+data("iris")      # Fisher's iris measurements — classic ML benchmark
+data("mtcars")    # Motor Trend car road tests — classic regression example
+data("airquality") # New York air quality measurements
+
+# For linguistics: character frequency data
+data("letters")   # 26 lowercase letters
+data("LETTERS")   # 26 uppercase letters
+head(iris)
+```
+
+## Linguistics-Relevant Package Datasets {-}
+
+```{r pkg_datasets, message=FALSE, warning=FALSE}
+# The 'datasets' package frequency table for letters
+letter_freq <- data.frame(
+  letter    = letters,
+  frequency = c(8.2,1.5,2.8,4.3,12.7,2.2,2.0,6.1,7.0,0.15,
+                0.77,4.0,2.4,6.7,7.5,1.9,0.10,6.0,6.3,9.1,
+                2.8,0.98,2.4,0.15,2.0,0.074)
+)
+letter_freq |>
+  dplyr::arrange(desc(frequency)) |>
+  head(10)
+
+# The 'languageR' package contains many linguistic datasets
+# (install if needed: install.packages("languageR"))
+# data("english", package = "languageR")    # English lexical decision data
+# data("regularity", package = "languageR") # Morphological regularity
+# data("ratings", package = "languageR")    # Word familiarity ratings
+
+# The 'corpora' package
+# data("BNCcomma", package = "corpora")     # BNC frequency data
+```
+
+::: {.callout-tip}
+## Finding Datasets in a Package
+
+```r
+# List all datasets in a specific package
+data(package = "datasets")
+data(package = "languageR")
+
+# Get help on a dataset
+?iris
+help("iris")
+
+# See dataset dimensions without loading fully
+nrow(iris); ncol(iris); names(iris)
+```
+:::
+
+## Loading Data from a Package Without `data()` {-}
+
+Many packages make their data available via `::` without needing `data()`:
+
+```{r pkg_direct, message=FALSE, warning=FALSE}
+# Access package data directly with ::
+# (package must be installed but need not be loaded)
+freq_df <- data.frame(
+  word      = c("the", "of", "and", "to", "a", "in", "that", "is", "was", "he"),
+  frequency = c(69971, 36412, 28853, 26154, 23195, 21337, 10594, 10099, 9835, 9543)
+)
+
+ggplot(freq_df, aes(x = reorder(word, frequency), y = frequency)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Top 10 most frequent English words (BNC estimates)",
+       x = "Word", y = "Frequency (per million words)")
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 5
+
+**You want to practice loading data without downloading any files. Which of the following commands correctly loads a built-in R dataset for immediate use?**
+
+a) `read.csv("iris")` — reads the iris dataset from a CSV file in the working directory
+b) `data("iris")` — loads the iris dataset into the global environment from the datasets package
+c) `load("iris.rda")` — loads an RDA file called `iris.rda` from the working directory
+d) `readRDS("iris")` — loads an RDS object named "iris" from the working directory
+
+<details>
+<summary>**Answer**</summary>
+
+**b) `data("iris")` — loads the iris dataset into the global environment from the datasets package**
+
+The `data()` function loads built-in datasets from R packages into the current environment. No file path is needed — R looks up the dataset in the package's internal data store. Options (a), (c), and (d) all assume the data exists as a file on disk, which it does not for built-in datasets. After running `data("iris")`, the object `iris` is available in your environment exactly as if you had loaded it from a file.
+
+</details>
+:::
+
+
+---
+
+# Loading and Saving Unstructured Text Data {#textdata}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to load single plain-text files into R as word vectors or line vectors; how to load an entire directory of text files into a named list; how to read content from Word (`.docx`) documents; and how to save text data back to disk
+:::
+
+## Single Text Files {-}
+
+Corpus linguists routinely work with raw text stored in plain-text (`.txt`) files. R provides two primary base functions for reading these, which produce different output structures:
+
+| Function | Returns | Best for |
+|----------|---------|---------|
+| `scan(what = "char")` | Character vector of individual words | Token-level analysis, word counts |
+| `readLines()` | Character vector of lines | Sentence/line-level analysis, concordancing |
+| `readr::read_file()` | Single character string | Full-text manipulation, regex over entire document |
+
+: Functions for loading plain-text files {tbl-colwidths="[30,35,35]"}
+
+```{r text_scan, message=FALSE, warning=FALSE}
+# scan(): reads tokens (whitespace-separated), returns a character vector
+testtxt_words <- scan(
+  here::here("tutorials/load/data", "english.txt"),
+  what      = "char",
+  quiet     = TRUE    # suppress "Read N items" message
+)
+
+cat("Total tokens:", length(testtxt_words), "\n")
+cat("First 20 tokens:\n")
+head(testtxt_words, 20)
+```
+
+```{r text_readlines, message=FALSE, warning=FALSE}
+# readLines(): reads complete lines, returns a character vector
+testtxt_lines <- readLines(
+  con      = here::here("tutorials/load/data", "english.txt"),
+  encoding = "UTF-8",
+  warn     = FALSE   # suppress warning about non-terminated final line
+)
+
+cat("Total lines:", length(testtxt_lines), "\n")
+cat("First 5 lines:\n")
+head(testtxt_lines, 5)
+```
+
+```{r text_readfile, eval=FALSE, message=FALSE, warning=FALSE}
+# readr::read_file(): loads the entire file as one string
+testtxt_full <- readr::read_file(
+  here::here("tutorials/load/data", "english.txt")
+)
+
+cat("Character count:", nchar(testtxt_full), "\n")
+# Apply regex to the full text
+# e.g. extract all sentences ending in a question mark
+questions <- stringr::str_extract_all(testtxt_full, "[A-Z][^.!?]*\\?")[[1]]
+```
+
+::: {.callout-tip}
+## Encoding and Non-ASCII Characters
+
+Always specify `encoding = "UTF-8"` when reading files that may contain non-ASCII characters (accented letters, IPA symbols, non-Latin scripts). If `readLines()` throws a warning about invalid multibyte strings, the file encoding may be Latin-1 or Windows-1252. Use `readLines(con = f, encoding = "latin1")` or convert the file first with `iconv()`.
+
+```r
+# Check and convert encoding
+raw_text <- readLines(f, encoding = "latin1")
+utf_text  <- iconv(raw_text, from = "latin1", to = "UTF-8")
+```
+:::
+
+## Saving Single Text Files {-}
+
+```{r text_save, eval=FALSE, message=FALSE, warning=FALSE}
+# writeLines(): write a character vector (one element per line)
+writeLines(
+  text = testtxt_lines,
+  con  = here::here("tutorials/load/data", "english_out.txt"),
+  useBytes = FALSE
+)
+
+# write_file(): write a single character string
+readr::write_file(
+  x    = testtxt_full,
+  file = here::here("tutorials/load/data", "english_out2.txt")
+)
+```
+
+## Loading Multiple Text Files {-}
+
+When working with corpora, you will often need to load many text files at once and store them in a named list — one element per file. The recommended approach uses `list.files()` to discover files and `purrr::map()` or `sapply()` to load them:
+
+```{r text_multiple, message=FALSE, warning=FALSE}
+# Step 1: get all file paths (full.names = TRUE gives absolute paths)
+fls <- list.files(
+  path       = here::here("tutorials/load/data", "testcorpus"),
+  pattern    = "\\.txt$",     # only .txt files (regex)
+  full.names = TRUE
+)
+
+cat("Files found:", length(fls), "\n")
+cat("File names:\n")
+basename(fls)
+```
+
+```{r text_multiple_load, message=FALSE, warning=FALSE}
+# Step 2: load each file as a collapsed string
+
+# Helper: read one file safely, converting encoding to UTF-8
+read_txt_safe <- function(f) {
+  # Try UTF-8 first; fall back to Latin-1 if the file is not valid UTF-8
+  txt <- tryCatch(
+    readLines(f, encoding = "UTF-8", warn = FALSE),
+    error = function(e) readLines(f, encoding = "latin1", warn = FALSE)
+  )
+  # Convert any remaining non-UTF-8 bytes to UTF-8
+  txt <- iconv(txt, from = "", to = "UTF-8", sub = "byte")
+  paste(txt, collapse = " ")
+}
+
+# Method A: sapply (base R)
+txts_sapply <- sapply(fls, read_txt_safe)
+
+# Method B: purrr::map_chr (tidyverse)
+txts_purrr <- purrr::map_chr(fls, read_txt_safe)
+
+# Method C: readr::read_file with explicit locale
+txts_readr <- purrr::map_chr(
+  fls,
+  ~ readr::read_file(.x, locale = readr::locale(encoding = "UTF-8"))
+)
+
+# Simplify names to file stems
+names(txts_purrr) <- tools::file_path_sans_ext(basename(fls))
+
+cat("Texts loaded:", length(txts_purrr), "\n")
+cat("Character counts per text:\n")
+print(nchar(txts_purrr))
+
+# Optional: check which file was problematic
+cat("\nEncoding check per file:\n")
+for (f in fls) {
+  raw <- readLines(f, warn = FALSE)
+  valid <- all(!is.na(iconv(raw, from = "latin1", to = "UTF-8")))
+  cat(sprintf("  %-25s %s\n", basename(f),
+              ifelse(valid, "OK", "encoding issue detected")))
+}
+```
+
+```{r text_multiple_df, message=FALSE, warning=FALSE}
+# Build a corpus data frame: one row per text
+corpus_df <- data.frame(
+  file      = tools::file_path_sans_ext(basename(fls)),
+  text      = txts_purrr,
+  n_tokens  = sapply(strsplit(txts_purrr, "\\s+"), length),
+  n_chars   = nchar(txts_purrr),
+  stringsAsFactors = FALSE,
+  row.names = NULL
+)
+
+corpus_df
+```
+
+## Saving Multiple Text Files {-}
+
+```{r text_multiple_save, eval=FALSE, message=FALSE, warning=FALSE}
+# Define output paths — one per text
+out_paths <- file.path(
+  here::here("tutorials/load/data", "testcorpus_out"),
+  paste0(names(txts_purrr), ".txt")
+)
+
+# Create the output directory if it doesn't exist
+dir.create(here::here("tutorials/load/data", "testcorpus_out"),
+           showWarnings = FALSE, recursive = TRUE)
+
+# Save each text
+purrr::walk2(
+  txts_purrr,
+  out_paths,
+  ~ writeLines(.x, con = .y)
+)
+
+cat("Saved", length(out_paths), "files.\n")
+```
+
+## Loading Word Documents {-}
+
+Interview transcripts, annotated texts, and survey instruments are often stored as Microsoft Word `.docx` files. The `officer` package reads `.docx` files and returns a structured data frame where each paragraph, heading, and table cell is a separate row.
+
+```{r docx_load, message=FALSE, warning=FALSE}
+# Read the Word document
+doc_object <- officer::read_docx(here::here("tutorials/load/data", "mydoc.docx"))
+
+# Extract the content summary (structured data frame)
+content <- officer::docx_summary(doc_object)
+
+# Inspect the structure
+str(content)
+head(content, 15)
+```
+
+```{r docx_filter, message=FALSE, warning=FALSE}
+# Filter to paragraph content only (exclude table cells, headers, etc.)
+paragraphs <- content |>
+  dplyr::filter(content_type == "paragraph",
+                !is.na(text),
+                nchar(trimws(text)) > 0) |>
+  dplyr::select(style_name, text)
+
+head(paragraphs, 10)
+
+# Extract only body text (style "Normal" in most templates)
+body_text <- paragraphs |>
+  dplyr::filter(style_name == "Normal") |>
+  dplyr::pull(text) |>
+  paste(collapse = " ")
+
+cat("Body text (first 200 chars):\n", substr(body_text, 1, 200), "\n")
+```
+
+::: {.callout-tip}
+## Extracting Headings from Word Documents
+
+Headings are stored with style names like `"heading 1"`, `"heading 2"`, etc. Use them to reconstruct the document structure:
+
+```r
+headings <- content |>
+  dplyr::filter(grepl("^heading", style_name, ignore.case = TRUE)) |>
+  dplyr::select(style_name, text)
+```
+
+This is useful for segmenting interview transcripts by topic or speaker turn.
+:::
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 6
+
+**You want to load 50 interview transcripts stored as `.txt` files in a folder called `transcripts/`. You need the result as a named list where each element is the full text of one interview as a single character string, and each element's name is the file name without the `.txt` extension. Which code achieves this?**
+
+a)
+```r
+txts <- readLines(here::here("transcripts"))
+```
+b)
+```r
+fls  <- list.files(here::here("transcripts"), pattern="\\.txt$", full.names=TRUE)
+txts <- purrr::map_chr(fls, readr::read_file)
+names(txts) <- tools::file_path_sans_ext(basename(fls))
+```
+c)
+```r
+txts <- read.csv(here::here("transcripts"), header = FALSE)
+```
+d)
+```r
+txts <- scan(here::here("transcripts"), what = "char", quiet = TRUE)
+```
+
+<details>
+<summary>**Answer**</summary>
+
+**b)** This is the correct approach. `list.files()` with `full.names = TRUE` returns the complete path to each file. `purrr::map_chr()` applies `readr::read_file()` to each path, returning a named character vector of full texts. `tools::file_path_sans_ext(basename(fls))` strips the directory path and `.txt` extension to produce clean file names as the element names. Options (a), (c), and (d) are all incorrect: `readLines()` takes a single file path, not a directory; `read.csv()` expects tabular data; and `scan()` also takes a single file path and would return individual words, not complete texts.
+
+</details>
+:::
+
+---
+
+# Simulating Data {#simulate}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why data simulation is a core research skill; how `set.seed()` ensures reproducibility; how to sample from the most important statistical distributions; how to build realistic simulated datasets for corpus studies, psycholinguistic experiments, and surveys; and how to generate synthetic textual data
+:::
+
+## Why Simulate? {-}
+
+Data simulation is not just a workaround for when you lack real data. It is a core methodological tool for:
+
+- **Checking statistical intuition:** simulate data you understand perfectly and verify that your model recovers the parameters you put in
+- **Reproducible examples:** share a self-contained, runnable example without distributing confidential or proprietary data
+- **Teaching and demonstration:** illustrate statistical concepts with controlled examples
+- **Power analysis:** estimate the sample size you need by simulating many datasets and measuring how often your model detects a true effect
+- **Stress-testing pipelines:** check whether your analysis code handles edge cases (missing data, unbalanced designs, outliers) before real data arrives
+
+## Reproducibility and `set.seed()` {-}
+
+R's random number generation is **pseudo-random**: starting from a fixed **seed** value, the same sequence of "random" numbers is generated every time. Setting the seed makes your simulations perfectly reproducible.
+
+```{r seed_demo, message=FALSE, warning=FALSE}
+# Without a seed: different results every time
+sample(1:100, 5)
+sample(1:100, 5)
+
+# With a seed: identical results every time
+set.seed(2026)
+sample(1:100, 5)
+
+set.seed(2026)   # reset to the same seed
+sample(1:100, 5) # same result as above
+```
+
+::: {.callout-important}
+## Rules for `set.seed()` in Research
+
+1. **Always set a seed** at the start of any script that uses random number generation
+2. **Set the seed once**, at the top of the script — not before every individual random call (which hides stochasticity and can produce artificially good results)
+3. **Document the seed** in your methods section so others can reproduce your exact simulation
+4. **Test with multiple seeds** to confirm your findings are not artefacts of one particular seed value
+5. Use a **memorable but arbitrary** seed — the year of the study, a postal code, or a fixed arbitrary number. Avoid choosing the seed *after* seeing which value gives you "nice" results — that is a form of researcher degrees of freedom.
+:::
+
+```{r seed_advice, message=FALSE, warning=FALSE}
+# Recommended practice: one seed at the top of the script
+set.seed(2026)
+
+# From this point on, all random calls are reproducible
+x <- rnorm(100)
+y <- sample(letters, 10)
+z <- rbinom(50, size = 1, prob = 0.3)
+
+# Show the first few results
+head(x, 5); y; head(z, 5)
+```
+
+## Simulating from Statistical Distributions {-}
+
+R provides a family of functions for every major distribution. The naming convention is consistent:
+
+| Prefix | Function | Example |
+|--------|---------|---------|
+| `r` | Random samples | `rnorm(n, mean, sd)` |
+| `d` | Density (PDF/PMF) | `dnorm(x, mean, sd)` |
+| `p` | Cumulative probability (CDF) | `pnorm(q, mean, sd)` |
+| `q` | Quantile (inverse CDF) | `qnorm(p, mean, sd)` |
+
+: R distribution function naming convention {tbl-colwidths="[12,30,58]"}
+
+### Normal Distribution {-}
+
+The normal (Gaussian) distribution is appropriate for continuous data such as reaction times (log-transformed), pitch values, vowel formants, and word frequencies (log-transformed).
+
+```{r dist_normal, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+set.seed(2026)
+
+# Simulate log-transformed reaction times
+# Mean ~6.4 ≈ exp(6.4) ≈ 600 ms; SD = 0.3 on the log scale
+log_rt <- rnorm(n = 500, mean = 6.4, sd = 0.3)
+rt_ms  <- exp(log_rt)   # back-transform to milliseconds
+
+p_norm <- data.frame(log_rt = log_rt, rt_ms = rt_ms) |>
+  ggplot(aes(x = rt_ms)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30, fill = "steelblue", color = "white", alpha = 0.8) +
+  geom_density(color = "firebrick", linewidth = 1) +
+  theme_bw() +
+  labs(title = "Simulated reaction times (log-normal distribution)",
+       subtitle = "n = 500 | Mean ≈ 600 ms",
+       x = "Reaction time (ms)", y = "Density")
+
+p_norm
+
+cat("Mean RT:", round(mean(rt_ms), 1), "ms\n")
+cat("SD RT:",   round(sd(rt_ms), 1), "ms\n")
+cat("Range:",   round(range(rt_ms), 1), "ms\n")
+```
+
+### Binomial Distribution {-}
+
+The binomial distribution models binary outcomes: correct/incorrect, yes/no, target form/alternative form. The key parameters are `size` (number of trials) and `prob` (probability of success).
+
+```{r dist_binomial, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+set.seed(2026)
+
+# Simulate accuracy in a lexical decision task
+# 100 participants, 80 trials each, average accuracy 85%
+n_participants <- 100
+n_trials       <- 80
+accuracy_prob  <- 0.85
+
+# Each participant's number of correct responses
+n_correct <- rbinom(n = n_participants, size = n_trials, prob = accuracy_prob)
+accuracy  <- n_correct / n_trials
+
+p_binom <- data.frame(accuracy = accuracy) |>
+  ggplot(aes(x = accuracy)) +
+  geom_histogram(binwidth = 0.02, fill = "steelblue", color = "white", alpha = 0.8) +
+  geom_vline(xintercept = mean(accuracy), color = "firebrick",
+             linetype = "dashed", linewidth = 1) +
+  theme_bw() +
+  labs(title = "Simulated accuracy in a lexical decision task",
+       subtitle = sprintf("n = %d participants | %d trials | P(correct) = %.2f | Mean accuracy = %.3f",
+                          n_participants, n_trials, accuracy_prob, mean(accuracy)),
+       x = "Accuracy", y = "Count")
+
+p_binom
+
+# Simulate binary outcome per trial (all participants combined)
+all_responses <- rbinom(n = n_participants * n_trials, size = 1, prob = accuracy_prob)
+cat("Proportion correct:", round(mean(all_responses), 3), "\n")
+```
+
+### Poisson Distribution {-}
+
+The Poisson distribution models count data where events occur independently at a constant average rate (the parameter `lambda`). In linguistics: number of errors per utterance, number of a specific word per document, number of disfluencies per minute.
+
+```{r dist_poisson, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+set.seed(2026)
+
+# Simulate number of self-corrections per minute for 200 speakers
+# Lambda = 1.8 corrections per minute
+n_speakers <- 200
+lambda_corrections <- 1.8
+
+corrections <- rpois(n = n_speakers, lambda = lambda_corrections)
+
+p_pois <- data.frame(corrections = corrections) |>
+  ggplot(aes(x = corrections)) +
+  geom_bar(fill = "steelblue", color = "white", alpha = 0.8) +
+  theme_bw() +
+  labs(title = "Simulated self-corrections per minute (Poisson distribution)",
+       subtitle = sprintf("n = %d speakers | λ = %.1f | Mean = %.2f | Variance = %.2f",
+                          n_speakers, lambda_corrections,
+                          mean(corrections), var(corrections)),
+       x = "Self-corrections per minute", y = "Count")
+
+p_pois
+```
+
+### Uniform Distribution {-}
+
+The uniform distribution generates values equally likely across an interval. Useful for simulating ages, dates, positions in a text, or random stimulus presentation times.
+
+```{r dist_uniform, message=FALSE, warning=FALSE}
+set.seed(2026)
+
+# Simulate participant ages between 18 and 65
+ages <- runif(n = 200, min = 18, max = 65)
+# Round to whole years
+ages_int <- round(ages)
+
+cat("Age distribution:\n")
+cat("  Range:", range(ages_int), "\n")
+cat("  Mean:", round(mean(ages_int), 1), "\n")
+
+# Uniform category sampling (equivalent to sample() with replace)
+proficiency_levels <- sample(
+  x       = c("Beginner", "Intermediate", "Advanced"),
+  size    = 200,
+  replace = TRUE,
+  prob    = c(0.25, 0.45, 0.30)  # weighted probabilities
+)
+table(proficiency_levels)
+```
+
+### Negative Binomial Distribution {-}
+
+The negative binomial extends Poisson to handle **overdispersion** — when variance exceeds the mean, which is the norm for linguistic count data (word frequencies, error counts across speakers).
+
+```{r dist_nb, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
+set.seed(2026)
+
+# Compare Poisson vs. Negative Binomial with same mean but different variance
+mean_count <- 3.0
+size_param  <- 0.8   # smaller = more overdispersion
+
+pois_counts <- rpois(n = 500, lambda = mean_count)
+nb_counts   <- rnbinom(n = 500, mu = mean_count, size = size_param)
+
+dist_df <- data.frame(
+  count = c(pois_counts, nb_counts),
+  dist  = rep(c("Poisson (λ=3)", "Neg. Binomial (μ=3, size=0.8)"), each = 500)
+)
+
+cat("Poisson    — Mean:", round(mean(pois_counts), 2),
+    "| Variance:", round(var(pois_counts), 2), "\n")
+cat("Neg. Binom — Mean:", round(mean(nb_counts), 2),
+    "| Variance:", round(var(nb_counts), 2), "\n")
+
+ggplot(dist_df, aes(x = count, fill = dist)) +
+  geom_bar(position = "dodge", alpha = 0.8, color = "white") +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(title = "Poisson vs. Negative Binomial count data",
+       subtitle = "Same mean (3.0); NB has much larger variance",
+       x = "Count", y = "Frequency", fill = "")
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 7
+
+**A researcher simulates 1,000 binary (0/1) responses using `rbinom(n = 1000, size = 1, prob = 0.6)`. She then changes the seed and re-runs. Which statement is correct?**
+
+a) The proportion of 1s will be exactly 0.6 both times, since `prob = 0.6` is fixed
+b) The proportion of 1s will vary slightly between runs because each call generates a new random sample; the expected proportion is 0.6 but individual realisations deviate from it
+c) The results will be identical because the distribution parameters are the same
+d) The function will produce an error because `size = 1` is invalid for `rbinom()`
+
+<details>
+<summary>**Answer**</summary>
+
+**b) The proportion of 1s will vary slightly between runs because each call generates a new random sample; the expected proportion is 0.6 but individual realisations deviate from it**
+
+`prob = 0.6` is the *probability* of a 1, not a guarantee that exactly 60% of draws will be 1. Each call to `rbinom()` generates a new independent random sample. With n = 1,000, the law of large numbers ensures the proportion will be close to 0.6 (typically within a few percent), but it will not be identical across runs with different seeds. If you need identical results across runs, set the same seed before each call. Option (a) confuses probability with frequency; (c) confuses distributional parameters with determinism; (d) is incorrect — `size = 1` is perfectly valid and means each draw is a single Bernoulli trial (0 or 1).
+
+</details>
+:::
+
+## Simulating Realistic Linguistic Datasets {-}
+
+### Simulating a Corpus Frequency Dataset {-}
+
+Corpus frequency data follows a **Zipfian distribution**: a small number of words are very frequent, and the vast majority are extremely rare. We can simulate this using a power-law sample:
+
+```{r sim_corpus, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
+set.seed(2026)
+
+# Simulate a vocabulary of 500 word types with Zipfian frequencies
+n_types   <- 500
+# Zipf's law: frequency ∝ 1/rank^alpha
+alpha     <- 1.0     # Zipf exponent (empirically ~1 for English)
+ranks     <- 1:n_types
+freq_probs <- (1 / ranks^alpha) / sum(1 / ranks^alpha)  # normalise to sum to 1
+
+# Total corpus size: 50,000 tokens
+n_tokens  <- 50000
+word_freqs <- round(freq_probs * n_tokens)
+word_freqs[word_freqs == 0] <- 1   # every type has at least 1 token
+
+# Create a data frame
+words <- paste0("word_", stringr::str_pad(ranks, 3, pad = "0"))
+corpus_freq_df <- data.frame(
+  rank      = ranks,
+  word      = words,
+  frequency = word_freqs,
+  log_rank  = log(ranks),
+  log_freq  = log(word_freqs)
+)
+
+# Zipf plot
+p_zipf <- ggplot(corpus_freq_df, aes(x = log_rank, y = log_freq)) +
+  geom_point(alpha = 0.3, size = 1, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "firebrick", linewidth = 1) +
+  theme_bw() +
+  labs(title = "Zipf plot: simulated corpus word frequencies",
+       subtitle = sprintf("Vocabulary: %d types | Corpus: %d tokens | α = %.1f",
+                          n_types, sum(word_freqs), alpha),
+       x = "log(rank)", y = "log(frequency)")
+
+p_zipf
+
+# Most and least frequent words
+head(corpus_freq_df, 5)
+tail(corpus_freq_df, 5)
+```
+
+### Simulating a Psycholinguistic Experiment {-}
+
+A realistic psycholinguistic dataset requires:
+
+1. Multiple participants (random effect)
+2. Multiple items per participant (random effect)
+3. Fixed effects of experimental conditions
+4. By-participant and by-item random variation in baseline and condition effects
+5. Continuous response (RT) or binary response (accuracy)
+
+```{r sim_experiment, message=FALSE, warning=FALSE}
+set.seed(2026)
+
+# Design parameters
+n_participants <- 40
+n_items        <- 30    # items per participant
+n_obs          <- n_participants * n_items  # total observations
+
+# Condition: Primed (1) vs. Unprimed (0), crossed with participants and items
+# Each participant sees each item once, half primed, half unprimed
+conditions <- rep(c(0, 1), times = n_items / 2)
+
+# Fixed effects (on log-RT scale)
+intercept      <- 6.40   # grand mean log-RT (≈ 600 ms)
+beta_priming   <- -0.08  # priming speeds RT by ~8% (negative = faster)
+beta_frequency <- -0.05  # each unit of log-freq reduces log-RT
+
+# Random effect SDs
+sd_participant <- 0.15   # between-participant variability in baseline RT
+sd_item        <- 0.10   # between-item variability in baseline RT
+sd_residual    <- 0.20   # within-cell residual noise
+
+# Sample random effects
+participant_ids     <- paste0("P", stringr::str_pad(1:n_participants, 2, pad = "0"))
+item_ids            <- paste0("I", stringr::str_pad(1:n_items, 2, pad = "0"))
+re_participant      <- rnorm(n_participants, mean = 0, sd = sd_participant)
+re_item             <- rnorm(n_items, mean = 0, sd = sd_item)
+
+# Simulated word frequency for each item (log scale)
+log_freq_item <- rnorm(n_items, mean = 4.0, sd = 1.5)
+
+# Build the full dataset
+sim_exp <- expand.grid(
+  Participant = participant_ids,
+  Item        = item_ids
+) |>
+  dplyr::mutate(
+    Condition  = rep(conditions, times = n_participants),
+    LogFreq    = log_freq_item[match(Item, item_ids)],
+    RE_part    = re_participant[match(Participant, participant_ids)],
+    RE_item    = re_item[match(Item, item_ids)],
+    Epsilon    = rnorm(n_obs, 0, sd_residual),
+    LogRT      = intercept + beta_priming * Condition +
+                 beta_frequency * LogFreq +
+                 RE_part + RE_item + Epsilon,
+    RT         = exp(LogRT),
+    Condition  = factor(Condition, levels = c(0, 1),
+                         labels = c("Unprimed", "Primed"))
+  ) |>
+  dplyr::select(Participant, Item, Condition, LogFreq, RT, LogRT)
+
+cat("Dataset dimensions:", nrow(sim_exp), "×", ncol(sim_exp), "\n")
+str(sim_exp)
+head(sim_exp, 10)
+```
+
+```{r sim_exp_check, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
+# Quick sanity check: does the simulated data show the expected priming effect?
+sim_exp |>
+  dplyr::group_by(Condition) |>
+  dplyr::summarise(
+    Mean_RT    = round(mean(RT), 1),
+    Median_RT  = round(median(RT), 1),
+    SD_RT      = round(sd(RT), 1),
+    n          = dplyr::n(),
+    .groups = "drop"
+  )
+
+ggplot(sim_exp, aes(x = Condition, y = RT, fill = Condition)) +
+  geom_violin(alpha = 0.6, color = NA) +
+  geom_boxplot(width = 0.2, fill = "white", outlier.alpha = 0.3) +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(title = "Simulated reaction times by priming condition",
+       subtitle = "Priming effect built in: β = -0.08 on log scale",
+       x = "Condition", y = "Reaction time (ms)")
+```
+
+### Simulating a Survey Dataset {-}
+
+Attitude surveys and proficiency assessments generate Likert-scale or ordinal data. Here we simulate a language attitude survey:
+
+```{r sim_survey, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
+set.seed(2026)
+
+# 120 respondents, 5 Likert items (1 = Strongly Disagree, 5 = Strongly Agree)
+# Two groups: L1 English vs. L1 Other
+n_respondents  <- 120
+n_l1_english   <- 60
+group          <- c(rep("L1 English", n_l1_english),
+                    rep("L1 Other",   n_respondents - n_l1_english))
+
+# Item means differ by group (L1 English respondents rate English more positively)
+item_means_eng   <- c(4.1, 3.8, 4.3, 3.5, 4.0)  # 5 items
+item_means_other <- c(3.2, 3.0, 3.5, 2.8, 3.1)
+item_sd          <- 0.8
+
+# Generate continuous underlying scores and discretise to 1–5
+sim_likert <- function(n, means, sd, min_val = 1, max_val = 5) {
+  purrr::map_dfc(means, function(m) {
+    raw <- rnorm(n, mean = m, sd = sd)
+    clipped <- pmin(pmax(round(raw), min_val), max_val)
+    clipped
+  }) |>
+    purrr::set_names(paste0("Item", 1:length(means)))
+}
+
+eng_dat   <- sim_likert(n_l1_english,                  item_means_eng,   item_sd)
+other_dat <- sim_likert(n_respondents - n_l1_english,  item_means_other, item_sd)
+
+survey_df <- dplyr::bind_rows(eng_dat, other_dat) |>
+  dplyr::mutate(
+    Respondent  = paste0("R", stringr::str_pad(1:n_respondents, 3, pad = "0")),
+    Group       = group,
+    TotalScore  = rowSums(dplyr::across(dplyr::starts_with("Item")))
+  ) |>
+  dplyr::select(Respondent, Group, dplyr::everything())
+
+cat("Survey dataset:\n")
+str(survey_df)
+
+# Group-level means
+survey_df |>
+  dplyr::group_by(Group) |>
+  dplyr::summarise(
+    dplyr::across(dplyr::starts_with("Item"), ~ round(mean(.x), 2)),
+    MeanTotal = round(mean(TotalScore), 2),
+    .groups = "drop"
+  )
+
+# Visualise total score distribution by group
+ggplot(survey_df, aes(x = TotalScore, fill = Group)) +
+  geom_histogram(binwidth = 1, position = "dodge", color = "white", alpha = 0.8) +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(title = "Simulated language attitude survey: total scores by group",
+       subtitle = "5 Likert items (1–5) | L1 English respondents show higher positive attitudes",
+       x = "Total score (5–25)", y = "Count")
 ```
 
 
-***
+## Generating Synthetic Text Data {-}
 
-[Back to top](#introduction)
+### Simple String Construction {-}
 
-[Back to HOME](/)
+The simplest way to generate text data is direct string construction using `paste()` and `sprintf()`:
 
-***
+```{r synth_text_simple, message=FALSE, warning=FALSE}
+# Generate templated sentences
+subjects   <- c("The speaker", "Each participant", "Every respondent", "The learner")
+verbs      <- c("produced", "uttered", "used", "avoided")
+objects    <- c("the target form", "an error", "a hesitation", "the amplifier")
 
+set.seed(2026)
+n_sentences <- 20
+
+sentences <- paste(
+  sample(subjects, n_sentences, replace = TRUE),
+  sample(verbs, n_sentences, replace = TRUE),
+  sample(objects, n_sentences, replace = TRUE),
+  "."
+)
+
+head(sentences, 5)
+
+# Generate numbered sentences with sprintf
+template_sents <- sprintf(
+  "This is sentence number %d, produced by speaker %s.",
+  1:10,
+  sample(LETTERS[1:5], 10, replace = TRUE)
+)
+
+template_sents
+```
+
+### Simulating a Synthetic Corpus with Controlled Properties {-}
+
+For testing text analysis pipelines, it is useful to generate a corpus with known properties (word frequencies, bigram transitions):
+
+```{r synth_corpus, message=FALSE, warning=FALSE}
+set.seed(2026)
+
+# Define a small vocabulary with assigned probabilities (simulating corpus frequencies)
+vocab <- data.frame(
+  word = c("the", "language", "corpus", "analysis", "text",
+           "speaker", "frequency", "very", "quite", "shows",
+           "contains", "reveals", "significant", "common", "rare"),
+  prob = c(0.15, 0.12, 0.10, 0.09, 0.08,
+           0.07, 0.07, 0.06, 0.05, 0.05,
+           0.04, 0.04, 0.03, 0.03, 0.02)
+)
+
+# Verify probabilities sum to 1
+cat("Probability sum:", sum(vocab$prob), "\n")
+
+# Generate synthetic texts of varying lengths
+generate_text <- function(n_words, vocab_df) {
+  words <- sample(
+    x       = vocab_df$word,
+    size    = n_words,
+    replace = TRUE,
+    prob    = vocab_df$prob
+  )
+  paste(words, collapse = " ")
+}
+
+# Create a mini synthetic corpus of 10 texts
+n_texts      <- 10
+text_lengths <- round(runif(n_texts, min = 50, max = 200))
+
+synth_corpus <- data.frame(
+  text_id  = paste0("SYNTH_", stringr::str_pad(1:n_texts, 2, pad = "0")),
+  n_tokens = text_lengths,
+  text     = sapply(text_lengths, generate_text, vocab_df = vocab),
+  stringsAsFactors = FALSE
+)
+
+# Inspect
+head(synth_corpus[, c("text_id", "n_tokens")], 5)
+cat("\nSample text:\n", synth_corpus$text[1], "\n")
+```
+
+### Bigram Language Model {-}
+
+A more linguistically realistic approach is a **bigram language model**: the probability of each word depends on the previous word. This produces more natural-looking (though semantically random) text:
+
+```{r synth_bigram, message=FALSE, warning=FALSE}
+set.seed(2026)
+
+# Define a simple bigram transition matrix
+# Rows = current word, columns = next word
+word_types <- c("<START>", "the", "corpus", "analysis", "shows",
+                "very", "significant", "results", "<END>")
+
+# Transition probabilities (rows must sum to 1)
+transitions <- matrix(
+  c(
+    # <START>  the   corpus  analysis  shows    very   sig    results  <END>
+    0.00, 0.80,  0.10,   0.05,    0.00,   0.00,  0.00,  0.00,    0.05,  # <START>
+    0.00, 0.00,  0.40,   0.35,    0.00,   0.00,  0.00,  0.00,    0.25,  # the
+    0.00, 0.10,  0.00,   0.00,    0.60,   0.00,  0.00,  0.00,    0.30,  # corpus
+    0.00, 0.00,  0.00,   0.00,    0.70,   0.00,  0.00,  0.00,    0.30,  # analysis
+    0.00, 0.00,  0.00,   0.00,    0.00,   0.50,  0.20,  0.20,    0.10,  # shows
+    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.90,  0.00,    0.10,  # very
+    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.00,  0.90,    0.10,  # significant
+    0.00, 0.10,  0.10,   0.10,    0.00,   0.00,  0.00,  0.00,    0.70,  # results
+    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.00,  0.00,    1.00   # <END>
+  ),
+  nrow = length(word_types),
+  byrow = TRUE,
+  dimnames = list(word_types, word_types)
+)
+
+# Generate one sentence using the bigram model
+generate_bigram_sentence <- function(transitions, max_len = 20) {
+  words  <- "<START>"
+  current <- "<START>"
+  repeat {
+    probs   <- transitions[current, ]
+    next_w  <- sample(colnames(transitions), 1, prob = probs)
+    if (next_w == "<END>" || length(words) > max_len) break
+    words   <- c(words, next_w)
+    current <- next_w
+  }
+  paste(words[-1], collapse = " ")   # remove <START>
+}
+
+# Generate 10 sentences
+bigram_sentences <- replicate(10, generate_bigram_sentence(transitions))
+cat("Bigram-generated sentences:\n")
+for (i in seq_along(bigram_sentences)) cat(sprintf("  %2d. %s\n", i, bigram_sentences[i]))
+```
+
+::: {.callout-note collapse="true"}
+## ✎ Check Your Understanding — Question 8
+
+**A researcher generates 500 simulated reaction times with `rnorm(500, mean = 600, sd = 80)` and finds that her analysis shows a significant priming effect. Her supervisor asks whether this is a valid approach. What is the main problem?**
+
+a) `rnorm()` cannot simulate reaction times — use `rpois()` instead
+b) Reaction times are always positive and approximately log-normally distributed; simulating them as normally distributed (which allows negative values and is symmetric) is unrealistic. The researcher should simulate on the log scale: `exp(rnorm(500, mean = log(600), sd = 0.15))`
+c) 500 observations is too small for any simulation
+d) The simulation is fine — reaction times are normally distributed in large samples by the Central Limit Theorem
+
+<details>
+<summary>**Answer**</summary>
+
+**b) Reaction times are always positive and approximately log-normally distributed; simulating them as normally distributed (which allows negative values and is symmetric) is unrealistic.**
+
+Reaction times are bounded at zero (you cannot respond in negative time), and their distribution is right-skewed — there is a longer tail for slow responses than for fast ones. The normal distribution produces some negative values (when `mean / sd` is not very large) and is symmetric, which does not match the real distribution of RTs. The standard approach is to simulate on the log scale — `log_rt <- rnorm(n, mean, sd)` — then back-transform with `rt <- exp(log_rt)`. This produces a log-normal distribution that is always positive and right-skewed. Option (d) confuses the Central Limit Theorem (which applies to *sample means*, not individual observations) with the distribution of raw data.
+
+</details>
+:::
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Loading, Saving, and Simulating Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.02.24).
+
+```
+@manual{schweinberger2026loadr,
+  author       = {Schweinberger, Martin},
+  title        = {Loading, Saving, and Simulating Data in R},
+  note         = {https://ladal.edu.au/tutorials/load/load.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.02.24}
+}
+```
+
+```{r session_info}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial on loading and saving data, adding the project structure section, the `readr` package coverage, the Excel section, the JSON/XML section, the built-in datasets section, the section on loading multiple text files, and the entirely new simulation section (distributions, realistic linguistic datasets, power analysis, and synthetic text generation). All content was reviewed and approved by the named author (Martin Schweinberger), who takes full responsibility for its accuracy.
+:::
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
