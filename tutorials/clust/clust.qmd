@@ -1,1049 +1,1859 @@
 ---
 title: "Cluster and Correspondence Analysis in R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction{-}
+# Introduction {#intro}
 
-This tutorial introduces classification and clustering using R. Cluster analyses fall within the domain of classification methods which are used to find groups or patterns in data or to predict group membership. As such, they are widely used and applied in machine learning. For linguists, classification is not only common when it comes to phylogenetics but also in annotation-based procedures such as part-of-speech tagging and syntactic parsing. 
+This tutorial introduces cluster analysis and correspondence analysis using R. Both methods belong to the broad family of **unsupervised learning** — techniques that discover structure in data without using a pre-defined outcome variable or group label. This distinguishes them from supervised methods such as regression or decision trees, which learn from labelled examples.
 
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial is aimed at intermediate users of R with the aim of showcasing how to performing and visualizing the results of cluster and correspondence analyses in R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with cluster and correspondence analyses. 
+For linguists, unsupervised classification is relevant across many subfields: in **historical linguistics**, cluster analyses reveal genealogical relationships among languages or dialects based on shared features; in **sociolinguistics**, they identify groups of speakers with similar repertoires; in **lexicology and semantics**, they group words or constructions by distributional similarity; in **corpus linguistics**, they organise texts or registers by co-occurrence patterns.
 
+The tutorial is aimed at intermediate users of R. It showcases how to perform and visualise the results of hierarchical cluster analysis, k-means clustering, and correspondence analysis, and how to validate and interpret the results. The aim is not to provide an exhaustive theoretical treatment but to give practical guidance grounded in linguistic examples. For deeper theoretical coverage, see @kassambara2017practical (highly recommended), @king2015cluster, @kettenring2006practice, @romesburg2004cluster, and @blashfield1988methods.
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarize yourself with the content of the following **R Basics** and **Data Science Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-  <li>[Handling tables in R](/tutorials/table/table.html) </li>
-</ul>
-</p>
-</div>
+::: {.callout-note}
+## Prerequisite Tutorials
 
-<br>
+Before working through this tutorial, you should be familiar with:
 
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio
+- [Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html) — data types, distributions, hypothesis testing
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html) — data import, file paths
+- [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr`, pipes
+:::
 
-A more elaborate and highly recommendable introduction to cluster analysis is @kassambara2017practical. Other very useful resources are, e.g.,  @king2015cluster; @kettenring2006practice; @romesburg2004cluster; and @blashfield1988methods.
+::: {.callout-note}
+## Learning Objectives
 
-**Preparation and session set up**
+By the end of this tutorial you will be able to:
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+1. Explain what cluster analysis and correspondence analysis are, when they are appropriate, and how they differ from supervised methods
+2. Choose an appropriate distance measure for numeric, ordinal, and nominal data
+3. Assess whether a dataset is sufficiently structured to warrant clustering (Hopkins statistic)
+4. Perform hierarchical cluster analysis, select a linkage method, and read a dendrogram
+5. Determine the optimal number of clusters using silhouette widths and the elbow method
+6. Validate a cluster solution using bootstrap resampling with `pvclust`
+7. Perform k-means clustering and compare it with hierarchical clustering
+8. Visualise clustering results as dendrograms, heat maps, and silhouette plots
+9. Perform correspondence analysis on a contingency table
+10. Interpret a CA biplot in terms of row–column associations
+:::
 
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# set options
-options(stringsAsFactors = F) # no automatic data transformation
-options("scipen" = 100, "digits" = 4) # suppress math annotation
-# install packages
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Cluster and Correspondence Analysis in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/clust/clust.html (Version 2026.02.24).
+:::
+
+---
+
+# Clustering: Concepts and Context {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What cluster analysis is; how it differs from regression and tree-based methods; what the key concepts of distance, linkage, and amalgamation mean; and when clustering is the right tool for a linguistic research question
+:::
+
+## What Is Cluster Analysis? {-}
+
+Cluster analysis groups objects (speakers, languages, words, texts) so that objects within the same group are more similar to each other than to objects in other groups. The input is a **distance matrix** — a pairwise measure of dissimilarity between all objects — and the output is a grouping or dendrogram showing how objects have been merged.
+
+The central intuition is something we do naturally every day. Confronted with a set of tree species — pine, fir, oak, beech, phoenix palm, nikau palm — most people would group them as conifers, broad-leaf trees, and palms based on visible similarities. Cluster analysis formalises this intuition: it finds groupings based on quantitative similarity across multiple variables simultaneously.
+
+## Clustering vs. Supervised Classification {-}
+
+Cluster analysis is **unsupervised**: it finds groups without being told what the groups should be. This distinguishes it from supervised methods:
+
+| Feature | Cluster analysis | Regression / decision trees |
+|---------|-----------------|----------------------------|
+| Outcome variable | Not required | Required |
+| Group labels | Discovered by algorithm | Provided by researcher |
+| Goal | Find natural groupings | Predict or explain outcome |
+| Validation | Internal (silhouette, Hopkins) | External (accuracy, AUC) |
+| Output | Group membership, dendrogram | Coefficients, predictions |
+
+: Clustering vs. supervised methods {tbl-colwidths="[25,37,38]"}
+
+## When to Use Clustering in Linguistics {-}
+
+Clustering is appropriate when:
+
+- You want to **discover** groups rather than test whether pre-defined groups differ
+- You have **multivariate data** across many variables and want to find which objects pattern together
+- You are exploring a new dataset and want to identify **structure before hypothesis testing**
+- You want a **visual representation** of relationships among many items (e.g. a dendrogram of language varieties)
+
+Clustering is *not* appropriate when:
+
+- You have a specific hypothesis about group differences (use regression or MANOVA)
+- Your groups are already defined and you want to predict membership (use logistic regression or CIT)
+- You have very few variables — patterns are easier to see in a simple cross-tabulation
+
+## The Three Methods Covered {-}
+
+```{r methods_table, echo=FALSE, message=FALSE, warning=FALSE}
+library(flextable)
+data.frame(
+  Method = c("Hierarchical clustering", "k-means clustering", "Correspondence analysis"),
+  `Data type` = c("Numeric, ordinal, or binary", "Numeric (continuous)", "Categorical (contingency table)"),
+  Output = c("Dendrogram; group membership", "Group membership; cluster centres", "Biplot of row-column associations"),
+  `Typical use in linguistics` = c(
+    "Language variety classification; dialect typology; historical relationships",
+    "Speaker segmentation; large-scale text clustering",
+    "Collocation and co-occurrence patterns; register × feature associations"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::bold(part = "header") |>
+  flextable::set_caption("The three clustering methods covered in this tutorial")
+```
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep1, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("ape")
 install.packages("cluster")
 install.packages("factoextra")
-install.packages("seriation")
+install.packages("FactoMineR")
+install.packages("flextable")
+install.packages("gplots")
 install.packages("pvclust")
-install.packages("ape")
+install.packages("seriation")
+install.packages("tibble")
+install.packages("tidyverse")
 install.packages("vcd")
 install.packages("exact2x2")
-install.packages("flextable")
-install.packages("tibble")
-install.packages("gplots")
+install.packages("checkdown")
+install.packages("remotes")
+remotes::install_github("rlesur/klippy")
 ```
 
-In a next step, we load the packages.
+## Loading Packages {-}
 
 ```{r prep2, message=FALSE, warning=FALSE}
-# load packages
+library(ape)
 library(cluster)
 library(factoextra)
-library(seriation)
+library(FactoMineR)
+library(flextable)
+library(gplots)
 library(pvclust)
-library(ape)
+library(seriation)
+library(tibble)
+library(tidyverse)
 library(vcd)
 library(exact2x2)
-library(flextable)
-library(tibble)
-library(gplots)
+library(checkdown)
+klippy::klippy()
 ```
 
-Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
+---
 
-# Cluster Analysis
+---
 
-The most common method in linguistics that is sued to detect groups in data are cluster analyses. Cluster analyses are common in linguistics because they not only detect commonalities based on the frequency or occurrence of features but they also allow to visualize when splits between groups have occurred and are thus the method of choice in historical linguistics to determine and show genealogical relationships. 
+# Distance and Similarity Measures {#distance}
 
-## Underlying Concepts{-}
+::: {.callout-note}
+## Section Overview
 
-The next section focuses on the basic idea that underlies all cluster analyses. WE will have a look at some very basic examples to highlight and discuss the principles that cluster analyses rely on. 
+**What you will learn:** What a distance matrix is; how Euclidean, Manhattan, and binary (Jaccard) distances differ geometrically and mathematically; how to choose the right measure for your data type; how to scale variables before clustering; and how to compute and inspect a distance matrix in R
+:::
 
-The underlying idea of cluster analysis is very simple and rather intuitive as we ourselves perform cluster analyses every day in our lives. This is so because we group things together under certain labels and into concepts. The first example used to show this, deals with types of trees and how we group these types of trees based on their outward appearance. 
+## What Is a Distance Matrix? {-}
 
-Imagine you see six trees representing different types of trees: a pine tree, a fir tree, an oak tree, a beech tree, a phoenix palm tree, and a nikau palm tree. Now, you were asked to group these trees according to similarity. Have a look at the plot below and see whether you would have come up with a similar type of grouping.
+A distance matrix records the pairwise dissimilarity between all objects to be clustered. A value of 0 means two objects are identical across all variables; larger values mean greater dissimilarity. Every clustering algorithm takes a distance matrix as input — the choice of distance measure encodes your theory of what it means for two objects to be "alike," and can substantially change the clusters that emerge.
 
-```{r cl1, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-x <- 1:10
-y <- 1:10
-plot(x, y, type = "n", ylim = c(-.5, 10), xlim = c(0, 5), axes = F, xlab = "", ylab = "")
-text("Trees", x = 2.25, y = 10, cex = 1.5)
-text("Conifers", x = .5, y = 6.5, cex = 1.5)
-text("Broad leaf", x = 2.25, y = 6.5, cex = 1.5)
-text("Palms", x = 4, y = 6.5, cex = 1.5)
-text("Pine tree", x = .25, y = 1.5, srt = 90, cex = 1.5)
-text("Fir tree", x = .75, y = 1.5, srt = 90, cex = 1.5)
-text("Oak tree", x = 2, y = 1.5, srt = 90, cex = 1.5)
-text("Beech tree", x = 2.5, y = 1.5, srt = 90, cex = 1.5)
-text("Phoenix palm", x = 3.75, y = 1.75, srt = 90, cex = 1.5)
-text("Nikau palm", x = 4.25, y = 1.5, srt = 90, cex = 1.5)
-#
-lines(x = c(.5, 1.75), y = c(7, 9), lwd = 2)
-lines(x = c(2.25, 2.25), y = c(7, 9), lwd = 2)
-lines(x = c(4, 2.75), y = c(7, 9), lwd = 2)
-#
-lines(x = c(.5, .5), y = c(6, 4.5), lwd = 2)
-lines(x = c(2.25, 2.25), y = c(6, 4.5), lwd = 2)
-lines(x = c(4, 4), y = c(6, 4.75), lwd = 2)
-#
-lines(x = c(.25, .75), y = c(4.5, 4.5), lwd = 2)
-lines(x = c(2, 2.5), y = c(4.5, 4.5), lwd = 2)
-lines(x = c(3.75, 4.25), y = c(4.75, 4.75), lwd = 2)
-#
-lines(x = c(.25, .25), y = c(4.5, 4), lwd = 2)
-lines(x = c(.75, .75), y = c(4.5, 4), lwd = 2)
-lines(x = c(2, 2), y = c(4.5, 4), lwd = 2)
-lines(x = c(2.5, 2.5), y = c(4.5, 4), lwd = 2)
-```
+## Three Key Distance Measures {-}
 
-An alternative way to group the trees would be the following.
-
-```{r cl2, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-x <- 1:10
-y <- 1:10
-plot(x, y, type = "n", ylim = c(-.5, 15), xlim = c(0, 5), axes = F, xlab = "", ylab = "")
-text("Trees", x = 2.25, y = 15, cex = 1)
-text("Conifers", x = .5, y = 6.5, cex = 1)
-text("Broad leaf", x = 2.25, y = 6.5, cex = 1)
-text("Palm Trees", x = 3.5, y = 10, cex = 1)
-text("Pine tree", x = .25, y = 1.5, srt = 90, cex = 1)
-text("Fir tree", x = .75, y = 1.5, srt = 90, cex = 1)
-text("Oak tree", x = 2, y = 1.5, srt = 90, cex = 1)
-text("Beech tree", x = 2.5, y = 1.5, srt = 90, cex = 1)
-text("Phoenix palm", x = 3.25, y = 1.75, srt = 90, cex = 1)
-text("Nikau palm", x = 3.75, y = 1.5, srt = 90, cex = 1)
-#
-lines(x = c(1.5, 2.15), y = c(11, 13.5), lwd = 2)
-lines(x = c(3.5, 2.5), y = c(11, 13.5), lwd = 2)
-lines(x = c(.5, 1.5), y = c(7.25, 11), lwd = 2)
-lines(x = c(1.5, 2.25), y = c(11, 7.25), lwd = 2)
-#
-lines(x = c(.5, .5), y = c(6, 4.5), lwd = 2)
-lines(x = c(2.25, 2.25), y = c(6, 4.5), lwd = 2)
-lines(x = c(3.5, 3.5), y = c(8.75, 6.25), lwd = 2)
-#
-lines(x = c(.25, .75), y = c(4.5, 4.5), lwd = 2)
-lines(x = c(2, 2.5), y = c(4.5, 4.5), lwd = 2)
-lines(x = c(3.25, 3.75), y = c(6.25, 6.25), lwd = 2)
-#
-lines(x = c(.25, .25), y = c(4.5, 4), lwd = 2)
-lines(x = c(.75, .75), y = c(4.5, 4), lwd = 2)
-lines(x = c(2, 2), y = c(4.5, 4), lwd = 2)
-lines(x = c(2.5, 2.5), y = c(4.5, 4), lwd = 2)
-```
-
-In this display, conifers and broad-leaf trees are grouped together because there are more similar to each other compared to palm trees. This poses the question of what is meant by similarity. Consider the display below. 
-
-```{r cl3, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-# generate data
-y <- c(1, 3.1, 1.2, 2.3, 3.4, 2.5, 1.6, 2.7, 3.8, 2.9)
-x <- c(1:10)
-plot(x, y,
-  type = "l",
-  ylim = c(0, 11),
-  xaxt = "n",
-  yaxt = "n",
-  ann = FALSE,
-  lwd = 2,
-  ylab = "",
-  xlab = ""
-)
-lines(x = 1:10, y = c(5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9), col = "blue", lwd = 2)
-lines(x = 1:10, y = c(8, 10.1, 8.2, 9.3, 10.4, 9.5, 8.6, 9.7, 10.8, 9.9), col = "red", lwd = 2)
-```
-
-Are the red and the blue line more similar because they have the same shape or are the red and the black line more similar because they are closer together? There is no single correct answer here. Rather the plot intends to raise awareness about the fact that how cluster analyses group data depends on how similarity is defined in the respective algorithm.
-
-Let's consider another example to better understand how cluster analyses determine which data points should be merged when. Imagine you have five students and want to group them together based on their overall performance in school. The data that you rely on are their grades in math, music, and biology (with 1 being the best grade and 6 being the worst).
-
-```{r cl4, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-# similarity
-students <- matrix(c(2, 3, 2, 1, 3, 2, 1, 2, 1, 2, 4, 4, 3, 4, 3),
-  nrow = 5, byrow = T
-)
-students <- as.data.frame(students)
-colnames(students) <- c("Math", "Music", "Biology")
-rownames(students) <- c("StudentA", "StudentB", "StudentC", "StudentD", "StudentE")
-```
-
-```{r cl5, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-students %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Student") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Sample of five students and their grades in math, music, and biology.") %>%
-  flextable::border_outer()
-```
- 
- The first step in determining the similarity among students is to create a distance matrix. 
- 
-```{r cl6, eval = T, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-diststudents <- dist(students, method = "manhattan") # create a distance matrix
-```
-
-The distance matrix below shows that Student A and Student B only differ by one grade. Student B and Student C differ by 2 grades. Student A and Student C differ by 3 grades and so on.
-
-```{r cl7, eval = T, echo = F, results = 'asis', message=FALSE, warning=FALSE}
-diststudentstb <- matrix(c("1", "3", "3", "3", "", "2", "4", "4", "", "", "6", "6", "", "", "", "2"), nrow = 4, byrow = F)
-# add column and row names
-colnames(diststudentstb) <- c("StudentA", "StudentB", "StudentC", "StudentD")
-rownames(diststudentstb) <- c("StudentB", "StudentC", "StudentD", "StudentE")
-diststudentstb %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Student") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix based of students based on grades in math, music, and biology.") %>%
-  flextable::border_outer()
-```
-
-Based on this distance matrix, we can now implement a cluster analysis in R. 
-
-## Cluster Analysis on Numeric Data{-}
-
-To create a simple cluster object in R, we use the `hclust` function from the `cluster` package. The resulting object is then plotted to create a dendrogram which shows how students have been amalgamated (combined) by the clustering algorithm (which, in the present case, is called `ward.D`).
-
-```{r cl8, eval = T, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create hierarchical cluster object with ward.D as linkage method
-clusterstudents <- hclust(diststudents, method = "ward.D")
-# plot result as dendrogram
-plot(clusterstudents, hang = 0)
-```
-
-Let us have a look at how the clustering algorithm has amalgamated the students. The amalgamation process takes the distance matrix from above as a starting point and, in a first step, has merged Student A and Student B (because they were the most similar students in the data based on the distance matrix). After collapsing Student A and Student B, the resulting distance matrix looks like the distance matrix below (notice that Student A and Student B now form a cluster that is represented by the means of the grades of the two students).
-
-```{r cl9, eval=F, echo=T, message=FALSE, warning=FALSE}
-students2 <- matrix(c(1.5, 3, 2, 1, 2, 1, 2, 4, 4, 3, 4, 3),
-  nrow = 4, byrow = T
-)
-students2 <- as.data.frame(students2)
-rownames(students2) <- c("Cluster1", "StudentC", "StudentD", "StudentE")
-diststudents2 <- dist(students2, method = "manhattan")
-```
-
-```{r cl10, eval = T, echo = F, results = 'asis'}
-diststudentstb <- matrix(c("2.5", "3.5", "3.5", "", "6.0", "6.0", "", "", "2.0"),
-  nrow = 3, byrow = F
-)
-# add column and row names
-colnames(diststudentstb) <- c("Cluster 1", "Student C", "Student D")
-rownames(diststudentstb) <- c("Student C", "Student D", "Student E")
-diststudentstb %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Student") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix of students based on grades in math, music, and biology.") %>%
-  flextable::border_outer()
-```
-
-The next lowest distance now is 2.0 between Student D and Student E which means that these two students are merged next. The resulting distance matrix is shown below.
-
-```{r cl11, eval=F, echo=T, message=FALSE, warning=FALSE}
-students3 <- matrix(c(1.5, 3, 2, 1, 2, 1, 2.5, 4, 3.5),
-  nrow = 3, byrow = T
-)
-students3 <- as.data.frame(students3)
-rownames(students3) <- c("Cluster1", "StudentC", "Cluster2")
-diststudents3 <- dist(students3,
-  method = "manhattan"
-)
-```
-
-```{r cl12, eval = T, echo=FALSE, message=FALSE, warning=FALSE}
-diststudentstb <- matrix(c("2.5", "3.5", "", "6.0"), nrow = 2, byrow = F)
-# add column and row names
-colnames(diststudentstb) <- c("Cluster 1", "Student C")
-rownames(diststudentstb) <- c("Student C", "Cluster 2")
-diststudentstb %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Student") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix based of students based on grades in math, music, and biology.") %>%
-  flextable::border_outer()
-```
-
-Now, the lowest distance value occurs between Cluster 1 and Student C. Thus, Student C and Cluster 1 are merged. In the final step, the Cluster 2 is merged with the new cluster encompassing Student C and Cluster 1. This amalgamation process can then be displayed visually as a dendrogram (see above). 
-
-How and which elements are merged depends on the what is understood as distance. Since "distance" is such an important concept in cluster analyses, we will briefly discuss this notion to understand why there are so many different types of clustering algorithms and this cluster analyses.
-
-## Distance and Similarity Measures{-}
-
-To understand how a cluster analysis determines to which cluster a given data point belongs, we need to understand what different distance measures represent. Have a look at the Figure below which visually represents three different ways to conceptualize distance.
-
-```{r cl13, echo = F, message=F, warning=F}
-par(mar = c(1, 1, 1, 1)) # define margin width of the plot
-x <- c(1, 5) # define an x value
-y <- c(1, 5) # define a y value
-plot(x, y,
-  pch = 20,
-  cex = 1,
-  axes = F,
-  las = 1,
-  xlab = "",
-  ylab = "",
-  xlim = c(0, 7),
-  ylim = c(0, 10)
-)
-text(0.5, .5, "Point A", cex = 1)
-text(5, 5.5, "Point B", cex = 1)
-lines(x = c(1, 5), y = c(1, 5), type = "l", lty = 3, lwd = 2, col = "red")
-lines(x = c(1, 5), y = c(1, 1), type = "l", lty = 2, lwd = 2, col = "blue")
-lines(x = c(5, 5), y = c(1, 5), type = "l", lty = 4, lwd = 2, col = "green")
-lines(x = c(.9, 5), y = c(.9, .9), type = "l", lty = 4, lwd = 2, col = "green")
-legend("topleft",
-  inset = .05, title = "", bty = "n", lty = c(3, 2, 4), lwd = 2,
-  c("euclidean distance", "maximum distance", "manhatten distance"), col = c("red", "blue", "green"), horiz = F, cex = 1
-)
+```{r dist_geometry, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4}
+par(mar = c(2, 2, 3, 2))
+plot(c(1,5), c(1,5), pch = 20, cex = 1.5, axes = FALSE,
+     xlab = "", ylab = "", xlim = c(0, 7), ylim = c(0, 7),
+     main = "Three distance measures between Point A and Point B")
+text(0.6, 0.6, "A", cex = 1.2, font = 2)
+text(5.5, 5.2, "B", cex = 1.2, font = 2)
+lines(c(1,5), c(1,5), lty = 1, lwd = 2.5, col = "firebrick")
+lines(c(1,5), c(1,1), lty = 2, lwd = 2.5, col = "steelblue")
+lines(c(5,5), c(1,5), lty = 2, lwd = 2.5, col = "steelblue")
+lines(c(1,5), c(1,1), lty = 3, lwd = 2.5, col = "darkgreen")
+legend("topleft", bty = "n", lty = c(1,2,3), lwd = 2, cex = 0.9,
+       col = c("firebrick","steelblue","darkgreen"),
+       legend = c("Euclidean (straight-line, hypotenuse)",
+                  "Manhattan (sum of axis distances)",
+                  "Maximum (longer of the two axis distances)"))
 par(mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-The Figure above depicts three ways to measure distance: the `euclidean` distance represents the distance between points as the hypotenuse of the x- and y-axis distances while the "maximum distance" represents distance as the longer distance of either the distance on the x- or the y-axis. The `manhatten` distance (or block distance) is the sum of the distances on the x- and the y-axis. 
+**Euclidean distance** is the straight-line distance between two points in multivariate space — the generalisation of Pythagoras's theorem to $p$ dimensions. It is the most intuitive measure and works well when variables are continuous and on comparable scales:
 
-We will now turn to another example in order to delve a little deeper into how clustering algorithms work. In this example, we will find cluster of varieties of English based on the relative frequency of selected non-standard features (such as the relative frequencies of cleft constructions and tag questions). As a first step, we generate some fictional data set for this analysis. 
+$$d_{\text{Euclidean}}(A, B) = \sqrt{\sum_{i=1}^{p}(a_i - b_i)^2}$$
 
-```{r cl14, message=F, warning=F}
-# generate data
-IrishEnglish <- round(sqrt((rnorm(10, 9.5, .5))^2), 3)
-ScottishEnglish <- round(sqrt((rnorm(10, 9.3, .4))^2), 3)
-BritishEnglish <- round(sqrt((rnorm(10, 6.4, .7))^2), 3)
+**Manhattan distance** (city-block, taxicab) is the sum of absolute differences along each dimension — as if you could only travel along the grid axes. It is more robust to outliers than Euclidean distance and is often preferred for linguistic data [@kassambara2017practical]:
+
+$$d_{\text{Manhattan}}(A, B) = \sum_{i=1}^{p}|a_i - b_i|$$
+
+**Binary (Jaccard) distance** is designed for 0/1 presence–absence data. It ignores shared absences — pairs where both objects lack a feature — because in linguistics, the absence of a rare feature tells us little about similarity. With $a$ = shared presences, $b$ = in A only, $c$ = in B only:
+
+$$d_{\text{Binary}}(A, B) = \frac{b + c}{a + b + c}$$
+
+## Choosing a Distance Measure {-}
+
+```{r dist_choice_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  `Data type` = c("Continuous numeric (scaled)", "Count / frequency data",
+                  "Binary presence / absence", "Mixed types (numeric + nominal)",
+                  "Ordinal", "Texts (TF-IDF vectors)"),
+  `Recommended measure` = c("Euclidean or Manhattan",
+                             "Manhattan or Canberra",
+                             "Binary (Jaccard)",
+                             "Gower — `daisy(metric='gower')`",
+                             "Manhattan on ranks",
+                             "Cosine (via `proxy::dist(method='cosine')`"),
+  Notes = c("Always standardise first with `scale()`",
+            "Canberra emphasises small differences and down-weights large ones",
+            "Shared absences are ignored — appropriate for sparse feature data",
+            "Handles numeric, ordinal, and nominal simultaneously",
+            "Convert to integer ranks, then treat as numeric",
+            "Standard for document similarity in text mining"),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Choosing a distance measure by data type")
+```
+
+## Worked Example 1: Student Grades (Numeric) {-}
+
+```{r dist_students, message=FALSE, warning=FALSE}
+students <- data.frame(
+  Math    = c(2, 1, 1, 2, 4),
+  Music   = c(3, 3, 2, 4, 4),
+  Biology = c(2, 2, 1, 3, 3),
+  row.names = paste0("Student", LETTERS[1:5])
+)
+students |> tibble::rownames_to_column("Student") |>
+  flextable() |> flextable::set_table_properties(width=.45, layout="autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size=12) |>
+  flextable::set_caption("Student grades (1=best, 6=worst)")
+```
+
+```{r dist_students_matrix, message=FALSE, warning=FALSE}
+dist_students <- dist(students, method = "manhattan")
+round(as.matrix(dist_students), 1) |> as.data.frame() |>
+  tibble::rownames_to_column("Student") |>
+  flextable() |> flextable::set_table_properties(width=.55, layout="autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size=12) |>
+  flextable::set_caption("Manhattan distance matrix: student grades")
+```
+
+Students A and B differ by only 1 grade point across three subjects and will be merged first by the algorithm.
+
+## Worked Example 2: English Dialect Features (Mixed) {-}
+
+Imagine classifying 6 dialects described by both continuous (mean vowel duration in ms) and binary (morphosyntactic feature present/absent) variables. With mixed types, Gower distance is appropriate:
+
+```{r dist_gower, message=FALSE, warning=FALSE}
+dialects <- data.frame(
+  VowelDur   = c(112, 108, 95, 91, 130, 125),   # continuous (ms)
+  AspH       = factor(c(1,1,1,0,0,0)),           # h-aspiration (binary)
+  TDeletion  = factor(c(0,0,1,1,0,0)),           # T/D deletion (binary)
+  row.names  = c("RP","EastMidlands","Cockney",
+                 "NewYork","Dublin","Glasgow")
+)
+# Gower distance handles mixed types automatically
+dist_gower <- cluster::daisy(dialects, metric = "gower")
+round(as.matrix(dist_gower), 3) |> as.data.frame() |>
+  tibble::rownames_to_column("Dialect") |>
+  flextable() |> flextable::set_table_properties(width=.7, layout="autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size=10) |>
+  flextable::set_caption("Gower distance matrix: mixed-type dialect features")
+```
+
+## Scaling Variables {-}
+
+When continuous variables differ in scale, those with larger values dominate the distance calculation. Standardising to mean = 0, SD = 1 ensures all variables contribute equally:
+
+```{r dist_scale, message=FALSE, warning=FALSE}
+# Before scaling — unequal SDs
+apply(students, 2, sd)
+
+# After scaling — all SDs = 1
+students_sc <- scale(students)
+apply(students_sc, 2, sd)
+```
+
+::: {.callout-warning}
+## Always Scale Before Clustering Numeric Data
+
+Failing to standardise means that variables with larger ranges dominate the distance matrix — a raw frequency variable in the thousands will overwhelm a binary 0/1 variable. Apply `scale()` to all continuous predictors before clustering unless they are already on the same scale (e.g. all proportions between 0 and 1, or all binary).
+:::
+
+::: {.callout-tip}
+## Exercise: Distance Measures
+:::
+
+**Q1. You are clustering 15 English dialects on: (a) raw token frequency of discourse markers per 1,000 words (range 5–85), (b) mean vowel duration in ms (range 80–140), and (c) binary presence of five morphosyntactic features (0/1). Which is the most appropriate approach before computing a distance matrix?**
+```{r}
+#| echo: false
+#| label: "DIST_Q1"
+check_question("Standardise (a) and (b) to mean=0 SD=1; use Gower distance for the mixed continuous+binary data",
+               options = c(
+                 "Compute Euclidean distance directly — no preprocessing is needed",
+                 "Standardise (a) and (b) to mean=0 SD=1; use Gower distance for the mixed continuous+binary data",
+                 "Convert (a) and (b) to binary by thresholding, then use binary (Jaccard) distance on all variables",
+                 "Use only the binary features (c) — continuous variables cannot be used in cluster analysis"
+               ),
+               type = "radio",
+               q_id = "DIST_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! With mixed variable types — continuous and binary — Gower distance (`cluster::daisy(metric='gower')`) is the appropriate choice. It automatically applies the right sub-distance to each variable type and scales all contributions to [0,1]. The continuous variables should be standardised before combining. Euclidean distance treats all variables identically and would be dominated by the continuous variables with larger ranges.",
+               wrong = "Not quite. With a mix of continuous and binary variables, neither raw Euclidean nor raw binary distance is appropriate. The cleanest solution is Gower distance via `cluster::daisy(metric='gower')`, which handles mixed types automatically. The continuous variables (a) and (b) should be standardised first.")
+```
+
+---
+
+# Hierarchical Cluster Analysis {#hierarchical}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How hierarchical clustering builds a dendrogram through successive merging; how to select and compare linkage methods; how to read a dendrogram; how to assess clusterability with the Hopkins statistic; how to measure dendrogram quality with cophenetic correlation; and how to perform a complete hierarchical cluster analysis on two linguistic datasets
+:::
+
+## How Hierarchical Clustering Works {-}
+
+Hierarchical cluster analysis (HCA) builds a **dendrogram** by merging objects bottom-up:
+
+1. Start with each object in its own cluster
+2. Find the two clusters with the smallest distance
+3. Merge them into one; recompute distances to remaining clusters
+4. Repeat until all objects are in one cluster
+
+The height at which two branches join in the dendrogram corresponds to the distance at which those clusters were merged. Low joins = similar objects; high joins = dissimilar objects.
+
+```{r hca_student_demo, message=FALSE, warning=FALSE}
+hc_students <- hclust(dist_students, method = "ward.D")
+plot(hc_students, hang = 0, main = "Student dendrogram (ward.D, Manhattan)",
+     xlab = "", sub = "")
+```
+
+## Linkage Methods {-}
+
+The linkage method determines how the distance between a new merged cluster and remaining clusters is computed. This choice can substantially change the shape of the dendrogram:
+
+```{r linkage_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Method = c("ward.D2 ✓", "complete", "average (UPGMA)", "single",
+             "centroid", "median", "mcquitty"),
+  Description = c(
+    "Minimises total within-cluster variance — corrected Ward criterion",
+    "Distance = maximum pairwise distance between the two clusters",
+    "Distance = average of all pairwise distances (unweighted)",
+    "Distance = minimum pairwise distance — prone to chaining",
+    "Distance between cluster centroids (means)",
+    "Distance between cluster medians",
+    "McQuitty's weighted average (WPGMA)"
+  ),
+  `Best for` = c(
+    "Most linguistic data — compact, well-separated clusters (default)",
+    "When clusters should have similar diameters",
+    "Phylogenetics and genealogical classification",
+    "Detecting elongated or chain-like structures (avoid otherwise)",
+    "When cluster shape matters less than position",
+    "Robust to outliers",
+    "Balanced cluster sizes"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::bold(i = 1) |>
+  flextable::set_caption("Hierarchical clustering linkage methods (✓ = recommended default)")
+```
+
+::: {.callout-tip}
+## Choosing a Linkage Method
+
+**`ward.D2`** is the recommended default for most linguistic datasets because it produces compact, well-separated clusters. `ward.D2` is the corrected version of `ward.D` (uses squared distances consistently) and should be preferred in new analyses. Use **`average`** linkage for phylogenetic-style analyses — it is equivalent to the UPGMA algorithm widely used in historical linguistics. Avoid **`single`** linkage unless you expect chained structures — it tends to produce one long chain rather than distinct groups.
+:::
+
+## Dataset 1: Varieties of English {-}
+
+### Generating the Data {-}
+
+```{r hca_gen, message=FALSE, warning=FALSE}
+set.seed(2026)
+IrishEnglish      <- round(sqrt((rnorm(10, 9.5, .5))^2), 3)
+ScottishEnglish   <- round(sqrt((rnorm(10, 9.3, .4))^2), 3)
+BritishEnglish    <- round(sqrt((rnorm(10, 6.4, .7))^2), 3)
 AustralianEnglish <- round(sqrt((rnorm(10, 6.6, .5))^2), 3)
 NewZealandEnglish <- round(sqrt((rnorm(10, 6.5, .4))^2), 3)
-AmericanEnglish <- round(sqrt((rnorm(10, 4.6, .8))^2), 3)
-CanadianEnglish <- round(sqrt((rnorm(10, 4.5, .7))^2), 3)
-JamaicanEnglish <- round(sqrt((rnorm(10, 1.4, .2))^2), 3)
-PhillipineEnglish <- round(sqrt((rnorm(10, 1.5, .4))^2), 3)
-IndianEnglish <- round(sqrt((rnorm(10, 1.3, .5))^2), 3)
+AmericanEnglish   <- round(sqrt((rnorm(10, 4.6, .8))^2), 3)
+CanadianEnglish   <- round(sqrt((rnorm(10, 4.5, .7))^2), 3)
+JamaicanEnglish   <- round(sqrt((rnorm(10, 1.4, .2))^2), 3)
+PhilippineEnglish <- round(sqrt((rnorm(10, 1.5, .4))^2), 3)
+IndianEnglish     <- round(sqrt((rnorm(10, 1.3, .5))^2), 3)
+
 clus <- data.frame(
   IrishEnglish, ScottishEnglish, BritishEnglish,
   AustralianEnglish, NewZealandEnglish, AmericanEnglish,
-  CanadianEnglish, JamaicanEnglish, PhillipineEnglish, IndianEnglish
-)
-# add row names
-rownames(clus) <- c(
-  "nae_neg", "like", "clefts", "tags", "youse", "soitwas",
-  "dt", "nsr", "invartag", "wh_cleft"
+  CanadianEnglish, JamaicanEnglish, PhilippineEnglish, IndianEnglish,
+  row.names = c("nae_neg","like","clefts","tags","youse",
+                "soitwas","dt","nsr","invartag","wh_cleft")
 )
 ```
 
-```{r cl14b, echo = F, message=F, warning=F}
-clus %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Feature") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Frequencies of on-standard features across selected varieties of English.") %>%
+```{r hca_show, echo=FALSE, message=FALSE, warning=FALSE}
+clus |> tibble::rownames_to_column("Feature") |>
+  flextable() |> flextable::set_table_properties(width=1, layout="autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size=9) |>
+  flextable::set_caption("Relative frequency of non-standard features: 10 varieties of English") |>
   flextable::border_outer()
 ```
 
+### Preparing the Data {-}
 
+```{r hca_prep, message=FALSE, warning=FALSE}
+clust  <- t(clus)           # varieties as rows
+clust  <- na.omit(clust)
+clusts <- scale(clust)      # standardise features
 
-As a next step, we create a cluster object based on the data we have just generated.
-
-```{r cl15, message=F, warning=F}
-# clean data
-clusm <- as.matrix(clus)
-clust <- t(clusm) # transpose data
-clust <- na.omit(clust) # remove missing values
-clusts <- scale(clust) # standardize variables
-clusts <- as.matrix(clusts) # convert into matrix
+cat("Matrix dimensions:", nrow(clusts), "varieties ×", ncol(clusts), "features\n")
 ```
 
-```{r cl15b, echo = F, message=F, warning=F}
-clust %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Variety") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Scaled frequencies of on-standard features across selected varieties of English.") %>%
-  flextable::border_outer()
-```
+### Hopkins Statistic {-}
 
-
-
-We  assess if data is "clusterable" by testing if the data contains non-randomness. To this end, we calculate the *Hopkins statistic* which indicates how similar the data is to a random distribution. 
-
-* A Hopkins  value of 0.5 indicates that the data is random and that there are no inherent clusters. 
-
-* If the Hopkins statistic is close to 1, then the data is highly clusterable. 
-
-* Values of 0 indicate that the data is uniform [@aggarwal2015data, pp. 158]. 
-
-The `n` in the `get_clust_tendency` functions represents the maximum number of clusters to be tested which should be  number of predictors in the data. 
-
-```{r cl16, message=FALSE, warning=FALSE}
-# apply get_clust_tendency to cluster object
-clusttendency <- get_clust_tendency(clusts,
-  # define number of points from sample space
-  n = 9,
-  gradient = list(
-    # define color for low values
-    low = "steelblue",
-    # define color for high values
-    high = "white"
-  )
+```{r hca_hopkins, message=FALSE, warning=FALSE}
+set.seed(2026)
+clust_tend <- factoextra::get_clust_tendency(
+  clusts, n = nrow(clusts) - 1,
+  gradient = list(low = "steelblue", high = "white")
 )
-clusttendency[1]
+cat("Hopkins statistic:", round(clust_tend$hopkins_stat, 3), "\n")
+cat("Interpretation:",
+    ifelse(clust_tend$hopkins_stat > 0.7, "Data is well-clusterable (H > 0.7)",
+    ifelse(clust_tend$hopkins_stat > 0.5, "Some structure present (H > 0.5)",
+           "Data appears random — clustering may not be meaningful")), "\n")
 ```
 
-As the Hopkins value is substantively higher than .5 (randomness) and closer to 1 (highly clusterable) than to .5, thus indicating that there is sufficient structure in the data to warrant a cluster analysis. As such, we can assume that there are actual clusters in the data and continue by generating a distance matrix using  euclidean distances.
+### Distance Matrix and Dissimilarity Plot {-}
 
-```{r cl17, eval = T, echo =  T, message=FALSE, warning=FALSE}
-clustd <- dist(clusts, # create distance matrix
-  method = "euclidean"
-) # use euclidean (!) distance
-```
-
-```{r cl17b, echo = F, message=F, warning=F}
-round(clustd, 2) %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Variety") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix of scaled frequencies of non-standard features across selected varieties of English.") %>%
-  flextable::border_outer()
-```
-
-
-Below are other methods to create distance matrices with some comments on when using which metric is appropriate. 
-
-```{r cl18, eval = T, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create distance matrix (euclidean method: not good when dealing with many dimensions)
+```{r hca_dist, message=FALSE, warning=FALSE}
 clustd <- dist(clusts, method = "euclidean")
-# create distance matrix (maximum method: here the difference between points dominates)
-clustd_maximum <- round(dist(clusts, method = "maximum"), 2)
-# create distance matrix (manhattan method: most popular choice)
-clustd_manhatten <- round(dist(clusts, method = "manhattan"), 2)
-# create distance matrix (canberra method: for count data only - focuses on small differences and neglects larger differences)
-clustd_canberra <- round(dist(clusts, method = "canberra"), 2)
-# create distance matrix (binary method: for binary data only!)
-clustd_binary <- round(dist(clusts, method = "binary"), 2)
-# create distance matrix (minkowski method: is not a true distance measure)
-clustd_minkowski <- round(dist(clusts, method = "minkowski"), 2)
-# distance method for words: daisy (other possible distances are "manhattan" and "gower")
-clustd_daisy <- round(daisy(clusts, metric = "euclidean"), 2)
+
+# Dissimilarity plot
+seriation::dissplot(clustd, main = "Dissimilarity plot: 10 English varieties")
 ```
 
+Distinct dark blocks along the diagonal confirm genuine cluster structure in the data.
 
-If you call the individual distance matrices, you will see that depending on which distance measure is used, the distance matrices differ dramatically! Have a look at the distance matrix created using the `manhatten` metric and compare it to the distance matrix created using the `euclidian` metric (see above).
+### Fitting and Comparing Linkage Methods {-}
 
-```{r cl19, eval = F, echo =  T, message=FALSE, warning=FALSE}
-clustd_maximum
+```{r hca_linkage_compare, message=FALSE, warning=FALSE, fig.height=8}
+par(mfrow = c(2, 2), mar = c(2, 2, 3, 1))
+for (m in c("ward.D2", "complete", "average", "single")) {
+  plot(hclust(clustd, method = m), hang = -1, cex = 0.7,
+       main = paste("Linkage:", m), xlab = "", sub = "")
+}
+par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1))
 ```
 
-```{r cl19b, eval = T, echo =  F, message=FALSE, warning=FALSE}
-clustd_maximum %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Variety") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix of selected varieties of English.") %>%
-  flextable::border_outer()
-```
+### Cophenetic Correlation {-}
 
-Next, we create a distance plot using the `distplot` function. If the distance plot shows different regions (non-random, non-uniform gray areas) then clustering the data is permittable as the data contains actual structures.
+The cophenetic correlation measures how well the dendrogram preserves the original pairwise distances:
 
-```{r cl20, eval = T, echo=T, message=FALSE, warning=FALSE}
-# create distance plot
-dissplot(clustd)
-```
-
-The most common method for clustering is called `ward.D` or `ward.D2`. Both of these linkage functions seek to minimize variance. This means that they cluster in a way that the amount of variance is at a minimum (comparable to the regression line in an *ordinary least squares* (OLS) design).
-
-```{r cl21, eval = T, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# create cluster object
-cd <- hclust(clustd, method = "ward.D2")
-# display dendrogram
-plot(cd, hang = -1)
-```
-
-We will briefly go over some other, alternative linkage methods. Which linkage method is and should be used depends on various factors, for example, the type of variables (nominal versus numeric) or whether the focus should be placed on commonalities or differences.
- 
-```{r cl22, eval = T, echo = T, results = 'asis', message=FALSE, warning=FALSE}
-# single linkage: cluster with nearest data point
-cd_single <- hclust(clustd, method = "single")
-# create cluster object (ward.D linkage)
-cd_wardd <- hclust(clustd, method = "ward.D")
-# create cluster object (ward.D2 linkage):
-# cluster in a way to achieve minimum variance
-cd_wardd2 <- hclust(clustd, method = "ward.D2")
-# average linkage: cluster with closest mean
-cd_average <- hclust(clustd, method = "average")
-# mcquitty linkage
-cd_mcquitty <- hclust(clustd, method = "mcquitty")
-# median linkage: cluster with closest median
-cd_median <- hclust(clustd, method = "median")
-# centroid linkage: cluster with closest prototypical point of target cluster
-cd_centroid <- hclust(clustd, method = "centroid")
-# complete linkage: cluster with nearest/furthest data point of target cluster
-cd_complete <- hclust(clustd, method = "complete")
-```
-
-Now, we determine the optimal number of clusters based on silhouette widths which shows the ratio of internal similarity of clusters against the similarity between clusters. If the silhouette widths have values lower than .2 then this indicates that clustering is not appropriate [@levshina2015linguistics 311]. The function below displays the silhouette width values of 2 to 8 clusters.
-
-```{r cl23, eval = T, echo =  T, message=FALSE, warning=FALSE}
-optclus <- sapply(2:8, function(x) summary(silhouette(cutree(cd, k = x), clustd))$avg.width)
-optclus # inspect results
-
-optnclust <- which(optclus == max(optclus)) # determine optimal number of clusters
-groups <- cutree(cd, k = optnclust) # cut tree into optimal number of clusters
-```
-
-The optimal number of clusters is the cluster solution with the highest silhouette width. We cut the tree into the optimal number of clusters and plot the result.
-
-```{r cl24, eval = T, echo =  T, results = 'asis', message=FALSE, warning=FALSE}
-groups <- cutree(cd, k = optnclust) # cut tree into optimal clusters
-plot(cd, hang = -1, cex = .75) # plot result as dendrogram
-rect.hclust(cd, k = optnclust, border = "red") # draw red borders around clusters
-```
-
-In a next step, we aim to determine which factors are particularly important for the clustering - this step is comparable to measuring the effect size in inferential designs.
-
-```{r cl25, eval = T, echo =  T, message=FALSE, warning=FALSE}
-# which factors are particularly important
-celtic <- clusts[c(1, 2), ]
-others <- clusts[-c(1, 2), ]
-# calculate column means
-celtic.cm <- colMeans(celtic)
-others.cm <- colMeans(others)
-# calculate difference between celtic and other englishes
-diff <- celtic.cm - others.cm
-sort(diff, decreasing = F)
-```
-
-```{r cl26, eval = T, echo =  T, results = 'asis', message=FALSE, warning=FALSE}
-plot(sort(diff), # y-values
-  1:length(diff), # x-values
-  type = "n", # plot type (empty)
-  cex.axis = .75, # axis font size
-  cex.lab = .75, # label font size
-  xlab = "Prototypical for Non-Celtic Varieties (Cluster 2) <-----> Prototypical for Celtic Varieties (Cluster 1)", # x-axis label
-  yaxt = "n", # no y-axis tick marks
-  ylab = ""
-) # no y-axis label
-text(sort(diff), 1:length(diff), names(sort(diff)), cex = .75) # plot text into plot
-```
-
-```{r cl27, eval = T, echo =  T, message=FALSE, warning=FALSE}
-Outer <- clusts[c(6:8), ] # data of outer circle varieties
-Inner <- clusts[-c(6:8), ] # data of inner circle varieties
-Outer.cm <- colMeans(Outer) # column means for outer circle
-Inner.cm <- colMeans(Inner) # column means for inner circle
-diff <- Outer.cm - Inner.cm # difference between inner and outer circle
-sort(diff, decreasing = F) # order difference between inner and outer circle
-```
-
-```{r cl28, eval = T, echo =  T, results = 'asis', message=FALSE, warning=FALSE}
-plot( # start plot
-  sort(diff), # y-values
-  1:length(diff), # x-values
-  type = "n", # plot type (empty)
-  cex.axis = .75, # axis font size
-  cex.lab = .75, # label font size
-  xlab = "Prototypical for Inner Circle Varieties (Cluster 2) <-----> Prototypical for Outer Circle Varieties (Cluster 1)", # x-axis label
-  yaxt = "n", # no y-axis tick marks
-  ylab = ""
-) # no y-axis label
-text(sort(diff), 1:length(diff), names(sort(diff)), cex = .75) # plot text into plot
-```
-
-We see that discourse *like* is typical for other varieties and that the use of *youse* as 2^nd^ person plural pronoun and invariant tags are typical for Celtic Englishes.
-
-We will now test whether the cluster is justified by validating the cluster solution using bootstrapping.
-
-```{r cl29, eval = T, echo=T, message=FALSE, warning=FALSE, paged.print=FALSE}
-res.pv <- pvclust(clus, # apply pvclust method to clus data
-  method.dist = "euclidean", # use eucledian distance
-  method.hclust = "ward.D2", # use ward.d2 linkage
-  nboot = 100
-) # use 100 bootstrap runs
-```
-
-The clustering provides approximately unbiased p-values and bootstrap probability value [see @levshina2015linguistics 316].
-
-```{r cl30, eval = T, echo=T, message=FALSE, warning=FALSE, paged.print=FALSE}
-plot(res.pv, cex = .75)
-pvrect(res.pv)
-```
-
-We can also use other packages to customize the dendrograms. 
-
-```{r cl31, eval = T, echo =  T, results = 'asis', message=FALSE, warning=FALSE}
-plot(as.phylo(cd), # plot cluster object
-  cex = 0.75, # .75 font size
-  label.offset = .5
-) # .5 label offset
-```
-
-One useful customization is to display an unrooted rather than a rooted tree diagram.
-
-```{r cl32, eval = T, echo =  T, results = 'asis', message=FALSE, warning=FALSE}
-# plot as unrooted tree
-plot(as.phylo(cd), # plot cluster object
-  type = "unrooted", # plot as unrooted tree
-  cex = .75, # .75 font size
-  label.offset = 1
-) # .5 label offset
-```
-
-## Cluster Analysis on Nominal Data{-}
-
-So far, all analyses were based on numeric data. However, especially when working with language data, the data is nominal or categorical rather than numeric. The following will thus show to implement a clustering method for nominal data.
-
-In a first step, we will create a simple data set representing the presence and absence of features across varieties of English.
-
-```{r cl33, eval = T, echo =  T, message=FALSE, warning=FALSE}
-# generate data
-IrishEnglish <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-ScottishEnglish <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-BritishEnglish <- c(0, 1, 1, 1, 0, 0, 1, 0, 1, 1)
-AustralianEnglish <- c(0, 1, 1, 1, 0, 0, 1, 0, 1, 1)
-NewZealandEnglish <- c(0, 1, 1, 1, 0, 0, 1, 0, 1, 1)
-AmericanEnglish <- c(0, 1, 1, 1, 0, 0, 0, 0, 1, 0)
-CanadianEnglish <- c(0, 1, 1, 1, 0, 0, 0, 0, 1, 0)
-JamaicanEnglish <- c(0, 0, 1, 0, 0, 0, 0, 0, 1, 0)
-PhillipineEnglish <- c(0, 0, 1, 0, 0, 0, 0, 0, 1, 0)
-IndianEnglish <- c(0, 0, 1, 0, 0, 0, 0, 0, 1, 0)
-clus <- data.frame(
-  IrishEnglish, ScottishEnglish, BritishEnglish,
-  AustralianEnglish, NewZealandEnglish, AmericanEnglish,
-  CanadianEnglish, JamaicanEnglish, PhillipineEnglish, IndianEnglish
-)
-# add row names
-rownames(clus) <- c(
-  "nae_neg", "like", "clefts", "tags", "youse", "soitwas",
-  "dt", "nsr", "invartag", "wh_cleft"
-)
-# convert into factors
-clus <- apply(clus, 1, function(x) {
-  x <- as.factor(x)
+```{r hca_cophenetic, message=FALSE, warning=FALSE}
+link_methods <- c("ward.D2","complete","average","single","mcquitty")
+coph_vals <- sapply(link_methods, function(m) {
+  hc <- hclust(clustd, method = m)
+  cor(clustd, cophenetic(hc))
 })
+
+data.frame(Linkage = link_methods, Cophenetic = round(coph_vals, 3)) |>
+  dplyr::arrange(desc(Cophenetic)) |>
+  flextable() |>
+  flextable::set_table_properties(width = .4, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::bold(i = 1) |>
+  flextable::set_caption("Cophenetic correlation by linkage (higher = better)")
 ```
 
-```{r cl33b, eval = T, echo =  F, message=FALSE, warning=FALSE}
-clus %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Variety") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Occurrence of non-standard features across selected varieties of English.") %>%
-  flextable::border_outer()
-```
-
-
-Now that we have our data, we will create a distance matrix but in contrast to previous methods, we will use a different distance measure that takes into account that we are dealing with nominal (or binary) data.
-
-```{r cl34, eval = T, echo =  T, message=FALSE, warning=FALSE}
-# clean data
-clusts <- as.matrix(clus)
-# create distance matrix
-clustd <- dist(clusts, method = "binary") # create a distance object with binary (!) distance
-```
-
-
-```{r cl34b, eval = T, echo =  F, message=FALSE, warning=FALSE}
-round(clustd, 2) %>%
-  as.matrix() %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Variety") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Distance matrix of selected varieties of English.") %>%
-  flextable::border_outer()
-```
-
-
-As before, we can now use hierarchical clustering to display the results as a dendrogram
-
-```{r cl35, eval = T, echo=T, message=FALSE, warning=FALSE}
-# create cluster object (ward.D2 linkage)   : cluster in a way to achieve minimum variance
+```{r hca_fit, message=FALSE, warning=FALSE}
+# Fit final model with ward.D2
 cd <- hclust(clustd, method = "ward.D2")
-# plot result as dendrogram
-plot(cd, hang = -1) # display dendogram
+plot(cd, hang = -1, cex = 0.9,
+     main = "Hierarchical clustering: 10 English varieties (ward.D2)",
+     xlab = "", sub = "")
 ```
 
-In a next step, we want to determine which features are particularly distinctive for one cluster (the "Celtic" cluster containing Irish and Scottish English). 
+::: {.callout-tip}
+## How to Read a Dendrogram
 
-```{r cl36, eval = T, echo=T, message=FALSE, warning=FALSE}
-# create factor with celtic varieties on one hand and other varieties on other
-cluster <- as.factor(ifelse(as.character(rownames(clusts)) == "IrishEnglish", "1",
-  ifelse(as.character(rownames(clusts)) == "ScottishEnglish", "1", "0")
-))
-# convert into data frame
-clsts.df <- as.data.frame(clusts)
-# determine significance
-library(exact2x2)
-pfish <- fisher.exact(table(cluster, clsts.df$youse))
-pfish[[1]]
-# determine effect size
-assocstats(table(cluster, clsts.df$youse))
+- **Leaves** (bottom) = individual objects (here: varieties)
+- **Branch height** = distance at which the merge occurred — lower = more similar
+- **Clusters** = everything below a horizontal cut line in the same subtree
+- The left-right order of leaves is arbitrary and can be permuted without changing the dendrogram's meaning; only the vertical heights matter
+- Look for large vertical gaps between successive merges — these mark natural cluster boundaries
+:::
 
-assocstats(table(cluster, clsts.df$like))
+---
+
+## Dataset 2: Early Modern English Text Types {-}
+
+For a second worked example, we cluster 8 Early Modern English text types based on 12 grammatical features that are known to vary by genre/register [@biber1995dimensions]. This illustrates how the same workflow applies to a different linguistic domain.
+
+```{r hca_eme_data, message=FALSE, warning=FALSE}
+set.seed(2026)
+# 8 EME text types × 12 grammatical features (simulated rates per 1000 words)
+# Features: past tense, perfect aspect, passives, nominalisation,
+#   present tense, first-person pronouns, private verbs,
+#   questions, imperatives, hedges, subordination, coordination
+
+eme_data <- data.frame(
+  PastTense    = c(42, 38, 18, 12,  8, 10, 25, 30),
+  PerfectAsp   = c( 8,  6,  4,  3,  2,  2,  5,  4),
+  Passives     = c( 5,  4, 22, 18,  3,  4,  6,  8),
+  Nominalis    = c(12, 10, 35, 28,  4,  5, 15, 18),
+  PreseTense   = c(15, 18, 25, 30, 45, 40, 20, 15),
+  FirstPron    = c(18, 20,  4,  3, 35, 30, 10,  8),
+  PrivVerbs    = c(22, 24,  6,  5, 38, 32, 14, 10),
+  Questions    = c( 6,  8,  1,  1, 18, 15,  4,  3),
+  Imperatives  = c( 2,  3,  1,  1, 10,  9,  3,  2),
+  Hedges       = c( 8,  9,  4,  3, 20, 18,  6,  5),
+  Subordinat   = c(20, 18, 28, 25, 15, 16, 22, 24),
+  Coordinat    = c(15, 16, 10,  9, 12, 14, 18, 20),
+  row.names    = c("Sermons","Trials","ScientificProse","LegalDocs",
+                   "PersonalLetters","Diaries","NarrativeProse","Chronicles")
+)
+
+eme_data |> tibble::rownames_to_column("TextType") |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size = 9) |>
+  flextable::set_caption("Grammatical feature rates (per 1,000 words): Early Modern English text types")
 ```
 
-Clustering is a highly complex topic and there many more complexities to it. However, this should have helped to get you started.
+```{r hca_eme_prep, message=FALSE, warning=FALSE}
+# Standardise and compute distance
+eme_sc    <- scale(eme_data)
+eme_dist  <- dist(eme_sc, method = "euclidean")
 
-
-# Correspondence Analysis
-
-Correspondence analysis (CA) represents a multivariate statistical technique that provides a graphic method of exploring the relationship between variables in a contingency table. CA is conceptually similar to principal component analysis (PCA), but applies to categorical rather than continuous data.
-
-CA consists out of the following four steps:
-
-1. Computing row and column averages
-2. Computing expected values
-3. Computing the residuals
-4. Plotting residuals
-
-In this tutorial, we investigate similarities among amplifiers based on their co-occurrences (word embeddings) with adjectives. Adjective amplifiers are elements such as those in 1. to 5.
-
-1. The *very*~amplifier~ *nice*~adjective~ man.
-2. A *truely*~amplifier~ *remarkable*~adjective~ woman. 
-2. He was *really*~amplifier~ *hesitant*~adjective~.
-4. The child was *awfully*~amplifier~ *loud*~adjective~.
-5. The festival was *so*~amplifier~ *amazing*~adjective~!
-
-The similarity among adjective amplifiers can then be used to find clusters or groups of amplifiers that *behave* similarly and are interchangeable. To elaborate, adjective amplifiers are interchangeable with some variants but not with others (consider 6. to 8.; the question mark signifies that the example is unlikely to be used or grammatically not acceptable by L1 speakers of English).
-
-6. The *very*~amplifier~ *nice*~adjective~ man.
-7. The *really*~amplifier~ *nice*~adjective~ man.
-8. ^?^The *completely*~amplifier~ *nice*~adjective~ man.
-
-We start by loading the data, and then displaying the data which is called `vsmdata` and consist of 5,000 observations of adjectives and contains two columns: one column with the adjectives (Adjectives) and another column which has the amplifiers (0 means that the adjective occurred without an amplifier). 
-
-```{r vsm1, message=F, warning=F}
-# load data
-vsmdata <- base::readRDS("tutorials/clust/data/vsd.rda", "rb")
+# Hopkins statistic
+set.seed(2026)
+eme_tend <- factoextra::get_clust_tendency(eme_sc, n = 6,
+              gradient = list(low = "steelblue", high = "white"))
+cat("Hopkins (EME data):", round(eme_tend$hopkins_stat, 3), "\n")
 ```
 
-```{r vsm1b, eval = T, echo =  F, message=FALSE, warning=FALSE}
-vsmdata %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Table showing amplification of English adjectives.") %>%
-  flextable::border_outer()
+```{r hca_eme_fit, message=FALSE, warning=FALSE}
+# Fit with ward.D2
+cd_eme <- hclust(eme_dist, method = "ward.D2")
+
+plot(cd_eme, hang = -1, cex = 0.9,
+     main = "Early Modern English text types (ward.D2, Euclidean)",
+     xlab = "", sub = "")
+```
+
+The dendrogram reveals a broad grouping between formal/written registers (Scientific Prose, Legal Docs, Sermons, Trials) and informal/speech-related text types (Personal Letters, Diaries) with narrative texts forming a middle ground.
+
+::: {.callout-tip}
+## Exercise: Linkage Methods
+:::
+
+**Q2. A hierarchical cluster analysis of 12 dialect varieties produces dendrograms with cophenetic correlations: ward.D2 = 0.71, complete = 0.78, average = 0.84, single = 0.62. A colleague says you must use average linkage because it has the highest cophenetic correlation. Should you follow this advice?**
+```{r}
+#| echo: false
+#| label: "HCA_Q2"
+check_question("Cophenetic correlation is one criterion for choosing linkage, but not the only one. Average linkage (0.84) preserves pairwise distances most faithfully, but ward.D2 (0.71) tends to produce more compact, interpretable clusters for linguistic data. You should consider both the cophenetic correlation AND the interpretability of the resulting clusters given your research question.",
+               options = c(
+                 "Yes — the highest cophenetic correlation always determines the best linkage choice",
+                 "Cophenetic correlation is one criterion for choosing linkage, but not the only one. Average linkage (0.84) preserves pairwise distances most faithfully, but ward.D2 (0.71) tends to produce more compact, interpretable clusters for linguistic data. You should consider both the cophenetic correlation AND the interpretability of the resulting clusters given your research question.",
+                 "No — cophenetic correlation is irrelevant; always use ward.D2 regardless",
+                 "No — single linkage always produces the best clusters because it uses the minimum distance"
+               ),
+               type = "radio",
+               q_id = "HCA_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Cophenetic correlation measures how faithfully the dendrogram represents the original distances — higher is better in principle. However, ward.D2 often produces more interpretable, compact clusters even at a slightly lower cophenetic correlation. Best practice is to inspect both metrics and report them transparently. If the cophenetic correlation strongly favours average linkage AND the research context suits phylogenetic-style interpretation (e.g. historical linguistics), use average. If compact groups are more important, use ward.D2.",
+               wrong = "Not quite. Cophenetic correlation is an important diagnostic but not the only criterion. High cophenetic correlation means the dendrogram preserves the distance matrix well, but a 'good' dendrogram for your purposes also needs to produce interpretable, theoretically meaningful clusters. Ward.D2 typically produces tighter clusters even when its cophenetic correlation is somewhat lower than average or complete linkage.")
 ```
 
 
-For this tutorial, we will reduce the number of amplifiers and adjectives and thus simplify the data to render it easier to understand what is going on. To simplify the data, we remove 
+---
 
-+ all non-amplified adjectives
-+ the adjectives many and much
-+ adjectives that are amplified less than 10 times
+# Choosing the Number of Clusters {#nclust}
 
-In addition, we collapse all amplifiers that occur less than 20 times into a bin category (*other*).
+::: {.callout-note}
+## Section Overview
 
-```{r vsm2}
-# simplify data
-vsmdata_simp <- vsmdata %>%
-  # remove non-amplifier adjectives
-  dplyr::filter(
-    Amplifier != 0,
-    Adjective != "many",
-    Adjective != "much"
-  ) %>%
-  # collapse infrequent amplifiers
-  dplyr::group_by(Amplifier) %>%
-  dplyr::mutate(AmpFreq = dplyr::n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::mutate(Amplifier = ifelse(AmpFreq > 20, Amplifier, "other")) %>%
-  # collapse infrequent adjectives
-  dplyr::group_by(Adjective) %>%
-  dplyr::mutate(AdjFreq = dplyr::n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::mutate(Adjective = ifelse(AdjFreq > 10, Adjective, "other")) %>%
-  dplyr::filter(Adjective != "other") %>%
+**What you will learn:** Three complementary approaches to deciding how many clusters to extract — the silhouette criterion, the elbow method, and the gap statistic — and how to apply them to both the English varieties and EME text-type datasets
+:::
+
+## The Silhouette Width Criterion {-}
+
+The silhouette width measures how well each object fits its assigned cluster relative to the nearest alternative cluster. For object $i$ in cluster $C_i$:
+
+$$s(i) = \frac{b(i) - a(i)}{\max(a(i),\; b(i))}$$
+
+- $a(i)$ = average distance from $i$ to all other objects in its own cluster (cohesion)
+- $b(i)$ = average distance from $i$ to all objects in the nearest other cluster (separation)
+- $s(i) \in [-1, +1]$: values close to +1 = well-clustered; close to 0 = borderline; negative = possibly misassigned
+
+Average silhouette width across all objects provides a single summary of the cluster solution. @levshina2015linguistics [311] recommends that values below .20 indicate clustering is inappropriate.
+
+```{r nclust_sil_eng, message=FALSE, warning=FALSE}
+# Silhouette criterion: English varieties
+sil_eng <- sapply(2:(nrow(clusts)-1), function(k) {
+  grps <- cutree(cd, k = k)
+  summary(silhouette(grps, clustd))$avg.width
+})
+
+# Silhouette criterion: EME text types
+sil_eme <- sapply(2:(nrow(eme_sc)-1), function(k) {
+  grps <- cutree(cd_eme, k = k)
+  summary(silhouette(grps, eme_dist))$avg.width
+})
+
+# Combined plot
+tibble::tibble(
+  k         = c(2:(nrow(clusts)-1), 2:(nrow(eme_sc)-1)),
+  Silhouette = c(sil_eng, sil_eme),
+  Dataset   = c(rep("English varieties", length(sil_eng)),
+                rep("EME text types",   length(sil_eme)))
+) |>
+  ggplot(aes(x = k, y = Silhouette, color = Dataset, group = Dataset)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_hline(yintercept = 0.20, linetype = "dashed", color = "grey50") +
+  facet_wrap(~ Dataset, scales = "free_x") +
+  scale_color_manual(values = c("English varieties" = "steelblue",
+                                "EME text types"    = "firebrick")) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(title    = "Average silhouette width by number of clusters",
+       subtitle = "Dashed line = minimum acceptable threshold (0.20)",
+       x = "Number of clusters (k)", y = "Average silhouette width")
+```
+
+```{r nclust_optimal, message=FALSE, warning=FALSE}
+opt_k_eng <- which.max(sil_eng) + 1
+opt_k_eme <- which.max(sil_eme) + 1
+cat("Optimal k (English varieties):", opt_k_eng, 
+    "| silhouette:", round(max(sil_eng), 3), "\n")
+cat("Optimal k (EME text types):",    opt_k_eme,
+    "| silhouette:", round(max(sil_eme), 3), "\n")
+```
+
+## The Elbow Method {-}
+
+The elbow method plots the total within-cluster sum of squares (WSS) against k. The "elbow" — where the rate of decrease in WSS flattens — suggests a natural choice:
+
+```{r nclust_elbow, message=FALSE, warning=FALSE}
+# Elbow method: manual WSS calculation (avoids fviz_nbclust/hcut bug on square matrices)
+wss_eng <- sapply(1:(nrow(clusts) - 1), function(k) {
+  grps <- cutree(cd, k = k)
+  sum(sapply(unique(grps), function(g) {
+    members <- clusts[grps == g, , drop = FALSE]
+    if (nrow(members) == 1) return(0)
+    sum(apply(members, 2, var) * (nrow(members) - 1))
+  }))
+})
+
+wss_eme <- sapply(1:(nrow(eme_sc) - 1), function(k) {
+  grps <- cutree(cd_eme, k = k)
+  sum(sapply(unique(grps), function(g) {
+    members <- eme_sc[grps == g, , drop = FALSE]
+    if (nrow(members) == 1) return(0)
+    sum(apply(members, 2, var) * (nrow(members) - 1))
+  }))
+})
+
+p1 <- data.frame(k = 1:(nrow(clusts)  - 1), wss = wss_eng) |>
+  ggplot(aes(x = k, y = wss)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(color = "steelblue", size = 2.5) +
+  theme_bw() +
+  labs(title = "Elbow: English varieties",
+       x = "Number of clusters (k)", y = "Total within-cluster SS")
+
+p2 <- data.frame(k = 1:(nrow(eme_sc) - 1), wss = wss_eme) |>
+  ggplot(aes(x = k, y = wss)) +
+  geom_line(color = "firebrick", linewidth = 1) +
+  geom_point(color = "firebrick", size = 2.5) +
+  theme_bw() +
+  labs(title = "Elbow: EME text types",
+       x = "Number of clusters (k)", y = "Total within-cluster SS")
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+## Gap Statistic {-}
+
+The gap statistic compares the observed WSS to the WSS expected from a reference null distribution (randomly sampled data). The optimal k is the smallest k where the gap is within 1 SE of the maximum:
+
+```{r nclust_gap, message=FALSE, warning=FALSE}
+set.seed(2026)
+gap_eng <- cluster::clusGap(
+  clusts,
+  FUNcluster = function(x, k) list(cluster = cutree(hclust(dist(x), "ward.D2"), k)),
+  K.max = nrow(clusts) - 1,
+  B     = 200
+)
+
+gap_eme <- cluster::clusGap(
+  eme_sc,
+  FUNcluster = function(x, k) list(cluster = cutree(hclust(dist(x), "ward.D2"), k)),
+  K.max = nrow(eme_sc) - 1,
+  B     = 200
+)
+
+p_gap1 <- factoextra::fviz_gap_stat(gap_eng) +
+  theme_bw() + labs(title = "Gap statistic: English varieties")
+
+p_gap2 <- factoextra::fviz_gap_stat(gap_eme) +
+  theme_bw() + labs(title = "Gap statistic: EME text types")
+
+gridExtra::grid.arrange(p_gap1, p_gap2, ncol = 2)
+```
+
+## Visualising the Optimal Solutions {-}
+
+```{r nclust_final_eng, message=FALSE, warning=FALSE}
+groups_eng <- cutree(cd, k = opt_k_eng)
+
+# Dendrogram with borders
+plot(cd, hang = -1, cex = 0.85,
+     main = paste("English varieties: k =", opt_k_eng), xlab = "", sub = "")
+rect.hclust(cd, k = opt_k_eng,
+            border = c("firebrick","steelblue","darkgreen","purple")[1:opt_k_eng])
+
+# Silhouette plot
+sil_opt_eng <- silhouette(groups_eng, clustd)
+plot(sil_opt_eng,
+     col  = c("firebrick","steelblue","darkgreen","purple")[1:opt_k_eng],
+     main = paste("Silhouette plot: English varieties (k =", opt_k_eng, ")"))
+```
+
+```{r nclust_final_eme, message=FALSE, warning=FALSE}
+groups_eme <- cutree(cd_eme, k = opt_k_eme)
+
+plot(cd_eme, hang = -1, cex = 0.85,
+     main = paste("EME text types: k =", opt_k_eme), xlab = "", sub = "")
+rect.hclust(cd_eme, k = opt_k_eme,
+            border = c("firebrick","steelblue","darkgreen")[1:opt_k_eme])
+
+sil_opt_eme <- silhouette(groups_eme, eme_dist)
+plot(sil_opt_eme,
+     col  = c("firebrick","steelblue","darkgreen")[1:opt_k_eme],
+     main = paste("Silhouette plot: EME text types (k =", opt_k_eme, ")"))
+```
+
+```{r nclust_membership_both, message=FALSE, warning=FALSE}
+# Membership summary for both datasets
+rbind(
+  data.frame(Dataset = "English varieties",
+             Object  = names(groups_eng),
+             Cluster = paste0("Cluster ", groups_eng)),
+  data.frame(Dataset = "EME text types",
+             Object  = names(groups_eme),
+             Cluster = paste0("Cluster ", groups_eme))
+) |>
+  dplyr::arrange(Dataset, Cluster) |>
+  flextable() |>
+  flextable::set_table_properties(width = .65, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::set_caption("Cluster membership: both datasets")
+```
+
+::: {.callout-tip}
+## Exercise: Choosing the Number of Clusters
+:::
+
+**Q3. For the English varieties data, the silhouette criterion suggests k=3 (avg silhouette = 0.48), while the elbow method is ambiguous between k=2 and k=3, and the gap statistic favours k=2. How should the researcher proceed?**
+```{r}
+#| echo: false
+#| label: "NCLUST_Q3"
+check_question("Report all three criteria, note the convergence on k=2 or k=3, inspect both solutions substantively, and choose the one that is both statistically supported and theoretically interpretable. Transparent reporting of the disagreement is essential.",
+               options = c(
+                 "Always use the silhouette criterion — it is the most reliable and k=3 must be chosen",
+                 "Always use the gap statistic — it is the gold standard and k=2 must be chosen",
+                 "Report all three criteria, note the convergence on k=2 or k=3, inspect both solutions substantively, and choose the one that is both statistically supported and theoretically interpretable. Transparent reporting of the disagreement is essential.",
+                 "Rerun the analysis until all three criteria agree"
+               ),
+               type = "radio",
+               q_id = "NCLUST_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! No single criterion for choosing k is definitively best. When criteria disagree, the recommended approach is to: (1) report all criteria used; (2) inspect both candidate solutions (k=2 and k=3) for interpretability; (3) favour the solution most consistent with theoretical expectations; and (4) explicitly acknowledge in the paper that k was chosen based on a combination of statistical criteria and domain knowledge. Pretending the criteria agreed, or running the analysis repeatedly until they do, are both problematic practices.",
+               wrong = "Not quite. When different criteria disagree, no single criterion should be treated as definitive. The best approach is to inspect both solutions (k=2 and k=3), report all criteria transparently, and choose the solution that best combines statistical support with theoretical interpretability.")
+```
+
+---
+
+# Cluster Validation {#validation}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why cluster solutions need external validation beyond internal metrics; how bootstrap resampling with `pvclust` provides approximately unbiased p-values for dendrogram branches; how to interpret AU and BP values; and how to visualise validated clusters with `ape`
+:::
+
+## Why Bootstrap Validation? {-}
+
+Internal criteria (silhouette, Hopkins) assess how well the algorithm has organised the current data. They do not tell you whether the clusters would replicate in a new sample — a critical question for any linguistic generalisation. **Bootstrap validation** answers this by repeatedly resampling the data and asking: how consistently does each dendrogram branch appear?
+
+## `pvclust`: AU and BP Values {-}
+
+`pvclust` computes two values per branch:
+
+- **AU (Approximately Unbiased p-value):** Multi-scale bootstrap estimate corrected for sampling bias. Branches with AU ≥ 95 are statistically supported.
+- **BP (Bootstrap Probability):** Simple proportion of replicates containing the branch — biased for small samples; use AU in preference.
+
+```{r valid_eng, message=FALSE, warning=FALSE}
+set.seed(2026)
+pv_eng <- pvclust::pvclust(
+  clus, method.dist = "euclidean", method.hclust = "ward.D2",
+  nboot = 1000, quiet = TRUE
+)
+plot(pv_eng, cex = 0.85,
+     main = "Bootstrap validation: English varieties (1000 replicates)")
+pvclust::pvrect(pv_eng, alpha = 0.95)
+```
+
+```{r valid_eme, message=FALSE, warning=FALSE}
+set.seed(2026)
+pv_eme <- pvclust::pvclust(
+  t(eme_data), method.dist = "euclidean", method.hclust = "ward.D2",
+  nboot = 1000, quiet = TRUE
+)
+plot(pv_eme, cex = 0.85,
+     main = "Bootstrap validation: EME text types (1000 replicates)")
+pvclust::pvrect(pv_eme, alpha = 0.95)
+```
+
+```{r valid_pick, message=FALSE, warning=FALSE}
+cat("=== English varieties: branches with AU >= 95 ===\n")
+pvclust::pvpick(pv_eng, alpha = 0.95)
+
+cat("\n=== EME text types: branches with AU >= 95 ===\n")
+pvclust::pvpick(pv_eme, alpha = 0.95)
+```
+
+::: {.callout-tip}
+## Reporting Bootstrap Validation
+
+In a published linguistic study, report bootstrap results as follows:
+
+- List branches that are statistically supported (AU ≥ 95) and those that are not
+- Interpret AU < 80 branches as unstable — do not over-interpret the membership of varieties in these groups
+- Note the number of bootstrap replicates used (standard minimum: 1000)
+- Example: "The Celtic cluster (Irish + Scottish English) was strongly supported (AU = 98), confirming the robustness of this grouping. The split between Australian and New Zealand English had only moderate support (AU = 72) and should be interpreted cautiously."
+:::
+
+## Publication-Quality Dendrograms with `ape` {-}
+
+```{r valid_ape, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+par(mfrow = c(1, 2))
+
+# Rectangular phylo dendrogram
+plot(ape::as.phylo(cd), cex = 0.8, label.offset = 0.3,
+     main = "Rectangular (ape)")
+
+# Fan dendrogram — useful when many leaves
+plot(ape::as.phylo(cd), type = "fan", cex = 0.8,
+     main = "Fan (ape)")
+
+par(mfrow = c(1, 1))
+```
+
+```{r valid_ape_eme, message=FALSE, warning=FALSE}
+# Unrooted tree for EME data
+plot(ape::as.phylo(cd_eme), type = "unrooted", cex = 0.85,
+     label.offset = 0.5,
+     main = "EME text types: unrooted dendrogram")
+```
+
+
+---
+
+# Identifying Distinctive Features {#features}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to identify which features most distinguish one cluster from others; how to visualise feature importance as a sorted barplot; and how to test the statistical significance of feature differences between clusters using Fisher's exact test
+:::
+
+## Mean Feature Differences {-}
+
+After identifying clusters, the natural next question is: *what makes each cluster distinctive?* Comparing mean feature values between clusters — on the standardised scale — reveals which features drive the separation.
+
+### English Varieties: Celtic vs. Non-Celtic {-}
+
+```{r feat_celtic, message=FALSE, warning=FALSE}
+celtic <- clusts[c("IrishEnglish","ScottishEnglish"), ]
+others <- clusts[!rownames(clusts) %in% c("IrishEnglish","ScottishEnglish"), ]
+
+diff_celtic <- colMeans(celtic) - colMeans(others)
+
+data.frame(
+  Feature   = names(sort(diff_celtic)),
+  Difference = round(sort(diff_celtic), 3),
+  Direction  = ifelse(sort(diff_celtic) > 0, "More Celtic", "More non-Celtic")
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .55, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::color(i = ~ Direction == "More Celtic",     color = "steelblue") |>
+  flextable::color(i = ~ Direction == "More non-Celtic", color = "firebrick") |>
+  flextable::set_caption("Feature differences: Celtic vs. non-Celtic (standardised)")
+```
+
+```{r feat_celtic_plot, message=FALSE, warning=FALSE}
+data.frame(Feature = names(sort(diff_celtic)), Diff = sort(diff_celtic)) |>
+  ggplot(aes(x = Diff,
+             y = reorder(Feature, Diff),
+             fill = ifelse(Diff > 0, "More Celtic", "More non-Celtic"))) +
+  geom_col(color = "white") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("More Celtic"      = "steelblue",
+                               "More non-Celtic"  = "firebrick")) +
+  theme_bw() + theme(legend.position = "top") +
+  labs(title  = "Features distinguishing Celtic from non-Celtic varieties",
+       x = "Mean difference (standardised: Celtic − non-Celtic)",
+       y = NULL, fill = NULL)
+```
+
+### EME Text Types: Formal vs. Informal {-}
+
+```{r feat_eme, message=FALSE, warning=FALSE}
+# Identify formal (Scientific + Legal) vs informal (Letters + Diaries) clusters
+formal   <- eme_sc[c("ScientificProse","LegalDocs"), ]
+informal <- eme_sc[c("PersonalLetters","Diaries"), ]
+
+diff_eme <- colMeans(formal) - colMeans(informal)
+
+data.frame(
+  Feature   = names(sort(diff_eme)),
+  Difference = round(sort(diff_eme), 3),
+  Direction  = ifelse(sort(diff_eme) > 0, "More formal", "More informal")
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .55, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::color(i = ~ Direction == "More formal",   color = "steelblue") |>
+  flextable::color(i = ~ Direction == "More informal", color = "firebrick") |>
+  flextable::set_caption("Feature differences: formal vs. informal EME text types (standardised)")
+```
+
+```{r feat_eme_plot, message=FALSE, warning=FALSE}
+data.frame(Feature = names(sort(diff_eme)), Diff = sort(diff_eme)) |>
+  ggplot(aes(x = Diff,
+             y = reorder(Feature, Diff),
+             fill = ifelse(Diff > 0, "More formal", "More informal"))) +
+  geom_col(color = "white") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("More formal"   = "steelblue",
+                               "More informal" = "firebrick")) +
+  theme_bw() + theme(legend.position = "top") +
+  labs(title = "Features distinguishing formal from informal EME text types",
+       x = "Mean difference (standardised: formal − informal)",
+       y = NULL, fill = NULL)
+```
+
+Nominalisation and passives are strongly associated with formal written registers, while first-person pronouns, private verbs, and imperatives characterise informal personal writing — a pattern consistent with Biber's Dimension 1 (Involved vs. Informational Production) [@biber1995dimensions].
+
+## Fisher's Exact Test for Nominal Features {-}
+
+For binary presence/absence data we can test statistically which features most strongly distinguish clusters:
+
+```{r feat_fisher, message=FALSE, warning=FALSE}
+# Binary data for varieties
+clus_bin_names <- c("nae_neg","like","clefts","tags","youse",
+                    "soitwas","dt","nsr","invartag","wh_cleft")
+
+clus_bin <- data.frame(
+  IrishEnglish      = c(1,1,1,1,1,1,1,1,1,1),
+  ScottishEnglish   = c(1,1,1,1,1,1,1,1,1,1),
+  BritishEnglish    = c(0,1,1,1,0,0,1,0,1,1),
+  AustralianEnglish = c(0,1,1,1,0,0,1,0,1,1),
+  NewZealandEnglish = c(0,1,1,1,0,0,1,0,1,1),
+  AmericanEnglish   = c(0,1,1,1,0,0,0,0,1,0),
+  CanadianEnglish   = c(0,1,1,1,0,0,0,0,1,0),
+  JamaicanEnglish   = c(0,0,1,0,0,0,0,0,1,0),
+  PhilippineEnglish = c(0,0,1,0,0,0,0,0,1,0),
+  IndianEnglish     = c(0,0,1,0,0,0,0,0,1,0),
+  row.names = clus_bin_names
+)
+
+clusts_bin     <- t(as.matrix(clus_bin))
+cluster_factor <- as.factor(
+  ifelse(rownames(clusts_bin) %in% c("IrishEnglish","ScottishEnglish"),
+         "Celtic", "Other")
+)
+clus_df <- as.data.frame(clusts_bin)
+
+fisher_res <- lapply(names(clus_df), function(feat) {
+  tbl <- table(cluster_factor, clus_df[[feat]])
+  if (all(dim(tbl) == c(2,2))) {
+    ft <- fisher.test(tbl)
+    data.frame(Feature = feat,
+               p_value  = round(ft$p.value, 4),
+               OddsRatio = round(unname(ft$estimate), 2))
+  } else {
+    data.frame(Feature = feat, p_value = NA_real_, OddsRatio = NA_real_)
+  }
+}) |>
+  dplyr::bind_rows() |>
+  dplyr::arrange(p_value)
+
+fisher_res |>
+  flextable() |>
+  flextable::set_table_properties(width = .55, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::color(i = ~ !is.na(p_value) & p_value < .05, color = "steelblue") |>
+  flextable::bold(i  = ~ !is.na(p_value) & p_value < .05) |>
+  flextable::set_caption("Fisher's exact test: features distinguishing Celtic varieties (blue = p < .05)")
+```
+
+---
+
+# Heat Maps {#heatmap}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What a clustered heat map is; how to produce one that combines hierarchical clustering on both rows and columns; how to read colour, dendrograms, and block patterns; and how to produce heat maps for both the English varieties and EME datasets
+:::
+
+## What Is a Clustered Heat Map? {-}
+
+A heat map displays a data matrix as a colour grid: each cell's colour encodes the value of one variable (feature) for one object (variety/text type). When hierarchical clustering is applied to both rows and columns, the matrix is rearranged so that similar objects and similar features are adjacent — revealing block patterns that are invisible in the raw data table.
+
+Heat maps are particularly effective when:
+- The dataset has many objects (N > 8) and many features (p > 6)
+- You want to communicate both cluster structure and which features drive each cluster
+- You are preparing a figure for publication that needs to stand alone without a separate dendrogram
+
+## Heat Map: English Varieties {-}
+
+```{r hm_eng, message=FALSE, warning=FALSE, fig.height=7}
+gplots::heatmap.2(
+  clusts,
+  scale        = "none",
+  dendrogram   = "both",
+  trace        = "none",
+  col          = colorRampPalette(c("steelblue","white","firebrick"))(100),
+  margins      = c(10, 12),
+  cexRow       = 0.85,
+  cexCol       = 0.85,
+  main         = "Heat map: 10 English varieties × 10 features",
+  key.title    = "",
+  key.xlab     = "z-score",
+  density.info = "none"
+)
+```
+
+::: {.callout-tip}
+## Reading a Clustered Heat Map
+
+- **Rows** = features; **columns** = varieties (or vice versa — check axis labels)
+- **Cell colour:** red = feature more frequent than average (high z-score); blue = less frequent; white = average
+- **Column dendrogram** (top): clusters of varieties with similar feature profiles — this is the same hierarchy as our main dendrogram
+- **Row dendrogram** (left): clusters of features that co-vary across varieties — features that are both red (or both blue) in the same varieties cluster together
+- **Rectangular blocks:** a red block in the upper-left means those features are notably high in those varieties — they are diagnostic of that cluster. A blue block means the features are notably absent.
+- The colour scale is centred at z = 0 (the grand mean) — white cells are at the average, not at zero frequency
+:::
+
+## Heat Map: EME Text Types {-}
+
+```{r hm_eme, message=FALSE, warning=FALSE, fig.height=8}
+gplots::heatmap.2(
+  eme_sc,
+  scale        = "none",
+  dendrogram   = "both",
+  trace        = "none",
+  col          = colorRampPalette(c("steelblue","white","firebrick"))(100),
+  margins      = c(10, 14),
+  cexRow       = 0.80,
+  cexCol       = 0.80,
+  main         = "Heat map: 8 EME text types × 12 grammatical features",
+  key.title    = "",
+  key.xlab     = "z-score",
+  density.info = "none"
+)
+```
+
+The heat map reveals two major column-clusters (formal and informal registers) and at least two row-clusters: features associated with formal written prose (passives, nominalisation, subordination) appear as a red block in the formal varieties, while features associated with informal spoken-like language (first-person pronouns, private verbs, imperatives) appear as a red block in the informal varieties.
+
+## Coloured Dendrogram with `factoextra` {-}
+
+```{r hm_fviz, message=FALSE, warning=FALSE}
+factoextra::fviz_dend(
+  cd_eme,
+  k                 = opt_k_eme,
+  color_labels_by_k = TRUE,
+  rect              = TRUE,
+  rect_fill         = TRUE,
+  ggtheme           = theme_bw(),
+  main              = paste("EME text types: coloured dendrogram (k =", opt_k_eme, ")")
+)
+```
+
+::: {.callout-tip}
+## Exercise: Heat Maps
+:::
+
+**Q4. In a heat map of 15 dialect varieties × 20 phonological features, one dialect appears as an entirely white column (all cells near white/grey). What does this tell you about that dialect?**
+```{r}
+#| echo: false
+#| label: "HM_Q4"
+check_question("The dialect has an average profile across all features — it does not stand out as either high or low on any feature. It would likely appear near the centre of a cluster plot, close to the origin in a PCA or CA biplot.",
+               options = c(
+                 "The dialect is missing data — white cells always indicate NA values",
+                 "The dialect has an average profile across all features — it does not stand out as either high or low on any feature. It would likely appear near the centre of a cluster plot, close to the origin in a PCA or CA biplot.",
+                 "The dialect is the most frequent overall — white means maximum frequency",
+                 "The clustering algorithm failed to assign it to a cluster"
+               ),
+               type = "radio",
+               q_id = "HM_Q4",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! In a standardised heat map, white represents z ≈ 0, meaning the dialect's feature values are close to the grand mean across all 20 features. This dialect is not particularly distinctive — it is a 'central' or 'average' variety. In clustering terms, it may sit on the boundary between clusters and could reasonably be assigned to more than one group, giving it a lower individual silhouette value.",
+               wrong = "Not quite. In a standardised heat map, the colour scale is centred at z = 0 (the grand mean). White cells mean that variety's values are close to average for those features — not missing and not maximum. A variety with an entirely white column is an 'average' dialect with no extreme high or low feature values.")
+```
+
+---
+
+# Cluster Analysis on Nominal Data {#nominal}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to cluster objects when data is binary (presence/absence); which distance measure to use and why; how to identify statistically significant distinguishing features; and a worked example using the binary English varieties dataset
+:::
+
+## Binary Data and the Jaccard Distance {-}
+
+When variables record whether a feature is present (1) or absent (0), the appropriate distance is the **binary (Jaccard)** distance. It ignores shared absences because in linguistics, two dialects both lacking a rare feature (e.g. neither has stigmatised *youse*) tells us less about their similarity than if both possess it.
+
+```{r nom_data, message=FALSE, warning=FALSE}
+clus_bin |>
+  as.data.frame() |>
+  tibble::rownames_to_column("Feature") |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size = 10) |>
+  flextable::set_caption("Presence (1) / absence (0) of non-standard features")
+```
+
+```{r nom_dist, message=FALSE, warning=FALSE}
+clustd_bin <- dist(t(as.matrix(clus_bin)), method = "binary")
+
+round(as.matrix(clustd_bin), 2) |> as.data.frame() |>
+  tibble::rownames_to_column("Variety") |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size = 9) |>
+  flextable::set_caption("Binary (Jaccard) distance matrix")
+```
+
+```{r nom_cluster, message=FALSE, warning=FALSE}
+cd_bin <- hclust(clustd_bin, method = "ward.D2")
+
+# Silhouette to choose k
+sil_bin <- sapply(2:(nrow(clusts_bin)-1), function(k) {
+  summary(silhouette(cutree(cd_bin, k=k), clustd_bin))$avg.width
+})
+opt_k_bin <- which.max(sil_bin) + 1
+cat("Optimal k (nominal data):", opt_k_bin, "\n")
+
+plot(cd_bin, hang = -1, cex = 0.9,
+     main = "Hierarchical clustering: nominal presence/absence data",
+     xlab = "", sub = "")
+rect.hclust(cd_bin, k = opt_k_bin,
+            border = c("firebrick","steelblue","darkgreen")[1:opt_k_bin])
+```
+
+::: {.callout-tip}
+## Exercise: Nominal Data and Distance Measures
+:::
+
+**Q5. You cluster 10 English dialects on 20 binary phonological features using Euclidean distance on the 0/1 matrix. Your colleague says Jaccard distance would have been more appropriate. What is the key difference, and does it matter here?**
+```{r}
+#| echo: false
+#| label: "NOM_Q5"
+check_question("Euclidean distance treats shared absences (0,0) the same as shared presences (1,1) when computing similarity. Jaccard ignores shared absences, giving more weight to shared presences. For sparse binary linguistic data (many features absent in most dialects), Jaccard is more appropriate because shared absences are less linguistically informative than shared presences.",
+               options = c(
+                 "There is no difference — Euclidean and Jaccard distance produce identical results for binary data",
+                 "Euclidean distance treats shared absences (0,0) the same as shared presences (1,1) when computing similarity. Jaccard ignores shared absences, giving more weight to shared presences. For sparse binary linguistic data (many features absent in most dialects), Jaccard is more appropriate because shared absences are less linguistically informative than shared presences.",
+                 "Euclidean distance cannot be computed on binary data — it is only valid for continuous variables",
+                 "Jaccard distance is only appropriate for text data — for dialect features, Euclidean is always preferred"
+               ),
+               type = "radio",
+               q_id = "NOM_Q5",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! On binary data, Euclidean distance is equivalent to Simple Matching Distance — it treats a shared 0 (both dialects lack the feature) as evidence of similarity, just as a shared 1 (both dialects have it) counts as similarity. Jaccard distance uses only shared presences in the numerator, dividing by all cells where at least one dialect has the feature. For linguistic presence/absence data, where absence of a rare feature is usually uninformative, Jaccard is the more defensible choice.",
+               wrong = "Not quite. The key distinction is how shared absences are handled. Euclidean (= Simple Matching) distance on binary data treats (0,0) — both dialects lack a feature — as contributing to similarity. Jaccard distance ignores shared absences entirely, relying only on shared presences. For sparse binary linguistic data, this distinction matters: two dialects may share many absences simply because the features are rare, not because the dialects are genuinely similar.")
+```
+
+---
+
+# k-Means Clustering {#kmeans}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How k-means clustering works and how it differs from hierarchical clustering; how to choose k; how to fit stable k-means models with multiple random starts; how to visualise results with cluster plots and silhouette plots; how to compare k-means and hierarchical solutions; and worked examples on both the English varieties and EME text-type datasets
+:::
+
+## How k-Means Works {-}
+
+k-means partitions the data into exactly $k$ non-overlapping groups by minimising the **total within-cluster sum of squares** (TWSS):
+
+$$\text{TWSS} = \sum_{j=1}^{k} \sum_{x_i \in C_j} \|x_i - \mu_j\|^2$$
+
+where $\mu_j$ is the centroid (mean vector) of cluster $j$. The algorithm works iteratively:
+
+1. **Initialise:** Randomly place $k$ centroids (or use the improved `kmeans++` initialisation)
+2. **Assign:** Each object joins the cluster with the nearest centroid
+3. **Update:** Recompute each centroid as the mean of its current members
+4. **Repeat** steps 2–3 until assignments do not change (convergence)
+
+Because the algorithm can converge to different local minima depending on the starting configuration, **always use `nstart > 1`** (typically 25) to run multiple random starts and keep the best solution.
+
+```{r km_compare_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Feature = c("Requires specifying k?","Output","Data type requirement",
+              "Scalability","Reproducibility","Visualisation",
+              "Bootstrap validation?","Detects non-spherical clusters?"),
+  `k-Means` = c("Yes — before fitting","Flat partition + centroids",
+                "Continuous numeric only","High (millions of rows)",
+                "Sensitive to initialisation — use nstart=25",
+                "Cluster plot, silhouette","Not built-in",
+                "No — assumes spherical, equal-size clusters"),
+  `Hierarchical` = c("No — decided after fitting","Full dendrogram + membership",
+                     "Numeric, binary, or mixed (Gower)",
+                     "Moderate (< ~1,000 objects)",
+                     "Deterministic given same data + linkage",
+                     "Dendrogram, heat map, ape phylo","pvclust",
+                     "Yes (especially with single linkage)"),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("k-Means vs. hierarchical clustering")
+```
+
+## Choosing k for k-Means {-}
+
+```{r km_choose_eng, message=FALSE, warning=FALSE}
+p1 <- factoextra::fviz_nbclust(clusts, kmeans, method = "silhouette",
+                                k.max  = nrow(clusts) - 1,
+                                nstart = 25) +
+  theme_bw() + labs(title = "Silhouette: English varieties")
+
+p2 <- factoextra::fviz_nbclust(clusts, kmeans, method = "wss",
+                                k.max  = nrow(clusts) - 1,
+                                nstart = 25) +
+  theme_bw() + labs(title = "Elbow (WSS): English varieties")
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r km_choose_eme, message=FALSE, warning=FALSE}
+p3 <- factoextra::fviz_nbclust(eme_sc, kmeans, method = "silhouette",
+                                k.max  = nrow(eme_sc) - 1,
+                                nstart = 25) +
+  theme_bw() + labs(title = "Silhouette: EME text types")
+
+p4 <- factoextra::fviz_nbclust(eme_sc, kmeans, method = "wss",
+                                k.max  = nrow(eme_sc) - 1,
+                                nstart = 25) +
+  theme_bw() + labs(title = "Elbow (WSS): EME text types")
+
+gridExtra::grid.arrange(p3, p4, ncol = 2)
+```
+
+## Fitting k-Means: English Varieties {-}
+
+```{r km_fit_eng, message=FALSE, warning=FALSE}
+set.seed(2026)
+km_eng <- kmeans(clusts,
+                 centers  = opt_k_eng,
+                 nstart   = 25,
+                 iter.max = 100)
+km_eng
+```
+
+The printed output shows:
+- **Cluster sizes:** number of objects per cluster
+- **Cluster means:** centroid coordinates on each feature (standardised)
+- **Within-cluster SS:** sum of squared distances from objects to their centroid
+- **Between-SS / Total-SS:** proportion of total variance captured by the cluster structure — higher = better-separated clusters
+
+```{r km_eng_plot, message=FALSE, warning=FALSE}
+# Cluster plot (PCA-projected)
+factoextra::fviz_cluster(
+  km_eng, data = clusts,
+  palette      = c("firebrick","steelblue","darkgreen","purple")[1:opt_k_eng],
+  geom         = "text",
+  ellipse.type = "convex",
+  ggtheme      = theme_bw(),
+  main         = paste("k-Means cluster plot: English varieties (k =", opt_k_eng, ")")
+)
+```
+
+```{r km_eng_sil, message=FALSE, warning=FALSE}
+sil_km_eng <- silhouette(km_eng$cluster, clustd)
+plot(sil_km_eng,
+     col  = c("firebrick","steelblue","darkgreen","purple")[1:opt_k_eng],
+     main = paste("k-Means silhouette: English varieties (k =", opt_k_eng, ")"))
+cat("Average silhouette width (k-means, English):",
+    round(mean(sil_km_eng[,3]), 3), "\n")
+```
+
+## Fitting k-Means: EME Text Types {-}
+
+```{r km_fit_eme, message=FALSE, warning=FALSE}
+set.seed(2026)
+km_eme <- kmeans(eme_sc,
+                 centers  = opt_k_eme,
+                 nstart   = 25,
+                 iter.max = 100)
+
+factoextra::fviz_cluster(
+  km_eme, data = eme_sc,
+  palette      = c("firebrick","steelblue","darkgreen")[1:opt_k_eme],
+  geom         = "text",
+  ellipse.type = "convex",
+  ggtheme      = theme_bw(),
+  main         = paste("k-Means cluster plot: EME text types (k =", opt_k_eme, ")")
+)
+```
+
+```{r km_eme_sil, message=FALSE, warning=FALSE}
+sil_km_eme <- silhouette(km_eme$cluster, eme_dist)
+plot(sil_km_eme,
+     col  = c("firebrick","steelblue","darkgreen")[1:opt_k_eme],
+     main = paste("k-Means silhouette: EME text types (k =", opt_k_eme, ")"))
+cat("Average silhouette width (k-means, EME):",
+    round(mean(sil_km_eme[,3]), 3), "\n")
+```
+
+## Comparing Hierarchical and k-Means Solutions {-}
+
+```{r km_compare_eng, message=FALSE, warning=FALSE}
+hc_groups_eng <- cutree(cd, k = opt_k_eng)
+
+comparison_eng <- data.frame(
+  Object       = names(hc_groups_eng),
+  Hierarchical = paste0("H", hc_groups_eng),
+  kMeans       = paste0("K", km_eng$cluster)
+) |>
+  dplyr::mutate(
+    Agreement = ifelse(
+      as.integer(factor(Hierarchical)) == as.integer(factor(kMeans)),
+      "✓ Agree", "✗ Differ"
+    )
+  )
+
+comparison_eng |>
+  flextable() |>
+  flextable::set_table_properties(width = .6, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::color(i = ~ Agreement == "✓ Agree", color = "steelblue") |>
+  flextable::color(i = ~ Agreement == "✗ Differ", color = "firebrick") |>
+  flextable::set_caption("Hierarchical vs. k-Means assignments: English varieties")
+```
+
+```{r km_compare_eme, message=FALSE, warning=FALSE}
+hc_groups_eme <- cutree(cd_eme, k = opt_k_eme)
+
+comparison_eme <- data.frame(
+  Object       = names(hc_groups_eme),
+  Hierarchical = paste0("H", hc_groups_eme),
+  kMeans       = paste0("K", km_eme$cluster)
+) |>
+  dplyr::mutate(
+    Agreement = ifelse(
+      as.integer(factor(Hierarchical)) == as.integer(factor(kMeans)),
+      "✓ Agree", "✗ Differ"
+    )
+  )
+
+comparison_eme |>
+  flextable() |>
+  flextable::set_table_properties(width = .6, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::color(i = ~ Agreement == "✓ Agree", color = "steelblue") |>
+  flextable::color(i = ~ Agreement == "✗ Differ", color = "firebrick") |>
+  flextable::set_caption("Hierarchical vs. k-Means assignments: EME text types")
+```
+
+::: {.callout-tip}
+## When the Two Methods Disagree
+
+Objects assigned differently by hierarchical and k-means clustering are typically **borderline cases** sitting between clusters in the feature space. Their assignment is less certain than core cluster members and warrants cautious interpretation. Consider reporting: (a) which objects both methods agree on (the stable core of each cluster); (b) which objects differ (the boundary cases); and (c) the average silhouette width of the disagreeing objects — low values confirm they are genuinely ambiguous.
+:::
+
+```{r km_q6, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+check_question(
+  "A researcher runs k-means clustering (k=3) on a dialect dataset three times, each time with a different random seed and nstart=1. She gets three different cluster solutions. She reports the one that 'makes the most linguistic sense.' What is the methodological problem and how should it be fixed?",
+  options = c(
+    "There is no problem — choosing the most linguistically meaningful solution is appropriate",
+    "Running with nstart=1 means each run may converge to a different local minimum of the WSS objective. Selecting the solution that 'looks best' introduces researcher degrees of freedom — the same bias as p-hacking. The fix is nstart=25 (or higher), which runs 25 random starts and automatically retains the solution with the lowest total WSS. Setting a seed with set.seed() ensures reproducibility. The chosen solution should be the objectively best WSS, not the most convenient one.",
+    "k-Means should not be used for dialect data at all — use hierarchical clustering",
+    "The problem is using only k=3; she should try all values of k and report the best"
+  ),
+  answer = "Running with nstart=1 means each run may converge to a different local minimum of the WSS objective. Selecting the solution that 'looks best' introduces researcher degrees of freedom — the same bias as p-hacking. The fix is nstart=25 (or higher), which runs 25 random starts and automatically retains the solution with the lowest total WSS. Setting a seed with set.seed() ensures reproducibility. The chosen solution should be the objectively best WSS, not the most convenient one.",
+  type   = "radio",
+  right  = "Correct! This is a common and serious methodological error. k-Means with nstart=1 is sensitive to initialisation — different starting points can produce different local optima. Post-hoc selection of the 'best-looking' solution is researcher degrees of freedom: it inflates the apparent fit of the chosen solution and makes the result harder to replicate. The correct approach is nstart=25 (or nstart=50 for critical analyses) combined with set.seed() for reproducibility.",
+  wrong  = "Not quite. The core problem is nstart=1 combined with post-hoc solution selection. k-Means can converge to different local minima from different starting points. Selecting the most 'interpretable' result from multiple runs is a form of researcher degrees of freedom. Use nstart=25 to ensure the algorithm finds the global optimum (lowest WSS) across many random starts, and report that solution."
+)
+```
+
+
+---
+
+# Correspondence Analysis {#ca}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What correspondence analysis is and when to use it; how to set up a contingency table; how to run and evaluate a CA; how to read a biplot step by step; how to interpret dimensions, contributions, and the scree plot; and how to apply CA to two linguistic datasets — amplifier/adjective co-occurrences and L2 learner error types
+:::
+
+## What Is Correspondence Analysis? {-}
+
+**Correspondence analysis** (CA) is a multivariate technique for the association structure of a **contingency table** — a cross-tabulation of two categorical variables. It produces a low-dimensional representation of both row and column categories so that categories that co-occur above chance are placed close together.
+
+CA is closely related to PCA, but operates on count data rather than continuous measurements. It is particularly well-suited to:
+
+- **Corpus linguistics:** which amplifiers co-occur with which adjectives?
+- **Sociolinguistics:** which discourse features are associated with which speaker groups?
+- **SLA research:** which error types characterise which L2 learner groups?
+- **Register studies:** which grammatical constructions are characteristic of which registers?
+- **Historical linguistics:** which sound changes cluster in which language varieties?
+
+```{r ca_vs_hca, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Feature = c("Input data","Output","Visualisation","Tests association?",
+              "Number of dimensions","Best linguistic use"),
+  `Correspondence Analysis` = c(
+    "Contingency table (counts/frequencies)",
+    "Row and column coordinates in shared space",
+    "Biplot (rows and columns together)",
+    "Yes — chi-squared test first",
+    "Typically 2–3 for interpretation",
+    "Two-way associations between categorical variables"
+  ),
+  `Hierarchical / k-Means` = c(
+    "Distance matrix (any data type)",
+    "Dendrogram or flat partition",
+    "Dendrogram, heat map, cluster plot",
+    "No — exploratory only",
+    "Full hierarchy (hierarchical) / flat (k-means)",
+    "Finding groups of similar objects"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Correspondence Analysis vs. cluster analysis")
+```
+
+## Dataset 1: Amplifier–Adjective Co-Occurrences {-}
+
+### Loading and Simplifying the Data {-}
+
+```{r ca_load, message=FALSE, warning=FALSE}
+vsmdata <- base::readRDS(here::here("tutorials/clust/data/vsd.rda"), "rb")
+cat("Rows:", nrow(vsmdata), "| Amplifiers:", n_distinct(vsmdata$Amplifier),
+    "| Adjectives:", n_distinct(vsmdata$Adjective), "\n")
+
+vsmdata_simp <- vsmdata |>
+  dplyr::filter(Amplifier != 0,
+                !Adjective %in% c("many","much")) |>
+  dplyr::group_by(Amplifier) |>
+  dplyr::mutate(AmpFreq = dplyr::n()) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(Amplifier = ifelse(AmpFreq > 20, Amplifier, "other")) |>
+  dplyr::group_by(Adjective) |>
+  dplyr::mutate(AdjFreq = dplyr::n()) |>
+  dplyr::ungroup() |>
+  dplyr::filter(AdjFreq > 10, Adjective != "other") |>
   dplyr::select(-AmpFreq, -AdjFreq)
+
+cat("Retained rows:", nrow(vsmdata_simp),
+    "| Amplifiers:", n_distinct(vsmdata_simp$Amplifier),
+    "| Adjectives:", n_distinct(vsmdata_simp$Adjective), "\n")
 ```
 
-```{r vsm2b, eval = T, echo =  F, message=FALSE, warning=FALSE}
-vsmdata_simp %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Table showing amplification of English adjectives (simplified).") %>%
-  flextable::border_outer()
+### Contingency Table and Balloon Plot {-}
+
+```{r ca_table, message=FALSE, warning=FALSE}
+dt <- as.matrix(table(vsmdata_simp$Adjective, vsmdata_simp$Amplifier))
+
+# Display table
+as.data.frame.matrix(dt) |>
+  tibble::rownames_to_column("Adjective") |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size = 10) |>
+  flextable::set_caption("Adjective × amplifier contingency table")
 ```
 
-We now use a balloon plot to see if there are any potential correlations between amplifiers and adjectives.
-
-
-```{r ca3}
-# 1. convert the data as a table
-dt <- as.matrix(table(vsmdata_simp))
-# 2. Graph
-balloonplot(t(dt),
-  main = "vsmdata_simp", xlab = "", ylab = "",
-  label = FALSE, show.margins = FALSE
-)
+```{r ca_balloon, message=FALSE, warning=FALSE, fig.height=6}
+gplots::balloonplot(t(dt), main = "Amplifier × adjective co-occurrences",
+                   xlab = "Adjective", ylab = "Amplifier",
+                   label = FALSE, show.margins = TRUE)
 ```
 
-The balloon plot suggests that there are potential correlations as the dots (balloons) are not distributed evenly according to frequency. To validate if there is significant correlation between the amplifier types and the adjectives using a $\chi$^2^- test. 
+### Chi-Squared Test {-}
 
-
-```{r ca4, warning=F, message=F}
-chisq <- chisq.test(dt)
-chisq
+```{r ca_chisq, message=FALSE, warning=FALSE}
+chisq_amp <- chisq.test(dt)
+cat(sprintf("Chi-squared(df=%d) = %.2f, p %s\n",
+            chisq_amp$parameter, chisq_amp$statistic,
+            ifelse(chisq_amp$p.value < .001, "< .001",
+                   paste("=", round(chisq_amp$p.value, 3)))))
 ```
 
-The $\chi$^2^- test confirms that there is a significant correlations between amplifier types and the adjectives.
+### Running and Evaluating the CA {-}
 
+```{r ca_fit, message=FALSE, warning=FALSE}
+res_ca <- FactoMineR::CA(dt, graph = FALSE)
 
-```{r ca5}
-res.ca <- FactoMineR::CA(dt, graph = FALSE)
-# inspect results of the CA
-# print(res.ca)
-eig.val <- get_eigenvalue(res.ca)
-eig.val
-```
-The display of the *eigenvalues* provides information on the amount of variance that is explained by each dimension. The first dimension explains 49.87 percent of the variance, the second dimension explains another 30.34 percent of the variance, leaving all other variables with relative moderate explanatory power as they only account for 20 percent variance. We now plot and interpret the results of the CA.
-
-```{r ca6}
-# repel= TRUE to avoid text overlapping (slow if many point)
-fviz_ca_biplot(res.ca,
-  repel = TRUE,
-  col.row = "orange",
-  col.col = "darkgray"
-)
+# Eigenvalues and explained variance
+eig_amp <- get_eigenvalue(res_ca)
+round(eig_amp, 3) |> as.data.frame() |>
+  tibble::rownames_to_column("Dimension") |>
+  flextable() |>
+  flextable::set_table_properties(width = .55, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::set_caption("CA eigenvalues: amplifier data")
 ```
 
-The results of the CA show that the adjective *different* is collocating with *other* amplifiers while *very* is collocating with *difficult* and *important*, *pretty* is collocating with *big*, *really* is collocating with *nice*, and *so* is collocating with *bad*.
-
-
-
-```{r pca1, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# Principal Component Analysis
-
-# inspect data
-data(iris)
-head(iris, 3)
+```{r ca_scree, message=FALSE, warning=FALSE}
+factoextra::fviz_screeplot(res_ca, addlabels = TRUE,
+                            main = "Scree plot: amplifier CA") +
+  theme_bw()
 ```
 
-```{r pca2, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# log transform
-log.ir <- log(iris[, 1:4])
-ir.species <- iris[, 5]
-# apply PCA - scale. = TRUE is highly
-# advisable, but default is FALSE.
-ir.pca <- prcomp(log.ir, center = TRUE, scale. = TRUE)
+::: {.callout-tip}
+## How Many Dimensions to Interpret?
+
+Retain and interpret dimensions that together explain ≥ 70–80% of the total inertia. The scree plot helps: dimensions to the left of the "elbow" contain most of the systematic association structure. For a 2D biplot, Dimensions 1 and 2 are used regardless — but the interpretation should acknowledge what proportion of inertia they represent.
+:::
+
+### The Biplot {-}
+
+```{r ca_biplot, message=FALSE, warning=FALSE, fig.height=7}
+factoextra::fviz_ca_biplot(
+  res_ca, repel = TRUE,
+  col.row = "steelblue", col.col = "firebrick",
+  ggtheme = theme_bw()
+) +
+  labs(title    = "CA biplot: amplifiers and adjectives",
+       subtitle = "Blue = adjectives | Red = amplifiers",
+       caption  = paste0("Dim 1: ", round(eig_amp[1,2], 1),
+                         "% | Dim 2: ", round(eig_amp[2,2], 1), "% of inertia"))
 ```
 
+::: {.callout-tip}
+## Reading a CA Biplot: Five Steps
 
-```{r pca3, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# print method
-print(ir.pca)
+1. **Distance from origin:** Objects near the origin have profiles close to the average — not strongly associated with any specific category. Objects far from the origin are distinctive.
+2. **Row–column proximity:** A row category (adjective) near a column category (amplifier) co-occurs more than expected by chance. If *really* and *nice* are close, *really* is the preferred amplifier for *nice*.
+3. **Dimension 1 (horizontal axis):** The dominant association gradient. Objects at opposite ends have the most contrasting profiles — read this as a continuum between two usage poles.
+4. **Dimension 2 (vertical axis):** The secondary gradient, orthogonal to Dimension 1. Some objects are only differentiated on this dimension.
+5. **Clusters of categories:** Groups of adjectives and amplifiers appearing together share similar co-occurrence profiles.
+:::
+
+### Row and Column Contributions {-}
+
+```{r ca_contrib, message=FALSE, warning=FALSE}
+# Which adjectives contribute most to Dimension 1?
+as.data.frame(res_ca$row$contrib) |>
+  tibble::rownames_to_column("Adjective") |>
+  dplyr::select(Adjective, `Dim 1`, `Dim 2`) |>
+  dplyr::mutate(across(where(is.numeric), \(x) round(x, 2))) |>
+  dplyr::arrange(desc(`Dim 1`)) |>
+  head(8) |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::set_caption("Top 8 adjective contributions to CA dimensions (%)")
+
+# Amplifier contributions
+as.data.frame(res_ca$col$contrib) |>
+  tibble::rownames_to_column("Amplifier") |>
+  dplyr::mutate(across(where(is.numeric), \(x) round(x, 2))) |>
+  flextable() |>
+  flextable::set_table_properties(width = .55, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::set_caption("Amplifier contributions to CA dimensions (%)")
 ```
 
+```{r ca_contrib_plots, message=FALSE, warning=FALSE}
+# Colour rows and columns by contribution
+factoextra::fviz_ca_row(res_ca, axes = c(1,2), repel = TRUE,
+                         col.row = "contrib",
+                         gradient.cols = c("steelblue","white","firebrick"),
+                         ggtheme = theme_bw()) +
+  labs(title = "Adjective coordinates: coloured by Dim 1+2 contribution")
 
-```{r pca4, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# plot method
-plot(ir.pca, type = "l")
+factoextra::fviz_ca_col(res_ca, axes = c(1,2), repel = TRUE,
+                         col.col = "contrib",
+                         gradient.cols = c("steelblue","white","firebrick"),
+                         ggtheme = theme_bw()) +
+  labs(title = "Amplifier coordinates: coloured by Dim 1+2 contribution")
 ```
 
-```{r pca5, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# summary method
-summary(ir.pca)
-```
+---
 
-```{r pca6, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# predict PCs
-predict(ir.pca, newdata = tail(log.ir, 2))
-```
+## Dataset 2: L2 Learner Error Types {-}
 
+For the second CA example, we cross-tabulate **L2 learner first language (L1)** against **error type** in a learner corpus. This illustrates how CA reveals which L1 backgrounds are associated with which grammatical error patterns.
 
-```{r pca7, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# load library
-library(devtools)
-# install library from github
-install_github("vqv/ggbiplot")
-# load installed library
-library(ggbiplot)
-# create plot
-g <- ggbiplot(ir.pca,
-  obs.scale = 1, var.scale = 1,
-  groups = ir.species, ellipse = TRUE,
-  circle = TRUE
-)
-g <- g + scale_color_discrete(name = "")
-g <- g + theme(
-  legend.direction = "horizontal",
-  legend.position = "top"
-)
-print(g)
-```
-
-```{r pca8, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-require(caret)
-trans <- preProcess(iris[, 1:4],
-  method = c(
-    "BoxCox", "center",
-    "scale", "pca"
+```{r ca_l2_data, message=FALSE, warning=FALSE}
+set.seed(2026)
+# 5 L1 groups × 7 error types (simulated counts per 10,000 words)
+l2_errors <- matrix(
+  c(45, 12,  8, 32, 18,  5, 22,   # Mandarin L1
+    38,  9, 15, 28, 22,  8, 18,   # Japanese L1
+    18, 32, 28,  9, 35, 24, 12,   # Arabic L1
+    15, 35, 30,  8, 38, 28, 10,   # Persian L1
+    22, 18, 12, 18, 14, 10, 28),  # Spanish L1
+  nrow = 5, byrow = TRUE,
+  dimnames = list(
+    L1     = c("Mandarin","Japanese","Arabic","Persian","Spanish"),
+    ErrorType = c("ArticleOmit","ArticleWrong","PrepError",
+                  "AspectError","TenseError","SVAgreement","LexicalError")
   )
 )
-PC <- predict(trans, iris[, 1:4])
+
+as.data.frame(l2_errors) |>
+  tibble::rownames_to_column("L1") |>
+  flextable() |>
+  flextable::set_table_properties(width = .85, layout = "autofit") |>
+  flextable::theme_zebra() |> flextable::fontsize(size = 10) |>
+  flextable::set_caption("L2 learner error types by L1 background (counts per 10,000 words)")
 ```
 
-
-```{r pca9, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# inspect retained PCs
-head(PC, 3)
-
-# inspect loadings
-trans$rotation
+```{r ca_l2_chisq, message=FALSE, warning=FALSE}
+chisq_l2 <- chisq.test(l2_errors)
+cat(sprintf("Chi-squared(df=%d) = %.2f, p %s\n",
+            chisq_l2$parameter, chisq_l2$statistic,
+            ifelse(chisq_l2$p.value < .001, "< .001",
+                   paste("=", round(chisq_l2$p.value, 3)))))
 ```
 
+```{r ca_l2_fit, message=FALSE, warning=FALSE}
+res_ca_l2 <- FactoMineR::CA(l2_errors, graph = FALSE)
+eig_l2    <- get_eigenvalue(res_ca_l2)
 
+cat(sprintf("Dim 1: %.1f%% | Dim 2: %.1f%% | Total (2D): %.1f%%\n",
+            eig_l2[1,2], eig_l2[2,2], sum(eig_l2[1:2, 2])))
+```
 
+```{r ca_l2_biplot, message=FALSE, warning=FALSE}
+factoextra::fviz_ca_biplot(
+  res_ca_l2, repel = TRUE,
+  col.row = "firebrick", col.col = "steelblue",
+  ggtheme = theme_bw()
+) +
+  labs(title    = "CA biplot: L2 learner errors by L1 background",
+       subtitle = "Red = L1 groups | Blue = error types",
+       caption  = paste0("Dim 1: ", round(eig_l2[1,2], 1),
+                         "% | Dim 2: ", round(eig_l2[2,2], 1), "% of inertia"))
+```
 
-```{r mds1, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# Multidimensional Scaling
+The biplot reveals that Mandarin and Japanese learners cluster together and are characterised by article omissions and aspect errors — consistent with the absence of articles and grammatical aspect in these L1s. Arabic and Persian learners cluster separately, characterised by preposition errors and article confusion — reflecting different L1 transfer patterns. Spanish learners are positioned between the two groups, with a distinctive lexical error profile.
 
-
-# Classical MDS
-# N rows (objects) x p columns (variables)
-# each row identified by a unique row name
-
-d <- dist(clus) # Euclidean distances between the rows
-fit <- cmdscale(d, eig = TRUE, k = 2) # k is the number of dim
-fit # view results
-
-# plot solution
-x <- fit$points[, 1]
-y <- fit$points[, 2]
-plot(x, y,
-  xlab = "Coordinate 1", ylab = "Coordinate 2",
-  main = "Metric MDS", type = "n"
+```{r ca_q7, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+check_question(
+  "In the L2 learner CA biplot, the Arabic L1 group is positioned far from the origin and close to 'PrepError'. What does this mean?",
+  options = c(
+    "Arabic L1 learners make more total errors than other groups",
+    "Arabic L1 learners show higher-than-average rates of preposition errors relative to their overall error profile — they are associated with PrepError above what would be expected by chance given their total error count",
+    "Arabic L1 learners are the largest group in the dataset",
+    "Arabic L1 learners' preposition error rate is exactly average across all groups"
+  ),
+  answer = "Arabic L1 learners show higher-than-average rates of preposition errors relative to their overall error profile — they are associated with PrepError above what would be expected by chance given their total error count",
+  type   = "radio",
+  right  = "Correct! In a CA biplot, proximity between a row category (L1 group) and a column category (error type) reflects above-chance co-occurrence — the group makes more preposition errors than expected given its row total and the error type's column total. Being far from the origin means the Arabic L1 group has a distinctive error profile overall, and being close to PrepError specifically means preposition errors drive that distinctiveness on the represented dimensions.",
+  wrong  = "Not quite. CA biplots do not represent absolute frequencies or group sizes — they represent relative association. Proximity between Arabic L1 and PrepError means Arabic learners show a higher-than-expected rate of preposition errors relative to their total error count and the overall rate of preposition errors in the corpus. Distance from the origin indicates how distinctive the group's overall error profile is."
 )
-text(x, y, labels = row.names(clus), cex = .7)
 ```
 
+---
 
-```{r mds2, eval = F, echo=FALSE, message=FALSE, warning=FALSE}
-# Nonmetric MDS
-# N rows (objects) x p columns (variables)
-# each row identified by a unique row name
+# Choosing Between Methods {#comparison}
 
-library(MASS)
-d <- dist(clus) # Euclidean distances between the rows
-fit <- isoMDS(d, k = 2) # k is the number of dim
-fit # view results
+::: {.callout-note}
+## Section Overview
 
-# plot solution
-x <- fit$points[, 1]
-y <- fit$points[, 2]
-plot(x, y,
-  xlab = "Coordinate 1", ylab = "Coordinate 2",
-  main = "Nonmetric MDS", type = "n"
+**What you will learn:** A comprehensive decision guide for choosing between hierarchical clustering, k-means, and CA based on your data type and research question; a full comparison table; and a recommended step-by-step analytical workflow
+:::
+
+## Decision Guide {-}
+
+```{r comp_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Dimension = c(
+    "Input data type", "Requires specifying k?",
+    "Output", "Visualisation options",
+    "Handles mixed data types?", "Scalability (N objects)",
+    "Bootstrap validation?", "Detects non-spherical clusters?",
+    "Provides significance test?", "Shows direction of association?",
+    "Best linguistic use case"
+  ),
+  `Hierarchical\n(hclust)` = c(
+    "Numeric, binary, mixed (Gower)", "No — decided post-hoc",
+    "Dendrogram + membership",
+    "Dendrogram, heat map, ape phylo, fviz_dend",
+    "Yes (with Gower distance)", "Moderate (< ~1,000)",
+    "Yes (pvclust)", "Yes (single linkage)",
+    "No", "No (use mean diff plots)",
+    "Dialect/language typology; EME register; exploratory analysis"
+  ),
+  `k-Means\n(kmeans)` = c(
+    "Continuous numeric only", "Yes — before fitting",
+    "Flat partition + centroids",
+    "fviz_cluster, silhouette plot",
+    "No", "High (millions)",
+    "No (use bootstrap externally)", "No — spherical only",
+    "No", "No (use centroid plots)",
+    "Large-scale text clustering; speaker segmentation; confirmation of HCA"
+  ),
+  `Correspondence\nAnalysis (CA)` = c(
+    "Contingency table (counts)", "Not applicable",
+    "Row + column coordinates",
+    "Biplot, scree plot, contribution plots",
+    "No", "Moderate",
+    "No", "Not applicable",
+    "Yes (chi-squared)", "Yes — in biplot",
+    "Amplifier/collocation patterns; L2 error profiles; register × feature associations"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::bold(part = "header") |>
+  flextable::set_caption("Full comparison: hierarchical clustering vs. k-Means vs. CA")
+```
+
+## Recommended Analytical Workflow {-}
+
+**Step 1 — Assess clusterability (Hopkins statistic)**
+Before any clustering, confirm the data contains genuine structure. If Hopkins ≈ 0.5, the data is too random for meaningful clustering.
+
+**Step 2 — Choose the distance measure**
+Match the measure to your data type: Euclidean/Manhattan for scaled numeric; binary (Jaccard) for presence/absence; Gower for mixed types.
+
+**Step 3 — Hierarchical clustering (exploratory)**
+Fit with `ward.D2` linkage. Compare linkage methods with cophenetic correlation. Choose k using silhouette + elbow + gap statistic. Validate with `pvclust` (nboot = 1000). Visualise with dendrogram and heat map.
+
+**Step 4 — k-Means (confirmation / large N)**
+Fit with `nstart = 25`. Compare to hierarchical solution. Flag borderline objects where the two methods disagree.
+
+**Step 5 — Identify distinctive features**
+Compute mean feature differences per cluster, visualise as barplot. For nominal data, run Fisher's exact tests. Report which features most strongly define each cluster.
+
+**Step 6 — Correspondence analysis (if you have a contingency table)**
+Run chi-squared first. Interpret eigenvalues and scree plot. Produce biplot with row/column contributions. Interpret each dimension as an association gradient.
+
+```{r comp_q8, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+check_question(
+  "A researcher has a corpus of 500,000 words tagged for 8 amplifiers and wants to see how 40 adjectives differ in their amplifier preferences. She also has a separate dataset of 30 dialect varieties described by 15 continuous phonological features. Which methods should she use for each dataset?",
+  options = c(
+    "CA for both datasets — it handles all contingency and continuous data",
+    "Hierarchical clustering for both — it is always the safest choice",
+    "For the amplifier/adjective data: CA on the contingency table (it is specifically designed for categorical co-occurrence counts and produces a biplot showing both amplifiers and adjectives). For the dialect data: hierarchical clustering (with scaled Euclidean distance and ward.D2 linkage) followed optionally by k-means for confirmation — suitable for continuous numeric data with moderate N.",
+    "k-Means for the amplifier data (large dataset) and CA for the dialect data"
+  ),
+  answer = "For the amplifier/adjective data: CA on the contingency table (it is specifically designed for categorical co-occurrence counts and produces a biplot showing both amplifiers and adjectives). For the dialect data: hierarchical clustering (with scaled Euclidean distance and ward.D2 linkage) followed optionally by k-means for confirmation — suitable for continuous numeric data with moderate N.",
+  type   = "radio",
+  right  = "Correct! The key is matching the method to the data type and research question. The amplifier/adjective cross-tabulation is a contingency table of co-occurrence counts — exactly the input CA is designed for. CA will show amplifiers and adjectives simultaneously in one biplot, revealing which amplifiers are preferred with which adjectives. The dialect dataset is continuous numeric data (phonological features) — hierarchical clustering with Euclidean distance is appropriate. k-Means can then confirm the hierarchical solution.",
+  wrong  = "Not quite. The choice of method should be driven by the data type. The amplifier/adjective data is a contingency table — CA is the appropriate method. The dialect data is continuous numeric — hierarchical clustering (and optionally k-means) is appropriate. CA requires a contingency table; cluster methods require a distance matrix from numeric, binary, or mixed data."
 )
-text(x, y, labels = row.names(clus), cex = .7)
 ```
 
+---
 
-# Citation & Session Info {-}
+# Citation and Session Info {-}
 
-Schweinberger, Martin. 2023. *Cluster and Correspondence Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/clust.html (Version 2023.05.31).
+Schweinberger, Martin. 2026. *Cluster and Correspondence Analysis in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/clust/clust.html (Version 2026.02.24).
 
 ```
-@manual{schweinberger2023clust,
-  author = {Schweinberger, Martin},
-  title = {Cluster and Correspondence Analysis in R},
-  note = {tutorials/clust/clust.html},
-  year = {2023},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2023.05.31}
+@manual{schweinberger2026clust,
+  author       = {Schweinberger, Martin},
+  title        = {Cluster and Correspondence Analysis in R},
+  note         = {https://ladal.edu.au/tutorials/clust/clust.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.02.24}
 }
 ```
 
-
-```{r fin}
+```{r session_info}
 sessionInfo()
 ```
 
+::: {.callout-note}
+## AI Transparency Statement
 
-***
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial on cluster and correspondence analysis. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
 
-[Back to top](#introduction)
+---
 
-[Back to HOME](/)
+[Back to top](#intro)
 
-***
+[Back to LADAL home](/)
+
+---
 
 # References {-}
-
