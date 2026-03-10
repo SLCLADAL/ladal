@@ -1,0 +1,1193 @@
+---
+title: "Web Scraping with R"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+This tutorial introduces web scraping using R. Web scraping is the automated extraction of data from websites — a technique that has become indispensable for researchers who need to collect large amounts of textual or structured data from the internet without manual copy-and-paste.
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+For linguists and corpus researchers, web scraping opens up access to enormous quantities of naturally occurring language data: online news archives, discussion forums, social media posts, Wikipedia articles, parliamentary transcripts, and much more. Rather than being limited to pre-compiled corpora, researchers can assemble custom datasets tailored precisely to their research question.
+
+The tutorial is aimed at intermediate users of R with some familiarity with HTML. It covers the legal and ethical context of web scraping, the structure of HTML documents, and two complementary R packages — `rvest` for scraping static pages and `RSelenium` for scraping dynamic, JavaScript-rendered pages. For deeper coverage of the technical and legal dimensions, see @mitchell2018webscraping, @munzert2014automated, and @nolan2014xml.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, you should be familiar with:
+
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html) — data import, file paths
+- [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr`, pipes
+- [String Processing in R](/tutorials/string/string.html) — `stringr`, regular expressions
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what web scraping is and how it differs from using an API
+2. Identify the legal and ethical constraints on web scraping a given website
+3. Read and interpret basic HTML structure (tags, attributes, CSS selectors)
+4. Use `rvest` to scrape text, tables, and links from static web pages
+5. Navigate multi-page websites by following pagination links
+6. Clean and structure scraped text for corpus or quantitative analysis
+7. Understand when `RSelenium` is needed for JavaScript-rendered content
+8. Apply best practices for polite, reproducible web scraping
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Web Scraping with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/scrape/scrape.html (Version 2026.03.10).
+:::
+
+---
+
+# Concepts and Context {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What web scraping is; how it differs from APIs and manual data collection; what legal and ethical constraints apply; and when scraping is the right tool for a linguistic research project
+:::
+
+## What Is Web Scraping? {-}
+
+Web scraping is the automated extraction of content from web pages by a program that reads the underlying HTML (HyperText Markup Language) source code rather than the rendered visual page. When you visit a website in a browser, the browser downloads an HTML file and renders it visually. A scraper reads the same HTML file and extracts specific pieces of content — text, tables, links, images — without rendering it visually.
+
+Scraping is distinct from:
+
+- **Manual copy-and-paste:** Scraping is automated and can handle thousands of pages in minutes
+- **Downloading pre-compiled datasets:** Scraping assembles data directly from live web pages
+- **Using an API:** An API (Application Programming Interface) is a structured, officially supported way to retrieve data from a service. When an API exists, it should be preferred over scraping — it is more stable, more polite, and usually legally clearer
+
+## Web Scraping vs. APIs {-}
+
+```{r api_vs_scrape, echo=FALSE, message=FALSE, warning=FALSE}
+library(flextable)
+library(checkdown)
+data.frame(
+  Feature = c("Data format", "Stability", "Rate limits", "Legal clarity",
+              "Setup effort", "Coverage", "Typical use"),
+  `Web Scraping` = c(
+    "Unstructured HTML — requires parsing",
+    "Fragile — breaks when site redesigns",
+    "Self-imposed (politeness delay)",
+    "Varies — check ToS carefully",
+    "Moderate — need to inspect HTML",
+    "Any publicly visible page",
+    "No API available; one-off data collection"
+  ),
+  API = c(
+    "Structured JSON or XML — easy to parse",
+    "Stable — versioned endpoints",
+    "Enforced by provider",
+    "Clear — governed by ToS and OAuth",
+    "Low — follow API documentation",
+    "Only what the provider exposes",
+    "Ongoing data collection; service integration"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::bold(part = "header") |>
+  flextable::set_caption("Web scraping vs. API access")
+```
+
+## Legal and Ethical Considerations {-}
+
+Web scraping occupies a legally complex space. Key principles to follow:
+
+**Check the Terms of Service (ToS).** Many websites explicitly prohibit automated scraping in their ToS. Violating ToS may expose researchers to legal risk, particularly under the Computer Fraud and Abuse Act (US) or equivalent legislation in other jurisdictions.
+
+**Check `robots.txt`.** Every well-maintained website has a `robots.txt` file (e.g. `https://example.com/robots.txt`) that specifies which parts of the site automated crawlers are permitted to access. Respecting `robots.txt` is a foundational principle of ethical scraping. The `robotstxt` R package can check this automatically.
+
+**Do not overload servers.** Use a polite delay (`Sys.sleep()`) between requests — typically 1–5 seconds. Never scrape at a rate that could constitute a denial-of-service attack.
+
+**Personal data and copyright.** Scraped text is often protected by copyright. For academic research, fair use/dealing provisions may apply, but this varies by jurisdiction. Scraping personal data (names, email addresses, user profiles) raises GDPR and privacy concerns in Europe.
+
+**Prefer public, archival, and openly licensed sources.** For corpus linguistics, sites like Project Gutenberg, Wikimedia, and government open-data portals are ideal — they are explicitly designed for programmatic access.
+
+::: {.callout-warning}
+## Always Check Before You Scrape
+
+Before scraping any website:
+
+1. Read the Terms of Service — look for clauses about "automated access", "crawling", or "scraping"
+2. Check `robots.txt` — use `robotstxt::paths_allowed()`
+3. Add a polite delay — `Sys.sleep(runif(1, 1, 3))` between requests
+4. Identify yourself — set a descriptive `User-Agent` string
+5. Cache your results — avoid re-scraping pages you already have
+:::
+
+## When to Use Web Scraping in Linguistics {-}
+
+Web scraping is appropriate when:
+
+- You need a **custom corpus** not available in pre-compiled form (e.g. posts from a specific forum, speeches from a specific politician, articles from a specific newspaper)
+- You want to **track language change over time** by scraping the same source repeatedly
+- You need **metadata alongside text** (publication date, author, section) that is not available in downloaded corpora
+- You are working with a source that has **no API** and is too large to collect manually
+
+Web scraping is *not* appropriate when:
+
+- A suitable API or pre-compiled dataset already exists
+- The website's ToS explicitly prohibits scraping
+- The data involves personal information without consent
+
+---
+
+# HTML Fundamentals {#html}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How HTML documents are structured; what tags, attributes, and the DOM tree are; how CSS selectors work; and how to use browser developer tools to find the selectors you need for scraping
+:::
+
+## The Structure of an HTML Document {-}
+
+Every web page is an HTML document — a nested tree of **elements**. Each element is defined by a **tag** (e.g. `<p>`, `<h1>`, `<a>`) and may carry **attributes** (e.g. `class`, `id`, `href`). The content between the opening and closing tag is the element's text or child elements.
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Example Page</title>
+  </head>
+  <body>
+    <h1 id="title">Welcome</h1>
+    <p class="intro">This is the first paragraph.</p>
+    <p class="intro">This is the second paragraph.</p>
+    <a href="https://example.com">Click here</a>
+    <table>
+      <tr><th>Name</th><th>Score</th></tr>
+      <tr><td>Alice</td><td>92</td></tr>
+      <tr><td>Bob</td><td>87</td></tr>
+    </table>
+  </body>
+</html>
+```
+
+Key elements for linguistic scraping:
+
+```{r html_elements, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Tag = c("`<p>`", "`<h1>` – `<h6>`", "`<a>`", "`<table>`, `<tr>`, `<td>`",
+          "`<div>`, `<span>`", "`<ul>`, `<ol>`, `<li>`",
+          "`<article>`, `<section>`", "`<blockquote>`"),
+  Description = c(
+    "Paragraph — the most common container for body text",
+    "Headings — h1 is the page title, h2–h6 are subheadings",
+    "Hyperlink — the `href` attribute contains the URL",
+    "Table, table row, table cell — for structured data",
+    "Generic containers — often used to group related content",
+    "Unordered list, ordered list, list item",
+    "Semantic containers for article/section content (HTML5)",
+    "Block quotation — often used for cited speech"
+  ),
+  `Scraping use` = c(
+    "Body text, article content",
+    "Section titles, document structure",
+    "Following links, pagination",
+    "Frequency tables, statistics",
+    "Identifying content regions by class/id",
+    "Enumerations, structured content",
+    "Main article text",
+    "Quoted speech, dialogue"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Common HTML tags and their scraping relevance")
+```
+
+## CSS Selectors {-}
+
+CSS selectors are patterns that identify elements in an HTML document. They are the primary way to tell a scraper *which* elements to extract. The most important selector types are:
+
+```{r css_selectors, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Selector = c("`p`", "`h1`", "`.intro`", "`#title`",
+               "`div.content`", "`p.intro`", "`a[href]`",
+               "`div > p`", "`h2 + p`", "`p:first-child`"),
+  Meaning = c(
+    "All `<p>` elements",
+    "All `<h1>` elements",
+    "All elements with class `intro`",
+    "The element with id `title`",
+    "`<div>` elements with class `content`",
+    "`<p>` elements with class `intro`",
+    "`<a>` elements that have an `href` attribute",
+    "`<p>` elements that are direct children of a `<div>`",
+    "`<p>` immediately following an `<h2>`",
+    "`<p>` that is the first child of its parent"
+  ),
+  `rvest function` = c(
+    "`html_elements('p')`",
+    "`html_elements('h1')`",
+    "`html_elements('.intro')`",
+    "`html_element('#title')`",
+    "`html_elements('div.content')`",
+    "`html_elements('p.intro')`",
+    "`html_elements('a[href]')`",
+    "`html_elements('div > p')`",
+    "`html_elements('h2 + p')`",
+    "`html_elements('p:first-child')`"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("CSS selectors and their `rvest` equivalents")
+```
+
+## Finding Selectors with Browser Developer Tools {-}
+
+The fastest way to find the right CSS selector for a page element is to use your browser's built-in developer tools:
+
+1. **Right-click** the element you want to scrape and select **Inspect** (Chrome/Firefox) or **Inspect Element** (Safari)
+2. The HTML source for that element is highlighted in the **Elements** panel
+3. Look at the tag name, `class`, and `id` attributes to construct your selector
+4. **Right-click** the highlighted element in the Elements panel → **Copy** → **Copy selector** to get an auto-generated CSS selector
+5. Test the selector in the browser console: `document.querySelectorAll('your.selector')`
+
+::: {.callout-tip}
+## SelectorGadget
+
+[SelectorGadget](https://selectorgadget.com/) is a browser bookmarklet that lets you click on page elements to generate CSS selectors interactively. It is particularly useful for complex pages. Install it from the SelectorGadget website and use it alongside `rvest` to identify selectors without reading raw HTML.
+:::
+
+::: {.callout-tip}
+## Exercise: HTML and CSS Selectors
+:::
+
+**Q1. An HTML page contains the following element: `<p class="article-body" id="para1">The cat sat on the mat.</p>`. Which CSS selector would correctly target this element by its class?**
+
+```{r}
+#| echo: false
+#| label: "HTML_Q1"
+check_question(".article-body",
+               options = c(
+                 ".article-body",
+                 "#article-body",
+                 "p[id]",
+                 "para1"
+               ),
+               type = "radio",
+               q_id = "HTML_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! A CSS class selector uses a dot (.) prefix: `.article-body` targets all elements with `class='article-body'`. The `#` prefix is used for ids, not classes — so `#para1` would target this element by its id. `p[id]` would match any `<p>` that has an id attribute, which is a different selector. The class name alone without a prefix is not valid CSS.",
+               wrong = "Not quite. CSS uses different prefixes for different attribute types: `.classname` for class attributes and `#idname` for id attributes. Which prefix targets a class?")
+```
+
+---
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep1, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("rvest")
+install.packages("httr")
+install.packages("robotstxt")
+install.packages("tidyverse")
+install.packages("flextable")
+install.packages("xml2")
+install.packages("polite")
+install.packages("checkdown")
+install.packages("remotes")
+remotes::install_github("rlesur/klippy")
+```
+
+## Loading Packages {-}
+
+```{r prep2, message=FALSE, warning=FALSE}
+library(rvest)
+library(httr)
+library(robotstxt)
+library(tidyverse)
+library(flextable)
+library(xml2)
+library(polite)
+library(checkdown)
+klippy::klippy()
+```
+
+---
+
+# Scraping Static Pages with `rvest` {#rvest}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The core `rvest` workflow; how to read a page, select elements, and extract text, attributes, and tables; how to build a scraper for a multi-page source; and how to assemble scraped content into a tidy data frame ready for linguistic analysis
+:::
+
+## The `rvest` Workflow {-}
+
+`rvest` is the standard R package for scraping static HTML pages. Every `rvest` scraping task follows the same four-step workflow:
+
+1. **Read** the HTML page with `read_html()`
+2. **Select** elements using CSS selectors with `html_elements()` or `html_element()`
+3. **Extract** text, attributes, or table data with `html_text2()`, `html_attr()`, or `html_table()`
+4. **Clean** the extracted strings with `stringr` functions
+
+```{r rvest_workflow_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Function = c("`read_html(url)`", "`html_elements(page, css)`",
+               "`html_element(page, css)`", "`html_text2(nodes)`",
+               "`html_text(nodes)`", "`html_attr(nodes, name)`",
+               "`html_attrs(nodes)`", "`html_table(node)`",
+               "`html_children(node)`", "`html_name(node)`"),
+  Purpose = c(
+    "Download and parse an HTML page",
+    "Select *all* matching elements — returns a nodeset",
+    "Select *first* matching element — returns one node",
+    "Extract text, preserving whitespace sensibly (preferred)",
+    "Extract raw text — may include excess whitespace",
+    "Extract a single named attribute (e.g. `href`, `src`)",
+    "Extract all attributes as a named list",
+    "Parse an HTML `<table>` into a data frame",
+    "Get direct child elements of a node",
+    "Get the tag name of a node (e.g. `'p'`, `'a'`)"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Core `rvest` functions")
+```
+
+## Example 1: Scraping a Single Wikipedia Article {-}
+
+Wikipedia is an ideal first scraping target: it is openly licensed (CC BY-SA), has a clear and consistent HTML structure, and explicitly permits scraping in its ToS (subject to rate limits). We will scrape the Wikipedia article on the English language.
+
+### Checking `robots.txt` {-}
+
+```{r wiki_robots, message=FALSE, warning=FALSE}
+robotstxt::paths_allowed(
+  paths  = "/wiki/English_language",
+  domain = "en.wikipedia.org"
+)
+```
+
+A result of `TRUE` confirms that Wikipedia's `robots.txt` permits access to this path.
+
+### Reading and Inspecting the Page {-}
+
+```{r wiki_read, message=FALSE, warning=FALSE}
+url_wiki <- "https://en.wikipedia.org/wiki/English_language"
+
+# Polite scraping: identify yourself and add a delay
+page_wiki <- polite::bow(url_wiki,
+                          user_agent = "LADAL tutorial scraper — contact: m.schweinberger@uq.edu.au") |>
+  polite::scrape()
+
+# Inspect the class of the returned object
+class(page_wiki)
+```
+
+### Extracting the Article Title {-}
+
+```{r wiki_title, message=FALSE, warning=FALSE}
+title <- page_wiki |>
+  html_element("h1#firstHeading") |>
+  html_text2()
+cat("Article title:", title, "\n")
+```
+
+### Extracting Body Paragraphs {-}
+
+```{r wiki_paragraphs, message=FALSE, warning=FALSE}
+# All <p> elements inside the main content div
+paragraphs <- page_wiki |>
+  html_elements("div#mw-content-text p") |>
+  html_text2() |>
+  stringr::str_squish() |>              # collapse internal whitespace
+  stringr::str_subset(".{50,}")         # keep only paragraphs with >= 50 chars
+
+cat("Paragraphs extracted:", length(paragraphs), "\n")
+cat("\nFirst paragraph:\n", paragraphs[1], "\n")
+cat("\nSecond paragraph:\n", paragraphs[2], "\n")
+```
+
+### Extracting Section Headings {-}
+
+```{r wiki_headings, message=FALSE, warning=FALSE}
+headings <- page_wiki |>
+  html_elements("h2, h3") |>
+  html_text2() |>
+  stringr::str_squish() |>
+  purrr::discard(~ stringr::str_detect(.x, "^(Contents|Navigation|References|Notes|See also|External|Further)"))
+
+head(headings, 10)
+```
+
+### Extracting Links {-}
+
+```{r wiki_links, message=FALSE, warning=FALSE}
+# All internal Wikipedia links in the article body
+links <- page_wiki |>
+  html_elements("div#mw-content-text a[href^='/wiki/']") |>
+  html_attr("href") |>
+  stringr::str_subset("^/wiki/[^:]+$") |>   # exclude special pages (File:, Talk:, etc.)
+  unique() |>
+  head(20)
+
+# Convert to full URLs
+full_links <- paste0("https://en.wikipedia.org", links)
+head(full_links, 10)
+```
+
+### Putting It Together: A Clean Article Data Frame {-}
+
+```{r wiki_df, message=FALSE, warning=FALSE}
+wiki_df <- tibble::tibble(
+  source    = "Wikipedia",
+  article   = title,
+  paragraph = seq_along(paragraphs),
+  text      = paragraphs,
+  n_words   = stringr::str_count(paragraphs, "\\S+")
+)
+
+wiki_df |>
+  head(5) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Scraped Wikipedia paragraphs as a tidy data frame")
+```
+
+```{r wiki_summary, message=FALSE, warning=FALSE}
+cat("Total paragraphs:", nrow(wiki_df), "\n")
+cat("Total words (approx):", sum(wiki_df$n_words), "\n")
+cat("Mean paragraph length:", round(mean(wiki_df$n_words), 1), "words\n")
+```
+
+## Example 2: Scraping an HTML Table {-}
+
+`rvest` can parse HTML tables directly into R data frames with `html_table()`. We demonstrate by scraping the table of most-spoken languages from Wikipedia.
+
+```{r wiki_table, message=FALSE, warning=FALSE}
+url_lang <- "https://en.wikipedia.org/wiki/List_of_languages_by_total_number_of_speakers"
+
+page_lang <- polite::bow(url_lang,
+                          user_agent = "LADAL tutorial scraper") |>
+  polite::scrape()
+
+# Find all tables on the page
+tables <- page_lang |> html_elements("table.wikitable")
+cat("Tables found:", length(tables), "\n")
+
+# Parse the first table
+lang_table <- tables[[1]] |>
+  html_table(fill = TRUE) |>
+  janitor::clean_names() |>
+  dplyr::select(1:4) |>
+  head(15)
+
+lang_table |>
+  flextable() |>
+  flextable::set_table_properties(width = .8, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Most-spoken languages: scraped from Wikipedia")
+```
+
+::: {.callout-tip}
+## `html_table()` Tips
+
+- Use `fill = TRUE` to handle tables with merged cells (`colspan`/`rowspan`) — otherwise the function may throw an error
+- The first row is treated as the header by default (`header = TRUE`)
+- Use `janitor::clean_names()` to convert messy column names (with spaces, special characters) to clean snake_case R variable names
+- If a page has multiple tables, `html_elements("table")` returns all of them as a list — use `[[i]]` to select the one you want
+:::
+
+::: {.callout-tip}
+## Exercise: The `rvest` Workflow
+:::
+
+**Q2. You want to extract the text of all `<h2>` headings from a Wikipedia page stored in the object `page`. Which `rvest` code is correct?**
+
+```{r}
+#| echo: false
+#| label: "RVEST_Q2"
+check_question("page |> html_elements('h2') |> html_text2()",
+               options = c(
+                 "page |> html_elements('h2') |> html_text2()",
+                 "page |> html_element('h2') |> html_text2()",
+                 "page |> html_elements('h2') |> html_attr('text')",
+                 "page |> html_text2('h2')"
+               ),
+               type = "radio",
+               q_id = "RVEST_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! `html_elements()` (plural) returns all matching nodes, while `html_element()` (singular) returns only the first. `html_text2()` extracts the text content of the selected nodes. `html_attr()` extracts an HTML attribute (like `href`) — not text content. The selector goes inside `html_elements()`, not inside `html_text2()`.",
+               wrong = "Not quite. Remember: `html_elements()` selects nodes, `html_text2()` extracts their text content. Which function takes the CSS selector as its argument?")
+```
+
+---
+
+## Example 3: Scraping Multiple Pages {-}
+
+Most real corpus-building tasks require scraping many pages. The workflow is: (1) collect a list of URLs, (2) loop over them with a polite delay, (3) apply the same extraction function to each page.
+
+We demonstrate by scraping several Wikipedia articles on language families.
+
+### Step 1 — Define the URLs {-}
+
+```{r multi_urls, message=FALSE, warning=FALSE}
+lang_families <- tibble::tibble(
+  family = c("Indo-European languages", "Sino-Tibetan languages",
+             "Niger-Congo languages",   "Afroasiatic languages",
+             "Austronesian languages"),
+  url = c(
+    "https://en.wikipedia.org/wiki/Indo-European_languages",
+    "https://en.wikipedia.org/wiki/Sino-Tibetan_languages",
+    "https://en.wikipedia.org/wiki/Niger-Congo_languages",
+    "https://en.wikipedia.org/wiki/Afroasiatic_languages",
+    "https://en.wikipedia.org/wiki/Austronesian_languages"
+  )
+)
+lang_families
+```
+
+### Step 2 — Write a Scraping Function {-}
+
+```{r multi_function, message=FALSE, warning=FALSE}
+scrape_wiki_article <- function(url, label) {
+  # Polite delay
+  Sys.sleep(runif(1, 1, 2))
+
+  tryCatch({
+    page <- polite::bow(url, user_agent = "LADAL tutorial scraper") |>
+      polite::scrape()
+
+    paragraphs <- page |>
+      html_elements("div#mw-content-text p") |>
+      html_text2() |>
+      stringr::str_squish() |>
+      stringr::str_subset(".{50,}")
+
+    tibble::tibble(
+      family    = label,
+      paragraph = seq_along(paragraphs),
+      text      = paragraphs,
+      n_words   = stringr::str_count(paragraphs, "\\S+")
+    )
+  }, error = function(e) {
+    message("Failed to scrape: ", url, " — ", e$message)
+    tibble::tibble(family = label, paragraph = NA_integer_,
+                   text = NA_character_, n_words = NA_integer_)
+  })
+}
+```
+
+::: {.callout-tip}
+## Always Use `tryCatch()` in Scraping Loops
+
+Scraping loops can fail for many reasons: the server is temporarily down, a page has a different structure than expected, or a network timeout occurs. Wrapping each scraping call in `tryCatch()` ensures that a single failure does not abort the entire loop — the function returns `NA` for failed pages and continues.
+:::
+
+### Step 3 — Loop Over URLs {-}
+
+```{r multi_loop, message=FALSE, warning=FALSE}
+# Map over all URLs and combine results
+corpus_df <- purrr::map2_dfr(
+  lang_families$url,
+  lang_families$family,
+  scrape_wiki_article
+)
+
+cat("Total paragraphs collected:", nrow(corpus_df), "\n")
+cat("Articles successfully scraped:",
+    n_distinct(corpus_df$family[!is.na(corpus_df$text)]), "\n")
+```
+
+### Step 4 — Inspect and Summarise {-}
+
+```{r multi_summary, message=FALSE, warning=FALSE}
+corpus_df |>
+  dplyr::filter(!is.na(text)) |>
+  dplyr::group_by(family) |>
+  dplyr::summarise(
+    Paragraphs = n(),
+    Words      = sum(n_words),
+    MeanParLen = round(mean(n_words), 1)
+  ) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption("Corpus summary: language family Wikipedia articles")
+```
+
+```{r multi_plot, message=FALSE, warning=FALSE}
+corpus_df |>
+  dplyr::filter(!is.na(text)) |>
+  dplyr::group_by(family) |>
+  dplyr::summarise(Words = sum(n_words)) |>
+  ggplot(aes(x = Words,
+             y = reorder(family, Words),
+             fill = family)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() +
+  labs(title = "Total words per article: language family corpus",
+       x = "Total words", y = NULL)
+```
+
+::: {.callout-tip}
+## Exercise: Multi-Page Scraping
+:::
+
+**Q3. You are scraping 200 Wikipedia articles in a loop. After collecting all texts you notice that 12 articles returned `NA` for the text column. What is the most likely cause, and what should you do?**
+
+```{r}
+#| echo: false
+#| label: "MULTI_Q3"
+check_question("The scraping function encountered an error on those pages (e.g. network timeout, unexpected page structure). Use tryCatch() to handle errors gracefully, log which URLs failed, and re-scrape them separately after inspecting why they failed.",
+               options = c(
+                 "The scraping function encountered an error on those pages (e.g. network timeout, unexpected page structure). Use tryCatch() to handle errors gracefully, log which URLs failed, and re-scrape them separately after inspecting why they failed.",
+                 "NA values always indicate that the page has no text content — those articles should be deleted from the dataset",
+                 "The polite delay was too short — increase Sys.sleep() to 60 seconds for all pages",
+                 "Wikipedia blocks all automated scrapers — use a VPN to bypass this"
+               ),
+               type = "radio",
+               q_id = "MULTI_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! NA values in a scraping loop typically mean the function failed on those pages — common causes include temporary network errors, a page with a different HTML structure than expected, or a redirect. The best practice is to: (1) use tryCatch() so failures don't abort the whole loop; (2) save the failed URLs; (3) inspect one or two manually to understand why they failed; (4) fix the scraping function and re-scrape only the failed pages.",
+               wrong = "Not quite. NA values in a scraping loop almost always indicate a caught error — the page existed but something went wrong during extraction. They do not mean the page has no content, and they are not solved by changing the delay or using a VPN.")
+```
+
+---
+
+## Example 4: Scraping and Cleaning Text for Corpus Analysis {-}
+
+Raw scraped text typically contains artefacts — reference numbers, excess whitespace, boilerplate navigation text — that need to be removed before linguistic analysis. This section demonstrates a cleaning pipeline.
+
+```{r clean_text, message=FALSE, warning=FALSE}
+# Take the first article as an example
+raw_text <- corpus_df |>
+  dplyr::filter(family == "Indo-European languages", !is.na(text)) |>
+  dplyr::pull(text)
+
+# Cleaning pipeline
+clean_text <- raw_text |>
+  stringr::str_remove_all("\\[\\d+\\]") |>        # remove Wikipedia footnote refs [1], [2]
+  stringr::str_remove_all("\\([^)]{0,6}\\)") |>   # remove very short parentheticals
+  stringr::str_squish() |>                         # normalise whitespace
+  stringr::str_subset(".{30,}")                    # drop very short fragments
+
+cat("Paragraphs before cleaning:", length(raw_text), "\n")
+cat("Paragraphs after cleaning:", length(clean_text), "\n")
+cat("\nSample cleaned paragraph:\n", clean_text[3], "\n")
+```
+
+```{r clean_tokens, message=FALSE, warning=FALSE}
+# Simple tokenisation: one row per word
+tokens_df <- tibble::tibble(text = clean_text) |>
+  tidytext::unnest_tokens(word, text) |>
+  dplyr::count(word, sort = TRUE)
+
+cat("Unique word types:", nrow(tokens_df), "\n")
+cat("Total tokens:", sum(tokens_df$n), "\n")
+
+# Top 15 content words (excluding stopwords)
+tokens_df |>
+  dplyr::anti_join(tidytext::stop_words, by = "word") |>
+  head(15) |>
+  flextable() |>
+  flextable::set_table_properties(width = .35, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption("Top 15 content words: Indo-European languages article")
+```
+
+---
+
+# Pagination and Link Following {#pagination}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to identify and follow pagination links; how to scrape across multi-page results; and how to build a depth-limited crawler that follows internal links
+:::
+
+## Identifying Pagination Links {-}
+
+Many websites spread content across multiple pages — news archives, search results, forum threads. The typical pattern is a "Next page" link or numbered page links at the bottom of each page.
+
+```{r pagination_concept, message=FALSE, warning=FALSE}
+# General pattern for following a "next page" link
+scrape_with_pagination <- function(start_url, max_pages = 10) {
+  results  <- list()
+  next_url <- start_url
+  page_num <- 1
+
+  while (!is.null(next_url) && page_num <= max_pages) {
+    message("Scraping page ", page_num, ": ", next_url)
+    Sys.sleep(runif(1, 1, 2))   # polite delay
+
+    page <- tryCatch(
+      polite::bow(next_url, user_agent = "LADAL tutorial scraper") |>
+        polite::scrape(),
+      error = function(e) NULL
+    )
+    if (is.null(page)) break
+
+    # Extract content from this page (adapt selector to target site)
+    content <- page |>
+      html_elements("p") |>
+      html_text2() |>
+      stringr::str_squish() |>
+      stringr::str_subset(".{50,}")
+
+    results[[page_num]] <- tibble::tibble(
+      page = page_num,
+      text = content
+    )
+
+    # Find next page link — adapt CSS selector to target site
+    next_href <- page |>
+      html_element("a.next-page, a[rel='next'], li.next a") |>
+      html_attr("href")
+
+    # Resolve relative URLs
+    if (!is.na(next_href) && !is.null(next_href)) {
+      next_url <- xml2::url_absolute(next_href, next_url)
+    } else {
+      next_url <- NULL   # no more pages
+    }
+
+    page_num <- page_num + 1
+  }
+
+  dplyr::bind_rows(results)
+}
+```
+
+::: {.callout-tip}
+## Resolving Relative URLs
+
+Many pagination links use relative URLs (e.g. `/page/2` or `?page=2`) rather than absolute URLs (e.g. `https://example.com/page/2`). Always use `xml2::url_absolute(relative_url, base_url)` to convert relative to absolute URLs before passing them to `read_html()` or `polite::scrape()`.
+:::
+
+## Collecting Links from an Index Page {-}
+
+A common pattern in corpus building is: (1) scrape an index/archive page to collect article URLs, (2) scrape each article URL. This is more reliable than pagination because you can inspect and validate the URL list before scraping.
+
+```{r link_collection, message=FALSE, warning=FALSE}
+# Example: collect all language-related article links from a Wikipedia category page
+url_category <- "https://en.wikipedia.org/wiki/Category:Language_families"
+
+cat_page <- tryCatch(
+  polite::bow(url_category, user_agent = "LADAL tutorial scraper") |>
+    polite::scrape(),
+  error = function(e) NULL
+)
+
+if (!is.null(cat_page)) {
+  article_links <- cat_page |>
+    html_elements("div.mw-category a") |>
+    html_attr("href") |>
+    stringr::str_subset("^/wiki/[^:]+$") |>
+    paste0("https://en.wikipedia.org", x = _) |>
+    unique()
+
+  cat("Article links found:", length(article_links), "\n")
+  head(article_links, 8)
+} else {
+  cat("Page could not be retrieved\n")
+}
+```
+
+---
+
+# Saving and Caching Scraped Data {#saving}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why caching scraped data locally is essential; how to save intermediate results; and how to structure a reproducible scraping project
+:::
+
+## Why Cache? {-}
+
+Scraping is time-consuming and places load on servers. Always save scraped data locally immediately after collection so you can:
+
+- Re-analyse without re-scraping
+- Avoid re-scraping if your analysis script fails
+- Demonstrate reproducibility — the saved data is a snapshot of the source at a specific time
+- Comply with server rate limits — you only scrape each page once
+
+## Saving as Plain Text and CSV {-}
+
+```{r save_text, eval=FALSE, message=FALSE, warning=FALSE}
+# Save the cleaned corpus as CSV
+readr::write_csv(corpus_df, here::here("data/language_families_corpus.csv"))
+
+# Save individual articles as plain text files
+corpus_df |>
+  dplyr::filter(!is.na(text)) |>
+  dplyr::group_by(family) |>
+  dplyr::group_walk(function(data, key) {
+    fname <- stringr::str_replace_all(key$family, "\\s+", "_")
+    fname <- paste0(here::here("data/texts/"), fname, ".txt")
+    writeLines(data$text, fname)
+  })
+```
+
+## Saving as RDS {-}
+
+For complex scraped objects (lists, nested data frames), RDS format preserves R data types exactly:
+
+```{r save_rds, eval=FALSE, message=FALSE, warning=FALSE}
+# Save the full corpus data frame
+saveRDS(corpus_df, here::here("data/language_families_corpus.rds"))
+
+# Reload later
+corpus_df <- readRDS(here::here("data/language_families_corpus.rds"))
+```
+
+## Checking Before Re-Scraping {-}
+
+A simple caching pattern avoids redundant requests:
+
+```{r cache_pattern, eval=FALSE, message=FALSE, warning=FALSE}
+scrape_with_cache <- function(url, cache_dir = "cache") {
+  # Create a filename from the URL
+  fname <- file.path(cache_dir,
+                     paste0(digest::digest(url, algo = "md5"), ".rds"))
+
+  if (file.exists(fname)) {
+    message("Loading from cache: ", url)
+    return(readRDS(fname))
+  }
+
+  message("Scraping: ", url)
+  Sys.sleep(runif(1, 1, 2))
+  page <- polite::bow(url, user_agent = "LADAL tutorial scraper") |>
+    polite::scrape()
+
+  saveRDS(page, fname)
+  page
+}
+```
+
+---
+
+# Dynamic Pages and `RSelenium` {#selenium}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What dynamic (JavaScript-rendered) pages are; why `rvest` cannot scrape them; and how `RSelenium` controls a real browser to access dynamically loaded content
+:::
+
+## Static vs. Dynamic Pages {-}
+
+`rvest` works by downloading the HTML source code of a page and parsing it. This works perfectly for **static pages** where all content is embedded in the HTML at the time of download.
+
+However, many modern websites are **dynamic**: the initial HTML contains little content, and JavaScript running in the browser makes additional requests to a server API and injects the content into the page after it loads. If you download the HTML source of such a page, you see only the empty skeleton — not the content visible in the browser.
+
+```{r static_vs_dynamic, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Feature = c("How content is delivered", "HTML at load time", "Requires JavaScript?",
+              "Scraping tool", "Speed", "Complexity", "Typical examples"),
+  `Static page` = c(
+    "All content in the HTML response",
+    "Complete — ready to parse",
+    "No",
+    "`rvest` / `httr`",
+    "Fast",
+    "Low",
+    "Wikipedia, Project Gutenberg, government sites"
+  ),
+  `Dynamic page` = c(
+    "Content loaded by JavaScript after page load",
+    "Skeleton only — content added later",
+    "Yes",
+    "`RSelenium` or `playwright`",
+    "Slow (real browser overhead)",
+    "High",
+    "Twitter/X, Reddit, many news sites, Single-Page Apps"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Static vs. dynamic pages")
+```
+
+## How `RSelenium` Works {-}
+
+`RSelenium` controls a real web browser (Chrome, Firefox) programmatically. It can click buttons, fill in forms, scroll, and wait for JavaScript to finish rendering — all the things a human user does. The scraped HTML is taken from the fully rendered page, so JavaScript-loaded content is visible.
+
+```{r selenium_concept, eval=FALSE, message=FALSE, warning=FALSE}
+library(RSelenium)
+
+# Start a headless Chrome browser
+rD <- rsDriver(browser = "chrome",
+               chromever = "latest",
+               headless  = TRUE,     # TRUE = no visible window
+               verbose   = FALSE)
+driver <- rD[["client"]]
+
+# Navigate to a page
+driver$navigate("https://example.com")
+
+# Wait for JavaScript to load (adjust seconds as needed)
+Sys.sleep(3)
+
+# Get the fully rendered page source
+page_source <- driver$getPageSource()[[1]]
+
+# Parse with rvest as usual
+page <- read_html(page_source)
+content <- page |> html_elements("p") |> html_text2()
+
+# Always close the browser when done
+driver$close()
+rD[["server"]]$stop()
+```
+
+## Interacting with Page Elements {-}
+
+`RSelenium` can click, type, and scroll — essential for pages that require login, search, or infinite scroll:
+
+```{r selenium_interact, eval=FALSE, message=FALSE, warning=FALSE}
+# Find a search box and type a query
+search_box <- driver$findElement(using = "css selector", value = "input[name='q']")
+search_box$sendKeysToElement(list("language change corpus"))
+
+# Click the search button
+search_btn <- driver$findElement(using = "css selector", value = "button[type='submit']")
+search_btn$clickElement()
+
+# Wait for results to load
+Sys.sleep(2)
+
+# Scroll to the bottom of the page (for infinite scroll)
+driver$executeScript("window.scrollTo(0, document.body.scrollHeight);")
+Sys.sleep(2)
+
+# Extract results
+page_source <- driver$getPageSource()[[1]]
+results <- read_html(page_source) |>
+  html_elements("div.result-title") |>
+  html_text2()
+```
+
+::: {.callout-warning}
+## `RSelenium` Setup Requirements
+
+`RSelenium` requires:
+
+- A compatible browser installed (Chrome or Firefox)
+- A matching WebDriver binary (`chromedriver` for Chrome, `geckodriver` for Firefox)
+- Java (for the Selenium server)
+
+Use `wdman::chrome()` or `wdman::gecko()` to manage driver downloads automatically. For a simpler alternative on modern systems, consider the `chromote` package, which uses Chrome's DevTools Protocol directly without requiring a Selenium server.
+:::
+
+::: {.callout-tip}
+## Exercise: Static vs. Dynamic Pages
+:::
+
+**Q4. You try to scrape a news website with `rvest` but the returned text is empty even though the articles are clearly visible in your browser. What is the most likely explanation?**
+
+```{r}
+#| echo: false
+#| label: "SEL_Q4"
+check_question("The page content is loaded dynamically by JavaScript after the initial HTML is downloaded. rvest only sees the initial HTML skeleton, not the JavaScript-rendered content. Use RSelenium or chromote to control a real browser and scrape the fully rendered page.",
+               options = c(
+                 "The page content is loaded dynamically by JavaScript after the initial HTML is downloaded. rvest only sees the initial HTML skeleton, not the JavaScript-rendered content. Use RSelenium or chromote to control a real browser and scrape the fully rendered page.",
+                 "The CSS selector is wrong — try a different selector",
+                 "rvest cannot scrape news websites due to copyright restrictions",
+                 "The website has detected the scraper and is returning an empty page as a CAPTCHA"
+               ),
+               type = "radio",
+               q_id = "SEL_Q4",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! When rvest returns empty results despite visible content in the browser, dynamic JavaScript rendering is almost always the cause. The browser executes JavaScript that fetches and injects the article text after the initial page load — rvest never sees this injected content because it only downloads the initial HTML response. The solution is to use a tool that controls a real browser: RSelenium, chromote, or the httr2 + JavaScript approach of inspecting the underlying API calls in the Network tab of browser DevTools.",
+               wrong = "Not quite. While a wrong CSS selector is always possible, empty results across all selectors on a news site strongly suggest dynamic rendering. rvest downloads the initial HTML response — if the content is added later by JavaScript, rvest will not see it regardless of the selector used.")
+```
+
+---
+
+# Best Practices {#bestpractices}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** A consolidated checklist of best practices for ethical, robust, and reproducible web scraping in a research context
+:::
+
+## The Polite Scraper Checklist {-}
+
+```{r best_practices_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Practice = c(
+    "Check Terms of Service",
+    "Respect robots.txt",
+    "Use the `polite` package",
+    "Add random delays",
+    "Set a descriptive User-Agent",
+    "Cache results locally",
+    "Use tryCatch() in loops",
+    "Scrape during off-peak hours",
+    "Limit concurrency",
+    "Document your scraper"
+  ),
+  Why = c(
+    "ToS violations can have legal consequences",
+    "robots.txt is the site's machine-readable scraping policy",
+    "Automatically checks robots.txt and adds delays",
+    "Prevents server overload; mimics human browsing patterns",
+    "Identifies your bot; allows site owners to contact you",
+    "Avoids redundant requests; enables reproducibility",
+    "Prevents loop failure on a single bad page",
+    "Reduces impact on production traffic",
+    "Never use parallel scraping on a single domain",
+    "Record URL source, scrape date, and cleaning steps"
+  ),
+  `How in R` = c(
+    "Manual check; no package",
+    "`robotstxt::paths_allowed()`",
+    "`polite::bow()` + `polite::scrape()`",
+    "`Sys.sleep(runif(1, 1, 3))`",
+    "`polite::bow(user_agent = '...')`",
+    "`saveRDS()` / `readr::write_csv()`",
+    "`tryCatch(expr, error = function(e) NULL)`",
+    "Manual scheduling",
+    "Use `purrr::map()` not `parallel::mclapply()`",
+    "Add comments; save metadata with data"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Best practices for polite, robust web scraping")
+```
+
+## The `polite` Package {-}
+
+The `polite` package [@perepolkin2023polite] encapsulates several best practices in two functions:
+
+- **`bow(url, user_agent = "...")`** — introduces your scraper to the server, checks `robots.txt`, and creates a session object
+- **`scrape(session)`** — downloads the page with an automatic delay, respecting the crawl delay specified in `robots.txt` (or defaulting to 5 seconds)
+
+```{r polite_demo, message=FALSE, warning=FALSE}
+# Polite scraping in two lines
+session <- polite::bow(
+  "https://en.wikipedia.org/wiki/Linguistics",
+  user_agent = "LADAL tutorial scraper — m.schweinberger@uq.edu.au"
+)
+
+# The session object shows robots.txt status and delay
+session
+```
+
+::: {.callout-tip}
+## Exercise: Best Practices
+:::
+
+**Q5. A researcher wants to scrape 5,000 pages from a news archive as quickly as possible. She sets up a parallel scraping loop with 10 concurrent connections and no delay. What problems could this cause?**
+
+```{r}
+#| echo: false
+#| label: "BP_Q5"
+check_question("Sending 10 simultaneous requests with no delay could overwhelm the server (effectively a denial-of-service attack), causing the site to go down or the researcher's IP to be permanently banned. It also violates the ethical principle of polite scraping. The correct approach is sequential scraping with a random 1–3 second delay between requests.",
+               options = c(
+                 "Sending 10 simultaneous requests with no delay could overwhelm the server (effectively a denial-of-service attack), causing the site to go down or the researcher's IP to be permanently banned. It also violates the ethical principle of polite scraping. The correct approach is sequential scraping with a random 1–3 second delay between requests.",
+                 "Parallel scraping is always faster and has no downsides — the researcher should increase to 50 connections",
+                 "The only problem is that parallel scraping is harder to code — there are no ethical issues",
+                 "Parallel scraping is fine as long as the researcher uses a VPN"
+               ),
+               type = "radio",
+               q_id = "BP_Q5",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! Aggressive parallel scraping with no delay is the single most harmful scraping behaviour. From the server's perspective, it is indistinguishable from a denial-of-service attack. Consequences include: the server going down (affecting all users), the researcher's IP being permanently banned, potential legal liability, and reputational damage to the researcher's institution. Always scrape sequentially with a polite delay — the `polite` package enforces this automatically.",
+               wrong = "Not quite. The key issues are server load and ethics. Ten simultaneous connections with no delay places the same load on the server as a small denial-of-service attack. Think about what happens to other users of the site while this is running.")
+```
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Web Scraping with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/scrape/scrape.html (Version 2026.03.10).
+
+```
+@manual{schweinberger2026scrape,
+  author       = {Schweinberger, Martin},
+  title        = {Web Scraping with R},
+  note         = {https://ladal.edu.au/tutorials/scrape/scrape.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.03.10}
+}
+```
+
+```{r session_info}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to write and structure the full tutorial on web scraping with R. Contributions include: the conceptual introduction with web scraping vs. API comparison table; the legal and ethical considerations section with the polite scraper warning callout; the HTML fundamentals section with HTML elements table, CSS selectors table, and browser developer tools guidance; the Setup section; the `rvest` workflow section with core functions table, four worked examples (Wikipedia article, HTML table, multi-page scraping, text cleaning), and the pagination and link-following section; the saving and caching section with the cache pattern; the `RSelenium` section with static vs. dynamic comparison table and interaction examples; the best practices section with the polite scraper checklist; and all 5 interactive check-in questions using the `checkdown` package. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}

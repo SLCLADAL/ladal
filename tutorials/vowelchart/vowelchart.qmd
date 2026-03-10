@@ -1,0 +1,903 @@
+---
+title: "Creating Vowel Charts in R"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+This tutorial demonstrates how to create personalised vowel charts using Praat and R. Vowel charts are among the most informative visualisations in phonetics and language learning: they map the acoustic properties of vowel sounds onto a two-dimensional space that closely mirrors the articulatory position of the tongue during vowel production.
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+The tutorial is aimed at beginners and intermediate users of R with an interest in phonetics, second language acquisition, or corpus phonology. It walks through the full workflow from recording to visualisation: recording words in Praat, extracting formant values, loading and processing the data in R, and producing publication-quality vowel charts with `ggplot2`. We also introduce vowel normalisation — an essential step when comparing speakers of different ages, sexes, or vocal tract sizes.
+
+The aim is not to provide a fully-fledged acoustic analysis but to give a practical, step-by-step guide to vowel chart production that can be adapted for teaching and research purposes.
+
+::: {.callout-note}
+## Prerequisite Knowledge
+
+Before working through this tutorial, you should be familiar with:
+
+- Basic R syntax and RStudio ([Getting Started with R](/tutorials/intror/intror.html))
+- Loading and handling data frames ([Handling Tables in R](/tutorials/table/table.html))
+- Elementary phonetics: what vowels and formants are (introduced below)
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Creating Vowel Charts in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/vowelchart/vowelchart.html (Version 2026.03.10).
+:::
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("tidyverse")
+install.packages("flextable")
+install.packages("ggforce")
+install.packages("scales")
+```
+
+## Loading Packages {-}
+
+```{r load_packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(flextable)
+library(ggforce)
+library(scales)
+klippy::klippy()
+```
+
+---
+
+# Vowel Sounds and Acoustic Phonetics {#acoustics}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How vowels differ from consonants; what formants are and why F1 and F2 map onto the vowel space; and how a vowel chart relates to articulatory and acoustic phonetics
+:::
+
+## Vowels and How They Differ from Consonants {-}
+
+When learning or studying a language, one of the first distinctions encountered is that between consonants and vowels [@rogers2014sounds]. Consonants are produced with an obstruction of the airstream; they cannot form the nucleus of a syllable on their own. Vowels, by contrast, are produced with an open, unobstructed vocal tract and form the carrying core of syllables [@zsiga2012sounds].
+
+Because vowels are produced without obstruction, they are classified by different criteria than consonants:
+
+- **Number of tongue positions during production:** monophthongs (one stable position), diphthongs (glide between two positions), triphthongs (three positions)
+- **Tongue height:** high (close), mid, low (open)
+- **Tongue backness:** front, central, back
+- **Lip rounding:** rounded or unrounded
+
+The classical IPA vowel quadrilateral maps these articulatory dimensions onto a two-dimensional chart — the standard representation of the vowel space. Below is the chart for monophthongal vowels of Received Pronunciation (RP).
+
+::: {#fig-vowels layout-ncol=2}
+
+![Vowel Chart (RP)](/images/vowelchartrp.png){#fig-vcrp}
+
+![Tongue positions for vowels](/images/vowelstongue.png){#vtongue}
+
+Vowel Chart of monophthongal vowel sounds in Received Pronunciation (RP) (left); Tongue positions for the vowels /i, e, ɛ, a/ (right)
+
+:::
+
+## From Articulatory to Acoustic: What Are Formants? {-}
+
+Vowels are **periodic** sounds — rhythmic compressions and decompressions of air produced by the vibration of the vocal folds. Each vowel is a complex periodic wave that can be decomposed into multiple simple periodic waves (formants) through acoustic analysis [@johnson2003acoustic; @ladefoged1996elements].
+
+**Formants** are resonant frequency bands produced by the shape of the vocal tract. Different vowels are associated with different vocal tract shapes and therefore different formant patterns. The first two formants are linguistically the most important:
+
+```{r formant_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Formant = c("F1 (first formant)", "F2 (second formant)", "F3 (third formant)"),
+  `Articulatory correlate` = c(
+    "Tongue height — low vowels have high F1; high vowels have low F1",
+    "Tongue backness + lip rounding — front vowels have high F2; back/rounded vowels have low F2",
+    "Lip rounding and individual voice quality — less used in vowel classification"
+  ),
+  `Typical range (adult)` = c("250–900 Hz", "700–2,500 Hz", "1,700–3,500 Hz"),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption("The first three formants and their articulatory correlates")
+```
+
+The key insight that makes acoustic vowel charts possible is that **plotting F1 (y-axis, reversed) against F2 (x-axis, reversed) produces a display that closely mirrors the traditional articulatory vowel quadrilateral** — high front vowels appear in the top-left, low back vowels in the bottom-right [@peterson1952control]. This means that acoustic measurements from audio recordings can be used to produce a personalised vowel chart without needing to image the speaker's tongue directly.
+
+::: {.callout-tip}
+## Why Are the Axes Reversed?
+
+In a traditional vowel quadrilateral, high vowels are at the top and front vowels are on the left. Because F1 increases as the tongue lowers (low vowels = high F1), the y-axis is reversed so that low F1 (= high vowel) appears at the top. Similarly, F2 increases as the tongue moves forward (front vowels = high F2), so the x-axis is reversed so that high F2 (= front vowel) appears on the left. Reversing both axes aligns the acoustic plot with the traditional articulatory chart.
+:::
+
+---
+
+# Recording and Measuring Formants in Praat {#praat}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to record words in Praat; how to set formant parameters; how to use TextGrids for reproducible annotation; how to extract F1 and F2 values; and an introduction to automated extraction via Praat scripting
+:::
+
+## Word Selection {-}
+
+To produce a vowel chart, we need recordings of words containing each monophthongal vowel sound. The standard approach uses minimal pairs in a controlled phonetic environment — typically the /h_d/ frame, which places vowels between two consonants with minimal coarticulation effects.
+
+```{r word_table_data, echo=FALSE, message=FALSE, warning=FALSE}
+ipa_symbols <- c(
+  "\u00E6", "\u0251", "e", "i", "\u025C",
+  "\u026A", "\u0254", "\u0252", "\u028A", "\u028C", "u"
+)
+word_df <- data.frame(
+  Word = c("had","hard","head","heed","herd","hid","hoard","hod","hood","hud","who'd"),
+  IPA  = ipa_symbols,
+  `Phonemic context` = rep("h _ d", 11),
+  `Vowel class` = c("low front","low back","mid front","high front",
+                    "mid central","high front lax","mid back rounded",
+                    "low back rounded","high back lax","mid central low",
+                    "high back"),
+  check.names = FALSE
+)
+```
+
+```{r word_table_display, echo=FALSE, message=FALSE, warning=FALSE}
+word_df |>
+  flextable() |>
+  flextable::set_table_properties(width = .8, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption("Word selection: monophthongal vowels in the /h_d/ frame") |>
+  flextable::border_outer()
+```
+
+Each word should be repeated at least three times to allow for averaging across tokens, which reduces measurement error. Aim for a natural speaking rate — neither too fast nor too slow.
+
+## Recording in Praat {-}
+
+Download Praat from [www.praat.org](https://www.praat.org) and install it. After installation:
+
+1. Open Praat — two windows appear: the **Objects** window (left) and the **Picture** window (right). Close the Picture window.
+2. Go to **New → Record mono sound** in the Objects window.
+3. In the **SoundRecorder** window, click **Record** and read the word list aloud. Repeat each word three times with a short pause between repetitions.
+4. When finished, click **Stop**, enter a name (e.g. `vowels`) in the **Name** field, and click **Save to list & close**.
+5. Back in the Objects window, select the sound object and click **Save → Save as WAV file** to save a backup.
+
+::: {.callout-warning}
+## Recording Quality
+
+Microphone quality substantially affects formant accuracy. For research purposes, use a headset or close-talking microphone in a quiet room. For pedagogical purposes — e.g. giving a learner feedback on their vowel production — a laptop microphone in a reasonably quiet room is sufficient. Avoid recording near fans, air conditioning, or open windows.
+:::
+
+::: {#fig-openpraat}
+![](/images/openpraat.png){#fig-openpraat}
+Praat's User Interface
+:::
+
+## Formant Settings {-}
+
+Before extracting formants, the formant parameters must be set appropriately for the speaker:
+
+1. Select the sound object and click **View & Edit**
+2. In the edit window, go to **Formant → Formant settings**
+3. Enable **Show formants**
+4. Set **Maximum formant (Hz)** according to the speaker:
+   - Adult male: **5,000 Hz**
+   - Adult female: **5,500 Hz**
+   - Child: up to **8,000 Hz**
+5. Set **Number of formants** (default 5 is usually appropriate; try 4–6 if formant tracks appear unstable)
+
+::: {.callout-tip}
+## Diagnosing Poor Formant Tracking
+
+If the formant dots in the edit window are scattered or erratic rather than forming smooth horizontal lines, try adjusting the **Maximum formant** setting up or down by 500 Hz, or change the **Number of formants** between 4 and 6. Poor tracking is most common in low back vowels where F1 and F2 are close together.
+:::
+
+## Measuring Formants Manually {-}
+
+For each vowel token:
+
+1. Listen to the recording and identify the **steady state** of the vowel — the portion where the formant lines are stable and horizontal, corresponding to the target vowel quality
+2. Click and drag to highlight the steady state
+3. Go to **Formant → Get first formant** — note the Hz value
+4. Go to **Formant → Get second formant** — note the Hz value
+5. Also note the start and end time of the selection from the time axis
+
+Record all values in a table. A completed table for one speaker is shown in the Data section below.
+
+## Using TextGrids for Reproducible Annotation {-}
+
+For research purposes, manual note-taking is not recommended — it is slow, error-prone, and not reproducible. **TextGrids** provide a structured, reusable annotation layer attached to the audio file.
+
+To create a TextGrid:
+
+1. Select the sound object in the Objects window
+2. Go to **Annotate → To TextGrid** and create an interval tier named `vowel` and a point tier named `label`
+3. In the edit window, mark the steady-state boundaries of each vowel token as interval boundaries on the `vowel` tier and label each interval with the IPA symbol or word
+
+Once annotated, formants can be extracted for all labelled intervals using a **Praat script**, which eliminates the need to measure each token manually.
+
+## Automated Extraction with a Praat Script {-}
+
+The following Praat script extracts the mean F1 and F2 from the midpoint of each labelled TextGrid interval and writes the results to a tab-delimited text file. Save this as `extract_formants.praat` and run it from **Praat → Open Praat script**.
+
+```praat
+# extract_formants.praat
+# Extracts mean F1 and F2 from TextGrid interval midpoints
+# Output: tab-delimited text file
+
+form Extract formant values
+  sentence Sound_file vowels.wav
+  sentence TextGrid_file vowels.TextGrid
+  real Maximum_formant_(Hz) 5500
+  integer Number_of_formants 5
+  sentence Output_file formants_output.txt
+endform
+
+Read from file: sound_file$
+sound = selected("Sound")
+Read from file: textGrid_file$
+tg = selected("TextGrid")
+
+# Create formant object
+selectObject: sound
+To Formant (burg): 0, number_of_formants, maximum_formant, 0.025, 50
+formant = selected("Formant")
+
+# Open output file
+writeFileLine: output_file$, "label", tab$, "time", tab$, "F1", tab$, "F2"
+
+# Loop over all intervals in tier 1
+selectObject: tg
+n = Get number of intervals: 1
+
+for i from 1 to n
+  label$ = Get label of interval: 1, i
+  if label$ <> ""
+    t_start = Get start time of interval: 1, i
+    t_end   = Get end time of interval:   1, i
+    t_mid   = (t_start + t_end) / 2
+
+    selectObject: formant
+    f1 = Get value at time: 1, t_mid, "Hertz", "Linear"
+    f2 = Get value at time: 2, t_mid, "Hertz", "Linear"
+
+    appendFileLine: output_file$,
+      ... label$, tab$, fixed$(t_mid, 3), tab$,
+      ... fixed$(f1, 2), tab$, fixed$(f2, 2)
+
+    selectObject: tg
+  endif
+endfor
+
+writeInfoLine: "Done! Output written to: ", output_file$
+```
+
+::: {.callout-tip}
+## Why Use Praat Scripting?
+
+A Praat script makes the measurement process **reproducible** (anyone can re-run it on the same audio and get the same values), **scalable** (it works equally well for 10 or 10,000 tokens), and **consistent** (all measurements are taken at the same relative position within each interval). For any analysis beyond a personal demonstration, scripted extraction is strongly preferred over manual measurement.
+:::
+
+---
+
+# Data and Processing in R {#data}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to load and inspect formant data; how to combine a learner's data with a native-speaker reference; how to compute mean formant values by vowel and speaker; and how to prepare the data for plotting
+:::
+
+## The Data {-}
+
+For this showcase we use two datasets:
+
+- **`nns`** — formant measurements from one L1-German learner of English, recorded using the /h_d/ word list and measured manually in Praat
+- **`ns`** — reference formant values for Received Pronunciation from @hawkins2005rpvowels, representing five L1-RP speakers aged 20–25
+
+```{r load_data, message=FALSE, warning=FALSE}
+ns  <- read.table("tutorials/vowelchart/data/rpvowels.txt", header = TRUE, sep = "\t")
+nns <- read.table("tutorials/vowelchart/data/vowels.txt",   header = TRUE, sep = "\t") |>
+  dplyr::select(-file)
+```
+
+The learner data contains three repetitions of each word. Let us inspect the first few rows:
+
+```{r inspect_nns, echo=FALSE, message=FALSE, warning=FALSE}
+nns |>
+  head(12) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption("First 12 rows of the learner formant data") |>
+  flextable::border_outer()
+```
+
+The native-speaker reference data contains one row per vowel — the mean F1 and F2 across all speakers and tokens, plus standard deviations:
+
+```{r inspect_ns, echo=FALSE, message=FALSE, warning=FALSE}
+ns |>
+  flextable() |>
+  flextable::set_table_properties(width = .85, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption("Native RP speaker reference formants (Hawkins & Midgley 2005)") |>
+  flextable::border_outer()
+```
+
+## Combining and Processing the Data {-}
+
+We first combine the two datasets and rename the key columns:
+
+```{r combine_data, message=FALSE, warning=FALSE}
+voweldata <- rbind(nns, ns) |>
+  dplyr::rename(Speaker = subject, Word = item) |>
+  dplyr::mutate(
+    Speaker = dplyr::case_when(
+      Speaker == "ms"    ~ "L1-German learner",
+      Speaker == "rpspk" ~ "RP native speakers",
+      TRUE               ~ Speaker
+    )
+  )
+```
+
+Next we add IPA symbols for each word:
+
+```{r add_ipa, message=FALSE, warning=FALSE}
+voweldata <- voweldata |>
+  dplyr::mutate(
+    ipa = dplyr::case_when(
+      Word == "had"   ~ "\u00E6",
+      Word == "hard"  ~ "\u0251",
+      Word == "head"  ~ "e",
+      Word == "heed"  ~ "i",
+      Word == "herd"  ~ "\u025C",
+      Word == "hid"   ~ "\u026A",
+      Word == "hoard" ~ "\u0254",
+      Word == "hod"   ~ "\u0252",
+      Word == "hood"  ~ "\u028A",
+      Word == "hud"   ~ "\u028C",
+      Word == "whod"  ~ "u",
+      TRUE            ~ "?"
+    )
+  )
+```
+
+Finally, we compute per-vowel mean F1 and F2 within each speaker group and drop the trial column:
+
+```{r compute_means, message=FALSE, warning=FALSE}
+voweldata <- voweldata |>
+  dplyr::group_by(Speaker, Word) |>
+  dplyr::mutate(
+    F1_mean = mean(F1),
+    F2_mean = mean(F2)
+  ) |>
+  dplyr::ungroup() |>
+  dplyr::select(-dplyr::any_of("trial"))
+```
+
+The resulting table of per-vowel means looks like this:
+
+```{r show_means, echo=FALSE, message=FALSE, warning=FALSE}
+voweldata |>
+  dplyr::distinct(Speaker, Word, ipa, F1_mean, F2_mean) |>
+  dplyr::arrange(Speaker, Word) |>
+  dplyr::mutate(across(c(F1_mean, F2_mean), \(x) round(x, 1))) |>
+  flextable() |>
+  flextable::set_table_properties(width = .65, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption("Mean F1 and F2 by vowel and speaker group") |>
+  flextable::border_outer()
+```
+
+---
+
+# Vowel Normalisation {#normalisation}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why raw formant values cannot always be compared across speakers; what Lobanov and Nearey normalisation are; how to apply both methods in R; and when each is appropriate
+:::
+
+## Why Normalise? {-}
+
+Raw formant values (in Hz) reflect both the vowel category **and** the speaker's individual vocal tract size. Adult males have longer vocal tracts than females, who in turn have longer vocal tracts than children — this means that the same vowel produced by a male and a female speaker will have different Hz values even if both are native speakers of the same variety.
+
+When comparing **a single speaker to themselves over time** or **two speakers from the same demographic group** (as in this showcase), the effect is modest and raw Hz values are often acceptable. However, when comparing speakers of different sexes, ages, or sizes — or when pooling across many speakers — **normalisation** is essential to separate linguistic (vowel category) variation from anatomical (vocal tract size) variation.
+
+```{r normalisation_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Method = c("Lobanov (z-score)", "Nearey (log-mean)", "Bark scaling",
+             "Watt & Fabricius", "Raw Hz (no normalisation)"),
+  Description = c(
+    "z-score each formant within each speaker: (F − mean) / SD",
+    "Subtract speaker's log-mean from log-transformed formants",
+    "Convert Hz to Bark scale using a perceptual transform",
+    "Reference vowel triangle method — preserves relative distances",
+    "No transformation — absolute Hz values retained"
+  ),
+  `Best for` = c(
+    "Cross-sex, cross-age comparison; large multi-speaker corpora",
+    "Corpora where speaker means differ but variances are similar",
+    "Perceptually motivated analyses",
+    "Dialect surveys; comparison of vowel system geometry",
+    "Single speaker; speakers matched for age and sex"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = 1, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption("Common vowel normalisation methods")
+```
+
+## Lobanov Normalisation {-}
+
+The Lobanov method z-scores each formant separately within each speaker — it is the most widely used method for cross-speaker comparison [@lobanov1971classification]:
+
+$$F_{\text{Lobanov}} = \frac{F - \bar{F}_{\text{speaker}}}{SD_{F,\text{speaker}}}$$
+
+We first compute the z-scored formant values:
+
+```{r lobanov_zscore, message=FALSE, warning=FALSE}
+voweldata_lob <- voweldata |>
+  dplyr::group_by(Speaker) |>
+  dplyr::mutate(
+    F1_lob = (F1 - mean(F1, na.rm = TRUE)) / sd(F1, na.rm = TRUE),
+    F2_lob = (F2 - mean(F2, na.rm = TRUE)) / sd(F2, na.rm = TRUE)
+  ) |>
+  dplyr::ungroup()
+```
+
+Then we add per-vowel means on the normalised scale:
+
+```{r lobanov_means, message=FALSE, warning=FALSE}
+voweldata_lob <- voweldata_lob |>
+  dplyr::group_by(Speaker, Word) |>
+  dplyr::mutate(
+    F1_lob_mean = mean(F1_lob),
+    F2_lob_mean = mean(F2_lob)
+  ) |>
+  dplyr::ungroup()
+```
+
+## Nearey Normalisation {-}
+
+The Nearey method applies a log transformation and subtracts the speaker's log-mean across all formants [@nearey1978phonetic]. It is less aggressive than Lobanov and preserves more of the relative distances between vowels:
+
+$$F_{\text{Nearey}} = \log(F) - \frac{1}{n}\sum_{k=1}^{n}\overline{\log(F_k)}$$
+
+We compute the log grand mean per speaker, then subtract it from each log-transformed formant:
+
+```{r nearey_compute, message=FALSE, warning=FALSE}
+voweldata_nea <- voweldata |>
+  dplyr::group_by(Speaker) |>
+  dplyr::mutate(
+    log_grand_mean = mean(c(log(F1), log(F2)), na.rm = TRUE),
+    F1_nea = log(F1) - log_grand_mean,
+    F2_nea = log(F2) - log_grand_mean
+  ) |>
+  dplyr::ungroup()
+```
+
+Then we add per-vowel means on the Nearey scale:
+
+```{r nearey_means, message=FALSE, warning=FALSE}
+voweldata_nea <- voweldata_nea |>
+  dplyr::group_by(Speaker, Word) |>
+  dplyr::mutate(
+    F1_nea_mean = mean(F1_nea),
+    F2_nea_mean = mean(F2_nea)
+  ) |>
+  dplyr::ungroup()
+```
+
+---
+
+# Visualising Vowel Spaces {#plots}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to produce a basic vowel chart with `ggplot2`; how to add confidence ellipses; how to create a publication-quality comparison chart with native-speaker reference ellipses; and how to plot normalised vowel spaces
+:::
+
+## Basic Vowel Chart {-}
+
+We first separate the two speaker groups so that we can apply different ellipse levels to each:
+
+```{r basic_filter, message=FALSE, warning=FALSE}
+ns_data  <- voweldata |> dplyr::filter(Speaker == "RP native speakers")
+nns_data <- voweldata |> dplyr::filter(Speaker == "L1-German learner")
+```
+
+We also prepare a deduplicated means table for the IPA label layer:
+
+```{r basic_means, message=FALSE, warning=FALSE}
+vowel_means <- voweldata |>
+  dplyr::distinct(Speaker, Word, ipa, F1_mean, F2_mean)
+```
+
+Now we build the chart in layers — points, IPA labels, and ellipses — then apply the reversed axes and styling:
+
+```{r plot_basic, message=FALSE, warning=FALSE, fig.height=6}
+ggplot(voweldata,
+       aes(x = F2, y = F1, color = Speaker, fill = Speaker)) +
+  geom_point(alpha = 0.15, size = 1.5) +
+  geom_text(
+    data = vowel_means,
+    aes(x = F2_mean, y = F1_mean, label = ipa),
+    fontface = "bold", size = 4.5, show.legend = FALSE
+  ) +
+  stat_ellipse(data = ns_data,  level = 0.50, geom = "polygon",
+               alpha = 0.08, linetype = "dashed") +
+  stat_ellipse(data = nns_data, level = 0.95, geom = "polygon",
+               alpha = 0.08) +
+  scale_x_reverse(breaks = seq(500, 3000, 500)) +
+  scale_y_reverse(breaks = seq(200, 1000, 100)) +
+  scale_color_manual(values = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  scale_fill_manual(values  = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  theme_bw() +
+  theme(
+    legend.position  = "top",
+    legend.title     = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title       = element_text(size = 11)
+  ) +
+  labs(
+    title   = "Vowel space: L1-German learner vs. RP native speakers",
+    x       = "F2 (Hz) →",
+    y       = "F1 (Hz) →",
+    caption = "Axes reversed to mirror articulatory vowel quadrilateral.\nDashed ellipse = NS 50% region; solid ellipse = learner 95% region."
+  )
+```
+
+## Publication-Quality Chart with SD Ellipses {-}
+
+For the native-speaker reference data, we have standard deviations provided directly by @hawkins2005rpvowels. We can use these to draw standard-deviation ellipses that represent the spread of the native-speaker vowel space more accurately than `stat_ellipse()`.
+
+We first prepare the native-speaker means data, adding IPA labels:
+
+```{r pub_ns_means, message=FALSE, warning=FALSE}
+# Reference means and SDs from Hawkins & Midgley (2005)
+# Five L1-RP speakers aged 20-25
+ns_means <- data.frame(
+  Word = c("had","hard","head","heed","herd","hid","hoard","hod","hood","hud","whod"),
+  F1   = c(916.35, 604.15, 599.95, 276.15, 493.55, 392.85, 391.65, 483.10, 412.85, 658.20, 288.70),
+  F2   = c(1473.15, 1040.15, 1925.70, 2337.60, 1372.40, 2174.35, 629.60, 864.90, 1286.65, 1208.05, 1616.30),
+  F1sd = c(124.30, 70.92, 102.23, 25.48, 47.41, 40.84, 39.71, 35.48, 32.98, 116.15, 30.19),
+  F2sd = c(119.44, 40.06, 143.60, 223.42, 95.95, 166.86, 81.19, 48.50, 193.70, 72.52, 225.74),
+  ipa  = c("\u00E6", "\u0251", "e", "i", "\u025C", "\u026A",
+           "\u0254", "\u0252", "\u028A", "\u028C", "u")
+)
+```
+
+Next we extract the learner means and join them with the NS means to compute displacement arrows:
+
+```{r pub_nns_means, message=FALSE, warning=FALSE}
+nns_means <- voweldata |>
+  dplyr::filter(Speaker == "L1-German learner") |>
+  dplyr::distinct(Word, ipa, F1_mean, F2_mean)
+
+arrow_data <- dplyr::left_join(nns_means, ns_means, by = c("Word", "ipa"))
+```
+
+Now we build the chart with `ggforce::geom_ellipse()` for the SD ellipses and `geom_segment()` for the displacement arrows:
+
+```{r plot_publication, message=FALSE, warning=FALSE, fig.height=7}
+ggplot() +
+  ggforce::geom_ellipse(
+    data = ns_means,
+    aes(x0 = F2, y0 = F1, a = F2sd, b = F1sd, angle = 0),
+    fill = "#2C3E50", alpha = 0.07, color = "#2C3E50",
+    linetype = "dashed", linewidth = 0.5
+  ) +
+  geom_text(
+    data = ns_means,
+    aes(x = F2, y = F1, label = ipa),
+    color = "#2C3E50", fontface = "bold", size = 5
+  ) +
+  geom_text(
+    data = nns_means,
+    aes(x = F2_mean, y = F1_mean, label = ipa),
+    color = "#E67E22", fontface = "bold", size = 5
+  ) +
+  geom_segment(
+    data = arrow_data,
+    aes(x = F2_mean, y = F1_mean, xend = F2, yend = F1),
+    arrow = arrow(length = unit(0.15, "cm"), type = "closed"),
+    color = "grey50", linewidth = 0.4, alpha = 0.7
+  ) +
+  scale_x_reverse(breaks = seq(500, 3000, 500),
+                  labels = scales::label_number()) +
+  scale_y_reverse(breaks = seq(200, 1000, 100)) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title       = element_text(size = 11),
+    plot.caption     = element_text(size = 8, color = "grey40")
+  ) +
+  labs(
+    title   = "Vowel space comparison: L1-German learner (orange) vs. RP native speakers (dark)",
+    x       = "F2 (Hz) →",
+    y       = "F1 (Hz) →",
+    caption = "Dashed ellipses = ±1 SD of native RP speaker vowel spaces (Hawkins & Midgley 2005).\nArrows indicate direction and magnitude of learner deviation from native norms."
+  )
+```
+
+The arrows make displacement patterns immediately interpretable: vowels where the arrow is long indicate larger deviations from the native-speaker target. The chart shows that the L1-German learner's /iː/ (heed) and /ɔː/ (hoard) are displaced most substantially from RP norms.
+
+## Faceted Chart by Vowel {-}
+
+A faceted view allows close inspection of each vowel's token distribution. We first filter out any rows with missing formant values, then pass the data to `ggplot()`:
+
+```{r facet_filter, message=FALSE, warning=FALSE}
+voweldata_clean <- voweldata |>
+  dplyr::filter(!is.na(F1), !is.na(F2)) |>
+  dplyr::mutate(facet_label = paste0(ipa, " (", Word, ")"))
+```
+
+```{r plot_facet, message=FALSE, warning=FALSE, fig.height=9}
+ggplot(voweldata_clean,
+       aes(x = F2, y = F1, color = Speaker, fill = Speaker)) +
+  geom_point(alpha = 0.4, size = 2) +
+  stat_ellipse(level = 0.80, geom = "polygon", alpha = 0.12) +
+  facet_wrap(~ facet_label, ncol = 4, scales = "free") +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  scale_color_manual(values = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  scale_fill_manual(values  = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  theme_bw(base_size = 9) +
+  theme(
+    legend.position  = "top",
+    legend.title     = element_blank(),
+    panel.grid       = element_blank(),
+    strip.background = element_rect(fill = "grey92"),
+    strip.text       = element_text(face = "bold")
+  ) +
+  labs(
+    title = "Per-vowel token distributions: learner vs. native speakers",
+    x = "F2 (Hz) →", y = "F1 (Hz) →"
+  )
+```
+
+## Normalised Vowel Charts {-}
+
+### Lobanov {-}
+
+We first split the Lobanov-normalised data by speaker group:
+
+```{r lob_filter, message=FALSE, warning=FALSE}
+ns_lob  <- voweldata_lob |> dplyr::filter(Speaker == "RP native speakers")
+nns_lob <- voweldata_lob |> dplyr::filter(Speaker == "L1-German learner")
+
+lob_means <- voweldata_lob |>
+  dplyr::distinct(Speaker, Word, ipa, F1_lob_mean, F2_lob_mean)
+```
+
+```{r plot_lobanov, message=FALSE, warning=FALSE, fig.height=6}
+ggplot(voweldata_lob,
+       aes(x = F2_lob, y = F1_lob, color = Speaker, fill = Speaker)) +
+  geom_point(alpha = 0.15, size = 1.5) +
+  geom_text(
+    data = lob_means,
+    aes(x = F2_lob_mean, y = F1_lob_mean, label = ipa),
+    fontface = "bold", size = 4.5, show.legend = FALSE
+  ) +
+  stat_ellipse(data = ns_lob,  level = 0.50, geom = "polygon",
+               alpha = 0.08, linetype = "dashed") +
+  stat_ellipse(data = nns_lob, level = 0.95, geom = "polygon",
+               alpha = 0.08) +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  scale_color_manual(values = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  scale_fill_manual(values  = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  theme_bw() +
+  theme(
+    legend.position = "top",
+    legend.title    = element_blank(),
+    panel.grid      = element_blank()
+  ) +
+  labs(
+    title   = "Lobanov-normalised vowel space",
+    x       = "F2 (Lobanov z-score) →",
+    y       = "F1 (Lobanov z-score) →",
+    caption = "Lobanov normalisation removes vocal tract size differences between speakers."
+  )
+```
+
+### Nearey {-}
+
+We do the same for the Nearey-normalised data:
+
+```{r nea_filter, message=FALSE, warning=FALSE}
+ns_nea  <- voweldata_nea |> dplyr::filter(Speaker == "RP native speakers")
+nns_nea <- voweldata_nea |> dplyr::filter(Speaker == "L1-German learner")
+
+nea_means <- voweldata_nea |>
+  dplyr::distinct(Speaker, Word, ipa, F1_nea_mean, F2_nea_mean)
+```
+
+```{r plot_nearey, message=FALSE, warning=FALSE, fig.height=6}
+ggplot(voweldata_nea,
+       aes(x = F2_nea, y = F1_nea, color = Speaker, fill = Speaker)) +
+  geom_point(alpha = 0.15, size = 1.5) +
+  geom_text(
+    data = nea_means,
+    aes(x = F2_nea_mean, y = F1_nea_mean, label = ipa),
+    fontface = "bold", size = 4.5, show.legend = FALSE
+  ) +
+  stat_ellipse(data = ns_nea,  level = 0.50, geom = "polygon",
+               alpha = 0.08, linetype = "dashed") +
+  stat_ellipse(data = nns_nea, level = 0.95, geom = "polygon",
+               alpha = 0.08) +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  scale_color_manual(values = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  scale_fill_manual(values  = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  theme_bw() +
+  theme(
+    legend.position = "top",
+    legend.title    = element_blank(),
+    panel.grid      = element_blank()
+  ) +
+  labs(
+    title   = "Nearey-normalised vowel space",
+    x       = "F2 (Nearey log-normalised) →",
+    y       = "F1 (Nearey log-normalised) →",
+    caption = "Nearey normalisation uses log-mean subtraction — less aggressive than Lobanov."
+  )
+```
+
+::: {.callout-tip}
+## Which Normalisation Should I Use?
+
+For a single-speaker showcase like this one, raw Hz values are perfectly adequate and most interpretable. For a study comparing speakers across sexes or ages, **Lobanov** is the standard choice in sociophonetics. **Nearey** is preferred when the absolute distances between vowels are theoretically important, as it is less aggressive. If in doubt, report both and note whether the substantive conclusions differ.
+:::
+
+## Comparing the Three Schemes Side by Side {-}
+
+We assemble one row of means per speaker per vowel under each scheme, tag each with a `normalisation` label, and combine into a single data frame:
+
+```{r comparison_raw, message=FALSE, warning=FALSE}
+means_raw <- voweldata |>
+  dplyr::distinct(Speaker, Word, ipa, F1_mean, F2_mean) |>
+  dplyr::mutate(normalisation = "Raw Hz")
+```
+
+```{r comparison_lob, message=FALSE, warning=FALSE}
+means_lob <- voweldata_lob |>
+  dplyr::distinct(Speaker, Word, ipa, F1_lob_mean, F2_lob_mean) |>
+  dplyr::rename(F1_mean = F1_lob_mean, F2_mean = F2_lob_mean) |>
+  dplyr::mutate(normalisation = "Lobanov")
+```
+
+```{r comparison_nea, message=FALSE, warning=FALSE}
+means_nea <- voweldata_nea |>
+  dplyr::distinct(Speaker, Word, ipa, F1_nea_mean, F2_nea_mean) |>
+  dplyr::rename(F1_mean = F1_nea_mean, F2_mean = F2_nea_mean) |>
+  dplyr::mutate(normalisation = "Nearey")
+```
+
+```{r comparison_bind, message=FALSE, warning=FALSE}
+means_all <- dplyr::bind_rows(means_raw, means_lob, means_nea) |>
+  dplyr::mutate(normalisation = factor(normalisation,
+                                       levels = c("Raw Hz", "Lobanov", "Nearey")))
+```
+
+```{r plot_comparison, message=FALSE, warning=FALSE, fig.height=5}
+ggplot(means_all,
+       aes(x = F2_mean, y = F1_mean, color = Speaker, label = ipa)) +
+  geom_text(fontface = "bold", size = 3.5) +
+  facet_wrap(~ normalisation, scales = "free") +
+  scale_x_reverse() +
+  scale_y_reverse() +
+  scale_color_manual(values = c("L1-German learner"  = "#E67E22",
+                                "RP native speakers" = "#2C3E50")) +
+  theme_bw(base_size = 10) +
+  theme(
+    legend.position  = "top",
+    legend.title     = element_blank(),
+    panel.grid       = element_blank(),
+    strip.background = element_rect(fill = "grey92"),
+    strip.text       = element_text(face = "bold")
+  ) +
+  labs(
+    title   = "Vowel means under three normalisation schemes",
+    x = "F2 →", y = "F1 →",
+    caption = "Raw Hz values, Lobanov z-scores, and Nearey log-normalised values plotted at mean positions."
+  )
+```
+
+---
+
+# Interpretation {#interpretation}
+
+The vowel charts reveal several patterns in the L1-German learner's English vowel production relative to the RP native-speaker norms:
+
+- **/iː/ (heed):** The learner's vowel is produced more centrally — lower F2 — than the RP target, suggesting insufficient fronting of the tongue.
+- **/ɔː/ (hoard):** The learner's vowel is substantially higher (lower F1) than the RP target, consistent with German-influenced vowel transfer where the back rounded vowels are produced in a higher tongue position.
+- **/æ/ (had):** The vowel spaces differ considerably, which may reflect the absence of this vowel category in German — German speakers learning English often produce /æ/ too high.
+- **/ʊ/ (hood) and /ʌ/ (hud):** These vowels are produced relatively close to the RP norms, suggesting that for this learner these categories are already well-established.
+- **Overall vowel space size:** The learner's ellipses tend to be larger than the native-speaker 50% ellipses, indicating more within-category variability — a common feature of L2 production.
+
+These observations are consistent with the broader SLA literature on L1-German speakers' English phonology [see @paganus2006vowel for similar analyses in a language-learning feedback context].
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Creating Vowel Charts in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/vowelchart/vowelchart.html (Version 2026.03.10).
+
+```
+@manual{schweinberger2026vowelchart,
+  author       = {Schweinberger, Martin},
+  title        = {Creating Vowel Charts in R},
+  note         = {https://ladal.edu.au/tutorials/vowelchart/vowelchart.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.03.10}
+}
+```
+
+```{r session_info}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to expand and restructure a shorter existing LADAL showcase on vowel chart production. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
