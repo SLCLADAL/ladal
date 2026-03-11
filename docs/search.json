@@ -6585,5 +6585,404 @@
     "title": "Creating Vowel Charts in R",
     "section": "Comparing the Three Schemes Side by Side",
     "text": "Comparing the Three Schemes Side by Side\nWe assemble one row of means per speaker per vowel under each scheme, tag each with a normalisation label, and combine into a single data frame:\n\n\nCode\nmeans_raw &lt;- voweldata |&gt;\n  dplyr::distinct(Speaker, Word, ipa, F1_mean, F2_mean) |&gt;\n  dplyr::mutate(normalisation = \"Raw Hz\")\n\n\n\n\nCode\nmeans_lob &lt;- voweldata_lob |&gt;\n  dplyr::distinct(Speaker, Word, ipa, F1_lob_mean, F2_lob_mean) |&gt;\n  dplyr::rename(F1_mean = F1_lob_mean, F2_mean = F2_lob_mean) |&gt;\n  dplyr::mutate(normalisation = \"Lobanov\")\n\n\n\n\nCode\nmeans_nea &lt;- voweldata_nea |&gt;\n  dplyr::distinct(Speaker, Word, ipa, F1_nea_mean, F2_nea_mean) |&gt;\n  dplyr::rename(F1_mean = F1_nea_mean, F2_mean = F2_nea_mean) |&gt;\n  dplyr::mutate(normalisation = \"Nearey\")\n\n\n\n\nCode\nmeans_all &lt;- dplyr::bind_rows(means_raw, means_lob, means_nea) |&gt;\n  dplyr::mutate(normalisation = factor(normalisation,\n                                       levels = c(\"Raw Hz\", \"Lobanov\", \"Nearey\")))\n\n\n\n\nCode\nggplot(means_all,\n       aes(x = F2_mean, y = F1_mean, color = Speaker, label = ipa)) +\n  geom_text(fontface = \"bold\", size = 3.5) +\n  facet_wrap(~ normalisation, scales = \"free\") +\n  scale_x_reverse() +\n  scale_y_reverse() +\n  scale_color_manual(values = c(\"L1-German learner\"  = \"#E67E22\",\n                                \"RP native speakers\" = \"#2C3E50\")) +\n  theme_bw(base_size = 10) +\n  theme(\n    legend.position  = \"top\",\n    legend.title     = element_blank(),\n    panel.grid       = element_blank(),\n    strip.background = element_rect(fill = \"grey92\"),\n    strip.text       = element_text(face = \"bold\")\n  ) +\n  labs(\n    title   = \"Vowel means under three normalisation schemes\",\n    x = \"F2 →\", y = \"F1 →\",\n    caption = \"Raw Hz values, Lobanov z-scores, and Nearey log-normalised values plotted at mean positions.\"\n  )"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#installing-packages",
+    "href": "tutorials/notebooks/notebooks.html#installing-packages",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Installing Packages",
+    "text": "Installing Packages\n\n\nCode\n# Run once — comment out after installation\ninstall.packages(\"rmarkdown\")\ninstall.packages(\"knitr\")\ninstall.packages(\"tidyverse\")\ninstall.packages(\"flextable\")\ninstall.packages(\"kableExtra\")\ninstall.packages(\"bookdown\")    # for cross-references in R Markdown\n# Quarto is installed separately from https://quarto.org/docs/get-started/"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#loading-packages",
+    "href": "tutorials/notebooks/notebooks.html#loading-packages",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Loading Packages",
+    "text": "Loading Packages\n\n\nCode\nlibrary(rmarkdown)\nlibrary(knitr)\nlibrary(tidyverse)\nlibrary(flextable)\nklippy::klippy()"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#the-problem-they-solve",
+    "href": "tutorials/notebooks/notebooks.html#the-problem-they-solve",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "The Problem They Solve",
+    "text": "The Problem They Solve\nA typical research workflow involves several disconnected steps: running R code in a script, copying results into a Word document, inserting figures manually, and then updating everything again when the data changes. This workflow is fragile — a change in the data means re-running the code, re-copying the numbers, and re-inserting the figures, with every step introducing the risk of inconsistency.\nR Markdown and Quarto solve this by integrating code, output, and prose in a single source document. When you render the document, the code runs, the output is inserted automatically, and the prose and results are always in sync. The document is reproducible: anyone with the source file and data can re-render it and obtain exactly the same output."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#r-markdown",
+    "href": "tutorials/notebooks/notebooks.html#r-markdown",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "R Markdown",
+    "text": "R Markdown\nR Markdown was introduced by the knitr package (xie2015knitr?) and formalised in the rmarkdown package (allaire2023rmarkdown?). An R Markdown document (.Rmd) combines:\n\nA YAML header specifying document metadata and output format\nMarkdown prose for narrative text\nR code chunks that are executed when the document is rendered\n\nR Markdown documents are rendered by knitr (which executes the R code and weaves the output into the document) followed by Pandoc (which converts the resulting Markdown into the target output format — HTML, PDF, Word, etc.)."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#quarto",
+    "href": "tutorials/notebooks/notebooks.html#quarto",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Quarto",
+    "text": "Quarto\nQuarto is the next-generation publishing system developed by Posit (formerly RStudio). A Quarto document (.qmd) uses the same Markdown + code chunk approach as R Markdown, but with several important advances:\n\nLanguage-agnostic: supports R, Python, Julia, and Observable JS in the same document\nUnified syntax: chunk options use #| comments rather than chunk header parameters\nRicher output features: built-in callout blocks, cross-references, layouts, and theming\nProject system: _quarto.yml configures entire websites, books, or presentations\nBetter defaults: produces cleaner HTML and PDF output out of the box\n\nFor new projects, Quarto is recommended. R Markdown remains fully supported and is still widely used. This tutorial covers both."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#in-rstudio",
+    "href": "tutorials/notebooks/notebooks.html#in-rstudio",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "In RStudio",
+    "text": "In RStudio\nR Markdown: Go to File → New File → R Markdown. Choose the output format (HTML is the default) and click OK. RStudio creates a template .Rmd file with a YAML header, some sample text, and a few code chunks.\nQuarto: Go to File → New File → Quarto Document. Again choose your output format and click Create. RStudio creates a template .qmd file."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#basic-structure",
+    "href": "tutorials/notebooks/notebooks.html#basic-structure",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Basic Structure",
+    "text": "Basic Structure\nBoth document types share the same three-part structure:\n---\nYAML header\n---\n\nMarkdown prose\n\n` ``{r}\n# R code chunk\n` ``"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#rendering",
+    "href": "tutorials/notebooks/notebooks.html#rendering",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Rendering",
+    "text": "Rendering\nR Markdown: Click the Knit button in RStudio (or run rmarkdown::render(\"file.Rmd\") in the console).\nQuarto: Click the Render button in RStudio (or run quarto render file.qmd in the terminal).\nBoth processes: execute all code chunks → weave output into the document → convert to the target format via Pandoc.\n\n\n\n\n\n\nKeyboard Shortcut\n\n\n\nCtrl+Shift+K (Windows/Linux) or Cmd+Shift+K (Mac) renders the current document in RStudio — for both R Markdown and Quarto."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#what-is-yaml",
+    "href": "tutorials/notebooks/notebooks.html#what-is-yaml",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "What Is YAML?",
+    "text": "What Is YAML?\nYAML (Yet Another Markup Language) is a human-readable data serialisation format used to store configuration. In R Markdown and Quarto, the YAML header sits between two sets of --- at the top of the document and controls metadata (title, author, date) and rendering options (output format, theme, table of contents).\nYAML is indentation-sensitive — use spaces, not tabs, and be consistent with nesting."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#r-markdown-yaml",
+    "href": "tutorials/notebooks/notebooks.html#r-markdown-yaml",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "R Markdown YAML",
+    "text": "R Markdown YAML\nA minimal R Markdown YAML header:\ntitle: \"My Analysis\"\nauthor: \"Martin Schweinberger\"\ndate: \"2026-03-10\"\noutput: html_document\nA fully configured HTML output header:\ntitle: \"Corpus Frequency Analysis\"\nauthor: \"Martin Schweinberger\"\ndate: \"YYYY-MM-DD   # use Sys.Date() in practice\"\noutput:\n  html_document:\n    toc: true\n    toc_depth: 3\n    toc_float: true\n    number_sections: true\n    theme: cosmo\n    highlight: tango\n    code_folding: show\n    df_print: paged\nbibliography: references.bib\ncsl: unified-style-linguistics.csl\nMultiple output formats in one document:\ntitle: \"My Document\"\noutput:\n  html_document:\n    toc: true\n  pdf_document:\n    toc: true\n  word_document:\n    reference_docx: template.docx\n\n\nFieldDescription`title`Document title — appears as the main heading`author`Author name(s) — can be a list`date`Date string or inline R expression e.g. `` `r Sys.Date()` ```output`Output format: `html_document`, `pdf_document`, `word_document`, etc.`toc`Include table of contents (`true`/`false`)`toc_depth`Depth of headings included in the ToC (default 3)`toc_float`Float the ToC in the sidebar (HTML only)`number_sections`Auto-number sections (`true`/`false`)`theme`Bootstrap theme for HTML (cosmo, flatly, journal, etc.)`highlight`Syntax highlighting style (tango, pygments, kate, etc.)`code_folding`Show/hide code (`show`, `hide`, `none`)`df_print`How data frames are printed (`default`, `kable`, `tibble`, `paged`)`bibliography`Path to `.bib` bibliography file`csl`Citation style language file for reference formatting`params`Parameterised report inputs — see Parameterised Reports section"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#quarto-yaml",
+    "href": "tutorials/notebooks/notebooks.html#quarto-yaml",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Quarto YAML",
+    "text": "Quarto YAML\nQuarto’s YAML uses nested format: keys rather than output:, and adds many new fields:\ntitle: \"Corpus Frequency Analysis\"\nauthor:\n  - name: \"Martin Schweinberger\"\n    affiliation: \"The University of Queensland\"\n    email: \"m.schweinberger@uq.edu.au\"\ndate: last-modified\ndate-format: \"DD MMMM YYYY\"\nformat:\n  html:\n    toc: true\n    toc-depth: 4\n    toc-title: \"Contents\"\n    toc-location: left\n    number-sections: true\n    number-depth: 3\n    code-fold: show\n    code-tools: true\n    code-line-numbers: true\n    theme: cosmo\n    highlight-style: tango\n    embed-resources: true\n    smooth-scroll: true\n    citations-hover: true\n    footnotes-hover: true\n  pdf:\n    documentclass: article\n    geometry: margin=2.5cm\n    toc: true\n  docx:\n    reference-doc: template.docx\nexecute:\n  echo: true\n  warning: false\n  message: false\n  cache: false\nbibliography: references.bib\ncsl: unified-style-linguistics.csl\nlang: en-GB\n\n\nFieldDescription`title`Document title`author`Can be a list with `name`, `affiliation`, `email`, `orcid``date: last-modified`Automatically set to the file's last-modified date`date-format`Date display format using `dayjs` tokens`format: html:`HTML output options — nested under `format: html:``toc-location`Position of ToC: `left`, `right`, `body``code-fold`Code folding: `show`, `hide`, `true`, `false``code-tools`Show a toolbar to copy code or view source`code-line-numbers`Add line numbers to code blocks`embed-resources`Bundle all dependencies into a single self-contained HTML file`smooth-scroll`Enable smooth scrolling between sections`citations-hover`Show citation details on hover`execute:`Global chunk execution defaults — applies to all chunks`execute: cache`Cache all chunk outputs to speed up re-rendering`lang`Document language for hyphenation and accessibility`bibliography`Path to `.bib` file`csl`Citation style language file"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#inserting-a-code-chunk",
+    "href": "tutorials/notebooks/notebooks.html#inserting-a-code-chunk",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Inserting a Code Chunk",
+    "text": "Inserting a Code Chunk\nKeyboard shortcut: Ctrl+Alt+I (Windows/Linux) or Cmd+Option+I (Mac) inserts a new code chunk in RStudio.\nR Markdown syntax — options go in the chunk header:\n` ` `{r my-chunk-label, echo=TRUE, message=FALSE, warning=FALSE}\n# R code here\n` ` `\nQuarto syntax — options go inside the chunk as #| comments:\n` ` `{r}\n#| label: my-chunk-label\n#| echo: true\n#| message: false\n#| warning: false\n# R code here\n` ` `\nBoth syntaxes are valid in Quarto, but the #| style is preferred because it is language-agnostic (the same syntax works for Python, Julia, etc.) and keeps chunk options inside the chunk where they are easier to see."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#chunk-option-reference",
+    "href": "tutorials/notebooks/notebooks.html#chunk-option-reference",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Chunk Option Reference",
+    "text": "Chunk Option Reference\n\n\nOptionR MarkdownQuartoEffect`label``label``label`Unique chunk identifier (required for cross-refs and caching)`echo``echo``echo``true` show code; `false` hide code; `fenced` show with delimiters`eval``eval``eval``true` run the chunk; `false` skip execution entirely`include``include``include``false` run but suppress ALL output including code, results, messages`message``message``message``false` suppress package messages (e.g. `library()` output)`warning``warning``warning``false` suppress warnings`error``error``error``true` show errors instead of stopping render`results``results``results``hide` suppress printed output; `asis` pass raw HTML/Markdown through`output`—`output`Quarto alias for `results``fig.height` / `fig-height``fig.height``fig-height`Plot height in inches (default 5)`fig.width` / `fig-width``fig.width``fig-width`Plot width in inches (default 7)`fig.cap` / `fig-cap``fig.cap``fig-cap`Figure caption string`fig.align` / `fig-align``fig.align``fig-align``left`, `center`, `right``fig.show` / `fig-show``fig.show``fig-show``hold` collect all plots; `hide` suppress plots`out.width` / `out-width``out.width``out-width`Scale output width e.g. `'80%'` or `'400px'``cache``cache``cache``true` cache chunk output to disk`dependson``dependson``dependson`Labels of chunks this chunk depends on for cache invalidation`child``child``child`Path to a child `.Rmd`/`.qmd` to include`code``code``code`Override code displayed in the chunk`collapse``collapse``collapse``true` collapse code and output into one block"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#practical-examples",
+    "href": "tutorials/notebooks/notebooks.html#practical-examples",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Practical Examples",
+    "text": "Practical Examples\nShow code but hide output:\n` ``{r}\n#| echo: true\n#| output: false\nsummary(mtcars)\n` ``\nHide code, show only the plot:\n` ``{r}\n#| echo: false\n#| fig-height: 5\n#| fig-width: 7\n#| fig-cap: \"Distribution of word lengths\"\n#| fig-align: center\nhist(nchar(words))\n` ``\nRun chunk but suppress everything (useful for setup):\n` ``{r}\n#| include: false\nlibrary(tidyverse)\nlibrary(flextable)\n` ``\nDisplay a figure at 80% page width, centred:\n` ``{r}\n#| out-width: \"80%\"\n#| fig-align: center\n#| fig-cap: \"Vowel space of RP speakers\"\nplot(vowel_chart)\n` ``\nCache an expensive computation:\n` ``{r}\n#| label: heavy-model\n#| cache: true\nmodel &lt;- lmer(RT ~ Frequency + (1|Subject), data = lexdec)\n` ``"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#global-chunk-options",
+    "href": "tutorials/notebooks/notebooks.html#global-chunk-options",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Global Chunk Options",
+    "text": "Global Chunk Options\nSetting options individually on every chunk is tedious. Use a setup chunk to set defaults for the whole document.\nR Markdown:\n` ``{r setup, include=FALSE}\nknitr::opts_chunk$set(\n  echo    = TRUE,\n  message = FALSE,\n  warning = FALSE,\n  fig.height = 5,\n  fig.width  = 7,\n  fig.align  = \"center\"\n)\n` ``\nQuarto — set in the YAML execute: block instead:\nexecute:\n  echo: true\n  message: false\n  warning: false\nFigure defaults in Quarto go under fig-:\nformat:\n  html:\n    fig-height: 5\n    fig-width: 7\n    fig-align: center"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#inline-code",
+    "href": "tutorials/notebooks/notebooks.html#inline-code",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Inline Code",
+    "text": "Inline Code\nInline code embeds a computed value directly in prose without a separate code chunk:\nR Markdown: write a backtick followed immediately by r, then a space, your expression, and a closing backtick — directly in prose. When rendered, the expression is replaced by its computed value — e.g. The corpus contains 4,572 tokens.\nQuarto: the equivalent syntax is a backtick followed by {r}, a space, your expression, and a closing backtick — placed in prose. The older R Markdown syntax also works in Quarto.\nInline code is rendered inline — the expression is replaced with its value in the output. This ensures numbers in your prose always match your data."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#headings",
+    "href": "tutorials/notebooks/notebooks.html#headings",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Headings",
+    "text": "Headings\nCommand:\n# Heading 1\n## Heading 2\n### Heading 3\n#### Heading 4\n##### Heading 5\n###### Heading 6\nRendered:"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#heading-2",
+    "href": "tutorials/notebooks/notebooks.html#heading-2",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Heading 2",
+    "text": "Heading 2\n\nHeading 3\n\nHeading 4\n\nHeading 5\n\nHeading 6\nHeadings can carry a custom ID for cross-referencing and linking:\n## Results {#sec-results}\nAnd can carry Quarto classes to suppress numbering:\n## Appendix {.unnumbered}"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#emphasis",
+    "href": "tutorials/notebooks/notebooks.html#emphasis",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Emphasis",
+    "text": "Emphasis\nCommand:\n*italic*    _italic_\n**bold**    __bold__\n***bold and italic***\n~~strikethrough~~\nRendered:\nitalic / italic · bold / bold · bold and italic · strikethrough\nQuarto also supports:\nH~2~O          (subscript)\nE = mc^2^      (superscript)\n[mark]{.mark}  (highlight — requires appropriate CSS)\nRendered: H2O · E = mc2 · mark"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#lists",
+    "href": "tutorials/notebooks/notebooks.html#lists",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Lists",
+    "text": "Lists\n\nUnordered List\n- Item 1\n- Item 2\n  - Subitem 2.1\n  - Subitem 2.2\n- Item 3\n\nItem 1\nItem 2\n\nSubitem 2.1\nSubitem 2.2\n\nItem 3\n\n\n\nOrdered List\n1. First item\n2. Second item\n3. Third item\n   1. Subitem 3.1\n   2. Subitem 3.2\n\nFirst item\nSecond item\nThird item\n\nSubitem 3.1\nSubitem 3.2\n\n\n\n\nTask Lists\n- [x] Completed task\n- [ ] Incomplete task\n- [ ] Another task\n  - [x] Completed subtask\n  - [ ] Pending subtask\n\nCompleted task\nIncomplete task\nAnother task\n\nCompleted subtask\nPending subtask\n\n\n\n\nDefinition Lists\nMonophthong\n: A vowel with a single, stable tongue position during production.\n\nDiphthong\n: A vowel that involves a glide from one tongue position to another.\n\nFormant\n: A resonant frequency band produced by the vocal tract shape.\n\nMonophthong\n\nA vowel with a single, stable tongue position during production.\n\nDiphthong\n\nA vowel that involves a glide from one tongue position to another.\n\nFormant\n\nA resonant frequency band produced by the vocal tract shape."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#links",
+    "href": "tutorials/notebooks/notebooks.html#links",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Links",
+    "text": "Links\n[LADAL](https://ladal.edu.au)                    # external link\n[Introduction](#intro)                            # internal anchor link\n[Schweinberger 2026](references.html#ref-sch26)  # link to reference\n&lt;m.schweinberger@uq.edu.au&gt;                       # auto-linked email\nRendered: LADAL · Introduction · m.schweinberger@uq.edu.au"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#images",
+    "href": "tutorials/notebooks/notebooks.html#images",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Images",
+    "text": "Images\nBasic image:\n![Alt text](/images/vowelchartrp.png)\nImage with width and alignment (Quarto/Pandoc attribute syntax):\n![Vowel chart of RP](/images/vowelchartrp.png){width=60% fig-align=\"center\"}\nFloating image (HTML inline style):\n![](/images/gy_chili.png){ width=15% style=\"float:right; padding:10px\" }\nImage with a cross-referenceable label:\n![Vowel chart of RP](/images/vowelchartrp.png){#fig-vc width=70%}\n\nSee @fig-vc for the vowel chart.\nTwo images side by side using Quarto layout:\n::: {layout-ncol=2}\n![Left panel](/images/fig1.png){#fig-left}\n![Right panel](/images/fig2.png){#fig-right}\n:::"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#blockquotes",
+    "href": "tutorials/notebooks/notebooks.html#blockquotes",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Blockquotes",
+    "text": "Blockquotes\n&gt; This is a blockquote.\n&gt;\n&gt; Spanning multiple paragraphs.\n&gt;\n&gt; &gt; This is a nested blockquote.\n\nThis is a blockquote.\nSpanning multiple paragraphs.\n\nThis is a nested blockquote.\n\n\nBlockquotes with attribution:\n&gt; The limits of my language mean the limits of my world.\n&gt;\n&gt; — Ludwig Wittgenstein, *Tractatus Logico-Philosophicus* (1921)\n\nThe limits of my language mean the limits of my world.\n— Ludwig Wittgenstein, Tractatus Logico-Philosophicus (1921)"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#code",
+    "href": "tutorials/notebooks/notebooks.html#code",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Code",
+    "text": "Code\n\nInline Code\nUse `read.table()` to load tab-delimited files.\nUse read.table() to load tab-delimited files.\n\n\nCode Blocks\nFenced code blocks with language tags produce syntax highlighting:\n```r\ncorpus &lt;- readLines(\"corpus.txt\")\ntokens &lt;- unlist(strsplit(corpus, \"\\\\s+\"))\n```\ncorpus &lt;- readLines(\"corpus.txt\")\ntokens &lt;- unlist(strsplit(corpus, \"\\\\s+\"))\nSupported language tags include: r, python, bash, markdown, yaml, json, html, latex, praat, and many more."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#tables",
+    "href": "tutorials/notebooks/notebooks.html#tables",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Tables",
+    "text": "Tables\n\nBasic Markdown Table\n| Vowel | IPA | F1 (Hz) | F2 (Hz) |\n|-------|-----|---------|---------|\n| heed  | iː  | 276     | 2338    |\n| hid   | ɪ   | 393     | 2174    |\n| head  | e   | 600     | 1926    |\n| had   | æ   | 916     | 1473    |\n\n\n\nVowel\nIPA\nF1 (Hz)\nF2 (Hz)\n\n\n\n\nheed\niː\n276\n2338\n\n\nhid\nɪ\n393\n2174\n\n\nhead\ne\n600\n1926\n\n\nhad\næ\n916\n1473\n\n\n\n\n\nColumn Alignment\n| Left     | Centre   | Right    |\n|:---------|:--------:|---------:|\n| text     | text     | 1,234    |\n| text     | text     | 5,678    |\n\n\n\nLeft\nCentre\nRight\n\n\n\n\ntext\ntext\n1,234\n\n\ntext\ntext\n5,678\n\n\n\nFor production tables — sortable columns, striped rows, captions, cross-references — use flextable() or knitr::kable() in a code chunk rather than raw Markdown tables."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#footnotes",
+    "href": "tutorials/notebooks/notebooks.html#footnotes",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Footnotes",
+    "text": "Footnotes\n\n\nFor a thorough introduction to formant analysis see Johnson (2003).↩︎"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#math-expressions",
+    "href": "tutorials/notebooks/notebooks.html#math-expressions",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Math Expressions",
+    "text": "Math Expressions\nInline LaTeX math:\nThe polarity ratio is $P = \\frac{n_+}{n_-}$.\nThe polarity ratio is \\(P = \\frac{n_+}{n_-}\\).\nDisplay (block) math:\n$$\nF_{\\text{Lobanov}} = \\frac{F - \\bar{F}_{\\text{speaker}}}{SD_{F,\\text{speaker}}}\n$$\n\\[\nF_{\\text{Lobanov}} = \\frac{F - \\bar{F}_{\\text{speaker}}}{SD_{F,\\text{speaker}}}\n\\]"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#mermaid-diagrams",
+    "href": "tutorials/notebooks/notebooks.html#mermaid-diagrams",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Mermaid Diagrams",
+    "text": "Mermaid Diagrams\nQuarto supports Mermaid diagrams natively with no extra packages:\n```{mermaid}\ngraph TD\n    A[Raw audio] --&gt; B[Praat formant extraction]\n    B --&gt; C[Tab-delimited .txt file]\n    C --&gt; D[Load in R]\n    D --&gt; E[Normalisation]\n    E --&gt; F[Vowel chart]\n```\n\n\n\n\n\ngraph TD\n    A[Raw audio] --&gt; B[Praat formant extraction]\n    B --&gt; C[Tab-delimited .txt file]\n    C --&gt; D[Load in R]\n    D --&gt; E[Normalisation]\n    E --&gt; F[Vowel chart]\n\n\n\n\n\n\nOther diagram types: flowchart, sequenceDiagram, gantt, classDiagram, stateDiagram, erDiagram, pie."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#html-elements",
+    "href": "tutorials/notebooks/notebooks.html#html-elements",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "HTML Elements",
+    "text": "HTML Elements\nRaw HTML passes through directly in both R Markdown and Quarto HTML output.\nExpandable section:\n&lt;details&gt;\n  &lt;summary&gt;Click to expand: full model output&lt;/summary&gt;\n  Content hidden until expanded. Useful for supplementary material.\n&lt;/details&gt;\n\n\nClick to expand: full model output\n\nContent hidden until expanded. Useful for supplementary material.\n\nColoured span (requires inline CSS):\n&lt;span style=\"color: #E67E22; font-weight: bold;\"&gt;Important term&lt;/span&gt;\nImportant term\nKeyboard key styling:\nPress &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;K&lt;/kbd&gt; to render.\nPress Ctrl+Shift+K to render."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#escaping-special-characters",
+    "href": "tutorials/notebooks/notebooks.html#escaping-special-characters",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Escaping Special Characters",
+    "text": "Escaping Special Characters\nBackslash escapes Markdown special characters:\n\\*not italic\\*   \\`not code\\`   \\# not a heading   \\[not a link\\]\n*not italic* · `not code` · # not a heading · [not a link]"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#horizontal-rules",
+    "href": "tutorials/notebooks/notebooks.html#horizontal-rules",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Horizontal Rules",
+    "text": "Horizontal Rules\n---\n***\n___\nAll three produce a horizontal rule:"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#emojis",
+    "href": "tutorials/notebooks/notebooks.html#emojis",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Emojis",
+    "text": "Emojis\n:smile: :+1: :sparkles: :books: :bar_chart:\n:smile: :+1: :sparkles: :books: :bar_chart:\n(Requires emoji extension or appropriate Pandoc version — works in Quarto HTML by default.)"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#html",
+    "href": "tutorials/notebooks/notebooks.html#html",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "HTML",
+    "text": "HTML\nHTML is the richest output format — it supports interactive widgets, floating tables of contents, collapsible code, hover citations, and smooth scrolling. It is the recommended format for sharing analysis online or via email.\nR Markdown:\noutput:\n  html_document:\n    toc: true\n    toc_float: true\n    theme: cosmo\n    code_folding: show\n    df_print: paged\nQuarto:\nformat:\n  html:\n    toc: true\n    toc-location: left\n    theme: cosmo\n    code-fold: show\n    embed-resources: true   # self-contained single file\n\n\n\n\n\n\nembed-resources: true\n\n\n\nBy default, Quarto HTML output references external libraries (Bootstrap, highlight.js, etc.) via relative paths. Setting embed-resources: true bundles everything into a single .html file — ideal for sharing by email or uploading to a repository without worrying about broken relative paths."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#pdf",
+    "href": "tutorials/notebooks/notebooks.html#pdf",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "PDF",
+    "text": "PDF\nPDF output requires a LaTeX distribution. The recommended option is TinyTeX, which can be installed from R:\n\n\nCode\ninstall.packages(\"tinytex\")\ntinytex::install_tinytex()\n\n\nR Markdown:\noutput:\n  pdf_document:\n    toc: true\n    number_sections: true\n    latex_engine: xelatex   # for Unicode and custom fonts\n    keep_tex: true          # keep the intermediate .tex file\nQuarto:\nformat:\n  pdf:\n    documentclass: article\n    geometry: margin=2.5cm\n    toc: true\n    number-sections: true\n    latex-engine: xelatex\n    include-in-header: preamble.tex   # custom LaTeX preamble\n\n\n\n\n\n\nPDF and Unicode\n\n\n\nIf your document contains IPA symbols, non-Latin scripts, or special characters, use latex_engine: xelatex (R Markdown) or latex-engine: xelatex (Quarto). The default pdflatex engine does not support Unicode. Also ensure your fonts support the required character ranges."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#word-.docx",
+    "href": "tutorials/notebooks/notebooks.html#word-.docx",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Word (.docx)",
+    "text": "Word (.docx)\nWord output is useful when collaborators need to add track-changes comments or when a journal requires .docx submission.\nR Markdown:\noutput:\n  word_document:\n    toc: true\n    reference_docx: template.docx   # custom styles template\nQuarto:\nformat:\n  docx:\n    toc: true\n    reference-doc: template.docx\n    highlight-style: github\nTo create a Word template: render a document to .docx, open it in Word, modify the Heading 1, Body Text, Code, and Caption styles to match your requirements, save it, and point reference_docx/reference-doc at it."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#presentations",
+    "href": "tutorials/notebooks/notebooks.html#presentations",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Presentations",
+    "text": "Presentations\n\nQuarto Reveal.js (HTML Slides)\nReveal.js is Quarto’s primary presentation format — fully interactive, browser-based slides:\nformat:\n  revealjs:\n    theme: simple         # default, simple, sky, moon, serif, solarized\n    slide-number: true\n    chalkboard: true      # interactive drawing on slides\n    incremental: true     # bullet points appear one at a time\n    footer: \"LADAL — ladal.edu.au\"\n    logo: /images/uq1.jpg\n    transition: slide     # none, fade, slide, convex, concave, zoom\n    background-transition: fade\nIn a Reveal.js document, each ## heading starts a new slide, and --- creates a slide without a heading. Columns are created with:\n:::: {.columns}\n::: {.column width=\"50%\"}\nLeft column content\n:::\n::: {.column width=\"50%\"}\nRight column content\n:::\n::::\n\n\nBeamer (PDF Slides)\nformat:\n  beamer:\n    theme: Madrid\n    colortheme: dolphin\n    fonttheme: structurebold\n    slide-level: 2\n\n\nPowerPoint\nformat:\n  pptx:\n    reference-doc: template.pptx\n\n\nR Markdown Presentations\noutput:\n  ioslides_presentation:\n    widescreen: true\n    smaller: true\n  slidy_presentation:\n    footer: \"LADAL\"\n  beamer_presentation:\n    theme: Madrid\n\n\nFormatBest forR MarkdownQuartoHTML (`html_document`/`html`)Online sharing; interactive outputs; most feature-rich✓✓PDF (`pdf_document`/`pdf`)Print; journal submission; formal reports✓✓Word (`word_document`/`docx`)Collaboration with track changes; journal .docx submission✓✓Reveal.js (`revealjs`)Interactive HTML presentations with code output—✓Beamer (`beamer`)PDF presentations; conference talks with LaTeX typesetting✓✓PowerPoint (`pptx`)PowerPoint-compatible presentations for non-R users✓✓ioslides / SlidySimple HTML presentations (R Markdown only)✓—"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#callout-blocks",
+    "href": "tutorials/notebooks/notebooks.html#callout-blocks",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Callout Blocks",
+    "text": "Callout Blocks\nCallout blocks draw attention to notes, tips, warnings, and important information. They are a Quarto native feature — no extra packages or CSS required.\n::: {.callout-note}\n## Note title\nThis is a note callout — used for supplementary information.\n:::\n\n::: {.callout-tip}\n## Tip title\nThis is a tip callout — used for best practices and shortcuts.\n:::\n\n::: {.callout-warning}\n## Warning title\nThis is a warning callout — used for common mistakes and pitfalls.\n:::\n\n::: {.callout-important}\n## Important title\nThis is an important callout — used for critical information.\n:::\n\n::: {.callout-caution}\n## Caution title\nThis is a caution callout — used for potential issues requiring care.\n:::\nRendered:\n\n\n\n\n\n\nNote title\n\n\n\nThis is a note callout — used for supplementary information.\n\n\n\n\n\n\n\n\nTip title\n\n\n\nThis is a tip callout — used for best practices and shortcuts.\n\n\n\n\n\n\n\n\nWarning title\n\n\n\nThis is a warning callout — used for common mistakes and pitfalls.\n\n\n\n\n\n\n\n\nImportant title\n\n\n\nThis is an important callout — used for critical information.\n\n\n\n\n\n\n\n\nCaution title\n\n\n\nThis is a caution callout — used for potential issues requiring care.\n\n\nCallouts can be collapsed by default:\n::: {.callout-note collapse=\"true\"}\n## Expandable note\nThis content is hidden until the reader clicks the heading.\n:::\n\n\n\n\n\n\nExpandable note\n\n\n\n\n\nThis content is hidden until the reader clicks the heading.\n\n\n\nCallouts without a title:\n::: {.callout-tip appearance=\"simple\"}\nA quick tip with no header.\n:::\n\n\n\n\n\n\nA quick tip with no header."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#multi-column-layouts",
+    "href": "tutorials/notebooks/notebooks.html#multi-column-layouts",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Multi-Column Layouts",
+    "text": "Multi-Column Layouts\n\nTwo-Column Body Text\n:::: {.columns}\n::: {.column width=\"60%\"}\n**Main analysis**\n\nThe vowel chart reveals that the learner's /iː/ is more centralised\nthan the RP target, with F2 approximately 200 Hz lower than expected.\n:::\n::: {.column width=\"40%\"}\n**Key finding**\n\n- /iː/ centralised\n- /ɔː/ raised\n- /æ/ raised and backed\n:::\n::::\n\n\nMain analysis\nThe vowel chart reveals that the learner’s /iː/ is more centralised than the RP target, with F2 approximately 200 Hz lower than expected.\n\nKey finding\n\n/iː/ centralised\n/ɔː/ raised\n/æ/ raised and backed\n\n\n\n\n\nFigure Layouts\nPlace two figures side by side with independent captions and cross-reference labels:\n::: {#fig-comparison layout-ncol=2}\n\n![Raw Hz](/images/plot_raw.png){#fig-raw}\n\n![Lobanov-normalised](/images/plot_lob.png){#fig-lob}\n\nVowel space before (left) and after (right) Lobanov normalisation.\n:::\n\nSee @fig-comparison for the comparison, or specifically @fig-raw for raw Hz values.\nLayout options: layout-ncol, layout-nrow, or a custom layout matrix:\n::: {layout=\"[[1,1],[1]]\"}\n![Top left](/images/a.png)\n![Top right](/images/b.png)\n![Full width bottom](/images/c.png)\n:::"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#tabsets",
+    "href": "tutorials/notebooks/notebooks.html#tabsets",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Tabsets",
+    "text": "Tabsets\nTabsets allow multiple versions of content in the same space — useful for showing results under different conditions, or code in multiple languages:\n::: {.panel-tabset}\n## Raw Hz\n\nContent for the raw Hz tab.\n\n## Lobanov\n\nContent for the Lobanov normalisation tab.\n\n## Nearey\n\nContent for the Nearey normalisation tab.\n:::\n\nRaw HzLobanovNearey\n\n\nContent for the raw Hz tab.\n\n\nContent for the Lobanov normalisation tab.\n\n\nContent for the Nearey normalisation tab."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#the-freeze-option",
+    "href": "tutorials/notebooks/notebooks.html#the-freeze-option",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "The freeze Option",
+    "text": "The freeze Option\nRendering a Quarto document re-executes all code chunks. For documents with long-running computations (large models, web scraping), this is expensive. The freeze option caches executed output so that chunks are only re-run when their code changes.\nIn _quarto.yml (applies to all documents in the project):\nexecute:\n  freeze: auto   # re-execute only when source code changes\nIn an individual document’s YAML:\nexecute:\n  freeze: true   # never re-execute — always use cached output\nCached output is stored in the _freeze/ directory. Commit this directory to version control so collaborators can render the document without re-running expensive computations."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#the-_quarto.yml-project-file",
+    "href": "tutorials/notebooks/notebooks.html#the-_quarto.yml-project-file",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "The _quarto.yml Project File",
+    "text": "The _quarto.yml Project File\nA _quarto.yml file in the root of a project configures all documents simultaneously. This is the key advantage of the Quarto project system over R Markdown.\n\nWebsite Project\nproject:\n  type: website\n  output-dir: docs          # rendered output goes here (for GitHub Pages)\n\nwebsite:\n  title: \"LADAL\"\n  navbar:\n    left:\n      - href: index.qmd\n        text: Home\n      - href: tutorials.qmd\n        text: Tutorials\n      - href: about.qmd\n        text: About\n  sidebar:\n    style: docked\n    contents:\n      - section: \"Text Analysis\"\n        contents:\n          - tutorials/freq/freq.qmd\n          - tutorials/string/string.qmd\n\nformat:\n  html:\n    theme: cosmo\n    toc: true\n    toc-depth: 3\n    code-fold: show\n\nexecute:\n  freeze: auto\n  warning: false\n  message: false\n\n\nBook Project\nproject:\n  type: book\n\nbook:\n  title: \"Quantitative Methods in Linguistics\"\n  author: \"Martin Schweinberger\"\n  date: last-modified\n  chapters:\n    - index.qmd\n    - intro.qmd\n    - part: \"Part I: Foundations\"\n      chapters:\n        - chapters/data.qmd\n        - chapters/freq.qmd\n    - part: \"Part II: Modelling\"\n      chapters:\n        - chapters/regression.qmd\n        - chapters/mixed.qmd\n    - references.qmd\n\nbibliography: references.bib\n\nformat:\n  html:\n    theme: cosmo\n  pdf:\n    documentclass: book\n    geometry: margin=2.5cm\n\n\nShared Format Defaults\nAny format: settings in _quarto.yml apply to all documents and can be overridden in individual documents:\nformat:\n  html:\n    theme: cosmo\n    toc: true\n    code-fold: show\n    fig-height: 5\n    fig-width: 7\n\nexecute:\n  echo: true\n  message: false\n  warning: false\n  cache: false\n  freeze: auto"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#in-quarto",
+    "href": "tutorials/notebooks/notebooks.html#in-quarto",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "In Quarto",
+    "text": "In Quarto\nQuarto has built-in cross-references. Every referenceable element needs a label with the appropriate prefix.\n\nFigures\nLabel a figure chunk with #| label: fig-something and reference it with @fig-something:\n` ``{r}\n#| label: fig-vowel-chart\n#| fig-cap: \"Vowel space of the L1-German learner vs. RP native speakers\"\n#| fig-height: 6\nplot(vowel_chart)\n` ``\n\nThe results are shown in @fig-vowel-chart.\nFor Markdown images:\n![Vowel space](/images/vowelchart.png){#fig-vowel-chart}\n\nAs shown in @fig-vowel-chart, the learner's vowels are displaced.\n\n\nTables\n` ``{r}\n#| label: tbl-freq\n#| tbl-cap: \"Top 20 words by frequency\"\nfreq_table |&gt; flextable()\n` ``\n\n@tbl-freq shows the 20 most frequent words.\n\n\nSections\n## Results {#sec-results}\n\nSee @sec-results for the full discussion.\n\n\nEquations\n$$\nF_{\\text{Lobanov}} = \\frac{F - \\bar{F}}{SD_F}\n$$ {#eq-lobanov}\n\nAs shown in @eq-lobanov, Lobanov normalisation is a z-score transformation.\n\n\nReference Formatting\nQuarto formats cross-references automatically: @fig-vowel-chart becomes “Figure 1”, @tbl-freq becomes “Table 1”, @sec-results becomes “Section 3”, and @eq-lobanov becomes “Equation 1”. The prefix text can be customised in _quarto.yml:\ncrossref:\n  fig-title: \"Figure\"\n  tbl-title: \"Table\"\n  eq-title: \"Equation\"\n  fig-prefix: \"Fig.\"\n  tbl-prefix: \"Tab.\""
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#in-r-markdown-via-bookdown",
+    "href": "tutorials/notebooks/notebooks.html#in-r-markdown-via-bookdown",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "In R Markdown (via bookdown)",
+    "text": "In R Markdown (via bookdown)\nR Markdown requires the bookdown package for cross-references. Use output formats from bookdown and the \\@ref() syntax:\noutput:\n  bookdown::html_document2:\n    toc: true\n  bookdown::pdf_document2:\n    toc: true\nSee Figure \\@ref(fig:vowel-chart) and Table \\@ref(tab:freq-table).\n\n(ref:vowel-chart-cap) Vowel space of the L1-German learner vs. RP native speakers.\n\n` ``{r vowel-chart, fig.cap=\"(ref:vowel-chart-cap)\"}\nplot(vowel_chart)\n` ``"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#bibtex-reference-files",
+    "href": "tutorials/notebooks/notebooks.html#bibtex-reference-files",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "BibTeX Reference Files",
+    "text": "BibTeX Reference Files\nBoth R Markdown and Quarto use BibTeX (.bib) files for bibliographies. A .bib file contains entries like:\n@book{johnson2003acoustic,\n  author    = {Johnson, Keith},\n  title     = {Acoustic and Auditory Phonetics},\n  year      = {2003},\n  publisher = {Blackwell},\n  address   = {Oxford}\n}\n\n@article{lobanov1971classification,\n  author  = {Lobanov, B. M.},\n  title   = {Classification of Russian vowels spoken by different speakers},\n  journal = {Journal of the Acoustical Society of America},\n  year    = {1971},\n  volume  = {49},\n  number  = {2},\n  pages   = {606--608}\n}\n\n@manual{schweinberger2026notebooks,\n  author       = {Schweinberger, Martin},\n  title        = {R Markdown and Quarto: Creating Reproducible Documents},\n  note         = {https://ladal.edu.au/tutorials/notebooks/notebooks.html},\n  year         = {2026},\n  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},\n  address      = {Brisbane},\n  edition      = {2026.03.10}\n}\nPoint your document at the .bib file:\nbibliography: references.bib"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#citation-syntax",
+    "href": "tutorials/notebooks/notebooks.html#citation-syntax",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Citation Syntax",
+    "text": "Citation Syntax\n[@johnson2003acoustic]                   # (Johnson 2003)\n[@johnson2003acoustic, p. 45]           # (Johnson 2003, p. 45)\n[@johnson2003acoustic; @lobanov1971]    # (Johnson 2003; Lobanov 1971)\n@johnson2003acoustic                    # Johnson (2003) — narrative citation\n[-@johnson2003acoustic]                 # (2003) — suppress author name\nRendered examples:\n\nParenthetical: formants are described in detail in (Johnson 2003)\nNarrative: Johnson (2003) provides a thorough introduction to formant analysis\nPage reference: the measurement procedure follows (Johnson 2003, 61:45)\nSuppressed author: as noted previously ((2003))"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#citation-style-languages",
+    "href": "tutorials/notebooks/notebooks.html#citation-style-languages",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Citation Style Languages",
+    "text": "Citation Style Languages\nThe default citation style is Chicago author-date. To use a different style, download a CSL file from the Zotero Style Repository and point your document at it:\ncsl: unified-style-linguistics.csl\n\n\nStyleCSL filenameCommon useChicago author-date`chicago-author-date.csl`Humanities defaultAPA 7th edition`apa.csl`Psychology, education, social sciencesMLA 9th edition`modern-language-association.csl`Literature, cultural studiesUnified Style Sheet for Linguistics`unified-style-linguistics.csl`General linguistics journalsJournal of the International Phonetic Association`journal-of-the-international-phonetic-association.csl`Phonetics and phonologyLanguage`language.csl`Linguistics Society of America journals"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#the-reference-list",
+    "href": "tutorials/notebooks/notebooks.html#the-reference-list",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "The Reference List",
+    "text": "The Reference List\nPandoc automatically inserts the formatted reference list at the end of the document. In Quarto, add a # References {-} heading at the bottom; in R Markdown, the list appears after the last section or after # References.\nTo place the reference list somewhere other than the end of the document, use a div:\n::: {#refs}\n:::"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#quarto-visual-editor-and-zotero-integration",
+    "href": "tutorials/notebooks/notebooks.html#quarto-visual-editor-and-zotero-integration",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Quarto Visual Editor and Zotero Integration",
+    "text": "Quarto Visual Editor and Zotero Integration\nQuarto’s Visual Editor (switch via the Source/Visual toggle in RStudio) provides a GUI for inserting citations. It integrates with:\n\nZotero (via the Zotero connector) — search your Zotero library and insert citations by clicking\nDOI lookup — paste a DOI and Quarto fetches the bibliographic data automatically\nCrossRef search — search published literature by title or author\n\nThe visual editor automatically adds new entries to your .bib file and inserts the citation key in the document."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#defining-parameters",
+    "href": "tutorials/notebooks/notebooks.html#defining-parameters",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Defining Parameters",
+    "text": "Defining Parameters\nParameters are defined in the YAML header and accessed in R code via params$name:\nR Markdown:\ntitle: \"Vowel Chart Report: MY_SPEAKER\"   # use params$speaker here in practice\nparams:\n  speaker: \"ms\"\n  variety: \"RP\"\n  max_formant: 5500\nQuarto:\ntitle: \"Vowel Chart Report\"\nparams:\n  speaker: \"ms\"\n  variety: \"RP\"\n  max_formant: 5500\nIn both cases, access the parameters in code chunks with params$speaker, params$variety, etc."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#using-parameters-in-code",
+    "href": "tutorials/notebooks/notebooks.html#using-parameters-in-code",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Using Parameters in Code",
+    "text": "Using Parameters in Code\n\n\nCode\n# Filter data to the speaker specified in params\nspeaker_data &lt;- voweldata |&gt;\n  dplyr::filter(subject == params$speaker)\n\n# Use the variety name in a plot title\nggplot(speaker_data, aes(x = F2, y = F1)) +\n  geom_text(aes(label = ipa)) +\n  labs(title = paste(\"Vowel space —\", params$variety, \"variety\"))"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#rendering-multiple-reports",
+    "href": "tutorials/notebooks/notebooks.html#rendering-multiple-reports",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Rendering Multiple Reports",
+    "text": "Rendering Multiple Reports\nTo generate one report per speaker programmatically:\n\n\nCode\nspeakers &lt;- c(\"ms\", \"jb\", \"ak\", \"lr\")\n\npurrr::walk(speakers, function(spk) {\n  rmarkdown::render(\n    input       = \"vowel_report.Rmd\",\n    output_file = paste0(\"reports/\", spk, \"_vowels.html\"),\n    params      = list(speaker = spk)\n  )\n})\n\n\nFor Quarto, use quarto::quarto_render() with the execute_params argument:\n\n\nCode\npurrr::walk(speakers, function(spk) {\n  quarto::quarto_render(\n    input          = \"vowel_report.qmd\",\n    output_file    = paste0(\"reports/\", spk, \"_vowels.html\"),\n    execute_params = list(speaker = spk)\n  )\n})"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#always-include-sessioninfo",
+    "href": "tutorials/notebooks/notebooks.html#always-include-sessioninfo",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Always Include sessionInfo()",
+    "text": "Always Include sessionInfo()\nR package versions change. A script that works with ggplot2 3.4.0 may behave differently with 3.5.0. Always include sessionInfo() at the end of your document so readers can see exactly which package versions were used:\n\n\nCode\nsessionInfo()"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#set-a-random-seed",
+    "href": "tutorials/notebooks/notebooks.html#set-a-random-seed",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Set a Random Seed",
+    "text": "Set a Random Seed\nAny analysis involving random numbers (simulation, bootstrapping, random train/test splits, k-means clustering) must set a seed for reproducibility:\n\n\nCode\nset.seed(2026)\n\n\nPlace set.seed() at the top of your setup chunk or immediately before the relevant analysis."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#use-herehere-for-file-paths",
+    "href": "tutorials/notebooks/notebooks.html#use-herehere-for-file-paths",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Use here::here() for File Paths",
+    "text": "Use here::here() for File Paths\nAbsolute file paths (e.g. C:/Users/martin/Documents/project/data.csv) break when the project is moved or shared. Use here::here() to construct paths relative to the project root:\n\n\nCode\nlibrary(here)\ndata &lt;- read.csv(here(\"data\", \"corpus.csv\"))"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#pin-package-versions-with-renv",
+    "href": "tutorials/notebooks/notebooks.html#pin-package-versions-with-renv",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Pin Package Versions with renv",
+    "text": "Pin Package Versions with renv\nThe renv package creates a project-specific library with pinned package versions, so the project can be restored exactly on any machine:\n\n\nCode\n# Initialise renv in your project\nrenv::init()\n\n# After installing/updating packages, snapshot the library\nrenv::snapshot()\n\n# Collaborator restores exact package versions\nrenv::restore()"
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#avoid-absolute-dates",
+    "href": "tutorials/notebooks/notebooks.html#avoid-absolute-dates",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Avoid Absolute Dates",
+    "text": "Avoid Absolute Dates\nUse date: last-modified (Quarto) or date: \"YYYY-MM-DD\" set via Sys.Date() as an inline R expression (R Markdown) rather than a hardcoded date string — the document date always reflects when it was last rendered."
+  },
+  {
+    "objectID": "tutorials/notebooks/notebooks.html#use-version-control",
+    "href": "tutorials/notebooks/notebooks.html#use-version-control",
+    "title": "R Markdown and Quarto: Creating Reproducible Documents",
+    "section": "Use Version Control",
+    "text": "Use Version Control\nStore your .Rmd/.qmd, .bib, data files, and renv.lock in a Git repository. This makes every change traceable and enables collaboration via GitHub or GitLab.\n\n\nPracticeWhyInclude `sessionInfo()`Records exact package versions usedSet `set.seed()`Ensures random results are reproducibleUse `here::here()` pathsFile paths work on any machineUse `renv` for package managementPins package versions for exact reproducibilityUse version control (Git)Tracks changes; enables collaborationUse `freeze: auto` in QuartoAvoids re-running unchanged code on project rebuildCache expensive chunks with `cache: true`Speeds up rendering for expensive computationsUse `embed-resources: true` for HTMLSelf-contained file — no broken relative linksWrite `echo: true` for analytical chunksReaders can verify and reproduce the analysisDocument all data sourcesProvenance of data is clear and traceable"
   }
 ]
