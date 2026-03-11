@@ -1,5 +1,5 @@
 ---
-title: "Loading, Saving, and Simulating Data in R"
+title: "Loading and Saving Data in R"
 author: "Martin Schweinberger"
 format:
   html:
@@ -18,14 +18,6 @@ options("scipen" = 100, "digits" = 4)
 ![](/images/uq1.jpg){ width=100% }
 
 # Introduction {#intro}
-
-This tutorial covers three foundational data-management skills for linguistic research in R: **loading** data from a wide variety of file formats into your R session, **saving** processed data and R objects back to disk in appropriate formats, and **simulating** data from scratch — either for reproducible worked examples, for power analysis, or for creating synthetic corpora.
-
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
-
-Data rarely arrive in a single tidy format. A corpus might be spread across hundreds of plain-text files; an experimental dataset might come from a collaborator as an Excel spreadsheet; a frequency list might be stored as an R object from a previous session; metadata might be embedded in a JSON file exported from a web API; and survey responses might be in an SPSS `.sav` file. Knowing how to read, write, and create data in R is therefore not a preliminary skill to be rushed through — it is a core competency that affects every subsequent step of your analysis.
-
-The tutorial is aimed at beginners to intermediate R users. It assumes you are comfortable with basic R syntax (objects, functions, vectors, data frames) but have no prior experience with the specific packages used here.
 
 ::: {.callout-note}
 ## Prerequisite Tutorials
@@ -49,17 +41,27 @@ By the end of this tutorial you will be able to:
 3. Load data directly from a URL without downloading it manually
 4. Access built-in datasets from base R and installed R packages
 5. Load a single plain-text file and a directory of multiple text files into R for corpus analysis
-6. Understand what `set.seed()` does and why reproducibility depends on it
-7. Simulate data from the most common statistical distributions (normal, binomial, Poisson, uniform, negative binomial)
-8. Build realistic simulated datasets modelling corpora, psycholinguistic experiments, and Likert-scale surveys
-9. Perform a simple simulation-based power analysis for a mixed-effects model
-10. Generate synthetic textual data using character manipulation and Markov-chain approaches
+6. Read text from Microsoft Word (`.docx`) files using the `officer` package
 :::
 
 ::: {.callout-note}
 ## Citation
 
-Schweinberger, Martin. 2026. *Loading, Saving, and Simulating Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.02.24).
+Schweinberger, Martin. 2026. *Loading and Saving Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.05.01).
+:::
+
+This tutorial covers two foundational data-management skills for linguistic research in R: **loading** data from a wide variety of file formats into your R session, and **saving** processed data and R objects back to disk in appropriate formats.
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+Data rarely arrive in a single tidy format. A corpus might be spread across hundreds of plain-text files; an experimental dataset might come from a collaborator as an Excel spreadsheet; a frequency list might be stored as an R object from a previous session; metadata might be embedded in a JSON file exported from a web API; and survey responses might be in an SPSS `.sav` file. Knowing how to read and write data in R is therefore not a preliminary skill to be rushed through — it is a core competency that affects every subsequent step of your analysis.
+
+The tutorial is aimed at beginners to intermediate R users. It assumes you are comfortable with basic R syntax (objects, functions, vectors, data frames) but have no prior experience with the specific packages used here.
+
+::: {.callout-tip}
+## Need to Generate Data from Scratch?
+
+If you do not have real data yet and want to create synthetic datasets for method development, teaching, or power analysis, see the companion tutorial: **[Simulating Data with R](/tutorials/simulate/simulate.html)**.
 :::
 
 ---
@@ -161,7 +163,6 @@ install.packages("tidyr")       # data reshaping
 install.packages("stringr")     # string manipulation
 install.packages("purrr")       # functional programming (map/walk)
 install.packages("ggplot2")     # visualisation
-install.packages("data.tree")   # directory tree display
 install.packages("officer")     # read Word documents
 ```
 
@@ -180,7 +181,6 @@ library(tidyr)
 library(stringr)
 library(purrr)
 library(ggplot2)
-library(data.tree)
 library(officer)
 ```
 
@@ -307,7 +307,7 @@ head(datcsv2_base)
 #   col_types = cols()
 # )
 
-# Base R equivalents
+# Base R equivalent
 dattxt_base <- read.delim(
   here::here("tutorials/load/data", "testdat.txt"),
   sep    = "\t",
@@ -324,8 +324,8 @@ head(dattxt_base)
 # Base R: write.csv — adds row numbers by default; suppress with row.names = FALSE
 write.csv(
   datcsv,
-  file      = here::here("tutorials/load/data", "testdat_out.csv"),
-  row.names = FALSE,   # ALWAYS set this to avoid a spurious row-number column
+  file         = here::here("tutorials/load/data", "testdat_out.csv"),
+  row.names    = FALSE,   # ALWAYS set this to avoid a spurious row-number column
   fileEncoding = "UTF-8"
 )
 
@@ -478,9 +478,9 @@ Valid types are `"skip"`, `"guess"`, `"logical"`, `"numeric"`, `"date"`, `"text"
 ```{r lxlsx_openxlsx, message=FALSE, warning=FALSE}
 # Load with openxlsx
 datxlsx2 <- openxlsx::read.xlsx(
-  xlsxFile = here::here("tutorials/load/data", "testdat.xlsx"),
-  sheet    = 1,
-  colNames = TRUE,
+  xlsxFile   = here::here("tutorials/load/data", "testdat.xlsx"),
+  sheet      = 1,
+  colNames   = TRUE,
   na.strings = c("", "NA")
 )
 
@@ -522,11 +522,11 @@ openxlsx::writeData(wb, sheet = "Results", x = datxlsx2, startRow = 1, startCol 
 
 # Style the header row
 header_style <- openxlsx::createStyle(
-  fontColour = "#FFFFFF",
-  fgFill     = "#4472C4",
-  halign     = "center",
+  fontColour     = "#FFFFFF",
+  fgFill         = "#4472C4",
+  halign         = "center",
   textDecoration = "bold",
-  border     = "Bottom"
+  border         = "Bottom"
 )
 openxlsx::addStyle(wb, sheet = "Results", style = header_style,
                    rows = 1, cols = 1:ncol(datxlsx2), gridExpand = TRUE)
@@ -608,7 +608,6 @@ RDS is the recommended format for storing a single R object — a data frame, a 
 # Load an RDS file — assign to any name you like
 rdadat <- readRDS(here::here("tutorials/load/data", "testdat.rda"))
 
-# Inspect
 str(rdadat)
 head(rdadat)
 ```
@@ -616,8 +615,8 @@ head(rdadat)
 ```{r rds_save, eval=FALSE, message=FALSE, warning=FALSE}
 # Save any R object as RDS
 saveRDS(
-  object = rdadat,
-  file   = here::here("tutorials/load/data", "testdat_out.rds"),
+  object   = rdadat,
+  file     = here::here("tutorials/load/data", "testdat_out.rds"),
   compress = TRUE   # default; compresses the file (xz, bzip2, or gzip)
 )
 
@@ -635,16 +634,16 @@ saveRDS(rdadat, here::here("tutorials/load/data", "testdat_bz2.rds"),
 `.rda` / `.RData` files can store multiple named R objects in a single file. They are useful for bundling related objects together (e.g. a dataset, its metadata, and a pre-fitted model) or for distributing example data with an R package.
 
 ```{r rdata_load, message=FALSE, warning=FALSE}
-# load() returns the names of the objects it loaded invisibly
-# and places them directly into the current environment
+# load() places objects directly into the current environment
+# and invisibly returns their names
 obj_names <- readRDS(here::here("tutorials/load/data", "testdat.rda"))
 cat("Objects loaded:", paste(obj_names, collapse = ", "), "\n")
 ```
 
 ```{r rdata_save, eval=FALSE, message=FALSE, warning=FALSE}
 # Save multiple objects into one .rda file
-x <- 1:10
-y <- letters[1:5]
+x     <- 1:10
+y     <- letters[1:5]
 my_df <- data.frame(a = 1:3, b = c("x", "y", "z"))
 
 save(x, y, my_df,
@@ -664,7 +663,7 @@ Saving your entire workspace with `save.image()` or allowing RStudio to save `.R
 
 R native objects can be loaded directly from a URL without downloading the file first. This is the standard approach for LADAL tutorial data:
 
-```{r web_rds, eval = F, message=FALSE, warning=FALSE}
+```{r web_rds, eval=FALSE, message=FALSE, warning=FALSE}
 # Load an RDS object directly from a URL
 webdat <- base::readRDS(url("https://ladal.edu.au/tutorials/load/data/testdat.rda", "rb"))
 
@@ -674,8 +673,10 @@ webdat <- base::readRDS(url("https://ladal.edu.au/tutorials/load/data/testdat.rd
 
 ```{r web_csv, eval=FALSE, message=FALSE, warning=FALSE}
 # CSV from URL (readr handles URLs directly)
-web_csv <- readr::read_csv("https://raw.githubusercontent.com/LADAL/data/main/testdat.csv",
-                           col_types = cols())
+web_csv <- readr::read_csv(
+  "https://raw.githubusercontent.com/LADAL/data/main/testdat.csv",
+  col_types = cols()
+)
 
 # Excel from URL (must download to temp file first)
 tmp <- tempfile(fileext = ".xlsx")
@@ -699,7 +700,7 @@ d) R asks you to confirm before overwriting the existing object
 
 **c) R silently overwrites your existing `model_output` with the colleague's version, with no warning**
 
-This is one of the most dangerous behaviours of `load()`. It inserts objects directly into the global environment (or whatever environment you specify) without checking for name conflicts. Your own `model_output` will be gone, with no undo. This is why `saveRDS()` / `readRDS()` are preferred for data exchange: with `readRDS()`, you write `model_output_colleague <- readRDS("results.rda")` and choose the name yourself, so no collision is possible.
+This is one of the most dangerous behaviours of `load()`. It inserts objects directly into the global environment without checking for name conflicts. Your own `model_output` will be gone, with no undo. This is why `saveRDS()` / `readRDS()` are preferred for data exchange: with `readRDS()`, you write `model_output_colleague <- readRDS("results.rda")` and choose the name yourself, so no collision is possible.
 
 </details>
 :::
@@ -743,7 +744,6 @@ The outer `{}` is an **object** (key-value pairs). Square brackets `[]` denote *
 ### Loading JSON {-}
 
 ```{r json_load, message=FALSE, warning=FALSE}
-# Simulate reading a JSON string (in practice, replace with a file path or URL)
 json_string <- '{
   "participants": [
     {"id": "P01", "age": 24, "l1": "English",  "proficiency": "Advanced"},
@@ -771,10 +771,10 @@ participants
 ```{r json_load_file, eval=FALSE, message=FALSE, warning=FALSE}
 # Load from a local file
 json_data <- jsonlite::fromJSON(
-  txt              = here::here("tutorials/load/data", "data.json"),
+  txt               = here::here("tutorials/load/data", "data.json"),
   simplifyDataFrame = TRUE,   # convert arrays of objects to data frames
-  simplifyVector   = TRUE,    # convert scalar arrays to vectors
-  flatten          = TRUE     # flatten nested objects into columns
+  simplifyVector    = TRUE,   # convert scalar arrays to vectors
+  flatten           = TRUE    # flatten nested objects into columns
 )
 
 # Load from a URL (e.g. a web API)
@@ -814,7 +814,9 @@ nested_json <- '{
 }'
 
 # flatten = TRUE unpacks nested objects into dot-separated column names
-corpus_df <- jsonlite::fromJSON(nested_json, simplifyDataFrame = TRUE, flatten = TRUE)$corpus
+corpus_df <- jsonlite::fromJSON(
+  nested_json, simplifyDataFrame = TRUE, flatten = TRUE
+)$corpus
 str(corpus_df)
 corpus_df
 ```
@@ -826,7 +828,7 @@ corpus_df
 json_out <- jsonlite::toJSON(
   participants,
   pretty     = TRUE,   # indented, human-readable output
-  auto_unbox = TRUE    # single-element arrays written as scalars (not [value])
+  auto_unbox = TRUE    # single-element arrays written as scalars
 )
 cat(json_out)
 
@@ -868,7 +870,6 @@ XML organises data as a **tree of nested elements**, each with an opening tag, a
 ### Loading XML {-}
 
 ```{r xml_load, message=FALSE, warning=FALSE}
-# Parse an XML string (in practice, use read_xml() with a file path)
 xml_string <- '<?xml version="1.0" encoding="UTF-8"?>
 <corpus name="MiniCorpus" year="2026">
   <text id="T001" genre="academic">
@@ -896,28 +897,18 @@ xml_string <- '<?xml version="1.0" encoding="UTF-8"?>
   </text>
 </corpus>'
 
-# Parse the XML
 xml_doc <- xml2::read_xml(xml_string)
 
-# Navigate the tree with XPath
 # Extract all token elements
 tokens_nodeset <- xml2::xml_find_all(xml_doc, ".//token")
 
-# For each token, walk up the ancestor axis to find its <text> parent
-# xml_find_first(".//ancestor::text[1]") returns the nearest <text> ancestor
 token_df <- data.frame(
   text_id = xml2::xml_attr(
-    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"),
-    "id"
-  ),
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"), "id"),
   genre   = xml2::xml_attr(
-    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"),
-    "genre"
-  ),
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::text[1]"), "genre"),
   sent_n  = xml2::xml_attr(
-    xml2::xml_find_first(tokens_nodeset, "./ancestor::sentence[1]"),
-    "n"
-  ),
+    xml2::xml_find_first(tokens_nodeset, "./ancestor::sentence[1]"), "n"),
   pos     = xml2::xml_attr(tokens_nodeset, "pos"),
   word    = xml2::xml_text(tokens_nodeset),
   stringsAsFactors = FALSE
@@ -971,19 +962,13 @@ corpus_table
 
 ```{r xml_save, eval=FALSE, message=FALSE, warning=FALSE}
 # Build an XML document from scratch
-new_xml <- xml2::xml_new_root("corpus",
-  name = "OutputCorpus",
-  year = "2026"
-)
-
-# Add a text element
-text_node <- xml2::xml_add_child(new_xml, "text", id = "T001", genre = "academic")
-sent_node <- xml2::xml_add_child(text_node, "sentence", n = "1")
+new_xml    <- xml2::xml_new_root("corpus", name = "OutputCorpus", year = "2026")
+text_node  <- xml2::xml_add_child(new_xml, "text", id = "T001", genre = "academic")
+sent_node  <- xml2::xml_add_child(text_node, "sentence", n = "1")
 xml2::xml_add_child(sent_node, "token", pos = "NN", "analysis")
 xml2::xml_add_child(sent_node, "token", pos = "VBZ", "requires")
 xml2::xml_add_child(sent_node, "token", pos = "NN", "data")
 
-# Save to file
 xml2::write_xml(new_xml,
   file     = here::here("tutorials/load/data", "output_corpus.xml"),
   encoding = "UTF-8"
@@ -993,7 +978,7 @@ xml2::write_xml(new_xml,
 ::: {.callout-note collapse="true"}
 ## ✎ Check Your Understanding — Question 4
 
-**You receive a TEI-encoded corpus as an XML file. You want to extract all `<w>` (word) elements that have a `pos` attribute of `"VBZ"` (third-person singular present verb). Which XPath expression is correct?**
+**You receive a TEI-encoded corpus as an XML file. You want to extract all `<w>` (word) elements that have a `pos` attribute of `"VBZ"`. Which XPath expression is correct?**
 
 a) `//w[pos='VBZ']`
 b) `//w[@pos='VBZ']`
@@ -1005,7 +990,7 @@ d) `//w[text()='VBZ']`
 
 **b) `//w[@pos='VBZ']`**
 
-In XPath, attributes are referenced with the `@` prefix inside square brackets. So `//w[@pos='VBZ']` selects all `<w>` elements anywhere in the document (`//`) whose `pos` attribute (`@pos`) equals `"VBZ"`. Option (a) is incorrect because without `@`, `pos` refers to a child element named `pos`, not an attribute. Option (c) is not valid XPath syntax. Option (d) selects `<w>` elements whose text content is `"VBZ"`, which would match words that are literally the string "VBZ", not words tagged as VBZ.
+In XPath, attributes are referenced with the `@` prefix inside square brackets. Option (a) is incorrect because without `@`, `pos` refers to a child element named `pos`, not an attribute. Option (c) is not valid XPath syntax. Option (d) selects `<w>` elements whose *text content* is `"VBZ"` — matching words literally spelled "VBZ", not words tagged as VBZ.
 
 </details>
 :::
@@ -1020,38 +1005,33 @@ In XPath, attributes are referenced with the `@` prefix inside square brackets. 
 **What you will learn:** How to access datasets built into base R and into installed packages; how to find and browse available datasets; and how to use them as starting points for examples and practice
 :::
 
-## Why Built-In Datasets Matter {-}
-
-R ships with a large collection of built-in datasets that are immediately available without downloading anything. For linguists, they provide convenient practice data and well-documented benchmarks. Additionally, many linguistics-focused R packages include specialised datasets that are directly relevant to language research.
-
 ## Base R Datasets {-}
 
+R ships with a large collection of built-in datasets that are immediately available without downloading anything. For linguists, they provide convenient practice data and well-documented benchmarks.
+
 ```{r builtin_list, message=FALSE, warning=FALSE}
-# List all datasets available in base R
-base_datasets <- data(package = "base")$results
-# Not all packages have datasets; use datasets package
-all_datasets  <- data(package = .packages(all.available = TRUE))$results |>
+# List datasets across all installed packages (first 20)
+all_datasets <- data(package = .packages(all.available = TRUE))$results |>
   as.data.frame() |>
   dplyr::select(Package, Item, Title) |>
   head(20)
 
 all_datasets
 
-# Load a built-in dataset by name (no file path needed)
-data("iris")      # Fisher's iris measurements — classic ML benchmark
-data("mtcars")    # Motor Trend car road tests — classic regression example
-data("airquality") # New York air quality measurements
+# Load built-in datasets by name (no file path needed)
+data("iris")       # Fisher's iris measurements — classic ML benchmark
+data("mtcars")     # Motor Trend car road tests — classic regression example
 
-# For linguistics: character frequency data
-data("letters")   # 26 lowercase letters
-data("LETTERS")   # 26 uppercase letters
+# For linguistics: letter frequency data
+data("letters")    # 26 lowercase letters
+data("LETTERS")    # 26 uppercase letters
 head(iris)
 ```
 
 ## Linguistics-Relevant Package Datasets {-}
 
 ```{r pkg_datasets, message=FALSE, warning=FALSE}
-# The 'datasets' package frequency table for letters
+# English letter frequencies (approximate, from standard references)
 letter_freq <- data.frame(
   letter    = letters,
   frequency = c(8.2,1.5,2.8,4.3,12.7,2.2,2.0,6.1,7.0,0.15,
@@ -1064,55 +1044,30 @@ letter_freq |>
 
 # The 'languageR' package contains many linguistic datasets
 # (install if needed: install.packages("languageR"))
-# data("english", package = "languageR")    # English lexical decision data
-# data("regularity", package = "languageR") # Morphological regularity
-# data("ratings", package = "languageR")    # Word familiarity ratings
+# data("english",    package = "languageR")    # English lexical decision data
+# data("regularity", package = "languageR")    # Morphological regularity
+# data("ratings",    package = "languageR")    # Word familiarity ratings
 
 # The 'corpora' package
-# data("BNCcomma", package = "corpora")     # BNC frequency data
+# data("BNCcomma", package = "corpora")        # BNC frequency data
 ```
 
 ::: {.callout-tip}
 ## Finding Datasets in a Package
 
 ```r
-# List all datasets in a specific package
-data(package = "datasets")
-data(package = "languageR")
+data(package = "datasets")     # list all datasets in the datasets package
+data(package = "languageR")    # list all datasets in languageR
 
-# Get help on a dataset
-?iris
-help("iris")
-
-# See dataset dimensions without loading fully
+?iris           # documentation for a built-in dataset
 nrow(iris); ncol(iris); names(iris)
 ```
 :::
 
-## Loading Data from a Package Without `data()` {-}
-
-Many packages make their data available via `::` without needing `data()`:
-
-```{r pkg_direct, message=FALSE, warning=FALSE}
-# Access package data directly with ::
-# (package must be installed but need not be loaded)
-freq_df <- data.frame(
-  word      = c("the", "of", "and", "to", "a", "in", "that", "is", "was", "he"),
-  frequency = c(69971, 36412, 28853, 26154, 23195, 21337, 10594, 10099, 9835, 9543)
-)
-
-ggplot(freq_df, aes(x = reorder(word, frequency), y = frequency)) +
-  geom_col(fill = "steelblue") +
-  coord_flip() +
-  theme_bw() +
-  labs(title = "Top 10 most frequent English words (BNC estimates)",
-       x = "Word", y = "Frequency (per million words)")
-```
-
 ::: {.callout-note collapse="true"}
 ## ✎ Check Your Understanding — Question 5
 
-**You want to practice loading data without downloading any files. Which of the following commands correctly loads a built-in R dataset for immediate use?**
+**You want to practice loading data without downloading any files. Which command correctly loads a built-in R dataset for immediate use?**
 
 a) `read.csv("iris")` — reads the iris dataset from a CSV file in the working directory
 b) `data("iris")` — loads the iris dataset into the global environment from the datasets package
@@ -1122,13 +1077,12 @@ d) `readRDS("iris")` — loads an RDS object named "iris" from the working direc
 <details>
 <summary>**Answer**</summary>
 
-**b) `data("iris")` — loads the iris dataset into the global environment from the datasets package**
+**b) `data("iris")`**
 
-The `data()` function loads built-in datasets from R packages into the current environment. No file path is needed — R looks up the dataset in the package's internal data store. Options (a), (c), and (d) all assume the data exists as a file on disk, which it does not for built-in datasets. After running `data("iris")`, the object `iris` is available in your environment exactly as if you had loaded it from a file.
+The `data()` function loads built-in datasets from R packages into the current environment. No file path is needed. Options (a), (c), and (d) all assume the data exists as a file on disk, which it does not for built-in datasets.
 
 </details>
 :::
-
 
 ---
 
@@ -1142,7 +1096,7 @@ The `data()` function loads built-in datasets from R packages into the current e
 
 ## Single Text Files {-}
 
-Corpus linguists routinely work with raw text stored in plain-text (`.txt`) files. R provides two primary base functions for reading these, which produce different output structures:
+Corpus linguists routinely work with raw text stored in plain-text (`.txt`) files. R provides three primary functions for reading these:
 
 | Function | Returns | Best for |
 |----------|---------|---------|
@@ -1156,12 +1110,11 @@ Corpus linguists routinely work with raw text stored in plain-text (`.txt`) file
 # scan(): reads tokens (whitespace-separated), returns a character vector
 testtxt_words <- scan(
   here::here("tutorials/load/data", "english.txt"),
-  what      = "char",
-  quiet     = TRUE    # suppress "Read N items" message
+  what  = "char",
+  quiet = TRUE    # suppress "Read N items" message
 )
 
 cat("Total tokens:", length(testtxt_words), "\n")
-cat("First 20 tokens:\n")
 head(testtxt_words, 20)
 ```
 
@@ -1170,11 +1123,10 @@ head(testtxt_words, 20)
 testtxt_lines <- readLines(
   con      = here::here("tutorials/load/data", "english.txt"),
   encoding = "UTF-8",
-  warn     = FALSE   # suppress warning about non-terminated final line
+  warn     = FALSE
 )
 
 cat("Total lines:", length(testtxt_lines), "\n")
-cat("First 5 lines:\n")
 head(testtxt_lines, 5)
 ```
 
@@ -1185,18 +1137,17 @@ testtxt_full <- readr::read_file(
 )
 
 cat("Character count:", nchar(testtxt_full), "\n")
-# Apply regex to the full text
-# e.g. extract all sentences ending in a question mark
+
+# Apply regex to the full text — e.g. extract sentences ending with ?
 questions <- stringr::str_extract_all(testtxt_full, "[A-Z][^.!?]*\\?")[[1]]
 ```
 
 ::: {.callout-tip}
 ## Encoding and Non-ASCII Characters
 
-Always specify `encoding = "UTF-8"` when reading files that may contain non-ASCII characters (accented letters, IPA symbols, non-Latin scripts). If `readLines()` throws a warning about invalid multibyte strings, the file encoding may be Latin-1 or Windows-1252. Use `readLines(con = f, encoding = "latin1")` or convert the file first with `iconv()`.
+Always specify `encoding = "UTF-8"` when reading files that may contain non-ASCII characters (accented letters, IPA symbols, non-Latin scripts). If `readLines()` throws a warning about invalid multibyte strings, the file encoding may be Latin-1 or Windows-1252.
 
 ```r
-# Check and convert encoding
 raw_text <- readLines(f, encoding = "latin1")
 utf_text  <- iconv(raw_text, from = "latin1", to = "UTF-8")
 ```
@@ -1207,8 +1158,8 @@ utf_text  <- iconv(raw_text, from = "latin1", to = "UTF-8")
 ```{r text_save, eval=FALSE, message=FALSE, warning=FALSE}
 # writeLines(): write a character vector (one element per line)
 writeLines(
-  text = testtxt_lines,
-  con  = here::here("tutorials/load/data", "english_out.txt"),
+  text     = testtxt_lines,
+  con      = here::here("tutorials/load/data", "english_out.txt"),
   useBytes = FALSE
 )
 
@@ -1221,72 +1172,46 @@ readr::write_file(
 
 ## Loading Multiple Text Files {-}
 
-When working with corpora, you will often need to load many text files at once and store them in a named list — one element per file. The recommended approach uses `list.files()` to discover files and `purrr::map()` or `sapply()` to load them:
+When working with corpora, you will often need to load many text files at once and store them in a named list — one element per file. The recommended approach uses `list.files()` to discover files and `purrr::map()` to load them:
 
 ```{r text_multiple, message=FALSE, warning=FALSE}
-# Step 1: get all file paths (full.names = TRUE gives absolute paths)
+# Step 1: get all file paths
 fls <- list.files(
   path       = here::here("tutorials/load/data", "testcorpus"),
-  pattern    = "\\.txt$",     # only .txt files (regex)
+  pattern    = "\\.txt$",
   full.names = TRUE
 )
 
 cat("Files found:", length(fls), "\n")
-cat("File names:\n")
 basename(fls)
 ```
 
 ```{r text_multiple_load, message=FALSE, warning=FALSE}
-# Step 2: load each file as a collapsed string
-
-# Helper: read one file safely, converting encoding to UTF-8
+# Helper: read one file safely, with UTF-8 fallback
 read_txt_safe <- function(f) {
-  # Try UTF-8 first; fall back to Latin-1 if the file is not valid UTF-8
   txt <- tryCatch(
     readLines(f, encoding = "UTF-8", warn = FALSE),
     error = function(e) readLines(f, encoding = "latin1", warn = FALSE)
   )
-  # Convert any remaining non-UTF-8 bytes to UTF-8
   txt <- iconv(txt, from = "", to = "UTF-8", sub = "byte")
   paste(txt, collapse = " ")
 }
 
-# Method A: sapply (base R)
-txts_sapply <- sapply(fls, read_txt_safe)
-
-# Method B: purrr::map_chr (tidyverse)
+# purrr::map_chr: one string per file
 txts_purrr <- purrr::map_chr(fls, read_txt_safe)
-
-# Method C: readr::read_file with explicit locale
-txts_readr <- purrr::map_chr(
-  fls,
-  ~ readr::read_file(.x, locale = readr::locale(encoding = "UTF-8"))
-)
-
-# Simplify names to file stems
 names(txts_purrr) <- tools::file_path_sans_ext(basename(fls))
 
 cat("Texts loaded:", length(txts_purrr), "\n")
-cat("Character counts per text:\n")
 print(nchar(txts_purrr))
-
-# Optional: check which file was problematic
-cat("\nEncoding check per file:\n")
-for (f in fls) {
-  raw <- readLines(f, warn = FALSE)
-  valid <- all(!is.na(iconv(raw, from = "latin1", to = "UTF-8")))
-  cat(sprintf("  %-25s %s\n", basename(f),
-              ifelse(valid, "OK", "encoding issue detected")))
-}
 ```
 
 ```{r text_multiple_df, message=FALSE, warning=FALSE}
 # Build a corpus data frame: one row per text
 corpus_df <- data.frame(
-  file      = tools::file_path_sans_ext(basename(fls)),
-  text      = txts_purrr,
-  n_tokens  = sapply(strsplit(txts_purrr, "\\s+"), length),
-  n_chars   = nchar(txts_purrr),
+  file     = tools::file_path_sans_ext(basename(fls)),
+  text     = txts_purrr,
+  n_tokens = sapply(strsplit(txts_purrr, "\\s+"), length),
+  n_chars  = nchar(txts_purrr),
   stringsAsFactors = FALSE,
   row.names = NULL
 )
@@ -1297,23 +1222,12 @@ corpus_df
 ## Saving Multiple Text Files {-}
 
 ```{r text_multiple_save, eval=FALSE, message=FALSE, warning=FALSE}
-# Define output paths — one per text
-out_paths <- file.path(
-  here::here("tutorials/load/data", "testcorpus_out"),
-  paste0(names(txts_purrr), ".txt")
-)
+out_dir <- here::here("tutorials/load/data", "testcorpus_out")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Create the output directory if it doesn't exist
-dir.create(here::here("tutorials/load/data", "testcorpus_out"),
-           showWarnings = FALSE, recursive = TRUE)
+out_paths <- file.path(out_dir, paste0(names(txts_purrr), ".txt"))
 
-# Save each text
-purrr::walk2(
-  txts_purrr,
-  out_paths,
-  ~ writeLines(.x, con = .y)
-)
-
+purrr::walk2(txts_purrr, out_paths, ~ writeLines(.x, con = .y))
 cat("Saved", length(out_paths), "files.\n")
 ```
 
@@ -1322,19 +1236,15 @@ cat("Saved", length(out_paths), "files.\n")
 Interview transcripts, annotated texts, and survey instruments are often stored as Microsoft Word `.docx` files. The `officer` package reads `.docx` files and returns a structured data frame where each paragraph, heading, and table cell is a separate row.
 
 ```{r docx_load, message=FALSE, warning=FALSE}
-# Read the Word document
 doc_object <- officer::read_docx(here::here("tutorials/load/data", "mydoc.docx"))
+content    <- officer::docx_summary(doc_object)
 
-# Extract the content summary (structured data frame)
-content <- officer::docx_summary(doc_object)
-
-# Inspect the structure
 str(content)
 head(content, 15)
 ```
 
 ```{r docx_filter, message=FALSE, warning=FALSE}
-# Filter to paragraph content only (exclude table cells, headers, etc.)
+# Filter to non-empty paragraphs
 paragraphs <- content |>
   dplyr::filter(content_type == "paragraph",
                 !is.na(text),
@@ -1355,7 +1265,7 @@ cat("Body text (first 200 chars):\n", substr(body_text, 1, 200), "\n")
 ::: {.callout-tip}
 ## Extracting Headings from Word Documents
 
-Headings are stored with style names like `"heading 1"`, `"heading 2"`, etc. Use them to reconstruct the document structure:
+Headings are stored with style names like `"heading 1"`, `"heading 2"`, etc.:
 
 ```r
 headings <- content |>
@@ -1363,634 +1273,28 @@ headings <- content |>
   dplyr::select(style_name, text)
 ```
 
-This is useful for segmenting interview transcripts by topic or speaker turn.
+Useful for segmenting interview transcripts by topic or speaker turn.
 :::
 
 ::: {.callout-note collapse="true"}
 ## ✎ Check Your Understanding — Question 6
 
-**You want to load 50 interview transcripts stored as `.txt` files in a folder called `transcripts/`. You need the result as a named list where each element is the full text of one interview as a single character string, and each element's name is the file name without the `.txt` extension. Which code achieves this?**
+**You want to load 50 interview transcripts stored as `.txt` files in a folder called `transcripts/`. You need a named character vector — one element per interview, named by file stem. Which code achieves this?**
 
-a)
-```r
-txts <- readLines(here::here("transcripts"))
-```
+a) `txts <- readLines(here::here("transcripts"))`
 b)
 ```r
 fls  <- list.files(here::here("transcripts"), pattern="\\.txt$", full.names=TRUE)
 txts <- purrr::map_chr(fls, readr::read_file)
 names(txts) <- tools::file_path_sans_ext(basename(fls))
 ```
-c)
-```r
-txts <- read.csv(here::here("transcripts"), header = FALSE)
-```
-d)
-```r
-txts <- scan(here::here("transcripts"), what = "char", quiet = TRUE)
-```
+c) `txts <- read.csv(here::here("transcripts"), header = FALSE)`
+d) `txts <- scan(here::here("transcripts"), what = "char", quiet = TRUE)`
 
 <details>
 <summary>**Answer**</summary>
 
-**b)** This is the correct approach. `list.files()` with `full.names = TRUE` returns the complete path to each file. `purrr::map_chr()` applies `readr::read_file()` to each path, returning a named character vector of full texts. `tools::file_path_sans_ext(basename(fls))` strips the directory path and `.txt` extension to produce clean file names as the element names. Options (a), (c), and (d) are all incorrect: `readLines()` takes a single file path, not a directory; `read.csv()` expects tabular data; and `scan()` also takes a single file path and would return individual words, not complete texts.
-
-</details>
-:::
-
----
-
-# Simulating Data {#simulate}
-
-::: {.callout-note}
-## Section Overview
-
-**What you will learn:** Why data simulation is a core research skill; how `set.seed()` ensures reproducibility; how to sample from the most important statistical distributions; how to build realistic simulated datasets for corpus studies, psycholinguistic experiments, and surveys; and how to generate synthetic textual data
-:::
-
-## Why Simulate? {-}
-
-Data simulation is not just a workaround for when you lack real data. It is a core methodological tool for:
-
-- **Checking statistical intuition:** simulate data you understand perfectly and verify that your model recovers the parameters you put in
-- **Reproducible examples:** share a self-contained, runnable example without distributing confidential or proprietary data
-- **Teaching and demonstration:** illustrate statistical concepts with controlled examples
-- **Power analysis:** estimate the sample size you need by simulating many datasets and measuring how often your model detects a true effect
-- **Stress-testing pipelines:** check whether your analysis code handles edge cases (missing data, unbalanced designs, outliers) before real data arrives
-
-## Reproducibility and `set.seed()` {-}
-
-R's random number generation is **pseudo-random**: starting from a fixed **seed** value, the same sequence of "random" numbers is generated every time. Setting the seed makes your simulations perfectly reproducible.
-
-```{r seed_demo, message=FALSE, warning=FALSE}
-# Without a seed: different results every time
-sample(1:100, 5)
-sample(1:100, 5)
-
-# With a seed: identical results every time
-set.seed(2026)
-sample(1:100, 5)
-
-set.seed(2026)   # reset to the same seed
-sample(1:100, 5) # same result as above
-```
-
-::: {.callout-important}
-## Rules for `set.seed()` in Research
-
-1. **Always set a seed** at the start of any script that uses random number generation
-2. **Set the seed once**, at the top of the script — not before every individual random call (which hides stochasticity and can produce artificially good results)
-3. **Document the seed** in your methods section so others can reproduce your exact simulation
-4. **Test with multiple seeds** to confirm your findings are not artefacts of one particular seed value
-5. Use a **memorable but arbitrary** seed — the year of the study, a postal code, or a fixed arbitrary number. Avoid choosing the seed *after* seeing which value gives you "nice" results — that is a form of researcher degrees of freedom.
-:::
-
-```{r seed_advice, message=FALSE, warning=FALSE}
-# Recommended practice: one seed at the top of the script
-set.seed(2026)
-
-# From this point on, all random calls are reproducible
-x <- rnorm(100)
-y <- sample(letters, 10)
-z <- rbinom(50, size = 1, prob = 0.3)
-
-# Show the first few results
-head(x, 5); y; head(z, 5)
-```
-
-## Simulating from Statistical Distributions {-}
-
-R provides a family of functions for every major distribution. The naming convention is consistent:
-
-| Prefix | Function | Example |
-|--------|---------|---------|
-| `r` | Random samples | `rnorm(n, mean, sd)` |
-| `d` | Density (PDF/PMF) | `dnorm(x, mean, sd)` |
-| `p` | Cumulative probability (CDF) | `pnorm(q, mean, sd)` |
-| `q` | Quantile (inverse CDF) | `qnorm(p, mean, sd)` |
-
-: R distribution function naming convention {tbl-colwidths="[12,30,58]"}
-
-### Normal Distribution {-}
-
-The normal (Gaussian) distribution is appropriate for continuous data such as reaction times (log-transformed), pitch values, vowel formants, and word frequencies (log-transformed).
-
-```{r dist_normal, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
-set.seed(2026)
-
-# Simulate log-transformed reaction times
-# Mean ~6.4 ≈ exp(6.4) ≈ 600 ms; SD = 0.3 on the log scale
-log_rt <- rnorm(n = 500, mean = 6.4, sd = 0.3)
-rt_ms  <- exp(log_rt)   # back-transform to milliseconds
-
-p_norm <- data.frame(log_rt = log_rt, rt_ms = rt_ms) |>
-  ggplot(aes(x = rt_ms)) +
-  geom_histogram(aes(y = after_stat(density)),
-                 bins = 30, fill = "steelblue", color = "white", alpha = 0.8) +
-  geom_density(color = "firebrick", linewidth = 1) +
-  theme_bw() +
-  labs(title = "Simulated reaction times (log-normal distribution)",
-       subtitle = "n = 500 | Mean ≈ 600 ms",
-       x = "Reaction time (ms)", y = "Density")
-
-p_norm
-
-cat("Mean RT:", round(mean(rt_ms), 1), "ms\n")
-cat("SD RT:",   round(sd(rt_ms), 1), "ms\n")
-cat("Range:",   round(range(rt_ms), 1), "ms\n")
-```
-
-### Binomial Distribution {-}
-
-The binomial distribution models binary outcomes: correct/incorrect, yes/no, target form/alternative form. The key parameters are `size` (number of trials) and `prob` (probability of success).
-
-```{r dist_binomial, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
-set.seed(2026)
-
-# Simulate accuracy in a lexical decision task
-# 100 participants, 80 trials each, average accuracy 85%
-n_participants <- 100
-n_trials       <- 80
-accuracy_prob  <- 0.85
-
-# Each participant's number of correct responses
-n_correct <- rbinom(n = n_participants, size = n_trials, prob = accuracy_prob)
-accuracy  <- n_correct / n_trials
-
-p_binom <- data.frame(accuracy = accuracy) |>
-  ggplot(aes(x = accuracy)) +
-  geom_histogram(binwidth = 0.02, fill = "steelblue", color = "white", alpha = 0.8) +
-  geom_vline(xintercept = mean(accuracy), color = "firebrick",
-             linetype = "dashed", linewidth = 1) +
-  theme_bw() +
-  labs(title = "Simulated accuracy in a lexical decision task",
-       subtitle = sprintf("n = %d participants | %d trials | P(correct) = %.2f | Mean accuracy = %.3f",
-                          n_participants, n_trials, accuracy_prob, mean(accuracy)),
-       x = "Accuracy", y = "Count")
-
-p_binom
-
-# Simulate binary outcome per trial (all participants combined)
-all_responses <- rbinom(n = n_participants * n_trials, size = 1, prob = accuracy_prob)
-cat("Proportion correct:", round(mean(all_responses), 3), "\n")
-```
-
-### Poisson Distribution {-}
-
-The Poisson distribution models count data where events occur independently at a constant average rate (the parameter `lambda`). In linguistics: number of errors per utterance, number of a specific word per document, number of disfluencies per minute.
-
-```{r dist_poisson, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
-set.seed(2026)
-
-# Simulate number of self-corrections per minute for 200 speakers
-# Lambda = 1.8 corrections per minute
-n_speakers <- 200
-lambda_corrections <- 1.8
-
-corrections <- rpois(n = n_speakers, lambda = lambda_corrections)
-
-p_pois <- data.frame(corrections = corrections) |>
-  ggplot(aes(x = corrections)) +
-  geom_bar(fill = "steelblue", color = "white", alpha = 0.8) +
-  theme_bw() +
-  labs(title = "Simulated self-corrections per minute (Poisson distribution)",
-       subtitle = sprintf("n = %d speakers | λ = %.1f | Mean = %.2f | Variance = %.2f",
-                          n_speakers, lambda_corrections,
-                          mean(corrections), var(corrections)),
-       x = "Self-corrections per minute", y = "Count")
-
-p_pois
-```
-
-### Uniform Distribution {-}
-
-The uniform distribution generates values equally likely across an interval. Useful for simulating ages, dates, positions in a text, or random stimulus presentation times.
-
-```{r dist_uniform, message=FALSE, warning=FALSE}
-set.seed(2026)
-
-# Simulate participant ages between 18 and 65
-ages <- runif(n = 200, min = 18, max = 65)
-# Round to whole years
-ages_int <- round(ages)
-
-cat("Age distribution:\n")
-cat("  Range:", range(ages_int), "\n")
-cat("  Mean:", round(mean(ages_int), 1), "\n")
-
-# Uniform category sampling (equivalent to sample() with replace)
-proficiency_levels <- sample(
-  x       = c("Beginner", "Intermediate", "Advanced"),
-  size    = 200,
-  replace = TRUE,
-  prob    = c(0.25, 0.45, 0.30)  # weighted probabilities
-)
-table(proficiency_levels)
-```
-
-### Negative Binomial Distribution {-}
-
-The negative binomial extends Poisson to handle **overdispersion** — when variance exceeds the mean, which is the norm for linguistic count data (word frequencies, error counts across speakers).
-
-```{r dist_nb, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
-set.seed(2026)
-
-# Compare Poisson vs. Negative Binomial with same mean but different variance
-mean_count <- 3.0
-size_param  <- 0.8   # smaller = more overdispersion
-
-pois_counts <- rpois(n = 500, lambda = mean_count)
-nb_counts   <- rnbinom(n = 500, mu = mean_count, size = size_param)
-
-dist_df <- data.frame(
-  count = c(pois_counts, nb_counts),
-  dist  = rep(c("Poisson (λ=3)", "Neg. Binomial (μ=3, size=0.8)"), each = 500)
-)
-
-cat("Poisson    — Mean:", round(mean(pois_counts), 2),
-    "| Variance:", round(var(pois_counts), 2), "\n")
-cat("Neg. Binom — Mean:", round(mean(nb_counts), 2),
-    "| Variance:", round(var(nb_counts), 2), "\n")
-
-ggplot(dist_df, aes(x = count, fill = dist)) +
-  geom_bar(position = "dodge", alpha = 0.8, color = "white") +
-  scale_fill_manual(values = c("steelblue", "firebrick")) +
-  theme_bw() +
-  theme(legend.position = "top") +
-  labs(title = "Poisson vs. Negative Binomial count data",
-       subtitle = "Same mean (3.0); NB has much larger variance",
-       x = "Count", y = "Frequency", fill = "")
-```
-
-::: {.callout-note collapse="true"}
-## ✎ Check Your Understanding — Question 7
-
-**A researcher simulates 1,000 binary (0/1) responses using `rbinom(n = 1000, size = 1, prob = 0.6)`. She then changes the seed and re-runs. Which statement is correct?**
-
-a) The proportion of 1s will be exactly 0.6 both times, since `prob = 0.6` is fixed
-b) The proportion of 1s will vary slightly between runs because each call generates a new random sample; the expected proportion is 0.6 but individual realisations deviate from it
-c) The results will be identical because the distribution parameters are the same
-d) The function will produce an error because `size = 1` is invalid for `rbinom()`
-
-<details>
-<summary>**Answer**</summary>
-
-**b) The proportion of 1s will vary slightly between runs because each call generates a new random sample; the expected proportion is 0.6 but individual realisations deviate from it**
-
-`prob = 0.6` is the *probability* of a 1, not a guarantee that exactly 60% of draws will be 1. Each call to `rbinom()` generates a new independent random sample. With n = 1,000, the law of large numbers ensures the proportion will be close to 0.6 (typically within a few percent), but it will not be identical across runs with different seeds. If you need identical results across runs, set the same seed before each call. Option (a) confuses probability with frequency; (c) confuses distributional parameters with determinism; (d) is incorrect — `size = 1` is perfectly valid and means each draw is a single Bernoulli trial (0 or 1).
-
-</details>
-:::
-
-## Simulating Realistic Linguistic Datasets {-}
-
-### Simulating a Corpus Frequency Dataset {-}
-
-Corpus frequency data follows a **Zipfian distribution**: a small number of words are very frequent, and the vast majority are extremely rare. We can simulate this using a power-law sample:
-
-```{r sim_corpus, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
-set.seed(2026)
-
-# Simulate a vocabulary of 500 word types with Zipfian frequencies
-n_types   <- 500
-# Zipf's law: frequency ∝ 1/rank^alpha
-alpha     <- 1.0     # Zipf exponent (empirically ~1 for English)
-ranks     <- 1:n_types
-freq_probs <- (1 / ranks^alpha) / sum(1 / ranks^alpha)  # normalise to sum to 1
-
-# Total corpus size: 50,000 tokens
-n_tokens  <- 50000
-word_freqs <- round(freq_probs * n_tokens)
-word_freqs[word_freqs == 0] <- 1   # every type has at least 1 token
-
-# Create a data frame
-words <- paste0("word_", stringr::str_pad(ranks, 3, pad = "0"))
-corpus_freq_df <- data.frame(
-  rank      = ranks,
-  word      = words,
-  frequency = word_freqs,
-  log_rank  = log(ranks),
-  log_freq  = log(word_freqs)
-)
-
-# Zipf plot
-p_zipf <- ggplot(corpus_freq_df, aes(x = log_rank, y = log_freq)) +
-  geom_point(alpha = 0.3, size = 1, color = "steelblue") +
-  geom_smooth(method = "lm", se = FALSE, color = "firebrick", linewidth = 1) +
-  theme_bw() +
-  labs(title = "Zipf plot: simulated corpus word frequencies",
-       subtitle = sprintf("Vocabulary: %d types | Corpus: %d tokens | α = %.1f",
-                          n_types, sum(word_freqs), alpha),
-       x = "log(rank)", y = "log(frequency)")
-
-p_zipf
-
-# Most and least frequent words
-head(corpus_freq_df, 5)
-tail(corpus_freq_df, 5)
-```
-
-### Simulating a Psycholinguistic Experiment {-}
-
-A realistic psycholinguistic dataset requires:
-
-1. Multiple participants (random effect)
-2. Multiple items per participant (random effect)
-3. Fixed effects of experimental conditions
-4. By-participant and by-item random variation in baseline and condition effects
-5. Continuous response (RT) or binary response (accuracy)
-
-```{r sim_experiment, message=FALSE, warning=FALSE}
-set.seed(2026)
-
-# Design parameters
-n_participants <- 40
-n_items        <- 30    # items per participant
-n_obs          <- n_participants * n_items  # total observations
-
-# Condition: Primed (1) vs. Unprimed (0), crossed with participants and items
-# Each participant sees each item once, half primed, half unprimed
-conditions <- rep(c(0, 1), times = n_items / 2)
-
-# Fixed effects (on log-RT scale)
-intercept      <- 6.40   # grand mean log-RT (≈ 600 ms)
-beta_priming   <- -0.08  # priming speeds RT by ~8% (negative = faster)
-beta_frequency <- -0.05  # each unit of log-freq reduces log-RT
-
-# Random effect SDs
-sd_participant <- 0.15   # between-participant variability in baseline RT
-sd_item        <- 0.10   # between-item variability in baseline RT
-sd_residual    <- 0.20   # within-cell residual noise
-
-# Sample random effects
-participant_ids     <- paste0("P", stringr::str_pad(1:n_participants, 2, pad = "0"))
-item_ids            <- paste0("I", stringr::str_pad(1:n_items, 2, pad = "0"))
-re_participant      <- rnorm(n_participants, mean = 0, sd = sd_participant)
-re_item             <- rnorm(n_items, mean = 0, sd = sd_item)
-
-# Simulated word frequency for each item (log scale)
-log_freq_item <- rnorm(n_items, mean = 4.0, sd = 1.5)
-
-# Build the full dataset
-sim_exp <- expand.grid(
-  Participant = participant_ids,
-  Item        = item_ids
-) |>
-  dplyr::mutate(
-    Condition  = rep(conditions, times = n_participants),
-    LogFreq    = log_freq_item[match(Item, item_ids)],
-    RE_part    = re_participant[match(Participant, participant_ids)],
-    RE_item    = re_item[match(Item, item_ids)],
-    Epsilon    = rnorm(n_obs, 0, sd_residual),
-    LogRT      = intercept + beta_priming * Condition +
-                 beta_frequency * LogFreq +
-                 RE_part + RE_item + Epsilon,
-    RT         = exp(LogRT),
-    Condition  = factor(Condition, levels = c(0, 1),
-                         labels = c("Unprimed", "Primed"))
-  ) |>
-  dplyr::select(Participant, Item, Condition, LogFreq, RT, LogRT)
-
-cat("Dataset dimensions:", nrow(sim_exp), "×", ncol(sim_exp), "\n")
-str(sim_exp)
-head(sim_exp, 10)
-```
-
-```{r sim_exp_check, message=FALSE, warning=FALSE, fig.width=9, fig.height=4}
-# Quick sanity check: does the simulated data show the expected priming effect?
-sim_exp |>
-  dplyr::group_by(Condition) |>
-  dplyr::summarise(
-    Mean_RT    = round(mean(RT), 1),
-    Median_RT  = round(median(RT), 1),
-    SD_RT      = round(sd(RT), 1),
-    n          = dplyr::n(),
-    .groups = "drop"
-  )
-
-ggplot(sim_exp, aes(x = Condition, y = RT, fill = Condition)) +
-  geom_violin(alpha = 0.6, color = NA) +
-  geom_boxplot(width = 0.2, fill = "white", outlier.alpha = 0.3) +
-  scale_fill_manual(values = c("steelblue", "firebrick")) +
-  theme_bw() +
-  theme(legend.position = "none") +
-  labs(title = "Simulated reaction times by priming condition",
-       subtitle = "Priming effect built in: β = -0.08 on log scale",
-       x = "Condition", y = "Reaction time (ms)")
-```
-
-### Simulating a Survey Dataset {-}
-
-Attitude surveys and proficiency assessments generate Likert-scale or ordinal data. Here we simulate a language attitude survey:
-
-```{r sim_survey, message=FALSE, warning=FALSE, fig.width=9, fig.height=5}
-set.seed(2026)
-
-# 120 respondents, 5 Likert items (1 = Strongly Disagree, 5 = Strongly Agree)
-# Two groups: L1 English vs. L1 Other
-n_respondents  <- 120
-n_l1_english   <- 60
-group          <- c(rep("L1 English", n_l1_english),
-                    rep("L1 Other",   n_respondents - n_l1_english))
-
-# Item means differ by group (L1 English respondents rate English more positively)
-item_means_eng   <- c(4.1, 3.8, 4.3, 3.5, 4.0)  # 5 items
-item_means_other <- c(3.2, 3.0, 3.5, 2.8, 3.1)
-item_sd          <- 0.8
-
-# Generate continuous underlying scores and discretise to 1–5
-sim_likert <- function(n, means, sd, min_val = 1, max_val = 5) {
-  purrr::map_dfc(means, function(m) {
-    raw <- rnorm(n, mean = m, sd = sd)
-    clipped <- pmin(pmax(round(raw), min_val), max_val)
-    clipped
-  }) |>
-    purrr::set_names(paste0("Item", 1:length(means)))
-}
-
-eng_dat   <- sim_likert(n_l1_english,                  item_means_eng,   item_sd)
-other_dat <- sim_likert(n_respondents - n_l1_english,  item_means_other, item_sd)
-
-survey_df <- dplyr::bind_rows(eng_dat, other_dat) |>
-  dplyr::mutate(
-    Respondent  = paste0("R", stringr::str_pad(1:n_respondents, 3, pad = "0")),
-    Group       = group,
-    TotalScore  = rowSums(dplyr::across(dplyr::starts_with("Item")))
-  ) |>
-  dplyr::select(Respondent, Group, dplyr::everything())
-
-cat("Survey dataset:\n")
-str(survey_df)
-
-# Group-level means
-survey_df |>
-  dplyr::group_by(Group) |>
-  dplyr::summarise(
-    dplyr::across(dplyr::starts_with("Item"), ~ round(mean(.x), 2)),
-    MeanTotal = round(mean(TotalScore), 2),
-    .groups = "drop"
-  )
-
-# Visualise total score distribution by group
-ggplot(survey_df, aes(x = TotalScore, fill = Group)) +
-  geom_histogram(binwidth = 1, position = "dodge", color = "white", alpha = 0.8) +
-  scale_fill_manual(values = c("steelblue", "firebrick")) +
-  theme_bw() +
-  theme(legend.position = "top") +
-  labs(title = "Simulated language attitude survey: total scores by group",
-       subtitle = "5 Likert items (1–5) | L1 English respondents show higher positive attitudes",
-       x = "Total score (5–25)", y = "Count")
-```
-
-
-## Generating Synthetic Text Data {-}
-
-### Simple String Construction {-}
-
-The simplest way to generate text data is direct string construction using `paste()` and `sprintf()`:
-
-```{r synth_text_simple, message=FALSE, warning=FALSE}
-# Generate templated sentences
-subjects   <- c("The speaker", "Each participant", "Every respondent", "The learner")
-verbs      <- c("produced", "uttered", "used", "avoided")
-objects    <- c("the target form", "an error", "a hesitation", "the amplifier")
-
-set.seed(2026)
-n_sentences <- 20
-
-sentences <- paste(
-  sample(subjects, n_sentences, replace = TRUE),
-  sample(verbs, n_sentences, replace = TRUE),
-  sample(objects, n_sentences, replace = TRUE),
-  "."
-)
-
-head(sentences, 5)
-
-# Generate numbered sentences with sprintf
-template_sents <- sprintf(
-  "This is sentence number %d, produced by speaker %s.",
-  1:10,
-  sample(LETTERS[1:5], 10, replace = TRUE)
-)
-
-template_sents
-```
-
-### Simulating a Synthetic Corpus with Controlled Properties {-}
-
-For testing text analysis pipelines, it is useful to generate a corpus with known properties (word frequencies, bigram transitions):
-
-```{r synth_corpus, message=FALSE, warning=FALSE}
-set.seed(2026)
-
-# Define a small vocabulary with assigned probabilities (simulating corpus frequencies)
-vocab <- data.frame(
-  word = c("the", "language", "corpus", "analysis", "text",
-           "speaker", "frequency", "very", "quite", "shows",
-           "contains", "reveals", "significant", "common", "rare"),
-  prob = c(0.15, 0.12, 0.10, 0.09, 0.08,
-           0.07, 0.07, 0.06, 0.05, 0.05,
-           0.04, 0.04, 0.03, 0.03, 0.02)
-)
-
-# Verify probabilities sum to 1
-cat("Probability sum:", sum(vocab$prob), "\n")
-
-# Generate synthetic texts of varying lengths
-generate_text <- function(n_words, vocab_df) {
-  words <- sample(
-    x       = vocab_df$word,
-    size    = n_words,
-    replace = TRUE,
-    prob    = vocab_df$prob
-  )
-  paste(words, collapse = " ")
-}
-
-# Create a mini synthetic corpus of 10 texts
-n_texts      <- 10
-text_lengths <- round(runif(n_texts, min = 50, max = 200))
-
-synth_corpus <- data.frame(
-  text_id  = paste0("SYNTH_", stringr::str_pad(1:n_texts, 2, pad = "0")),
-  n_tokens = text_lengths,
-  text     = sapply(text_lengths, generate_text, vocab_df = vocab),
-  stringsAsFactors = FALSE
-)
-
-# Inspect
-head(synth_corpus[, c("text_id", "n_tokens")], 5)
-cat("\nSample text:\n", synth_corpus$text[1], "\n")
-```
-
-### Bigram Language Model {-}
-
-A more linguistically realistic approach is a **bigram language model**: the probability of each word depends on the previous word. This produces more natural-looking (though semantically random) text:
-
-```{r synth_bigram, message=FALSE, warning=FALSE}
-set.seed(2026)
-
-# Define a simple bigram transition matrix
-# Rows = current word, columns = next word
-word_types <- c("<START>", "the", "corpus", "analysis", "shows",
-                "very", "significant", "results", "<END>")
-
-# Transition probabilities (rows must sum to 1)
-transitions <- matrix(
-  c(
-    # <START>  the   corpus  analysis  shows    very   sig    results  <END>
-    0.00, 0.80,  0.10,   0.05,    0.00,   0.00,  0.00,  0.00,    0.05,  # <START>
-    0.00, 0.00,  0.40,   0.35,    0.00,   0.00,  0.00,  0.00,    0.25,  # the
-    0.00, 0.10,  0.00,   0.00,    0.60,   0.00,  0.00,  0.00,    0.30,  # corpus
-    0.00, 0.00,  0.00,   0.00,    0.70,   0.00,  0.00,  0.00,    0.30,  # analysis
-    0.00, 0.00,  0.00,   0.00,    0.00,   0.50,  0.20,  0.20,    0.10,  # shows
-    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.90,  0.00,    0.10,  # very
-    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.00,  0.90,    0.10,  # significant
-    0.00, 0.10,  0.10,   0.10,    0.00,   0.00,  0.00,  0.00,    0.70,  # results
-    0.00, 0.00,  0.00,   0.00,    0.00,   0.00,  0.00,  0.00,    1.00   # <END>
-  ),
-  nrow = length(word_types),
-  byrow = TRUE,
-  dimnames = list(word_types, word_types)
-)
-
-# Generate one sentence using the bigram model
-generate_bigram_sentence <- function(transitions, max_len = 20) {
-  words  <- "<START>"
-  current <- "<START>"
-  repeat {
-    probs   <- transitions[current, ]
-    next_w  <- sample(colnames(transitions), 1, prob = probs)
-    if (next_w == "<END>" || length(words) > max_len) break
-    words   <- c(words, next_w)
-    current <- next_w
-  }
-  paste(words[-1], collapse = " ")   # remove <START>
-}
-
-# Generate 10 sentences
-bigram_sentences <- replicate(10, generate_bigram_sentence(transitions))
-cat("Bigram-generated sentences:\n")
-for (i in seq_along(bigram_sentences)) cat(sprintf("  %2d. %s\n", i, bigram_sentences[i]))
-```
-
-::: {.callout-note collapse="true"}
-## ✎ Check Your Understanding — Question 8
-
-**A researcher generates 500 simulated reaction times with `rnorm(500, mean = 600, sd = 80)` and finds that her analysis shows a significant priming effect. Her supervisor asks whether this is a valid approach. What is the main problem?**
-
-a) `rnorm()` cannot simulate reaction times — use `rpois()` instead
-b) Reaction times are always positive and approximately log-normally distributed; simulating them as normally distributed (which allows negative values and is symmetric) is unrealistic. The researcher should simulate on the log scale: `exp(rnorm(500, mean = log(600), sd = 0.15))`
-c) 500 observations is too small for any simulation
-d) The simulation is fine — reaction times are normally distributed in large samples by the Central Limit Theorem
-
-<details>
-<summary>**Answer**</summary>
-
-**b) Reaction times are always positive and approximately log-normally distributed; simulating them as normally distributed (which allows negative values and is symmetric) is unrealistic.**
-
-Reaction times are bounded at zero (you cannot respond in negative time), and their distribution is right-skewed — there is a longer tail for slow responses than for fast ones. The normal distribution produces some negative values (when `mean / sd` is not very large) and is symmetric, which does not match the real distribution of RTs. The standard approach is to simulate on the log scale — `log_rt <- rnorm(n, mean, sd)` — then back-transform with `rt <- exp(log_rt)`. This produces a log-normal distribution that is always positive and right-skewed. Option (d) confuses the Central Limit Theorem (which applies to *sample means*, not individual observations) with the distribution of raw data.
+**b)** `list.files()` with `full.names = TRUE` returns complete paths. `purrr::map_chr()` applies `readr::read_file()` to each, returning a character vector of full texts. `tools::file_path_sans_ext(basename(fls))` strips the path and `.txt` extension to produce clean names. Options (a), (c), and (d) are all incorrect: `readLines()` and `scan()` take a single file path, not a directory; `read.csv()` expects tabular data.
 
 </details>
 :::
@@ -1999,17 +1303,17 @@ Reaction times are bounded at zero (you cannot respond in negative time), and th
 
 # Citation and Session Info {-}
 
-Schweinberger, Martin. 2026. *Loading, Saving, and Simulating Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.02.24).
+Schweinberger, Martin. 2026. *Loading and Saving Data in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/load/load.html (Version 2026.05.01).
 
 ```
 @manual{schweinberger2026loadr,
   author       = {Schweinberger, Martin},
-  title        = {Loading, Saving, and Simulating Data in R},
+  title        = {Loading and Saving Data in R},
   note         = {https://ladal.edu.au/tutorials/load/load.html},
   year         = {2026},
   organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
   address      = {Brisbane},
-  edition      = {2026.02.24}
+  edition      = {2026.05.01}
 }
 ```
 
@@ -2020,7 +1324,7 @@ sessionInfo()
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial on loading and saving data, adding the project structure section, the `readr` package coverage, the Excel section, the JSON/XML section, the built-in datasets section, the section on loading multiple text files, and the entirely new simulation section (distributions, realistic linguistic datasets, power analysis, and synthetic text generation). All content was reviewed and approved by the named author (Martin Schweinberger), who takes full responsibility for its accuracy.
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial on loading and saving data. All content was reviewed and approved by the named author (Martin Schweinberger), who takes full responsibility for its accuracy.
 :::
 
 ---
