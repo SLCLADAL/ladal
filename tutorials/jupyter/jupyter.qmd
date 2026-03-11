@@ -1,176 +1,1174 @@
 ---
-title: "Creating Interactive (Jupyter) Notebooks"
+title: "Creating Interactive Jupyter Notebooks"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
+
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction {-}
+# Introduction {#intro}
 
 ![](/images/g_chili.jpg){ width=15% style="float:right; padding:10px" }
 
-This tutorial demonstrates how to create interactive Jupyter Notebooks—an essential tool for combining code, output, and narrative in a single, dynamic document. These notebooks enable researchers to perform analyses online, improve transparency, and enhance reproducibility in linguistic and data science research.
+This tutorial demonstrates how to create **interactive Jupyter notebooks** from R Markdown documents — an essential tool for combining code, output, and narrative in a single, dynamic, cloud-executable document. Interactive notebooks allow researchers, students, and collaborators to run and modify your analysis directly in a browser, without installing R or any packages locally.
 
-It is intended for researchers working with language data, especially those in the humanities and social sciences. It is particularly useful for beginner to intermediate R users who want to document their work clearly and share it in a readable, executable format.
+The tutorial is aimed at researchers working with language data, especially those in the humanities and social sciences. It is particularly useful for beginner to intermediate R users who want to share their analyses as reproducible, executable documents — whether for teaching, collaborative review, or open science.
 
 ![](/images/notebook_raw.png){ width=40% style="float:right; padding:10px" }
 
-R Notebooks provide a flexible interface for combining Markdown text and executable code. They allow users to:
+By the end of this tutorial you will be able to:
 
-- Run code interactively
-- View output inline
-- Export polished reports in HTML, PDF, or Word
+- Explain what Jupyter notebooks are and how they differ from R Markdown and Quarto documents
+- Prepare an R Markdown file for conversion to Jupyter format
+- Convert an `.Rmd` file to a `.ipynb` notebook using the `rmd2jupyter` package
+- Set up a GitHub repository with Binder support using the ATAP/LDaCA template
+- Launch and share a cloud-executable interactive notebook via Binder
+- Use Google Colab as an alternative hosting platform
+- Apply best practices for notebook design and reproducibility
+- Diagnose and fix the most common problems encountered in the workflow
 
-By the end of this tutorial, you’ll understand how to:
+::: {.callout-note}
+## Prerequisite Knowledge
 
-- Structure a notebook with Markdown
-- Use and execute R code chunks
-- Render your notebook as a reproducible document
-- Share notebooks as interactive online tools
+Before working through this tutorial, you should be familiar with:
 
-We’ll also explore the differences between R Notebooks and Jupyter Notebooks, how to use version control, and how to share analyses using Binder.
+- Basic R and RStudio ([Getting Started with R](/tutorials/intror/intror.html))
+- R Markdown or Quarto document basics ([R Markdown and Quarto](/tutorials/notebooks/notebooks.html))
+- Basic GitHub operations: creating a repository, uploading files, and copying URLs ([Publishing with Bookdown and Quarto](/tutorials/publish/publish.html))
+:::
 
-# Generating Interactive Notebooks
+::: {.callout-note}
+## Citation
 
-Markdown documents can serve as the basis for interactive notebooks. These are created from a GitHub repository using a template provided by the **Australian Text Analytics Platform (ATAP)** and the **Language Data Commons of Australia (LDaCA)**.
+Schweinberger, Martin. 2026. *Creating Interactive Jupyter Notebooks*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/jupyter/jupyter.html (Version 2026.03.11).
+:::
 
-This process involves "Dockerizing" the GitHub repository, essentially creating a virtual environment based on your project setup. The interactive notebook is then deployed via **Binder**, allowing others to run and edit your code in the cloud.
+---
 
-> Sessions are temporary and reset once closed, but users can download copies.
+# Setup {#setup}
 
-Interactive notebooks can be used for:
-
-- Teaching materials (e.g., for statistics, R, or text analytics)
-- Transparent analysis sharing (e.g., with collaborators or reviewers)
-- Interactive documentation of computational methods
-- Creating accessible online tools
-
-Most importantly, they enable reproducible workflows by letting others run your code and verify your results.
-
-
-## Requirements
-
-Before creating an interactive notebook, make sure you have:
-
-1. A complete **R project** with an R Markdown (`.Rmd`) file  
-2. A dedicated file named `rmd2jupyter.Rmd` for conversion  
-3. A **GitHub** account to host your repository  
-
-⚠️ Important notes:
-
-+ Use **only one programming language** per notebook (e.g., R, Python, or Julia).  
-
-+ Ensure all datasets and resources are stored in the GitHub repo.  
-
-+ It’s recommended to generate interactive notebooks once the project is complete.  
-
-
-# Step 1: Prepare the Rmd File {-}
-
-1. **Duplicate** your `.Rmd` file. You can name it something like `myfile_cb.Rmd`.
-
-2. **Remove the YAML metadata** from the top of the file. Jupyter notebooks don’t use YAML headers. Instead, begin with a first-level header (`# Title`).
-
-3. **Adjust the structure**:
-   - Ensure all headers use appropriate Markdown syntax.
-   - Replace installation code chunks with a separate script (e.g., `install.R`) to list required packages.
-
-
-# Step 2: Convert Rmd to Jupyter Notebook {-}
-
-1. Open `rmd2jupyter.Rmd` and install the required package:
-
-```{r eval = F}
-# Install from GitHub
-library(devtools)
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}
+# Install required packages — run once
+install.packages("devtools")
 devtools::install_github("mkearney/rmd2jupyter")
+```
 
-# Load the package
+```{r load, message=FALSE, warning=FALSE}
+library(flextable)
+klippy::klippy()
+```
+
+---
+
+# What Are Jupyter Notebooks? {#what}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What Jupyter notebooks are; why they matter for reproducible research; how they differ from static documents; and where they fit in the R-based research workflow
+:::
+
+## The Core Idea {-}
+
+A **Jupyter notebook** (`.ipynb`) is a document format that interleaves three kinds of content in a single file:
+
+- **Markdown cells** — narrative prose, headings, lists, equations, and images
+- **Code cells** — executable code in R, Python, Julia, or other languages
+- **Output cells** — the results of running a code cell: printed values, tables, plots, and error messages
+
+Unlike a rendered R Markdown document (which produces a static HTML or PDF file where the code has already been run), a Jupyter notebook is **live**: a reader with access to a running kernel can execute any cell, modify the code, and immediately see updated output — all in a browser, with no local software installation required.
+
+This makes Jupyter notebooks particularly powerful for:
+
+- **Teaching** — students can run and experiment with examples without installing anything
+- **Reproducibility** — reviewers and collaborators can re-run your analysis to verify results
+- **Transparency** — code, data, and narrative are co-located and inseparable
+- **Accessibility** — anyone with a browser can interact with your analysis via Binder or Google Colab
+
+## History and Ecosystem {-}
+
+Jupyter grew out of the IPython project and was officially launched in 2014. The name is a portmanteau of **Ju**lia, **Pyt**hon, and **R** — the three languages it was designed to support. Today it supports over 100 programming languages via interchangeable **kernels**.
+
+The `.ipynb` format is a JSON file that stores cells, their outputs, and kernel metadata. Jupyter notebooks can be opened in:
+
+- **JupyterLab** — the current flagship web-based IDE (successor to the classic Jupyter Notebook interface)
+- **Jupyter Notebook** (classic) — the original browser interface
+- **VS Code** — via the Jupyter extension
+- **Google Colab** — Google's hosted Jupyter environment
+- **Binder** — a free cloud service that launches a live Jupyter environment from any GitHub repository
+- **GitHub** — renders `.ipynb` files as static previews directly in the browser
+
+## Why Use Jupyter Notebooks for Linguistics Research? {-}
+
+Linguistics and language data research increasingly involves computational methods — corpus analysis, frequency profiling, collocational statistics, sentiment analysis, and machine learning. Sharing these analyses as interactive notebooks has several advantages over sharing static PDFs or R scripts:
+
+- **Readers can explore the data** — change filter parameters, re-run models with different settings, and examine the data interactively
+- **No installation barrier** — Binder or Colab provides a full R environment in the cloud
+- **Peer review and replication** — reviewers can re-run the exact analysis and verify every result
+- **Teaching materials** — students receive not just the answer but an interactive environment where they can experiment
+- **Open science** — notebooks lower the barrier to sharing fully reproducible analyses alongside publications
+
+---
+
+# Notebooks in Context: R Markdown, Quarto, and Jupyter {#comparison}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How Jupyter notebooks compare to R Markdown documents and Quarto documents; when each format is appropriate; and how they can be used together
+:::
+
+```{r comparison_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Feature = c(
+    "File format",
+    "Primary language",
+    "Execution model",
+    "Output",
+    "Interactivity",
+    "Cloud execution",
+    "Version control",
+    "Inline prose",
+    "YAML header",
+    "Cross-references",
+    "PDF output",
+    "Slides",
+    "Multi-format output",
+    "Collaboration",
+    "Best for"
+  ),
+  `R Markdown (.Rmd)` = c(
+    "Plain text",
+    "R (Python via `reticulate`)",
+    "Render all at once via `knitr`",
+    "Static HTML, PDF, Word",
+    "None — output is fixed",
+    "Via Binder (after conversion)",
+    "Excellent — plain text diffs cleanly",
+    "Markdown between chunks",
+    "Yes — controls output format",
+    "Via `bookdown`",
+    "Yes — via LaTeX",
+    "Yes — ioslides, Slidy, Beamer",
+    "Yes — HTML, PDF, Word, slides",
+    "Shared repo; track-changes harder",
+    "Reports, papers, books, websites"
+  ),
+  `Quarto (.qmd)` = c(
+    "Plain text",
+    "R, Python, Julia, Observable",
+    "Render all at once via `knitr`/`jupyter`",
+    "Static HTML, PDF, Word, RevealJS",
+    "None — output is fixed",
+    "Via Binder (after conversion)",
+    "Excellent — plain text diffs cleanly",
+    "Markdown between chunks",
+    "Yes — richer than R Markdown",
+    "Built-in",
+    "Yes — via LaTeX",
+    "Yes — RevealJS, Beamer, PowerPoint",
+    "Yes — HTML, PDF, Word, slides, websites, books",
+    "Shared repo; track-changes harder",
+    "Modern reports, websites, books"
+  ),
+  `Jupyter (.ipynb)` = c(
+    "JSON (binary-like for version control)",
+    "R, Python, Julia, 100+ kernels",
+    "Cell-by-cell, interactive",
+    "Live interactive + static export",
+    "Full — readers can run and edit cells",
+    "Yes — Binder, Google Colab, natively",
+    "Harder — JSON diffs are noisy",
+    "Markdown cells (separate from code)",
+    "No",
+    "No built-in system",
+    "Via `nbconvert`",
+    "Via RISE extension",
+    "Via `nbconvert`: HTML, PDF, script",
+    "Real-time via JupyterHub; Colab",
+    "Interactive teaching, reproducible demos"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 9.5) |>
+  set_caption("Comparison of R Markdown, Quarto, and Jupyter notebook formats")
+```
+
+::: {.callout-tip}
+## These Formats Are Complementary, Not Competing
+
+The most productive approach treats these formats as complementary tools in the same workflow. Develop your analysis in R Markdown or Quarto (clean version control, full output format flexibility), then convert the finished analysis to Jupyter for interactive sharing. The conversion is a one-way export step — you maintain the `.Rmd`/`.qmd` as the canonical source and derive the `.ipynb` from it.
+:::
+
+---
+
+# The Interactive Notebook Workflow {#workflow}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The end-to-end workflow for creating and publishing an interactive notebook from an R Markdown source file; what infrastructure is involved; and what each step produces
+:::
+
+The complete workflow has five stages:
+
+```{r workflow_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Stage = c("1", "2", "3", "4", "5"),
+  Step = c(
+    "Develop analysis",
+    "Prepare notebook version",
+    "Convert to Jupyter format",
+    "Set up Binder repository",
+    "Share and launch"
+  ),
+  Tool = c(
+    "RStudio + R Markdown / Quarto",
+    "Text editor / RStudio",
+    "`rmd2jupyter` R package",
+    "GitHub + ATAP/LDaCA Binder template",
+    "Binder (mybinder.org)"
+  ),
+  Output = c(
+    "`.Rmd` or `.qmd` — the canonical source",
+    "`_cb.Rmd` — cleaned version without YAML, with install script",
+    "`.ipynb` — the Jupyter notebook file",
+    "GitHub repository with `install.R`, `.ipynb`, and data files",
+    "Public URL that launches a live Jupyter environment"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("End-to-end workflow for creating interactive Jupyter notebooks from R Markdown")
+```
+
+::: {.callout-note}
+## ATAP and LDaCA
+
+This workflow uses a Binder template maintained by the **Australian Text Analytics Platform (ATAP)** and the **Language Data Commons of Australia (LDaCA)**. These are Australian national infrastructure projects that provide tools and platforms for computational text analysis in the humanities and social sciences. The Binder template pre-configures a Docker-based R environment so your notebook launches reliably in the cloud.
+:::
+
+---
+
+# Step 1: Prepare the R Markdown File {#step1}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to prepare your `.Rmd` source file for conversion; what to remove, what to add, and how to restructure the code for a notebook environment
+:::
+
+## Why Preparation Matters {-}
+
+A standard R Markdown document is designed for rendering to a static output — it has a YAML header that controls the output format, it may load packages silently, and it assumes that all code runs in sequence in a single non-interactive pass. A Jupyter notebook, by contrast, is designed for interactive cell-by-cell execution by a reader who may have no R experience. These different assumptions require some targeted adjustments before conversion.
+
+## 1.1 — Duplicate Your Source File {-}
+
+Never modify your canonical `.Rmd` file directly. Instead, duplicate it and give the copy a name that signals it is the notebook version — the convention used by ATAP/LDaCA is the `_cb` suffix (for "code book"):
+
+```
+original:   my_analysis.Rmd
+notebook:   my_analysis_cb.Rmd
+```
+
+All subsequent preparation steps happen on `my_analysis_cb.Rmd`. Your original file remains unchanged.
+
+## 1.2 — Remove the YAML Header {-}
+
+Jupyter notebooks do not use YAML headers. The YAML block at the top of your `.Rmd` file — everything between the `---` delimiters — should be deleted entirely.
+
+**Before:**
+
+```yaml
+title: "Frequency Analysis of the BNC"
+author: "Martin Schweinberger"
+date: "2026-03-11"
+output:
+  html_document:
+    toc: true
+    theme: cosmo
+```
+
+**After:** — the YAML block is gone. Replace it with a first-level Markdown heading that becomes the notebook title:
+
+```markdown
+# Frequency Analysis of the BNC
+```
+
+::: {.callout-warning}
+## Do Not Leave a Blank YAML Block
+
+If you delete the YAML content but leave the `---` delimiters behind, `rmd2jupyter` will produce a malformed notebook. Delete the delimiters as well.
+:::
+
+## 1.3 — Replace Package Installation Code {-}
+
+In a standard `.Rmd` file, package installation is typically either absent (assuming the reader has already installed packages) or wrapped in `eval=FALSE` to prevent it from running during render. In a Jupyter notebook environment, package installation is handled differently — via a separate `install.R` file that Binder runs when building the Docker image.
+
+Remove any `install.packages()` calls from your notebook file. If you need to show installation code for pedagogical purposes, wrap it in a Markdown cell as a code block rather than an executable code cell.
+
+Create a separate `install.R` file in your project directory listing all required packages:
+
+```{r install_r_example, eval=FALSE}
+# install.R — this file is executed by Binder when building the environment
+install.packages("tidyverse")
+install.packages("tidytext")
+install.packages("flextable")
+install.packages("quanteda")
+install.packages("quanteda.textstats")
+```
+
+::: {.callout-tip}
+## Pin Package Versions for Long-term Reproducibility
+
+Binder installs the latest CRAN versions by default. For long-term reproducibility, pin specific versions in `install.R`:
+
+```r
+devtools::install_version("tidytext", version = "0.4.1")
+```
+
+This prevents a future package update from breaking your notebook.
+:::
+
+## 1.4 — Adjust Chunk Options {-}
+
+Review every code chunk and adjust its options for an interactive notebook context:
+
+```{r chunk_options_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  `In .Rmd` = c(
+    "`echo=FALSE`",
+    "`include=FALSE`",
+    "`eval=FALSE`",
+    "`message=FALSE, warning=FALSE`",
+    "`fig.height=5, fig.width=7`",
+    "`cache=TRUE`"
+  ),
+  `In notebook` = c(
+    "Remove — readers should see the code",
+    "Remove — all cells should be visible",
+    "Remove (unless demo code) — all cells should be executable",
+    "Consider keeping — suppresses distracting output",
+    "Keep — still valid in Jupyter R kernel",
+    "Remove — Binder does not persist cache between sessions"
+  ),
+  Reason = c(
+    "The primary value of an interactive notebook is seeing the code",
+    "Hidden cells confuse readers who execute cells one by one",
+    "Readers expect every visible code cell to be runnable",
+    "Package load messages are still distracting in notebook output",
+    "Figure dimensions apply equally in Jupyter",
+    "Each Binder session starts fresh; cached files do not exist"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Chunk option adjustments for notebook conversion")
+```
+
+## 1.5 — Replace `flextable` with `knitr::kable` {-}
+
+`flextable` tables do not render correctly in Jupyter notebooks — the HTML output requires a browser context that Jupyter's cell output model does not always provide. Replace `flextable()` calls with `knitr::kable()` for notebook versions:
+
+```{r kable_example, eval=FALSE}
+# In .Rmd (canonical source)
+results |>
+  flextable() |>
+  theme_zebra() |>
+  set_caption("Top 20 words by frequency")
+
+# In _cb.Rmd (notebook version) — replace with:
+knitr::kable(results, caption = "Top 20 words by frequency")
+```
+
+## 1.6 — Check Data File Paths {-}
+
+In a Binder environment, all files are accessed relative to the repository root. Absolute paths (e.g. `C:/Users/martin/data/corpus.csv`) will break. Use relative paths:
+
+```{r paths_example, eval=FALSE}
+# Wrong — absolute path breaks in Binder
+corpus <- read.csv("C:/Users/martin/Documents/project/data/corpus.csv")
+
+# Correct — relative path works in any environment
+corpus <- read.csv("data/corpus.csv")
+```
+
+Ensure all data files referenced in your notebook are committed to the GitHub repository under their referenced paths. If files are large (over 50 MB), consider hosting them externally and loading them via URL, or use Git LFS.
+
+## 1.7 — Add a Narrative Introduction {-}
+
+Because notebook readers may be unfamiliar with your project, add a short Markdown cell at the top (after the title heading) explaining:
+
+- What the notebook does
+- What data it uses and where to find it
+- What the reader needs to do to run it (usually just: execute cells from top to bottom)
+- Any known limitations or version requirements
+
+A good template:
+
+```markdown
+# Frequency Analysis of the BNC
+
+This notebook demonstrates corpus frequency analysis using the British National Corpus 
+(BNC) baby sample. It is an interactive companion to the paper 
+"Frequency Profiles in L1 and L2 English" (Schweinberger 2026).
+
+**To use this notebook:** Click on a code cell and press **Shift+Enter** to execute it.
+Work through the cells from top to bottom. All required packages are pre-installed.
+
+**Data:** The BNC baby sample is included in the `data/` folder of this repository.
+
+**Requirements:** This notebook uses R 4.3+ with the packages listed in `install.R`.
+```
+
+## 1.8 — Preparation Checklist {-}
+
+```{r checklist_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  `Check` = c(
+    "Duplicated source file as `_cb.Rmd`",
+    "YAML header (including `---` delimiters) removed",
+    "First-level heading added as notebook title",
+    "`install.packages()` calls removed from notebook",
+    "`install.R` created with all required packages",
+    "`echo=FALSE` and `include=FALSE` options removed",
+    "`eval=FALSE` options removed (except demo code)",
+    "`cache=TRUE` options removed",
+    "`flextable()` replaced with `knitr::kable()`",
+    "All file paths are relative (not absolute)",
+    "All data files are in the repository",
+    "Narrative introduction added at the top"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Pre-conversion checklist for Rmd notebook preparation")
+```
+
+---
+
+# Step 2: Convert Rmd to Jupyter Notebook {#step2}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to install and use the `rmd2jupyter` package; what the conversion produces; and how to verify the output
+:::
+
+## 2.1 — Install `rmd2jupyter` {-}
+
+The `rmd2jupyter` package is not on CRAN — install it directly from GitHub:
+
+```{r install_rmd2jupyter, eval=FALSE}
+install.packages("devtools")
+devtools::install_github("mkearney/rmd2jupyter")
+```
+
+Load the package:
+
+```{r load_rmd2jupyter, eval=FALSE}
 library(rmd2jupyter)
 ```
 
-Use the rmd2jupyter() function to convert your file:
+## 2.2 — Run the Conversion {-}
 
-```{r eval = F}
-rmd2jupyter::rmd2jupyter("myfile_cb.Rmd")
+Point `rmd2jupyter()` at your prepared `_cb.Rmd` file:
+
+```{r convert, eval=FALSE}
+rmd2jupyter::rmd2jupyter("my_analysis_cb.Rmd")
 ```
 
-This creates a .ipynb (Jupyter notebook) file in your project directory.
+This reads the `.Rmd` file, maps each section to the appropriate Jupyter cell type (Markdown prose → Markdown cell; R code chunk → code cell), and writes a `.ipynb` JSON file with the same base name:
 
-# Step 3: Set Up GitHub Repository with Binder {-}
+```
+my_analysis_cb.Rmd  →  my_analysis_cb.ipynb
+```
 
-Log in to GitHub and visit: https://github.com/Australian-Text-Analytics-Platform/r-binder-template
+The `.ipynb` file is written to the same directory as the input file.
 
-Click Use this template → Create a new repository.
+## 2.3 — What the Conversion Does {-}
 
-Open the install.R file and specify which packages to install, e.g.:
+```{r conversion_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  `In .Rmd` = c(
+    "Markdown prose (between chunks)",
+    "R code chunk (` ```{r} `)",
+    "Inline R expression (`` `r expr` ``)",
+    "YAML header",
+    "Chunk options (`echo`, `eval`, etc.)",
+    "HTML comments (`<!-- ... -->`)"
+  ),
+  `In .ipynb` = c(
+    "Markdown cell",
+    "Code cell (R kernel)",
+    "Evaluated and result embedded in Markdown cell",
+    "Ignored / must be removed first",
+    "Stripped — not carried into notebook",
+    "Stripped"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("How rmd2jupyter maps Rmd elements to Jupyter cells")
+```
 
-```{r eval = F}
-install.packages("dplyr")
+## 2.4 — Verify the Output {-}
+
+After conversion, open the `.ipynb` file to verify it looks correct. You can preview it directly on GitHub (which renders notebooks as static HTML), or install JupyterLab locally:
+
+```bash
+# Install JupyterLab via pip (requires Python)
+pip install jupyterlab
+
+# Launch JupyterLab in the project directory
+jupyter lab
+```
+
+Then open your `.ipynb` file in JupyterLab and do a quick sanity check:
+
+- All prose sections have become Markdown cells
+- All code chunks have become code cells
+- No YAML content appears at the top
+- Code cell order matches the original chunk order
+- There are no orphaned chunk option comments (e.g. stray `## ----` lines)
+
+::: {.callout-tip}
+## Previewing on GitHub Without Installing JupyterLab
+
+Push the `.ipynb` file to your GitHub repository and navigate to it in the browser. GitHub renders `.ipynb` files as formatted, syntax-highlighted static previews — useful for a quick visual check without installing any extra software. Note that code outputs are only visible in the static preview if the notebook was saved with outputs; a freshly converted notebook will show code cells but no outputs until the notebook is executed.
+:::
+
+## 2.5 — Converting Quarto Documents {-}
+
+If your source file is a `.qmd` rather than `.Rmd`, the process is slightly different because `rmd2jupyter` does not directly support Quarto's `#|` chunk option syntax. The recommended approach is to first convert the `.qmd` to `.Rmd` format:
+
+```{r qmd_to_rmd, eval=FALSE}
+# Convert a Quarto document to R Markdown first
+quarto::quarto_render(
+  "my_analysis.qmd",
+  output_format = "md"
+)
+# Then manually clean up the output and convert to .ipynb
+rmd2jupyter::rmd2jupyter("my_analysis.md")
+```
+
+Alternatively, rename the `.qmd` to `.Rmd` and replace all `#|` chunk options with the equivalent `{r label, option=value}` header syntax before running `rmd2jupyter`.
+
+---
+
+# Step 3: Set Up the Binder Repository {#step3}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What Binder is and how it works; how to set up the ATAP/LDaCA Binder template repository on GitHub; how to upload your notebook and data files; and how to configure the R environment
+:::
+
+## What Is Binder? {-}
+
+**Binder** ([mybinder.org](https://mybinder.org)) is a free, open service run by the Binder Project (a NumFOCUS project) that turns any GitHub repository into a live, executable Jupyter environment in the cloud. When someone clicks a Binder link, the service:
+
+1. Reads your repository and finds the environment specification files (`install.R`, `runtime.txt`, etc.)
+2. Builds a **Docker image** — a self-contained virtual machine image with R, all your packages, and all your files
+3. Launches a **JupyterLab session** in the cloud and opens your notebook
+4. Gives the user a live R kernel connected to that session
+
+The first build can take several minutes (sometimes up to an hour for complex environments), but subsequent launches use a cached image and start in seconds. Sessions are temporary — all edits are lost when the session closes, but users can download their modified notebook.
+
+::: {.callout-tip}
+## Binder Is Free and Requires No Account
+
+Users do not need a GitHub account or any installed software to use your Binder link. Any browser works. Sessions have resource limits (typically 1–2 GB RAM) — keep memory usage modest and avoid analyses that require large datasets loaded entirely into memory.
+:::
+
+## 3.1 — Create the Repository from the ATAP/LDaCA Template {-}
+
+The **Australian Text Analytics Platform (ATAP)** and **Language Data Commons of Australia (LDaCA)** maintain a Binder-ready R template that pre-configures the Docker environment correctly for R notebooks.
+
+1. Go to the template repository:
+   [github.com/Australian-Text-Analytics-Platform/r-binder-template](https://github.com/Australian-Text-Analytics-Platform/r-binder-template)
+
+2. Click **Use this template** → **Create a new repository**
+
+::: {.callout-warning}
+## Do Not Fork the Template
+
+Always use **Use this template** rather than **Fork**. Forking creates a copy that is linked to the original in ways that can complicate your independent development. The template option creates a clean, independent repository under your account.
+:::
+
+3. Give your repository a descriptive name (e.g. `freq-analysis-notebook`, `bnc-collocations`)
+
+4. Leave the repository **Public** — Binder only works with public repositories
+
+5. Click **Create repository**
+
+## 3.2 — Understand the Template Structure {-}
+
+The template contains several pre-configured files that you should understand before modifying:
+
+```{r template_files, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  File = c(
+    "`install.R`",
+    "`runtime.txt`",
+    "`apt.txt`",
+    "`.binder/`",
+    "`README.md`",
+    "`*.ipynb` (placeholder)"
+  ),
+  Purpose = c(
+    "R packages to install. Binder runs this script when building the image.",
+    "Specifies the R version (e.g. `r-4.3-2024-01-01`). Controls which CRAN snapshot is used.",
+    "System-level dependencies (e.g. `libxml2-dev`). Most R packages do not need this.",
+    "Alternative location for Binder config files. Usually not needed with the ATAP template.",
+    "Description of the repository. Replace placeholder content with your project description.",
+    "Placeholder notebook. Replace with your own `.ipynb` file."
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Files in the ATAP/LDaCA Binder template and their purposes")
+```
+
+## 3.3 — Configure `install.R` {-}
+
+Open `install.R` and list every R package your notebook requires. This file is executed by Binder during the Docker image build — every package listed here will be available when a user launches your notebook.
+
+```{r install_r_full, eval=FALSE}
+# install.R — Binder executes this when building the environment
+
+# Core data manipulation and visualisation
+install.packages("tidyverse")
+install.packages("ggplot2")
+
+# Text analysis
 install.packages("tidytext")
+install.packages("quanteda")
+install.packages("quanteda.textstats")
+install.packages("quanteda.textplots")
+
+# Tables (use knitr::kable in notebooks, not flextable)
+install.packages("knitr")
+install.packages("kableExtra")
+
+# Any other packages your notebook uses
+install.packages("readxl")
+install.packages("scales")
 ```
 
+::: {.callout-warning}
+## Keep `install.R` Minimal
 
-Upload your .ipynb notebook file and any required data files using Upload files.
+Every package in `install.R` increases the Docker build time. Only list packages that are actually called in your notebook. A leaner `install.R` means faster Binder launch times for your users.
+:::
 
-If you need to create subfolders, upload a dummy file and then replace it.
+## 3.4 — Configure `runtime.txt` {-}
 
-# Step 4: Launch the Notebook via Binder {-}
-
-Once all files are uploaded: Navigate to this URL format to launch your interactive notebook:
-
-https://mybinder.org/v2/gh/<USERNAME>/<REPO>/main?urlpath=lab/tree/<NOTEBOOK>.ipynb
-
-Replace:
-
-+ <USERNAME> with your GitHub username
-
-+ <REPO> with the repository name
-
-+ <NOTEBOOK> with the filename of your notebook
-
-You can now share this link with collaborators or students.
-
-Alternatively, you can upload your .ipynb file to Google Colab, but be aware that Colab sessions may disconnect for long-running or memory-intensive tasks.
-
-# Notes on First Launch {-}
-
-The first launch may take 5–60 minutes depending on the number of dependencies.
-
-Simpler notebooks load faster but still need time to build the Docker image.
-
-Once initialized, subsequent launches will be much faster.
-
-
-# Citation & Session Info {-}
-
-Schweinberger, Martin. 2025. *Creating Interactive (Jupyter) Notebooks*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/jupyter/jupyter.html (Version 2025.08.05).
+The `runtime.txt` file pins the R version and CRAN snapshot date, ensuring reproducibility:
 
 ```
-@manual{schweinberger2025notebooks,
-  author = {Schweinberger, Martin},
-  title = {Creating Interactive (Jupyter) Notebooks},
-  note = {tutorials/jupyter/jupyter.html},
-  year = {2025},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.08.05}
+r-4.3-2024-01-01
+```
+
+The format is `r-MAJOR.MINOR-YYYY-MM-DD`. Binder uses the [Rocker Project](https://rocker-project.org/) to build the R environment and the MRAN/CRAN snapshot for the specified date. Update the date to the date on which you tested your notebook to ensure package versions match.
+
+## 3.5 — Upload Your Notebook File {-}
+
+Upload your `.ipynb` file to the repository:
+
+1. On your repository homepage, click **Add file** → **Upload files**
+2. Drag and drop your `.ipynb` file or click **choose your files**
+3. Write a commit message (e.g. `Add frequency analysis notebook`)
+4. Click **Commit changes**
+
+Delete the placeholder `.ipynb` file that came with the template.
+
+## 3.6 — Upload Data Files {-}
+
+If your notebook loads data from files, those files must be in the repository:
+
+1. Click **Add file** → **Upload files**
+2. Upload your data files
+3. Commit the changes
+
+For organisation, place data files in a `data/` subfolder. To create a subfolder on GitHub (which does not allow creating empty folders directly):
+
+1. Click **Add file** → **Create new file**
+2. In the filename box, type `data/placeholder.txt`
+3. Add a single line of content (e.g. `placeholder`)
+4. Commit the file
+5. Now upload your real data files to `data/` and delete `placeholder.txt`
+
+::: {.callout-warning}
+## GitHub File Size Limits
+
+GitHub has a 100 MB limit per file and a 1 GB soft limit per repository. If your data files are large:
+
+- For files 50–100 MB: use Git LFS (`git lfs track "*.csv"`)
+- For files over 100 MB: host externally (e.g. Figshare, OSF, Zenodo) and load via URL in your notebook
+- Consider providing a smaller sample dataset in the repo for the interactive notebook, with a pointer to the full dataset
+
+```r
+# Loading data from a URL in your notebook
+corpus <- read.csv("https://zenodo.org/record/XXXXX/files/corpus.csv")
+```
+:::
+
+## 3.7 — Update the README {-}
+
+Replace the template README with a description of your project. A good notebook README includes:
+
+- A brief description of what the notebook does
+- The Binder launch badge (see §3.8)
+- A link to the associated paper or tutorial (if any)
+- A citation
+- A note crediting the ATAP/LDaCA template
+
+```markdown
+# Frequency Analysis of the BNC
+
+This repository contains an interactive Jupyter notebook for corpus frequency 
+analysis, companion to Schweinberger (2026).
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)
+
+## How to use
+
+Click the Binder badge above to launch the notebook in your browser.
+No installation required.
+
+## Citation
+
+Schweinberger, Martin. 2026. ...
+
+---
+*This repo was generated from the [ATAP/LDaCA r-binder-template](https://github.com/Australian-Text-Analytics-Platform/r-binder-template).*
+```
+
+## 3.8 — Add a Binder Launch Badge {-}
+
+A Binder badge is a clickable button that launches your notebook directly. Add it to your README and to any associated tutorial or paper.
+
+The badge URL format is:
+
+```
+https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb
+```
+
+The Markdown for the badge image:
+
+```markdown
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)
+```
+
+Replace `YOUR-USERNAME`, `YOUR-REPO`, and `my_analysis_cb.ipynb` with your actual values.
+
+---
+
+# Step 4: Launch and Share via Binder {#step4}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to trigger the first Binder build; what happens during the build process; how to share the link; and what users experience when they open the notebook
+:::
+
+## 4.1 — Trigger the First Build {-}
+
+Navigate to the Binder URL in your browser:
+
+```
+https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb
+```
+
+Binder will show a build log as it:
+
+1. Pulls your repository
+2. Detects `install.R` and `runtime.txt`
+3. Builds a Docker image (this is the slow step — see §4.2)
+4. Launches JupyterLab and opens your notebook
+
+::: {.callout-tip}
+## Build Time Expectations
+
+| Environment complexity | Approximate first build time |
+|---|---|
+| 3–5 packages | 5–15 minutes |
+| 10–20 packages | 15–30 minutes |
+| 30+ packages (e.g. tidyverse + quanteda) | 30–60 minutes |
+
+Subsequent launches use the cached image and take 30–60 seconds. If you push a new commit to the repository, Binder rebuilds the image — allow extra time after updates.
+:::
+
+## 4.2 — What Users See {-}
+
+When a user clicks your Binder link:
+
+1. They see the Binder loading page with a progress bar and build log
+2. JupyterLab opens in their browser with your notebook loaded
+3. The notebook is shown with all cells visible but not yet executed
+4. Users click **Run → Run All Cells** (or **Shift+Enter** through cells individually) to execute the analysis
+5. Code output, plots, and tables appear inline below each cell
+6. Users can modify code cells and re-execute them to explore the data
+
+Remind users in your notebook's introduction that sessions are temporary — any changes they make will be lost unless they download the notebook (**File → Download**).
+
+## 4.3 — Sharing the Link {-}
+
+Once the notebook is live, share the Binder URL through:
+
+- A badge in your GitHub README (see §3.8)
+- A link in your journal paper or preprint (in the Data Availability or Supplementary Materials section)
+- A link in your LADAL tutorial or course materials
+- A QR code for presentations and conference posters
+
+---
+
+# Google Colab as an Alternative {#colab}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What Google Colab is; how it differs from Binder; how to upload and run your R notebook on Colab; and when to prefer Colab over Binder
+:::
+
+## What Is Google Colab? {-}
+
+**Google Colaboratory** (Colab) is Google's hosted Jupyter notebook service. Like Binder, it allows anyone to run a notebook in a browser without local installation. Unlike Binder, it:
+
+- Is backed by Google's infrastructure (more reliable uptime, faster builds)
+- Provides free GPU and TPU access for machine learning tasks
+- Requires a Google account to use
+- Does not automatically install packages from a `install.R` file — packages must be installed inside the notebook
+- Sessions disconnect after 12 hours of activity or 90 minutes of inactivity
+- Stores notebooks in Google Drive, not GitHub (though it can open notebooks from GitHub)
+
+```{r colab_vs_binder, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Feature = c(
+    "Requires user account",
+    "Build time",
+    "Session duration",
+    "R support",
+    "Package installation",
+    "Data persistence",
+    "GPU access",
+    "Integration with GitHub",
+    "Offline access",
+    "Best for"
+  ),
+  Binder = c(
+    "No — anyone with the link can use it",
+    "5–60 min first build; 30–60 s after",
+    "Up to 6 hours; resets on close",
+    "Yes — via Rocker R images",
+    "Via `install.R` (pre-installed at build time)",
+    "No — session resets on close",
+    "No",
+    "Yes — launches directly from a GitHub repo",
+    "No",
+    "Public notebooks with pre-installed R packages"
+  ),
+  `Google Colab` = c(
+    "Yes — Google account required",
+    "~1 minute (always fresh)",
+    "12 hours active; 90 min idle",
+    "Limited — Python-first; R via rpy2 or IRkernel",
+    "Must `install.packages()` at session start",
+    "Via Google Drive (manual save)",
+    "Yes — free T4 GPU",
+    "Yes — can open .ipynb from GitHub",
+    "No",
+    "Python-heavy ML; users with Google accounts"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Binder vs. Google Colab: feature comparison")
+```
+
+## Setting Up R in Colab {-}
+
+Colab is Python-first. To run R code, you need to switch the runtime to an R kernel:
+
+1. Open [colab.research.google.com](https://colab.research.google.com)
+2. Go to **Runtime → Change runtime type**
+3. Set **Runtime type** to **R**
+4. Click **Save**
+
+Now add a code cell at the top of the notebook that installs all required packages (since Colab does not read `install.R`):
+
+```{r colab_install, eval=FALSE}
+# Run this cell first — installs all required packages
+install.packages("tidyverse")
+install.packages("tidytext")
+install.packages("quanteda")
+install.packages("kableExtra")
+```
+
+::: {.callout-warning}
+## Package Installation on Every Session
+
+Unlike Binder (which pre-installs packages in the Docker image), Colab installs packages from scratch every session. For notebooks with many packages, this can take several minutes at the start of each session. Add a note to your notebook introduction explaining this.
+:::
+
+## Opening a GitHub Notebook in Colab {-}
+
+To open a `.ipynb` file from GitHub directly in Colab:
+
+1. Go to [colab.research.google.com](https://colab.research.google.com)
+2. Click **File → Open notebook**
+3. Select the **GitHub** tab
+4. Enter your GitHub username or repository URL
+5. Select your `.ipynb` file from the list
+
+Or construct a direct URL:
+
+```
+https://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb
+```
+
+Add a Colab badge to your README alongside the Binder badge:
+
+```markdown
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb)
+```
+
+## When to Use Colab vs. Binder {-}
+
+Use **Binder** when: your audience may not have a Google account; you want packages pre-installed without a setup cell; your notebook is R-first; or you want tight integration with a GitHub repository.
+
+Use **Colab** when: your audience is comfortable with Google accounts; you need longer session times; you need GPU access; or your notebook also includes Python code.
+
+For maximum accessibility, provide **both** links and let users choose.
+
+---
+
+# Best Practices for Notebook Design {#bestpractices}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Design principles for creating notebooks that are clear, reproducible, and pleasant to use for a reader who is running the code interactively
+:::
+
+## Structure and Narrative {-}
+
+A well-designed interactive notebook tells a story. Every code cell should be preceded by a Markdown cell explaining what the code does and why. Think of the notebook as a document with executable examples — not a script with comments.
+
+```{r narrative_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Principle = c(
+    "One action per cell",
+    "Explain before you code",
+    "Explain after outputs",
+    "Use headings consistently",
+    "Keep cells short",
+    "Never assume prior cells ran",
+    "Always run top-to-bottom before sharing",
+    "Add a 'Run all cells' instruction"
+  ),
+  Detail = c(
+    "Each code cell should do one clearly defined thing. Split large cells into smaller steps.",
+    "Always precede a code cell with a Markdown cell that explains what it does and what to expect.",
+    "After a complex output (plot, table, model summary), add a Markdown cell interpreting the result.",
+    "Use `#` for the notebook title, `##` for major sections, `###` for subsections — consistently.",
+    "Aim for code cells of 5–15 lines. Long cells are harder to understand and harder to debug.",
+    "Each section should be independently runnable, or at least have clear dependencies documented.",
+    "Use Kernel → Restart & Run All to verify the notebook runs cleanly from a fresh state.",
+    "Tell readers in the introduction: click Run → Run All Cells or work through cells with Shift+Enter."
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Best practices for notebook narrative and structure")
+```
+
+## Reproducibility {-}
+
+```{r repro_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Practice = c(
+    "Set a random seed",
+    "Pin package versions in `install.R`",
+    "Pin the R version in `runtime.txt`",
+    "Use relative file paths",
+    "Include `sessionInfo()` at the end",
+    "Commit data files to the repo",
+    "Clear all outputs before committing",
+    "Test in a fresh Binder session"
+  ),
+  Why = c(
+    "Any random process (sampling, bootstrapping, k-means) must use `set.seed()` for reproducibility",
+    "Package updates can silently change function behaviour and break notebooks",
+    "R version affects package compatibility and default behaviour",
+    "Absolute paths break on any machine other than the original",
+    "Allows readers to see exactly which package versions produced the results",
+    "The notebook must be self-contained — no missing files",
+    "Outputs in `.ipynb` JSON inflate file size and create noisy diffs",
+    "Verifies the notebook runs correctly in the exact environment users will encounter"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Reproducibility best practices for Jupyter notebooks")
+```
+
+## Accessibility {-}
+
+- Provide **alt text** for all figures using Markdown image syntax: `![Description of the figure](figure.png)`
+- Use **colour-blind-safe palettes** — e.g. `scale_color_viridis_d()` in ggplot2
+- Keep the notebook **self-contained** — every piece of information a user needs should be in the notebook or clearly linked
+- Add **expected output descriptions** — tell readers what a correct output looks like so they can verify their execution produced the right result
+
+## Cell Output Management {-}
+
+Before sharing or committing a notebook, clear all outputs:
+
+- In JupyterLab: **Edit → Clear All Outputs**
+- This keeps the `.ipynb` file small and the Git diff clean
+- Users will execute the cells themselves and see fresh outputs
+
+Exception: if your notebook takes a long time to run (e.g. large models), you may want to leave outputs in place so readers can see the expected results without running everything.
+
+---
+
+# Troubleshooting {#troubleshoot}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to diagnose and fix the most common problems encountered at each stage of the notebook creation and deployment workflow
+:::
+
+```{r troubleshoot_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Problem = c(
+    "Binder build fails immediately with a config error",
+    "Binder build takes over 60 minutes",
+    "Binder launches but notebook gives 'package not found' error",
+    "Binder launches but data file not found",
+    "Plots do not display in Binder",
+    "`rmd2jupyter` conversion produces garbled Markdown",
+    "YAML content appears at the top of the converted notebook",
+    "Stray `## ----` lines appear in code cells",
+    "Colab disconnects before analysis finishes",
+    "`.ipynb` file is very large (>10 MB)",
+    "GitHub push fails — file too large",
+    "Session resets and all work is lost on Binder",
+    "`flextable` output shows raw HTML in notebook"
+  ),
+  Cause = c(
+    "`runtime.txt` format is wrong, or `install.R` has a syntax error",
+    "Too many packages, or a package with many compiled dependencies (e.g. `rJava`)",
+    "Package is missing from `install.R`",
+    "Data file was not committed to the repository, or path is wrong",
+    "Some graphics devices are not available in all Jupyter R kernels",
+    "The source `.Rmd` used unusual chunk option syntax that confused the parser",
+    "The YAML block (including `---` delimiters) was not fully removed",
+    "knitr section labels (`## ---- label`) were not cleaned from the source",
+    "Long-running analysis exceeds Colab's 90-minute idle timeout",
+    "Notebook was committed with all outputs saved in the JSON",
+    "A data file exceeds GitHub's 100 MB file size limit",
+    "Binder sessions are always temporary — this is by design",
+    "`flextable` relies on HTML rendering context not available in all Jupyter views"
+  ),
+  Fix = c(
+    "Check `runtime.txt` format is exactly `r-4.3-YYYY-MM-DD`; test `install.R` locally with `source('install.R')`",
+    "Reduce packages in `install.R` to only what is needed; split into multiple lighter notebooks",
+    "Add the missing package to `install.R`, commit, and wait for Binder to rebuild",
+    "Commit the data file to the repo; verify the path in the notebook matches the repo structure",
+    "Add `options(bitmapType='cairo')` at the top of your notebook's setup cell",
+    "Clean up the `_cb.Rmd` file manually; remove non-standard options before converting",
+    "Re-open `_cb.Rmd` and delete everything between and including the `---` delimiters",
+    "Remove all `## ----` knitr section label lines from `_cb.Rmd` before converting",
+    "Break long analyses into shorter notebooks; add intermediate save points with `saveRDS()`",
+    "In JupyterLab, Edit → Clear All Outputs, save, then commit",
+    "Use Git LFS for files 50–100 MB; host files over 100 MB on Zenodo/OSF and load via URL",
+    "Tell users in the intro to download modified notebooks via File → Download before closing",
+    "Replace `flextable()` with `knitr::kable()` in the `_cb.Rmd` before conversion"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 9.5) |>
+  set_caption("Common problems and solutions in the Jupyter notebook creation workflow")
+```
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Creating Interactive Jupyter Notebooks*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/jupyter/jupyter.html (Version 2026.03.11).
+
+```
+@manual{schweinberger2026jupyter,
+  author       = {Schweinberger, Martin},
+  title        = {Creating Interactive Jupyter Notebooks},
+  note         = {https://ladal.edu.au/tutorials/jupyter/jupyter.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.03.11}
 }
 ```
 
-
-
-```{r fin}
+```{r session_info}
 sessionInfo()
 ```
 
+::: {.callout-note}
+## AI Transparency Statement
 
-***
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude substantially revised, restructured, and expanded an existing shorter LADAL tutorial on creating Jupyter notebooks. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
 
-[Back to top](#introduction)
+---
 
-[Back to HOME](/)
+[Back to top](#intro)
 
-***
+[Back to LADAL home](/)
 
+---
 
-
+# References {-}

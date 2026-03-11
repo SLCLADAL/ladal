@@ -6984,5 +6984,943 @@
     "title": "R Markdown and Quarto: Creating Reproducible Documents",
     "section": "Use Version Control",
     "text": "Use Version Control\nStore your .Rmd/.qmd, .bib, data files, and renv.lock in a Git repository. This makes every change traceable and enables collaboration via GitHub or GitLab.\n\n\nPracticeWhyInclude `sessionInfo()`Records exact package versions usedSet `set.seed()`Ensures random results are reproducibleUse `here::here()` pathsFile paths work on any machineUse `renv` for package managementPins package versions for exact reproducibilityUse version control (Git)Tracks changes; enables collaborationUse `freeze: auto` in QuartoAvoids re-running unchanged code on project rebuildCache expensive chunks with `cache: true`Speeds up rendering for expensive computationsUse `embed-resources: true` for HTMLSelf-contained file — no broken relative linksWrite `echo: true` for analytical chunksReaders can verify and reproduce the analysisDocument all data sourcesProvenance of data is clear and traceable"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#required-software-and-accounts",
+    "href": "tutorials/bookdown/publish.html#required-software-and-accounts",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Required Software and Accounts",
+    "text": "Required Software and Accounts\nBefore starting either workflow you need:\n\nA free GitHub account — create one at github.com\nGit installed on your machine — download from git-scm.com\nR (version 4.1 or later) and RStudio (version 2022.07 or later, which bundles Quarto)\nThe bookdown package (for Part I) and/or a current Quarto installation (for Part II)\n\nCheck your RStudio version and update if needed: Help → Check for Updates."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#installing-required-packages",
+    "href": "tutorials/bookdown/publish.html#installing-required-packages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Installing Required Packages",
+    "text": "Installing Required Packages\n\n\nCode\ninstall.packages(\"bookdown\")   # for Part I\ninstall.packages(\"usethis\")    # for GitHub PAT setup\ninstall.packages(\"gitcreds\")   # for storing PAT credentials\n\n\nQuarto is bundled with RStudio 2022.07+. Verify it is available:\n\n\nCode\n# Should return the Quarto version string\nsystem(\"quarto --version\")"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#configuring-git",
+    "href": "tutorials/bookdown/publish.html#configuring-git",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Configuring Git",
+    "text": "Configuring Git\nIf this is your first time using Git on this machine, tell Git your name and email. These appear in your commit history:\n\n\nCode\n# Run once — uses the usethis package\nusethis::use_git_config(\n  user.name  = \"Your Name\",\n  user.email = \"your.email@example.com\"\n)"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#github-personal-access-token-pat",
+    "href": "tutorials/bookdown/publish.html#github-personal-access-token-pat",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "GitHub Personal Access Token (PAT)",
+    "text": "GitHub Personal Access Token (PAT)\n\n\n\n\n\n\nSection Overview\n\n\n\nWhat you will learn: What a GitHub PAT is; why you need one; and how to create and store it so RStudio can push to GitHub without a password prompt\n\n\nGitHub no longer accepts your account password for Git operations. Instead, you authenticate with a Personal Access Token (PAT) — a long random string that acts like a password but can be scoped and revoked independently.\n\nStep 1 — Create the Token on GitHub\nThe easiest way is to let usethis open the GitHub token creation page for you:\n\n\nCode\nusethis::create_github_token()\n\n\nThis opens the GitHub New personal access token page in your browser with sensible scopes pre-selected (repo, workflow, gist, user). Give the token a descriptive name (e.g. rstudio-laptop-2026), set an expiry (90 days is a reasonable default), and click Generate token.\n\n\n\n\n\n\nCopy Your Token Immediately\n\n\n\nGitHub shows the token only once. Copy it to your clipboard now — you cannot retrieve it again. If you lose it you must generate a new one.\n\n\n\n\nStep 2 — Store the Token in RStudio\nPaste the token into R using gitcreds:\n\n\nCode\ngitcreds::gitcreds_set()\n# Paste your token at the prompt and press Enter\n\n\ngitcreds stores the token in your system credential manager (Keychain on macOS, Credential Manager on Windows, libsecret on Linux), so you will not need to re-enter it every session.\n\n\nStep 3 — Verify the Token Works\n\n\nCode\nusethis::gh_token_help()\n# Should report: \"GitHub personal access token for 'https://github.com': &lt;discovered&gt;\"\n\n\n\n\n\n\n\n\nRenewing an Expired Token\n\n\n\nPATs expire. When a push fails with a 401 error, run gitcreds::gitcreds_set() again, paste the new token, and push again. Generate a new token at github.com/settings/tokens."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#what-is-bookdown",
+    "href": "tutorials/bookdown/publish.html#what-is-bookdown",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "What Is Bookdown?",
+    "text": "What Is Bookdown?\nbookdown (xie2016bookdown?) is an R package that extends R Markdown to produce long-form documents — books, theses, course notes, and technical reports — with features that single-document R Markdown lacks: numbered cross-referenceable figures and tables, multi-chapter structure, PDF and EPUB output alongside HTML, and a polished GitBook-style HTML interface with a sidebar navigation, search, and font size controls.\nA bookdown project is a folder of .Rmd files, each representing a chapter, plus a small set of configuration files that control rendering. The rendered output is a set of HTML files that can be hosted anywhere — including GitHub Pages for free.\n\n\nFeatureBookdownQuarto WebsiteSource files`.Rmd` files (one per chapter)`.qmd` files (one per page)Output formatGitBook HTML, PDF (LaTeX), EPUB, WordHTML website (multi-page)NavigationLeft sidebar with chapter treeTop navbar + optional sidebarCross-referencesBuilt-in: `\\@ref(fig:label)`, `\\@ref(tab:label)`Built-in: `@fig-`, `@tbl-`, `@sec-`PDF outputYes — via LaTeX/TinyTeXNo — separate PDF render neededSearchBuilt-in full-text searchVia Algolia or manual setupChapter numberingAuto-numbered chapters and sectionsOptional — not automaticConfig files`_bookdown.yml`, `_output.yml`, `index.Rmd``_quarto.yml`R Markdown compatibleYes — native formatYes — also supports `.Rmd`Quarto compatibleNo — `.Rmd` onlyYes — native formatMaturityMature, stable, widely usedModern, actively developed"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-1-create-your-repository-from-the-template",
+    "href": "tutorials/bookdown/publish.html#step-1-create-your-repository-from-the-template",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 1 — Create Your Repository from the Template",
+    "text": "Step 1 — Create Your Repository from the Template\nThe fastest way to start a bookdown project is to use the jtr13 bookdown template, which pre-configures GitHub Pages deployment.\n\nGo to github.com/jtr13/bookdown-template\nClick the green Use this template button → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork\n\n\n\nAlways use Use this template, never Fork. Forking creates a copy that is linked to the original repository in ways that complicate independent development. The template option creates a clean, independent copy under your account where you choose the name.\n\n\n\nChoose a descriptive repository name based on your content — e.g. corpus-analysis-notes, phonetics-textbook, or ladal-tutorial. This name will appear in your site’s URL.\nLeave the repository set to Public. GitHub Pages is only available for free on public repositories (or paid GitHub accounts).\nClick Create repository."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-2-configure-github-pages",
+    "href": "tutorials/bookdown/publish.html#step-2-configure-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 2 — Configure GitHub Pages",
+    "text": "Step 2 — Configure GitHub Pages\nYour new repository is now under your account. Configure Pages so GitHub serves the rendered HTML:\n\nOn your repository’s home page, click Settings (top tab)\nClick Pages in the left sidebar\nUnder Build and deployment:\n\nSet Source to Deploy from a branch\nSet Branch to main and folder to /docs\nClick Save\n\nA box will appear above the Build and Deployment section showing your site’s URL — it will be https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/. Copy this URL.\nGo back to your repository’s home page. Click the gear icon next to About (top right of the file list). Paste the URL into the Website field and click Save changes.\n\n\n\n\n\n\n\nPages Takes a Minute\n\n\n\nGitHub Pages may take 1–3 minutes to build and go live the first time. If the URL shows a 404, wait a minute and refresh. You can also check the build status under Actions on your repository."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-3-clone-the-repository-to-rstudio",
+    "href": "tutorials/bookdown/publish.html#step-3-clone-the-repository-to-rstudio",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 3 — Clone the Repository to RStudio",
+    "text": "Step 3 — Clone the Repository to RStudio\n\nOn your repository’s home page, click the green Code button\nMake sure HTTPS is selected and copy the URL — it looks like https://github.com/YOUR-USERNAME/YOUR-REPO.git\nIn RStudio: File → New Project → Version Control → Git\nPaste the URL into the Repository URL field. The Project directory name auto-fills with your repo name. Choose where to save it and click Create Project.\n\nRStudio clones the repository, opens the project, and shows the Git panel (top-right pane, Git tab)."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-4-configure-the-key-files",
+    "href": "tutorials/bookdown/publish.html#step-4-configure-the-key-files",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 4 — Configure the Key Files",
+    "text": "Step 4 — Configure the Key Files\nOpen the project in RStudio and edit these three files:\n\nindex.Rmd\nThis is the first page of your book (the preface or introduction). Edit the YAML header:\ntitle: \"Your Book Title\"\nauthor: \"Your Name\"\ndate: \"2026\"\ndescription: \"A short description of what this book covers.\"\nReplace the placeholder chapter content with your own introduction.\n\n\n_bookdown.yml\nThis file controls the book structure and the GitHub edit/view links. Replace the placeholders:\nbook_filename: \"my-book\"\nlanguage:\n  ui:\n    chapter_name: \"Chapter \"\ndelete_merged_file: true\nrepo: https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-REPO/blob/main/\nThe repo: field enables the edit (pencil) and view (eye) icons in the GitBook toolbar, which link each rendered page back to its source .Rmd file on GitHub.\n\n\n_output.yml\nThis controls the output format and toolbar:\nbookdown::gitbook:\n  css: style.css\n  config:\n    toc:\n      before: |\n        &lt;li&gt;&lt;a href=\"./\"&gt;YOUR BOOK SHORT TITLE&lt;/a&gt;&lt;/li&gt;\n      after: |\n        &lt;li&gt;&lt;a href=\"https://github.com/rstudio/bookdown\" target=\"blank\"&gt;\n        Published with bookdown&lt;/a&gt;&lt;/li&gt;\n    download: [\"pdf\", \"epub\"]\n    edit:\n      link: https://github.com/YOUR-USERNAME/YOUR-REPO/edit/main/%s\n      text: \"Edit\"\nReplace YOUR BOOK SHORT TITLE with a short version of your title. Leave the after: attribution line as-is."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-5-add-and-organise-chapters",
+    "href": "tutorials/bookdown/publish.html#step-5-add-and-organise-chapters",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 5 — Add and Organise Chapters",
+    "text": "Step 5 — Add and Organise Chapters\nEach chapter is a separate .Rmd file. Bookdown assembles them in alphabetical/numerical order by filename. The template includes 02-tears.Rmd and 03-race.Rmd as examples — replace or delete these and add your own.\nNaming convention: Use a two-digit prefix to control order:\nindex.Rmd          ← always first (Chapter 0 / Preface)\n01-introduction.Rmd\n02-data.Rmd\n03-methods.Rmd\n04-results.Rmd\n05-discussion.Rmd\nChapter structure: Each .Rmd file should start with a # heading (Chapter title) — this becomes the chapter heading in the sidebar. Sections within a chapter use ## and ###.\n# Introduction\n\nThis chapter introduces the corpus and research questions.\n\n## The Corpus\n\nThe corpus consists of...\n\n## Research Questions\n\nWe investigate three questions...\n\n\n\n\n\n\nControlling Chapter Order Explicitly\n\n\n\nInstead of relying on alphabetical order, you can list chapters explicitly in _bookdown.yml:\nrmd_files: [\"index.Rmd\", \"01-intro.Rmd\", \"02-data.Rmd\", \"03-results.Rmd\"]\nThis gives you full control and makes it easy to temporarily exclude a chapter."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-6-render-the-book-locally",
+    "href": "tutorials/bookdown/publish.html#step-6-render-the-book-locally",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 6 — Render the Book Locally",
+    "text": "Step 6 — Render the Book Locally\nInstall bookdown if you have not already:\n\n\nCode\ninstall.packages(\"bookdown\")\n\n\nRender the book:\n\n\nCode\nbookdown::render_book(\"index.Rmd\")\n\n\nOr click Build Book in the Build tab (same pane as Environment and History).\nPreview the result in your browser:\n\n\nCode\nbrowseURL(\"docs/index.html\")\n\n\nThe rendered HTML files are written to the docs/ folder. This is the folder GitHub Pages will serve.\n\n\n\n\n\n\nAlways Re-render Before Pushing\n\n\n\nGitHub Pages serves the pre-rendered HTML in docs/. If you edit .Rmd files and push without re-rendering, your live site will not reflect the changes. Always re-render, then commit and push."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-7-publish-to-github-pages",
+    "href": "tutorials/bookdown/publish.html#step-7-publish-to-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 7 — Publish to GitHub Pages",
+    "text": "Step 7 — Publish to GitHub Pages\nOnce the local preview looks good:\n\nIn the Git tab in RStudio, click Commit (or press Ctrl+Alt+M)\nCheck the box next to all changed files to Stage them\nWrite a short commit message describing what changed (e.g. Add introduction chapter)\nClick Commit, then Push\n\nWait 1–2 minutes, then visit your GitHub Pages URL. Your book is now live."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-8-updating-your-book",
+    "href": "tutorials/bookdown/publish.html#step-8-updating-your-book",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 8 — Updating Your Book",
+    "text": "Step 8 — Updating Your Book\nFor every subsequent update:\n\nEdit your .Rmd files in RStudio\nRe-render: bookdown::render_book(\"index.Rmd\") or Build Book\nReview in browser: browseURL(\"docs/index.html\")\nStage → Commit → Push in the Git tab"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#customising-appearance",
+    "href": "tutorials/bookdown/publish.html#customising-appearance",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Customising Appearance",
+    "text": "Customising Appearance\n\nCSS Styling\nEdit style.css in the project root to change colours, fonts, and spacing. For example, to change the sidebar background:\n.book .book-summary {\n  background: #2c3e50;\n}\n\n.book .book-summary ul.summary li a {\n  color: #ecf0f1;\n}\n\n\nOutput Options\nIn _output.yml, the bookdown::gitbook section accepts many options:\nbookdown::gitbook:\n  css: style.css\n  split_by: chapter          # one HTML file per chapter (default)\n  split_bib: true            # split bibliography by chapter\n  number_sections: true      # number chapters and sections\n  config:\n    toc:\n      collapse: section      # collapse subsections in sidebar by default\n      scroll_highlight: true\n    fontsettings:\n      theme: white\n      family: sans\n      size: 2\n    sharing:\n      github: yes\n      twitter: yes\n\n\nPDF Output\nTo add PDF download, ensure TinyTeX is installed:\n\n\nCode\ninstall.packages(\"tinytex\")\ntinytex::install_tinytex()\n\n\nThen add to _output.yml:\nbookdown::pdf_book:\n  includes:\n    in_header: preamble.tex\n  latex_engine: xelatex\n  citation_package: natbib\n  keep_tex: yes\nAnd list pdf in the download: config under bookdown::gitbook."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#bookdown-file-structure-reference",
+    "href": "tutorials/bookdown/publish.html#bookdown-file-structure-reference",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Bookdown File Structure Reference",
+    "text": "Bookdown File Structure Reference\n\n\nFilePurpose`index.Rmd`First page / preface. Must exist. Contains the main YAML header for the book.`01-chapter.Rmd`, `02-chapter.Rmd`, ...Chapter files — one per chapter. Assembled in alphabetical order (or explicit order in `_bookdown.yml`).`_bookdown.yml`Book-level config: filename, repo links, chapter order, language settings.`_output.yml`Output format config: GitBook options, CSS, toolbar, PDF/EPUB settings.`style.css`Custom CSS for appearance. Edit freely.`docs/`Rendered HTML output. Committed to Git and served by GitHub Pages. Do not edit manually.`.gitignore`Tells Git which files to ignore. The default ignores `.Rds` cache files and `.RData`.`preamble.tex`Optional LaTeX preamble for PDF output. Add custom LaTeX packages here."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#what-is-a-quarto-website",
+    "href": "tutorials/bookdown/publish.html#what-is-a-quarto-website",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "What Is a Quarto Website?",
+    "text": "What Is a Quarto Website?\nA Quarto website is a collection of .qmd pages linked by a shared navigation bar and a common _quarto.yml configuration file. Unlike bookdown, which produces a book-like structure with numbered chapters and a sidebar, a Quarto website produces a standard multi-page website with a top navigation bar and optional sidebars — closer to what you would expect from an academic portfolio, a course homepage, or a project documentation site.\nQuarto websites are rendered by the quarto render command (or the Render Website button in RStudio) and produce HTML in a docs/ folder that GitHub Pages can serve directly."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-1-create-your-repository-from-the-template-1",
+    "href": "tutorials/bookdown/publish.html#step-1-create-your-repository-from-the-template-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 1 — Create Your Repository from the Template",
+    "text": "Step 1 — Create Your Repository from the Template\n\nGo to github.com/jtr13/website-template\nClick Use this template → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork\n\n\n\nAs with bookdown, always use Use this template, not Fork. This gives you a clean independent repository with a name of your choosing.\n\n\n\nChoose a descriptive repository name — this will form part of your site URL\nLeave the repository Public and click Create repository"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-2-configure-github-pages-1",
+    "href": "tutorials/bookdown/publish.html#step-2-configure-github-pages-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 2 — Configure GitHub Pages",
+    "text": "Step 2 — Configure GitHub Pages\nThe steps are identical to the bookdown workflow:\n\nSettings → Pages\nSource: Deploy from a branch; Branch: main; Folder: /docs; Save\nCopy the URL that appears (format: https://YOUR-USERNAME.github.io/YOUR-REPO/)\nPaste it into the Website field in the About gear menu on your repo homepage\n\n\n\n\n\n\n\nThe .nojekyll File\n\n\n\nThe template includes a .nojekyll file in the root. This tells GitHub Pages not to process the site through Jekyll (GitHub’s default static site generator). Without this file, Quarto’s output directories that start with _ (like _site/) would be ignored by Jekyll, and your site would appear blank. The .nojekyll file is already present in the template — do not delete it."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-3-clone-the-repository-to-rstudio-1",
+    "href": "tutorials/bookdown/publish.html#step-3-clone-the-repository-to-rstudio-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 3 — Clone the Repository to RStudio",
+    "text": "Step 3 — Clone the Repository to RStudio\n\nClick the green Code button on your repository homepage → copy the HTTPS URL\nIn RStudio: File → New Project → Version Control → Git\nPaste the URL and click Create Project\n\nMake sure RStudio is up to date (Help → Check for Updates) so that Quarto is available."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-4-configure-_quarto.yml",
+    "href": "tutorials/bookdown/publish.html#step-4-configure-_quarto.yml",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 4 — Configure _quarto.yml",
+    "text": "Step 4 — Configure _quarto.yml\nThe _quarto.yml file controls everything about your website. Open it in RStudio and replace the placeholder values. The template’s default looks like this:\nproject:\n  type: website\n  output-dir: docs\n\nwebsite:\n  title: \"YOUR NAME\"\n  navbar:\n    left:\n      - href: index.qmd\n        text: Home\n      - href: projects.qmd\n        text: Projects\n\nformat:\n  html:\n    theme: cerulean\n    css: styles.css\n    toc: true\nA fully configured example for a linguistics course site:\nproject:\n  type: website\n  output-dir: docs\n\nwebsite:\n  title: \"LING3000: Corpus Linguistics\"\n  description: \"Course materials for LING3000 at the University of Queensland\"\n  favicon: img/favicon.ico\n  navbar:\n    background: primary\n    search: true\n    left:\n      - href: index.qmd\n        text: Home\n      - href: schedule.qmd\n        text: Schedule\n      - text: Tutorials\n        menu:\n          - href: tutorials/freq.qmd\n            text: Frequency Analysis\n          - href: tutorials/colloc.qmd\n            text: Collocations\n          - href: tutorials/kwic.qmd\n            text: KWIC\n      - href: resources.qmd\n        text: Resources\n      - href: about.qmd\n        text: About\n    right:\n      - icon: github\n        href: https://github.com/YOUR-USERNAME/YOUR-REPO\n  page-footer:\n    left: \"© 2026 Martin Schweinberger\"\n    right:\n      - icon: github\n        href: https://github.com/YOUR-USERNAME\n\nformat:\n  html:\n    theme: cosmo\n    toc: true\n    toc-depth: 3\n    code-fold: show\n    code-tools: true\n\nexecute:\n  freeze: auto\n  warning: false\n  message: false\n\n\nFieldEffect`project: type: website`Tells Quarto this is a website project (not a book or presentation)`project: output-dir: docs`Rendered HTML goes into `docs/` — the folder GitHub Pages serves`website: title`Site title shown in the navbar and browser tab`website: navbar: left`Left-aligned navbar links; supports `menu:` for dropdowns`website: navbar: right`Right-aligned items — icons (GitHub, Twitter) or links`website: navbar: search``true` adds a full-text search box to the navbar`website: page-footer`Footer content: left/right text, links, or icons`website: favicon`Path to a `.ico` file for the browser tab icon`format: html: theme`Bootstrap theme — see bootswatch.com for options`execute: freeze: auto`Only re-render `.qmd` files whose source code has changed`execute: warning/message`Suppress warnings and messages globally"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-5-edit-the-content-pages",
+    "href": "tutorials/bookdown/publish.html#step-5-edit-the-content-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 5 — Edit the Content Pages",
+    "text": "Step 5 — Edit the Content Pages\nThe template provides two starter pages:\nindex.qmd — the site homepage. Edit the YAML header and content:\ntitle: \"LING3000: Corpus Linguistics\"\nAdd your page content below the YAML. The homepage can include an introduction, a photo, links to key resources, or an announcements section.\nprojects.qmd — a second page. Rename it to match your content (e.g. schedule.qmd, tutorials.qmd, about.qmd) and update the reference in _quarto.yml.\nThe template also includes a img/ folder with a placeholder photo. Replace img/photo.jpg with your own image and reference it in index.qmd:\n![](img/photo.jpg){width=200px fig-align=\"left\"}"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-6-adding-new-pages",
+    "href": "tutorials/bookdown/publish.html#step-6-adding-new-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 6 — Adding New Pages",
+    "text": "Step 6 — Adding New Pages\nTo add a new page to your site:\n\nCreate a new .qmd file in the project root (or a subdirectory for organisation)\nGive it a YAML header with at minimum a title:\nAdd the file to _quarto.yml under navbar: left: (or as a dropdown menu item)\n\nExample — adding a Resources page:\n# In _quarto.yml, add to navbar: left:\n- href: resources.qmd\n  text: Resources\nThen create resources.qmd:\n---\ntitle: \"Resources\"\n---\n\n## Recommended Reading\n\n- Gries, Stefan Th. (2009). *Quantitative Corpus Linguistics with R*. Routledge.\n- Stefanowitsch, Anatol (2020). *Corpus Linguistics: A Guide to the Methodology*. LangSci Press.\n\n## Software\n\n- [LADAL Tutorials](https://ladal.edu.au)\n- [AntConc](https://www.laurenceanthony.net/software/antconc/)\n\nOrganising Pages into Subdirectories\nFor a large site with many pages, organise them into subdirectories:\nindex.qmd\nabout.qmd\ntutorials/\n  freq.qmd\n  colloc.qmd\n  kwic.qmd\ndata/\n  datasets.qmd\nReference them in _quarto.yml with the relative path:\n- text: Tutorials\n  menu:\n    - href: tutorials/freq.qmd\n      text: Frequency Analysis\n    - href: tutorials/colloc.qmd\n      text: Collocations\n\n\nSidebar Navigation\nFor tutorial-heavy sites, a sidebar listing all pages in a section is more readable than a navbar dropdown. Add a sidebar: section to _quarto.yml:\nwebsite:\n  sidebar:\n    style: docked\n    search: true\n    contents:\n      - section: \"Text Analysis\"\n        contents:\n          - tutorials/freq.qmd\n          - tutorials/colloc.qmd\n          - tutorials/kwic.qmd\n      - section: \"Phonetics\"\n        contents:\n          - tutorials/vowels.qmd\n          - tutorials/formants.qmd"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-7-choosing-a-theme",
+    "href": "tutorials/bookdown/publish.html#step-7-choosing-a-theme",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 7 — Choosing a Theme",
+    "text": "Step 7 — Choosing a Theme\nQuarto websites use Bootswatch themes. Browse the gallery and replace cerulean (the template default) with your preferred theme name in _quarto.yml:\nformat:\n  html:\n    theme: cosmo      # or: flatly, journal, lumen, sandstone, simplex, sketchy, united, yeti\n\n\nThemeCharactercosmoClean, modern — good general-purpose defaultflatlyFlat design, muted palette — professionaljournalBold typography, editorial feellumenLight and airy, high readabilitysandstoneStone tones, subtle texturesimplexMinimal, clean — good for technical docssketchyHand-drawn look — informal/creativeunitedOrange accent, warm tonesyetiFresh, sharp — modern academicceruleanBlue accent, clean — the template default"
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-8-render-the-website-locally",
+    "href": "tutorials/bookdown/publish.html#step-8-render-the-website-locally",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 8 — Render the Website Locally",
+    "text": "Step 8 — Render the Website Locally\nIn RStudio, click the Build tab → Render Website. Alternatively, run in the terminal:\nquarto render\nPreview the result:\n\n\nCode\nbrowseURL(\"docs/index.html\")\n\n\n\n\n\n\n\n\nLive Preview with quarto preview\n\n\n\nRun quarto preview in the terminal (not the R console) for a live-reloading preview server. The browser updates automatically every time you save a .qmd file — much faster than repeatedly clicking Render Website."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#step-9-publish-to-github-pages",
+    "href": "tutorials/bookdown/publish.html#step-9-publish-to-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 9 — Publish to GitHub Pages",
+    "text": "Step 9 — Publish to GitHub Pages\nOnce the local preview looks correct:\n\nStage all changed files in the Git tab\nWrite a commit message and click Commit\nClick Push\n\nWait 1–2 minutes and visit your GitHub Pages URL.\n\n\n\n\n\n\nCommit the docs/ Folder\n\n\n\nThe docs/ folder contains your rendered HTML. It must be committed and pushed to GitHub for the site to update. A common mistake is to push only the .qmd source files — the site will not change unless docs/ is also committed."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#quarto-website-file-structure-reference",
+    "href": "tutorials/bookdown/publish.html#quarto-website-file-structure-reference",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Quarto Website File Structure Reference",
+    "text": "Quarto Website File Structure Reference\n\n\nFilePurpose`_quarto.yml`Master config file — site title, navbar, theme, execute options. Edit carefully; indentation is significant.`index.qmd`Homepage — always required. Becomes `docs/index.html`.`projects.qmd` (or any `*.qmd`)Additional pages — create as many as needed and list them in `_quarto.yml`.`docs/`Rendered HTML output — committed to Git and served by GitHub Pages.`img/`Image folder — put your photos and figures here.`styles.css`Custom CSS for overriding theme styles.`.nojekyll`Prevents GitHub Pages from running Jekyll. Do not delete.`.gitignore`Files Git should ignore — typically `/.quarto/` and `*_cache/`."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#decision-guide",
+    "href": "tutorials/bookdown/publish.html#decision-guide",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Decision Guide",
+    "text": "Decision Guide\n\n\nYour situationRecommended toolReasonWriting a multi-chapter book, textbook, or thesisBookdownGitBook sidebar with chapter tree is ideal for long sequential contentBuilding a course homepage or project websiteQuarto websiteNavbar-based navigation suits independent pages without forced orderNeed numbered chapters and auto-numbered figures/tablesBookdownBookdown auto-numbers and cross-references chapters, figures, and tablesNeed PDF and EPUB output alongside HTMLBookdownBookdown has mature PDF/EPUB pipelines via LaTeX and PandocNeed a navbar with multiple independent pagesQuarto websiteQuarto's navbar and dropdown menus handle flat site structures cleanlyUsing Python alongside RQuarto websiteQuarto supports Python, Julia, and Observable JS nativelyMaintaining an existing `.Rmd` projectBookdown (stay in `.Rmd`)No need to migrate — bookdown is stable and fully maintainedStarting a new project from scratchQuarto websiteQuarto is the modern default with more active developmentNeed full-text searchEither (both support search)Bookdown has built-in search; Quarto needs `search: true` in YAMLWant the simplest possible setupQuarto website (one config file)`_quarto.yml` is a single file; bookdown needs three config files\n\n\n\n\n\n\n\n\nThe Short Answer\n\n\n\nUse bookdown if your content is a book (sequential chapters with a narrative arc, numbered sections, cross-referenced figures). Use a Quarto website if your content is a collection of independent pages, a course site, a portfolio, or a documentation hub. When in doubt and starting fresh, Quarto is the better long-term investment."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#the-update-cycle",
+    "href": "tutorials/bookdown/publish.html#the-update-cycle",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "The Update Cycle",
+    "text": "The Update Cycle\nFor both bookdown and Quarto websites, the update cycle is always the same four steps:\n\nEdit — make changes to your .Rmd or .qmd files in RStudio\nRender — rebuild the site locally (bookdown::render_book() or Render Website)\nReview — open docs/index.html in your browser and check the result\nPush — Stage → Commit → Push in the Git tab\n\nNever push without re-rendering. The live site reflects whatever HTML is in docs/ — not the source files."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#speeding-up-quarto-rebuilds-with-freeze",
+    "href": "tutorials/bookdown/publish.html#speeding-up-quarto-rebuilds-with-freeze",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Speeding Up Quarto Rebuilds with freeze",
+    "text": "Speeding Up Quarto Rebuilds with freeze\nFor large Quarto websites with many pages containing R code, re-rendering every page on every update is slow. The freeze: auto option caches each page’s executed output and only re-runs chunks whose code has changed:\nexecute:\n  freeze: auto\nQuarto stores cached output in a _freeze/ directory. Commit this directory to Git so collaborators can render the site without re-running all computations.\n\n\n\n\n\n\nWhen to Delete the Cache\n\n\n\nIf your data changes but your code does not, freeze: auto will not detect the change — it only tracks code modifications. Delete the relevant entry in _freeze/ (or the whole folder) and re-render when you need to force a full re-execution."
+  },
+  {
+    "objectID": "tutorials/bookdown/publish.html#collaborating-on-a-shared-repository",
+    "href": "tutorials/bookdown/publish.html#collaborating-on-a-shared-repository",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Collaborating on a Shared Repository",
+    "text": "Collaborating on a Shared Repository\nIf multiple people contribute to the same site:\n\nEach contributor clones the repository and works in their own branch\nPull Requests merge changes back to main\nThe maintainer renders and pushes docs/ after merging\nUse renv to ensure all contributors use the same package versions:\n\n\n\nCode\nrenv::init()       # initialise — run once\nrenv::snapshot()   # update lock file after installing packages\nrenv::restore()    # collaborator runs this to match your environment"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#the-core-idea",
+    "href": "tutorials/jupyter/jupyter_v2.html#the-core-idea",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "The Core Idea",
+    "text": "The Core Idea\nA Jupyter notebook (.ipynb) is a document format that interleaves three kinds of content in a single file:\n\nMarkdown cells — narrative prose, headings, lists, equations, and images\nCode cells — executable code in R, Python, Julia, or other languages\nOutput cells — the results of running a code cell: printed values, tables, plots, and error messages\n\nUnlike a rendered R Markdown document (which produces a static HTML or PDF file where the code has already been run), a Jupyter notebook is live: a reader with access to a running kernel can execute any cell, modify the code, and immediately see updated output — all in a browser, with no local software installation required.\nThis makes Jupyter notebooks particularly powerful for:\n\nTeaching — students can run and experiment with examples without installing anything\nReproducibility — reviewers and collaborators can re-run your analysis to verify results\nTransparency — code, data, and narrative are co-located and inseparable\nAccessibility — anyone with a browser can interact with your analysis via Binder or Google Colab"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#history-and-ecosystem",
+    "href": "tutorials/jupyter/jupyter_v2.html#history-and-ecosystem",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "History and Ecosystem",
+    "text": "History and Ecosystem\nJupyter grew out of the IPython project and was officially launched in 2014. The name is a portmanteau of Julia, Python, and R — the three languages it was designed to support. Today it supports over 100 programming languages via interchangeable kernels.\nThe .ipynb format is a JSON file that stores cells, their outputs, and kernel metadata. Jupyter notebooks can be opened in:\n\nJupyterLab — the current flagship web-based IDE (successor to the classic Jupyter Notebook interface)\nJupyter Notebook (classic) — the original browser interface\nVS Code — via the Jupyter extension\nGoogle Colab — Google’s hosted Jupyter environment\nBinder — a free cloud service that launches a live Jupyter environment from any GitHub repository\nGitHub — renders .ipynb files as static previews directly in the browser"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#why-use-jupyter-notebooks-for-linguistics-research",
+    "href": "tutorials/jupyter/jupyter_v2.html#why-use-jupyter-notebooks-for-linguistics-research",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Why Use Jupyter Notebooks for Linguistics Research?",
+    "text": "Why Use Jupyter Notebooks for Linguistics Research?\nLinguistics and language data research increasingly involves computational methods — corpus analysis, frequency profiling, collocational statistics, sentiment analysis, and machine learning. Sharing these analyses as interactive notebooks has several advantages over sharing static PDFs or R scripts:\n\nReaders can explore the data — change filter parameters, re-run models with different settings, and examine the data interactively\nNo installation barrier — Binder or Colab provides a full R environment in the cloud\nPeer review and replication — reviewers can re-run the exact analysis and verify every result\nTeaching materials — students receive not just the answer but an interactive environment where they can experiment\nOpen science — notebooks lower the barrier to sharing fully reproducible analyses alongside publications"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#why-preparation-matters",
+    "href": "tutorials/jupyter/jupyter_v2.html#why-preparation-matters",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Why Preparation Matters",
+    "text": "Why Preparation Matters\nA standard R Markdown document is designed for rendering to a static output — it has a YAML header that controls the output format, it may load packages silently, and it assumes that all code runs in sequence in a single non-interactive pass. A Jupyter notebook, by contrast, is designed for interactive cell-by-cell execution by a reader who may have no R experience. These different assumptions require some targeted adjustments before conversion."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#duplicate-your-source-file",
+    "href": "tutorials/jupyter/jupyter_v2.html#duplicate-your-source-file",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.1 — Duplicate Your Source File",
+    "text": "1.1 — Duplicate Your Source File\nNever modify your canonical .Rmd file directly. Instead, duplicate it and give the copy a name that signals it is the notebook version — the convention used by ATAP/LDaCA is the _cb suffix (for “code book”):\noriginal:   my_analysis.Rmd\nnotebook:   my_analysis_cb.Rmd\nAll subsequent preparation steps happen on my_analysis_cb.Rmd. Your original file remains unchanged."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#remove-the-yaml-header",
+    "href": "tutorials/jupyter/jupyter_v2.html#remove-the-yaml-header",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.2 — Remove the YAML Header",
+    "text": "1.2 — Remove the YAML Header\nJupyter notebooks do not use YAML headers. The YAML block at the top of your .Rmd file — everything between the --- delimiters — should be deleted entirely.\nBefore:\ntitle: \"Frequency Analysis of the BNC\"\nauthor: \"Martin Schweinberger\"\ndate: \"2026-03-11\"\noutput:\n  html_document:\n    toc: true\n    theme: cosmo\nAfter: — the YAML block is gone. Replace it with a first-level Markdown heading that becomes the notebook title:\n# Frequency Analysis of the BNC\n\n\n\n\n\n\nDo Not Leave a Blank YAML Block\n\n\n\nIf you delete the YAML content but leave the --- delimiters behind, rmd2jupyter will produce a malformed notebook. Delete the delimiters as well."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#replace-package-installation-code",
+    "href": "tutorials/jupyter/jupyter_v2.html#replace-package-installation-code",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.3 — Replace Package Installation Code",
+    "text": "1.3 — Replace Package Installation Code\nIn a standard .Rmd file, package installation is typically either absent (assuming the reader has already installed packages) or wrapped in eval=FALSE to prevent it from running during render. In a Jupyter notebook environment, package installation is handled differently — via a separate install.R file that Binder runs when building the Docker image.\nRemove any install.packages() calls from your notebook file. If you need to show installation code for pedagogical purposes, wrap it in a Markdown cell as a code block rather than an executable code cell.\nCreate a separate install.R file in your project directory listing all required packages:\n\n\nCode\n# install.R — this file is executed by Binder when building the environment\ninstall.packages(\"tidyverse\")\ninstall.packages(\"tidytext\")\ninstall.packages(\"flextable\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"quanteda.textstats\")\n\n\n\n\n\n\n\n\nPin Package Versions for Long-term Reproducibility\n\n\n\nBinder installs the latest CRAN versions by default. For long-term reproducibility, pin specific versions in install.R:\ndevtools::install_version(\"tidytext\", version = \"0.4.1\")\nThis prevents a future package update from breaking your notebook."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#adjust-chunk-options",
+    "href": "tutorials/jupyter/jupyter_v2.html#adjust-chunk-options",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.4 — Adjust Chunk Options",
+    "text": "1.4 — Adjust Chunk Options\nReview every code chunk and adjust its options for an interactive notebook context:\n\n\nIn .RmdIn notebookReason`echo=FALSE`Remove — readers should see the codeThe primary value of an interactive notebook is seeing the code`include=FALSE`Remove — all cells should be visibleHidden cells confuse readers who execute cells one by one`eval=FALSE`Remove (unless demo code) — all cells should be executableReaders expect every visible code cell to be runnable`message=FALSE, warning=FALSE`Consider keeping — suppresses distracting outputPackage load messages are still distracting in notebook output`fig.height=5, fig.width=7`Keep — still valid in Jupyter R kernelFigure dimensions apply equally in Jupyter`cache=TRUE`Remove — Binder does not persist cache between sessionsEach Binder session starts fresh; cached files do not exist"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#replace-flextable-with-knitrkable",
+    "href": "tutorials/jupyter/jupyter_v2.html#replace-flextable-with-knitrkable",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.5 — Replace flextable with knitr::kable",
+    "text": "1.5 — Replace flextable with knitr::kable\nflextable tables do not render correctly in Jupyter notebooks — the HTML output requires a browser context that Jupyter’s cell output model does not always provide. Replace flextable() calls with knitr::kable() for notebook versions:\n\n\nCode\n# In .Rmd (canonical source)\nresults |&gt;\n  flextable() |&gt;\n  theme_zebra() |&gt;\n  set_caption(\"Top 20 words by frequency\")\n\n# In _cb.Rmd (notebook version) — replace with:\nknitr::kable(results, caption = \"Top 20 words by frequency\")"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#check-data-file-paths",
+    "href": "tutorials/jupyter/jupyter_v2.html#check-data-file-paths",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.6 — Check Data File Paths",
+    "text": "1.6 — Check Data File Paths\nIn a Binder environment, all files are accessed relative to the repository root. Absolute paths (e.g. C:/Users/martin/data/corpus.csv) will break. Use relative paths:\n\n\nCode\n# Wrong — absolute path breaks in Binder\ncorpus &lt;- read.csv(\"C:/Users/martin/Documents/project/data/corpus.csv\")\n\n# Correct — relative path works in any environment\ncorpus &lt;- read.csv(\"data/corpus.csv\")\n\n\nEnsure all data files referenced in your notebook are committed to the GitHub repository under their referenced paths. If files are large (over 50 MB), consider hosting them externally and loading them via URL, or use Git LFS."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#add-a-narrative-introduction",
+    "href": "tutorials/jupyter/jupyter_v2.html#add-a-narrative-introduction",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.7 — Add a Narrative Introduction",
+    "text": "1.7 — Add a Narrative Introduction\nBecause notebook readers may be unfamiliar with your project, add a short Markdown cell at the top (after the title heading) explaining:\n\nWhat the notebook does\nWhat data it uses and where to find it\nWhat the reader needs to do to run it (usually just: execute cells from top to bottom)\nAny known limitations or version requirements\n\nA good template:\n# Frequency Analysis of the BNC\n\nThis notebook demonstrates corpus frequency analysis using the British National Corpus \n(BNC) baby sample. It is an interactive companion to the paper \n\"Frequency Profiles in L1 and L2 English\" (Schweinberger 2026).\n\n**To use this notebook:** Click on a code cell and press **Shift+Enter** to execute it.\nWork through the cells from top to bottom. All required packages are pre-installed.\n\n**Data:** The BNC baby sample is included in the `data/` folder of this repository.\n\n**Requirements:** This notebook uses R 4.3+ with the packages listed in `install.R`."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#preparation-checklist",
+    "href": "tutorials/jupyter/jupyter_v2.html#preparation-checklist",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.8 — Preparation Checklist",
+    "text": "1.8 — Preparation Checklist\n\n\nCheckDuplicated source file as `_cb.Rmd`YAML header (including `---` delimiters) removedFirst-level heading added as notebook title`install.packages()` calls removed from notebook`install.R` created with all required packages`echo=FALSE` and `include=FALSE` options removed`eval=FALSE` options removed (except demo code)`cache=TRUE` options removed`flextable()` replaced with `knitr::kable()`All file paths are relative (not absolute)All data files are in the repositoryNarrative introduction added at the top"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#install-rmd2jupyter",
+    "href": "tutorials/jupyter/jupyter_v2.html#install-rmd2jupyter",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.1 — Install rmd2jupyter",
+    "text": "2.1 — Install rmd2jupyter\nThe rmd2jupyter package is not on CRAN — install it directly from GitHub:\n\n\nCode\ninstall.packages(\"devtools\")\ndevtools::install_github(\"mkearney/rmd2jupyter\")\n\n\nLoad the package:\n\n\nCode\nlibrary(rmd2jupyter)"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#run-the-conversion",
+    "href": "tutorials/jupyter/jupyter_v2.html#run-the-conversion",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.2 — Run the Conversion",
+    "text": "2.2 — Run the Conversion\nPoint rmd2jupyter() at your prepared _cb.Rmd file:\n\n\nCode\nrmd2jupyter::rmd2jupyter(\"my_analysis_cb.Rmd\")\n\n\nThis reads the .Rmd file, maps each section to the appropriate Jupyter cell type (Markdown prose → Markdown cell; R code chunk → code cell), and writes a .ipynb JSON file with the same base name:\nmy_analysis_cb.Rmd  →  my_analysis_cb.ipynb\nThe .ipynb file is written to the same directory as the input file."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#what-the-conversion-does",
+    "href": "tutorials/jupyter/jupyter_v2.html#what-the-conversion-does",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.3 — What the Conversion Does",
+    "text": "2.3 — What the Conversion Does\n\n\nIn .RmdIn .ipynbMarkdown prose (between chunks)Markdown cellR code chunk (` ```{r} `)Code cell (R kernel)Inline R expression (`` `r expr` ``)Evaluated and result embedded in Markdown cellYAML headerIgnored / must be removed firstChunk options (`echo`, `eval`, etc.)Stripped — not carried into notebookHTML comments (`&lt;!-- ... --&gt;`)Stripped"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#verify-the-output",
+    "href": "tutorials/jupyter/jupyter_v2.html#verify-the-output",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.4 — Verify the Output",
+    "text": "2.4 — Verify the Output\nAfter conversion, open the .ipynb file to verify it looks correct. You can preview it directly on GitHub (which renders notebooks as static HTML), or install JupyterLab locally:\n# Install JupyterLab via pip (requires Python)\npip install jupyterlab\n\n# Launch JupyterLab in the project directory\njupyter lab\nThen open your .ipynb file in JupyterLab and do a quick sanity check:\n\nAll prose sections have become Markdown cells\nAll code chunks have become code cells\nNo YAML content appears at the top\nCode cell order matches the original chunk order\nThere are no orphaned chunk option comments (e.g. stray ## ---- lines)\n\n\n\n\n\n\n\nPreviewing on GitHub Without Installing JupyterLab\n\n\n\nPush the .ipynb file to your GitHub repository and navigate to it in the browser. GitHub renders .ipynb files as formatted, syntax-highlighted static previews — useful for a quick visual check without installing any extra software. Note that code outputs are only visible in the static preview if the notebook was saved with outputs; a freshly converted notebook will show code cells but no outputs until the notebook is executed."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#converting-quarto-documents",
+    "href": "tutorials/jupyter/jupyter_v2.html#converting-quarto-documents",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.5 — Converting Quarto Documents",
+    "text": "2.5 — Converting Quarto Documents\nIf your source file is a .qmd rather than .Rmd, the process is slightly different because rmd2jupyter does not directly support Quarto’s #| chunk option syntax. The recommended approach is to first convert the .qmd to .Rmd format:\n\n\nCode\n# Convert a Quarto document to R Markdown first\nquarto::quarto_render(\n  \"my_analysis.qmd\",\n  output_format = \"md\"\n)\n# Then manually clean up the output and convert to .ipynb\nrmd2jupyter::rmd2jupyter(\"my_analysis.md\")\n\n\nAlternatively, rename the .qmd to .Rmd and replace all #| chunk options with the equivalent {r label, option=value} header syntax before running rmd2jupyter."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#what-is-binder",
+    "href": "tutorials/jupyter/jupyter_v2.html#what-is-binder",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "What Is Binder?",
+    "text": "What Is Binder?\nBinder (mybinder.org) is a free, open service run by the Binder Project (a NumFOCUS project) that turns any GitHub repository into a live, executable Jupyter environment in the cloud. When someone clicks a Binder link, the service:\n\nReads your repository and finds the environment specification files (install.R, runtime.txt, etc.)\nBuilds a Docker image — a self-contained virtual machine image with R, all your packages, and all your files\nLaunches a JupyterLab session in the cloud and opens your notebook\nGives the user a live R kernel connected to that session\n\nThe first build can take several minutes (sometimes up to an hour for complex environments), but subsequent launches use a cached image and start in seconds. Sessions are temporary — all edits are lost when the session closes, but users can download their modified notebook.\n\n\n\n\n\n\nBinder Is Free and Requires No Account\n\n\n\nUsers do not need a GitHub account or any installed software to use your Binder link. Any browser works. Sessions have resource limits (typically 1–2 GB RAM) — keep memory usage modest and avoid analyses that require large datasets loaded entirely into memory."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#create-the-repository-from-the-atapldaca-template",
+    "href": "tutorials/jupyter/jupyter_v2.html#create-the-repository-from-the-atapldaca-template",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.1 — Create the Repository from the ATAP/LDaCA Template",
+    "text": "3.1 — Create the Repository from the ATAP/LDaCA Template\nThe Australian Text Analytics Platform (ATAP) and Language Data Commons of Australia (LDaCA) maintain a Binder-ready R template that pre-configures the Docker environment correctly for R notebooks.\n\nGo to the template repository: github.com/Australian-Text-Analytics-Platform/r-binder-template\nClick Use this template → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork the Template\n\n\n\nAlways use Use this template rather than Fork. Forking creates a copy that is linked to the original in ways that can complicate your independent development. The template option creates a clean, independent repository under your account.\n\n\n\nGive your repository a descriptive name (e.g. freq-analysis-notebook, bnc-collocations)\nLeave the repository Public — Binder only works with public repositories\nClick Create repository"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#understand-the-template-structure",
+    "href": "tutorials/jupyter/jupyter_v2.html#understand-the-template-structure",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.2 — Understand the Template Structure",
+    "text": "3.2 — Understand the Template Structure\nThe template contains several pre-configured files that you should understand before modifying:\n\n\nFilePurpose`install.R`R packages to install. Binder runs this script when building the image.`runtime.txt`Specifies the R version (e.g. `r-4.3-2024-01-01`). Controls which CRAN snapshot is used.`apt.txt`System-level dependencies (e.g. `libxml2-dev`). Most R packages do not need this.`.binder/`Alternative location for Binder config files. Usually not needed with the ATAP template.`README.md`Description of the repository. Replace placeholder content with your project description.`*.ipynb` (placeholder)Placeholder notebook. Replace with your own `.ipynb` file."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#configure-install.r",
+    "href": "tutorials/jupyter/jupyter_v2.html#configure-install.r",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.3 — Configure install.R",
+    "text": "3.3 — Configure install.R\nOpen install.R and list every R package your notebook requires. This file is executed by Binder during the Docker image build — every package listed here will be available when a user launches your notebook.\n\n\nCode\n# install.R — Binder executes this when building the environment\n\n# Core data manipulation and visualisation\ninstall.packages(\"tidyverse\")\ninstall.packages(\"ggplot2\")\n\n# Text analysis\ninstall.packages(\"tidytext\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"quanteda.textstats\")\ninstall.packages(\"quanteda.textplots\")\n\n# Tables (use knitr::kable in notebooks, not flextable)\ninstall.packages(\"knitr\")\ninstall.packages(\"kableExtra\")\n\n# Any other packages your notebook uses\ninstall.packages(\"readxl\")\ninstall.packages(\"scales\")\n\n\n\n\n\n\n\n\nKeep install.R Minimal\n\n\n\nEvery package in install.R increases the Docker build time. Only list packages that are actually called in your notebook. A leaner install.R means faster Binder launch times for your users."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#configure-runtime.txt",
+    "href": "tutorials/jupyter/jupyter_v2.html#configure-runtime.txt",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.4 — Configure runtime.txt",
+    "text": "3.4 — Configure runtime.txt\nThe runtime.txt file pins the R version and CRAN snapshot date, ensuring reproducibility:\nr-4.3-2024-01-01\nThe format is r-MAJOR.MINOR-YYYY-MM-DD. Binder uses the Rocker Project to build the R environment and the MRAN/CRAN snapshot for the specified date. Update the date to the date on which you tested your notebook to ensure package versions match."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#upload-your-notebook-file",
+    "href": "tutorials/jupyter/jupyter_v2.html#upload-your-notebook-file",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.5 — Upload Your Notebook File",
+    "text": "3.5 — Upload Your Notebook File\nUpload your .ipynb file to the repository:\n\nOn your repository homepage, click Add file → Upload files\nDrag and drop your .ipynb file or click choose your files\nWrite a commit message (e.g. Add frequency analysis notebook)\nClick Commit changes\n\nDelete the placeholder .ipynb file that came with the template."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#upload-data-files",
+    "href": "tutorials/jupyter/jupyter_v2.html#upload-data-files",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.6 — Upload Data Files",
+    "text": "3.6 — Upload Data Files\nIf your notebook loads data from files, those files must be in the repository:\n\nClick Add file → Upload files\nUpload your data files\nCommit the changes\n\nFor organisation, place data files in a data/ subfolder. To create a subfolder on GitHub (which does not allow creating empty folders directly):\n\nClick Add file → Create new file\nIn the filename box, type data/placeholder.txt\nAdd a single line of content (e.g. placeholder)\nCommit the file\nNow upload your real data files to data/ and delete placeholder.txt\n\n\n\n\n\n\n\nGitHub File Size Limits\n\n\n\nGitHub has a 100 MB limit per file and a 1 GB soft limit per repository. If your data files are large:\n\nFor files 50–100 MB: use Git LFS (git lfs track \"*.csv\")\nFor files over 100 MB: host externally (e.g. Figshare, OSF, Zenodo) and load via URL in your notebook\nConsider providing a smaller sample dataset in the repo for the interactive notebook, with a pointer to the full dataset\n\n# Loading data from a URL in your notebook\ncorpus &lt;- read.csv(\"https://zenodo.org/record/XXXXX/files/corpus.csv\")"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#update-the-readme",
+    "href": "tutorials/jupyter/jupyter_v2.html#update-the-readme",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.7 — Update the README",
+    "text": "3.7 — Update the README\nReplace the template README with a description of your project. A good notebook README includes:\n\nA brief description of what the notebook does\nThe Binder launch badge (see §3.8)\nA link to the associated paper or tutorial (if any)\nA citation\nA note crediting the ATAP/LDaCA template\n\n# Frequency Analysis of the BNC\n\nThis repository contains an interactive Jupyter notebook for corpus frequency \nanalysis, companion to Schweinberger (2026).\n\n[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)\n\n## How to use\n\nClick the Binder badge above to launch the notebook in your browser.\nNo installation required.\n\n## Citation\n\nSchweinberger, Martin. 2026. ...\n\n---\n*This repo was generated from the [ATAP/LDaCA r-binder-template](https://github.com/Australian-Text-Analytics-Platform/r-binder-template).*"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#add-a-binder-launch-badge",
+    "href": "tutorials/jupyter/jupyter_v2.html#add-a-binder-launch-badge",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.8 — Add a Binder Launch Badge",
+    "text": "3.8 — Add a Binder Launch Badge\nA Binder badge is a clickable button that launches your notebook directly. Add it to your README and to any associated tutorial or paper.\nThe badge URL format is:\nhttps://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb\nThe Markdown for the badge image:\n[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)\nReplace YOUR-USERNAME, YOUR-REPO, and my_analysis_cb.ipynb with your actual values."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#trigger-the-first-build",
+    "href": "tutorials/jupyter/jupyter_v2.html#trigger-the-first-build",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.1 — Trigger the First Build",
+    "text": "4.1 — Trigger the First Build\nNavigate to the Binder URL in your browser:\nhttps://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb\nBinder will show a build log as it:\n\nPulls your repository\nDetects install.R and runtime.txt\nBuilds a Docker image (this is the slow step — see §4.2)\nLaunches JupyterLab and opens your notebook\n\n\n\n\n\n\n\nBuild Time Expectations\n\n\n\n\n\n\nEnvironment complexity\nApproximate first build time\n\n\n\n\n3–5 packages\n5–15 minutes\n\n\n10–20 packages\n15–30 minutes\n\n\n30+ packages (e.g. tidyverse + quanteda)\n30–60 minutes\n\n\n\nSubsequent launches use the cached image and take 30–60 seconds. If you push a new commit to the repository, Binder rebuilds the image — allow extra time after updates."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#what-users-see",
+    "href": "tutorials/jupyter/jupyter_v2.html#what-users-see",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.2 — What Users See",
+    "text": "4.2 — What Users See\nWhen a user clicks your Binder link:\n\nThey see the Binder loading page with a progress bar and build log\nJupyterLab opens in their browser with your notebook loaded\nThe notebook is shown with all cells visible but not yet executed\nUsers click Run → Run All Cells (or Shift+Enter through cells individually) to execute the analysis\nCode output, plots, and tables appear inline below each cell\nUsers can modify code cells and re-execute them to explore the data\n\nRemind users in your notebook’s introduction that sessions are temporary — any changes they make will be lost unless they download the notebook (File → Download)."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#sharing-the-link",
+    "href": "tutorials/jupyter/jupyter_v2.html#sharing-the-link",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.3 — Sharing the Link",
+    "text": "4.3 — Sharing the Link\nOnce the notebook is live, share the Binder URL through:\n\nA badge in your GitHub README (see §3.8)\nA link in your journal paper or preprint (in the Data Availability or Supplementary Materials section)\nA link in your LADAL tutorial or course materials\nA QR code for presentations and conference posters"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#what-is-google-colab",
+    "href": "tutorials/jupyter/jupyter_v2.html#what-is-google-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "What Is Google Colab?",
+    "text": "What Is Google Colab?\nGoogle Colaboratory (Colab) is Google’s hosted Jupyter notebook service. Like Binder, it allows anyone to run a notebook in a browser without local installation. Unlike Binder, it:\n\nIs backed by Google’s infrastructure (more reliable uptime, faster builds)\nProvides free GPU and TPU access for machine learning tasks\nRequires a Google account to use\nDoes not automatically install packages from a install.R file — packages must be installed inside the notebook\nSessions disconnect after 12 hours of activity or 90 minutes of inactivity\nStores notebooks in Google Drive, not GitHub (though it can open notebooks from GitHub)\n\n\n\nFeatureBinderGoogle ColabRequires user accountNo — anyone with the link can use itYes — Google account requiredBuild time5–60 min first build; 30–60 s after~1 minute (always fresh)Session durationUp to 6 hours; resets on close12 hours active; 90 min idleR supportYes — via Rocker R imagesLimited — Python-first; R via rpy2 or IRkernelPackage installationVia `install.R` (pre-installed at build time)Must `install.packages()` at session startData persistenceNo — session resets on closeVia Google Drive (manual save)GPU accessNoYes — free T4 GPUIntegration with GitHubYes — launches directly from a GitHub repoYes — can open .ipynb from GitHubOffline accessNoNoBest forPublic notebooks with pre-installed R packagesPython-heavy ML; users with Google accounts"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#setting-up-r-in-colab",
+    "href": "tutorials/jupyter/jupyter_v2.html#setting-up-r-in-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Setting Up R in Colab",
+    "text": "Setting Up R in Colab\nColab is Python-first. To run R code, you need to switch the runtime to an R kernel:\n\nOpen colab.research.google.com\nGo to Runtime → Change runtime type\nSet Runtime type to R\nClick Save\n\nNow add a code cell at the top of the notebook that installs all required packages (since Colab does not read install.R):\n\n\nCode\n# Run this cell first — installs all required packages\ninstall.packages(\"tidyverse\")\ninstall.packages(\"tidytext\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"kableExtra\")\n\n\n\n\n\n\n\n\nPackage Installation on Every Session\n\n\n\nUnlike Binder (which pre-installs packages in the Docker image), Colab installs packages from scratch every session. For notebooks with many packages, this can take several minutes at the start of each session. Add a note to your notebook introduction explaining this."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#opening-a-github-notebook-in-colab",
+    "href": "tutorials/jupyter/jupyter_v2.html#opening-a-github-notebook-in-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Opening a GitHub Notebook in Colab",
+    "text": "Opening a GitHub Notebook in Colab\nTo open a .ipynb file from GitHub directly in Colab:\n\nGo to colab.research.google.com\nClick File → Open notebook\nSelect the GitHub tab\nEnter your GitHub username or repository URL\nSelect your .ipynb file from the list\n\nOr construct a direct URL:\nhttps://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb\nAdd a Colab badge to your README alongside the Binder badge:\n[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb)"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#when-to-use-colab-vs.-binder",
+    "href": "tutorials/jupyter/jupyter_v2.html#when-to-use-colab-vs.-binder",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "When to Use Colab vs. Binder",
+    "text": "When to Use Colab vs. Binder\nUse Binder when: your audience may not have a Google account; you want packages pre-installed without a setup cell; your notebook is R-first; or you want tight integration with a GitHub repository.\nUse Colab when: your audience is comfortable with Google accounts; you need longer session times; you need GPU access; or your notebook also includes Python code.\nFor maximum accessibility, provide both links and let users choose."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#structure-and-narrative",
+    "href": "tutorials/jupyter/jupyter_v2.html#structure-and-narrative",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Structure and Narrative",
+    "text": "Structure and Narrative\nA well-designed interactive notebook tells a story. Every code cell should be preceded by a Markdown cell explaining what the code does and why. Think of the notebook as a document with executable examples — not a script with comments.\n\n\nPrincipleDetailOne action per cellEach code cell should do one clearly defined thing. Split large cells into smaller steps.Explain before you codeAlways precede a code cell with a Markdown cell that explains what it does and what to expect.Explain after outputsAfter a complex output (plot, table, model summary), add a Markdown cell interpreting the result.Use headings consistentlyUse `#` for the notebook title, `##` for major sections, `###` for subsections — consistently.Keep cells shortAim for code cells of 5–15 lines. Long cells are harder to understand and harder to debug.Never assume prior cells ranEach section should be independently runnable, or at least have clear dependencies documented.Always run top-to-bottom before sharingUse Kernel → Restart & Run All to verify the notebook runs cleanly from a fresh state.Add a 'Run all cells' instructionTell readers in the introduction: click Run → Run All Cells or work through cells with Shift+Enter."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#reproducibility",
+    "href": "tutorials/jupyter/jupyter_v2.html#reproducibility",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Reproducibility",
+    "text": "Reproducibility\n\n\nPracticeWhySet a random seedAny random process (sampling, bootstrapping, k-means) must use `set.seed()` for reproducibilityPin package versions in `install.R`Package updates can silently change function behaviour and break notebooksPin the R version in `runtime.txt`R version affects package compatibility and default behaviourUse relative file pathsAbsolute paths break on any machine other than the originalInclude `sessionInfo()` at the endAllows readers to see exactly which package versions produced the resultsCommit data files to the repoThe notebook must be self-contained — no missing filesClear all outputs before committingOutputs in `.ipynb` JSON inflate file size and create noisy diffsTest in a fresh Binder sessionVerifies the notebook runs correctly in the exact environment users will encounter"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#accessibility",
+    "href": "tutorials/jupyter/jupyter_v2.html#accessibility",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Accessibility",
+    "text": "Accessibility\n\nProvide alt text for all figures using Markdown image syntax: ![Description of the figure](figure.png)\nUse colour-blind-safe palettes — e.g. scale_color_viridis_d() in ggplot2\nKeep the notebook self-contained — every piece of information a user needs should be in the notebook or clearly linked\nAdd expected output descriptions — tell readers what a correct output looks like so they can verify their execution produced the right result"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter_v2.html#cell-output-management",
+    "href": "tutorials/jupyter/jupyter_v2.html#cell-output-management",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Cell Output Management",
+    "text": "Cell Output Management\nBefore sharing or committing a notebook, clear all outputs:\n\nIn JupyterLab: Edit → Clear All Outputs\nThis keeps the .ipynb file small and the Git diff clean\nUsers will execute the cells themselves and see fresh outputs\n\nException: if your notebook takes a long time to run (e.g. large models), you may want to leave outputs in place so readers can see the expected results without running everything."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#the-core-idea",
+    "href": "tutorials/jupyter/jupyter.html#the-core-idea",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "The Core Idea",
+    "text": "The Core Idea\nA Jupyter notebook (.ipynb) is a document format that interleaves three kinds of content in a single file:\n\nMarkdown cells — narrative prose, headings, lists, equations, and images\nCode cells — executable code in R, Python, Julia, or other languages\nOutput cells — the results of running a code cell: printed values, tables, plots, and error messages\n\nUnlike a rendered R Markdown document (which produces a static HTML or PDF file where the code has already been run), a Jupyter notebook is live: a reader with access to a running kernel can execute any cell, modify the code, and immediately see updated output — all in a browser, with no local software installation required.\nThis makes Jupyter notebooks particularly powerful for:\n\nTeaching — students can run and experiment with examples without installing anything\nReproducibility — reviewers and collaborators can re-run your analysis to verify results\nTransparency — code, data, and narrative are co-located and inseparable\nAccessibility — anyone with a browser can interact with your analysis via Binder or Google Colab"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#history-and-ecosystem",
+    "href": "tutorials/jupyter/jupyter.html#history-and-ecosystem",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "History and Ecosystem",
+    "text": "History and Ecosystem\nJupyter grew out of the IPython project and was officially launched in 2014. The name is a portmanteau of Julia, Python, and R — the three languages it was designed to support. Today it supports over 100 programming languages via interchangeable kernels.\nThe .ipynb format is a JSON file that stores cells, their outputs, and kernel metadata. Jupyter notebooks can be opened in:\n\nJupyterLab — the current flagship web-based IDE (successor to the classic Jupyter Notebook interface)\nJupyter Notebook (classic) — the original browser interface\nVS Code — via the Jupyter extension\nGoogle Colab — Google’s hosted Jupyter environment\nBinder — a free cloud service that launches a live Jupyter environment from any GitHub repository\nGitHub — renders .ipynb files as static previews directly in the browser"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#why-use-jupyter-notebooks-for-linguistics-research",
+    "href": "tutorials/jupyter/jupyter.html#why-use-jupyter-notebooks-for-linguistics-research",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Why Use Jupyter Notebooks for Linguistics Research?",
+    "text": "Why Use Jupyter Notebooks for Linguistics Research?\nLinguistics and language data research increasingly involves computational methods — corpus analysis, frequency profiling, collocational statistics, sentiment analysis, and machine learning. Sharing these analyses as interactive notebooks has several advantages over sharing static PDFs or R scripts:\n\nReaders can explore the data — change filter parameters, re-run models with different settings, and examine the data interactively\nNo installation barrier — Binder or Colab provides a full R environment in the cloud\nPeer review and replication — reviewers can re-run the exact analysis and verify every result\nTeaching materials — students receive not just the answer but an interactive environment where they can experiment\nOpen science — notebooks lower the barrier to sharing fully reproducible analyses alongside publications"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#why-preparation-matters",
+    "href": "tutorials/jupyter/jupyter.html#why-preparation-matters",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Why Preparation Matters",
+    "text": "Why Preparation Matters\nA standard R Markdown document is designed for rendering to a static output — it has a YAML header that controls the output format, it may load packages silently, and it assumes that all code runs in sequence in a single non-interactive pass. A Jupyter notebook, by contrast, is designed for interactive cell-by-cell execution by a reader who may have no R experience. These different assumptions require some targeted adjustments before conversion."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#duplicate-your-source-file",
+    "href": "tutorials/jupyter/jupyter.html#duplicate-your-source-file",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.1 — Duplicate Your Source File",
+    "text": "1.1 — Duplicate Your Source File\nNever modify your canonical .Rmd file directly. Instead, duplicate it and give the copy a name that signals it is the notebook version — the convention used by ATAP/LDaCA is the _cb suffix (for “code book”):\noriginal:   my_analysis.Rmd\nnotebook:   my_analysis_cb.Rmd\nAll subsequent preparation steps happen on my_analysis_cb.Rmd. Your original file remains unchanged."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#remove-the-yaml-header",
+    "href": "tutorials/jupyter/jupyter.html#remove-the-yaml-header",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.2 — Remove the YAML Header",
+    "text": "1.2 — Remove the YAML Header\nJupyter notebooks do not use YAML headers. The YAML block at the top of your .Rmd file — everything between the --- delimiters — should be deleted entirely.\nBefore:\ntitle: \"Frequency Analysis of the BNC\"\nauthor: \"Martin Schweinberger\"\ndate: \"2026-03-11\"\noutput:\n  html_document:\n    toc: true\n    theme: cosmo\nAfter: — the YAML block is gone. Replace it with a first-level Markdown heading that becomes the notebook title:\n# Frequency Analysis of the BNC\n\n\n\n\n\n\nDo Not Leave a Blank YAML Block\n\n\n\nIf you delete the YAML content but leave the --- delimiters behind, rmd2jupyter will produce a malformed notebook. Delete the delimiters as well."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#replace-package-installation-code",
+    "href": "tutorials/jupyter/jupyter.html#replace-package-installation-code",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.3 — Replace Package Installation Code",
+    "text": "1.3 — Replace Package Installation Code\nIn a standard .Rmd file, package installation is typically either absent (assuming the reader has already installed packages) or wrapped in eval=FALSE to prevent it from running during render. In a Jupyter notebook environment, package installation is handled differently — via a separate install.R file that Binder runs when building the Docker image.\nRemove any install.packages() calls from your notebook file. If you need to show installation code for pedagogical purposes, wrap it in a Markdown cell as a code block rather than an executable code cell.\nCreate a separate install.R file in your project directory listing all required packages:\n\n\nCode\n# install.R — this file is executed by Binder when building the environment\ninstall.packages(\"tidyverse\")\ninstall.packages(\"tidytext\")\ninstall.packages(\"flextable\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"quanteda.textstats\")\n\n\n\n\n\n\n\n\nPin Package Versions for Long-term Reproducibility\n\n\n\nBinder installs the latest CRAN versions by default. For long-term reproducibility, pin specific versions in install.R:\ndevtools::install_version(\"tidytext\", version = \"0.4.1\")\nThis prevents a future package update from breaking your notebook."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#adjust-chunk-options",
+    "href": "tutorials/jupyter/jupyter.html#adjust-chunk-options",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.4 — Adjust Chunk Options",
+    "text": "1.4 — Adjust Chunk Options\nReview every code chunk and adjust its options for an interactive notebook context:\n\n\nIn .RmdIn notebookReason`echo=FALSE`Remove — readers should see the codeThe primary value of an interactive notebook is seeing the code`include=FALSE`Remove — all cells should be visibleHidden cells confuse readers who execute cells one by one`eval=FALSE`Remove (unless demo code) — all cells should be executableReaders expect every visible code cell to be runnable`message=FALSE, warning=FALSE`Consider keeping — suppresses distracting outputPackage load messages are still distracting in notebook output`fig.height=5, fig.width=7`Keep — still valid in Jupyter R kernelFigure dimensions apply equally in Jupyter`cache=TRUE`Remove — Binder does not persist cache between sessionsEach Binder session starts fresh; cached files do not exist"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#replace-flextable-with-knitrkable",
+    "href": "tutorials/jupyter/jupyter.html#replace-flextable-with-knitrkable",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.5 — Replace flextable with knitr::kable",
+    "text": "1.5 — Replace flextable with knitr::kable\nflextable tables do not render correctly in Jupyter notebooks — the HTML output requires a browser context that Jupyter’s cell output model does not always provide. Replace flextable() calls with knitr::kable() for notebook versions:\n\n\nCode\n# In .Rmd (canonical source)\nresults |&gt;\n  flextable() |&gt;\n  theme_zebra() |&gt;\n  set_caption(\"Top 20 words by frequency\")\n\n# In _cb.Rmd (notebook version) — replace with:\nknitr::kable(results, caption = \"Top 20 words by frequency\")"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#check-data-file-paths",
+    "href": "tutorials/jupyter/jupyter.html#check-data-file-paths",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.6 — Check Data File Paths",
+    "text": "1.6 — Check Data File Paths\nIn a Binder environment, all files are accessed relative to the repository root. Absolute paths (e.g. C:/Users/martin/data/corpus.csv) will break. Use relative paths:\n\n\nCode\n# Wrong — absolute path breaks in Binder\ncorpus &lt;- read.csv(\"C:/Users/martin/Documents/project/data/corpus.csv\")\n\n# Correct — relative path works in any environment\ncorpus &lt;- read.csv(\"data/corpus.csv\")\n\n\nEnsure all data files referenced in your notebook are committed to the GitHub repository under their referenced paths. If files are large (over 50 MB), consider hosting them externally and loading them via URL, or use Git LFS."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#add-a-narrative-introduction",
+    "href": "tutorials/jupyter/jupyter.html#add-a-narrative-introduction",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.7 — Add a Narrative Introduction",
+    "text": "1.7 — Add a Narrative Introduction\nBecause notebook readers may be unfamiliar with your project, add a short Markdown cell at the top (after the title heading) explaining:\n\nWhat the notebook does\nWhat data it uses and where to find it\nWhat the reader needs to do to run it (usually just: execute cells from top to bottom)\nAny known limitations or version requirements\n\nA good template:\n# Frequency Analysis of the BNC\n\nThis notebook demonstrates corpus frequency analysis using the British National Corpus \n(BNC) baby sample. It is an interactive companion to the paper \n\"Frequency Profiles in L1 and L2 English\" (Schweinberger 2026).\n\n**To use this notebook:** Click on a code cell and press **Shift+Enter** to execute it.\nWork through the cells from top to bottom. All required packages are pre-installed.\n\n**Data:** The BNC baby sample is included in the `data/` folder of this repository.\n\n**Requirements:** This notebook uses R 4.3+ with the packages listed in `install.R`."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#preparation-checklist",
+    "href": "tutorials/jupyter/jupyter.html#preparation-checklist",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "1.8 — Preparation Checklist",
+    "text": "1.8 — Preparation Checklist\n\n\nCheckDuplicated source file as `_cb.Rmd`YAML header (including `---` delimiters) removedFirst-level heading added as notebook title`install.packages()` calls removed from notebook`install.R` created with all required packages`echo=FALSE` and `include=FALSE` options removed`eval=FALSE` options removed (except demo code)`cache=TRUE` options removed`flextable()` replaced with `knitr::kable()`All file paths are relative (not absolute)All data files are in the repositoryNarrative introduction added at the top"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#install-rmd2jupyter",
+    "href": "tutorials/jupyter/jupyter.html#install-rmd2jupyter",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.1 — Install rmd2jupyter",
+    "text": "2.1 — Install rmd2jupyter\nThe rmd2jupyter package is not on CRAN — install it directly from GitHub:\n\n\nCode\ninstall.packages(\"devtools\")\ndevtools::install_github(\"mkearney/rmd2jupyter\")\n\n\nLoad the package:\n\n\nCode\nlibrary(rmd2jupyter)"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#run-the-conversion",
+    "href": "tutorials/jupyter/jupyter.html#run-the-conversion",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.2 — Run the Conversion",
+    "text": "2.2 — Run the Conversion\nPoint rmd2jupyter() at your prepared _cb.Rmd file:\n\n\nCode\nrmd2jupyter::rmd2jupyter(\"my_analysis_cb.Rmd\")\n\n\nThis reads the .Rmd file, maps each section to the appropriate Jupyter cell type (Markdown prose → Markdown cell; R code chunk → code cell), and writes a .ipynb JSON file with the same base name:\nmy_analysis_cb.Rmd  →  my_analysis_cb.ipynb\nThe .ipynb file is written to the same directory as the input file."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#what-the-conversion-does",
+    "href": "tutorials/jupyter/jupyter.html#what-the-conversion-does",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.3 — What the Conversion Does",
+    "text": "2.3 — What the Conversion Does\n\n\nIn .RmdIn .ipynbMarkdown prose (between chunks)Markdown cellR code chunk (` ```{r} `)Code cell (R kernel)Inline R expression (`` `r expr` ``)Evaluated and result embedded in Markdown cellYAML headerIgnored / must be removed firstChunk options (`echo`, `eval`, etc.)Stripped — not carried into notebookHTML comments (`&lt;!-- ... --&gt;`)Stripped"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#verify-the-output",
+    "href": "tutorials/jupyter/jupyter.html#verify-the-output",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.4 — Verify the Output",
+    "text": "2.4 — Verify the Output\nAfter conversion, open the .ipynb file to verify it looks correct. You can preview it directly on GitHub (which renders notebooks as static HTML), or install JupyterLab locally:\n# Install JupyterLab via pip (requires Python)\npip install jupyterlab\n\n# Launch JupyterLab in the project directory\njupyter lab\nThen open your .ipynb file in JupyterLab and do a quick sanity check:\n\nAll prose sections have become Markdown cells\nAll code chunks have become code cells\nNo YAML content appears at the top\nCode cell order matches the original chunk order\nThere are no orphaned chunk option comments (e.g. stray ## ---- lines)\n\n\n\n\n\n\n\nPreviewing on GitHub Without Installing JupyterLab\n\n\n\nPush the .ipynb file to your GitHub repository and navigate to it in the browser. GitHub renders .ipynb files as formatted, syntax-highlighted static previews — useful for a quick visual check without installing any extra software. Note that code outputs are only visible in the static preview if the notebook was saved with outputs; a freshly converted notebook will show code cells but no outputs until the notebook is executed."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#converting-quarto-documents",
+    "href": "tutorials/jupyter/jupyter.html#converting-quarto-documents",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "2.5 — Converting Quarto Documents",
+    "text": "2.5 — Converting Quarto Documents\nIf your source file is a .qmd rather than .Rmd, the process is slightly different because rmd2jupyter does not directly support Quarto’s #| chunk option syntax. The recommended approach is to first convert the .qmd to .Rmd format:\n\n\nCode\n# Convert a Quarto document to R Markdown first\nquarto::quarto_render(\n  \"my_analysis.qmd\",\n  output_format = \"md\"\n)\n# Then manually clean up the output and convert to .ipynb\nrmd2jupyter::rmd2jupyter(\"my_analysis.md\")\n\n\nAlternatively, rename the .qmd to .Rmd and replace all #| chunk options with the equivalent {r label, option=value} header syntax before running rmd2jupyter."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#what-is-binder",
+    "href": "tutorials/jupyter/jupyter.html#what-is-binder",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "What Is Binder?",
+    "text": "What Is Binder?\nBinder (mybinder.org) is a free, open service run by the Binder Project (a NumFOCUS project) that turns any GitHub repository into a live, executable Jupyter environment in the cloud. When someone clicks a Binder link, the service:\n\nReads your repository and finds the environment specification files (install.R, runtime.txt, etc.)\nBuilds a Docker image — a self-contained virtual machine image with R, all your packages, and all your files\nLaunches a JupyterLab session in the cloud and opens your notebook\nGives the user a live R kernel connected to that session\n\nThe first build can take several minutes (sometimes up to an hour for complex environments), but subsequent launches use a cached image and start in seconds. Sessions are temporary — all edits are lost when the session closes, but users can download their modified notebook.\n\n\n\n\n\n\nBinder Is Free and Requires No Account\n\n\n\nUsers do not need a GitHub account or any installed software to use your Binder link. Any browser works. Sessions have resource limits (typically 1–2 GB RAM) — keep memory usage modest and avoid analyses that require large datasets loaded entirely into memory."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#create-the-repository-from-the-atapldaca-template",
+    "href": "tutorials/jupyter/jupyter.html#create-the-repository-from-the-atapldaca-template",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.1 — Create the Repository from the ATAP/LDaCA Template",
+    "text": "3.1 — Create the Repository from the ATAP/LDaCA Template\nThe Australian Text Analytics Platform (ATAP) and Language Data Commons of Australia (LDaCA) maintain a Binder-ready R template that pre-configures the Docker environment correctly for R notebooks.\n\nGo to the template repository: github.com/Australian-Text-Analytics-Platform/r-binder-template\nClick Use this template → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork the Template\n\n\n\nAlways use Use this template rather than Fork. Forking creates a copy that is linked to the original in ways that can complicate your independent development. The template option creates a clean, independent repository under your account.\n\n\n\nGive your repository a descriptive name (e.g. freq-analysis-notebook, bnc-collocations)\nLeave the repository Public — Binder only works with public repositories\nClick Create repository"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#understand-the-template-structure",
+    "href": "tutorials/jupyter/jupyter.html#understand-the-template-structure",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.2 — Understand the Template Structure",
+    "text": "3.2 — Understand the Template Structure\nThe template contains several pre-configured files that you should understand before modifying:\n\n\nFilePurpose`install.R`R packages to install. Binder runs this script when building the image.`runtime.txt`Specifies the R version (e.g. `r-4.3-2024-01-01`). Controls which CRAN snapshot is used.`apt.txt`System-level dependencies (e.g. `libxml2-dev`). Most R packages do not need this.`.binder/`Alternative location for Binder config files. Usually not needed with the ATAP template.`README.md`Description of the repository. Replace placeholder content with your project description.`*.ipynb` (placeholder)Placeholder notebook. Replace with your own `.ipynb` file."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#configure-install.r",
+    "href": "tutorials/jupyter/jupyter.html#configure-install.r",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.3 — Configure install.R",
+    "text": "3.3 — Configure install.R\nOpen install.R and list every R package your notebook requires. This file is executed by Binder during the Docker image build — every package listed here will be available when a user launches your notebook.\n\n\nCode\n# install.R — Binder executes this when building the environment\n\n# Core data manipulation and visualisation\ninstall.packages(\"tidyverse\")\ninstall.packages(\"ggplot2\")\n\n# Text analysis\ninstall.packages(\"tidytext\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"quanteda.textstats\")\ninstall.packages(\"quanteda.textplots\")\n\n# Tables (use knitr::kable in notebooks, not flextable)\ninstall.packages(\"knitr\")\ninstall.packages(\"kableExtra\")\n\n# Any other packages your notebook uses\ninstall.packages(\"readxl\")\ninstall.packages(\"scales\")\n\n\n\n\n\n\n\n\nKeep install.R Minimal\n\n\n\nEvery package in install.R increases the Docker build time. Only list packages that are actually called in your notebook. A leaner install.R means faster Binder launch times for your users."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#configure-runtime.txt",
+    "href": "tutorials/jupyter/jupyter.html#configure-runtime.txt",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.4 — Configure runtime.txt",
+    "text": "3.4 — Configure runtime.txt\nThe runtime.txt file pins the R version and CRAN snapshot date, ensuring reproducibility:\nr-4.3-2024-01-01\nThe format is r-MAJOR.MINOR-YYYY-MM-DD. Binder uses the Rocker Project to build the R environment and the MRAN/CRAN snapshot for the specified date. Update the date to the date on which you tested your notebook to ensure package versions match."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#upload-your-notebook-file",
+    "href": "tutorials/jupyter/jupyter.html#upload-your-notebook-file",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.5 — Upload Your Notebook File",
+    "text": "3.5 — Upload Your Notebook File\nUpload your .ipynb file to the repository:\n\nOn your repository homepage, click Add file → Upload files\nDrag and drop your .ipynb file or click choose your files\nWrite a commit message (e.g. Add frequency analysis notebook)\nClick Commit changes\n\nDelete the placeholder .ipynb file that came with the template."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#upload-data-files",
+    "href": "tutorials/jupyter/jupyter.html#upload-data-files",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.6 — Upload Data Files",
+    "text": "3.6 — Upload Data Files\nIf your notebook loads data from files, those files must be in the repository:\n\nClick Add file → Upload files\nUpload your data files\nCommit the changes\n\nFor organisation, place data files in a data/ subfolder. To create a subfolder on GitHub (which does not allow creating empty folders directly):\n\nClick Add file → Create new file\nIn the filename box, type data/placeholder.txt\nAdd a single line of content (e.g. placeholder)\nCommit the file\nNow upload your real data files to data/ and delete placeholder.txt\n\n\n\n\n\n\n\nGitHub File Size Limits\n\n\n\nGitHub has a 100 MB limit per file and a 1 GB soft limit per repository. If your data files are large:\n\nFor files 50–100 MB: use Git LFS (git lfs track \"*.csv\")\nFor files over 100 MB: host externally (e.g. Figshare, OSF, Zenodo) and load via URL in your notebook\nConsider providing a smaller sample dataset in the repo for the interactive notebook, with a pointer to the full dataset\n\n# Loading data from a URL in your notebook\ncorpus &lt;- read.csv(\"https://zenodo.org/record/XXXXX/files/corpus.csv\")"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#update-the-readme",
+    "href": "tutorials/jupyter/jupyter.html#update-the-readme",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.7 — Update the README",
+    "text": "3.7 — Update the README\nReplace the template README with a description of your project. A good notebook README includes:\n\nA brief description of what the notebook does\nThe Binder launch badge (see §3.8)\nA link to the associated paper or tutorial (if any)\nA citation\nA note crediting the ATAP/LDaCA template\n\n# Frequency Analysis of the BNC\n\nThis repository contains an interactive Jupyter notebook for corpus frequency \nanalysis, companion to Schweinberger (2026).\n\n[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)\n\n## How to use\n\nClick the Binder badge above to launch the notebook in your browser.\nNo installation required.\n\n## Citation\n\nSchweinberger, Martin. 2026. ...\n\n---\n*This repo was generated from the [ATAP/LDaCA r-binder-template](https://github.com/Australian-Text-Analytics-Platform/r-binder-template).*"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#add-a-binder-launch-badge",
+    "href": "tutorials/jupyter/jupyter.html#add-a-binder-launch-badge",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "3.8 — Add a Binder Launch Badge",
+    "text": "3.8 — Add a Binder Launch Badge\nA Binder badge is a clickable button that launches your notebook directly. Add it to your README and to any associated tutorial or paper.\nThe badge URL format is:\nhttps://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb\nThe Markdown for the badge image:\n[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/my_analysis_cb.ipynb)\nReplace YOUR-USERNAME, YOUR-REPO, and my_analysis_cb.ipynb with your actual values."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#trigger-the-first-build",
+    "href": "tutorials/jupyter/jupyter.html#trigger-the-first-build",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.1 — Trigger the First Build",
+    "text": "4.1 — Trigger the First Build\nNavigate to the Binder URL in your browser:\nhttps://mybinder.org/v2/gh/YOUR-USERNAME/YOUR-REPO/main?urlpath=lab/tree/YOUR-NOTEBOOK.ipynb\nBinder will show a build log as it:\n\nPulls your repository\nDetects install.R and runtime.txt\nBuilds a Docker image (this is the slow step — see §4.2)\nLaunches JupyterLab and opens your notebook\n\n\n\n\n\n\n\nBuild Time Expectations\n\n\n\n\n\n\nEnvironment complexity\nApproximate first build time\n\n\n\n\n3–5 packages\n5–15 minutes\n\n\n10–20 packages\n15–30 minutes\n\n\n30+ packages (e.g. tidyverse + quanteda)\n30–60 minutes\n\n\n\nSubsequent launches use the cached image and take 30–60 seconds. If you push a new commit to the repository, Binder rebuilds the image — allow extra time after updates."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#what-users-see",
+    "href": "tutorials/jupyter/jupyter.html#what-users-see",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.2 — What Users See",
+    "text": "4.2 — What Users See\nWhen a user clicks your Binder link:\n\nThey see the Binder loading page with a progress bar and build log\nJupyterLab opens in their browser with your notebook loaded\nThe notebook is shown with all cells visible but not yet executed\nUsers click Run → Run All Cells (or Shift+Enter through cells individually) to execute the analysis\nCode output, plots, and tables appear inline below each cell\nUsers can modify code cells and re-execute them to explore the data\n\nRemind users in your notebook’s introduction that sessions are temporary — any changes they make will be lost unless they download the notebook (File → Download)."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#sharing-the-link",
+    "href": "tutorials/jupyter/jupyter.html#sharing-the-link",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "4.3 — Sharing the Link",
+    "text": "4.3 — Sharing the Link\nOnce the notebook is live, share the Binder URL through:\n\nA badge in your GitHub README (see §3.8)\nA link in your journal paper or preprint (in the Data Availability or Supplementary Materials section)\nA link in your LADAL tutorial or course materials\nA QR code for presentations and conference posters"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#what-is-google-colab",
+    "href": "tutorials/jupyter/jupyter.html#what-is-google-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "What Is Google Colab?",
+    "text": "What Is Google Colab?\nGoogle Colaboratory (Colab) is Google’s hosted Jupyter notebook service. Like Binder, it allows anyone to run a notebook in a browser without local installation. Unlike Binder, it:\n\nIs backed by Google’s infrastructure (more reliable uptime, faster builds)\nProvides free GPU and TPU access for machine learning tasks\nRequires a Google account to use\nDoes not automatically install packages from a install.R file — packages must be installed inside the notebook\nSessions disconnect after 12 hours of activity or 90 minutes of inactivity\nStores notebooks in Google Drive, not GitHub (though it can open notebooks from GitHub)\n\n\n\nFeatureBinderGoogle ColabRequires user accountNo — anyone with the link can use itYes — Google account requiredBuild time5–60 min first build; 30–60 s after~1 minute (always fresh)Session durationUp to 6 hours; resets on close12 hours active; 90 min idleR supportYes — via Rocker R imagesLimited — Python-first; R via rpy2 or IRkernelPackage installationVia `install.R` (pre-installed at build time)Must `install.packages()` at session startData persistenceNo — session resets on closeVia Google Drive (manual save)GPU accessNoYes — free T4 GPUIntegration with GitHubYes — launches directly from a GitHub repoYes — can open .ipynb from GitHubOffline accessNoNoBest forPublic notebooks with pre-installed R packagesPython-heavy ML; users with Google accounts"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#setting-up-r-in-colab",
+    "href": "tutorials/jupyter/jupyter.html#setting-up-r-in-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Setting Up R in Colab",
+    "text": "Setting Up R in Colab\nColab is Python-first. To run R code, you need to switch the runtime to an R kernel:\n\nOpen colab.research.google.com\nGo to Runtime → Change runtime type\nSet Runtime type to R\nClick Save\n\nNow add a code cell at the top of the notebook that installs all required packages (since Colab does not read install.R):\n\n\nCode\n# Run this cell first — installs all required packages\ninstall.packages(\"tidyverse\")\ninstall.packages(\"tidytext\")\ninstall.packages(\"quanteda\")\ninstall.packages(\"kableExtra\")\n\n\n\n\n\n\n\n\nPackage Installation on Every Session\n\n\n\nUnlike Binder (which pre-installs packages in the Docker image), Colab installs packages from scratch every session. For notebooks with many packages, this can take several minutes at the start of each session. Add a note to your notebook introduction explaining this."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#opening-a-github-notebook-in-colab",
+    "href": "tutorials/jupyter/jupyter.html#opening-a-github-notebook-in-colab",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Opening a GitHub Notebook in Colab",
+    "text": "Opening a GitHub Notebook in Colab\nTo open a .ipynb file from GitHub directly in Colab:\n\nGo to colab.research.google.com\nClick File → Open notebook\nSelect the GitHub tab\nEnter your GitHub username or repository URL\nSelect your .ipynb file from the list\n\nOr construct a direct URL:\nhttps://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb\nAdd a Colab badge to your README alongside the Binder badge:\n[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/YOUR-USERNAME/YOUR-REPO/blob/main/YOUR-NOTEBOOK.ipynb)"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#when-to-use-colab-vs.-binder",
+    "href": "tutorials/jupyter/jupyter.html#when-to-use-colab-vs.-binder",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "When to Use Colab vs. Binder",
+    "text": "When to Use Colab vs. Binder\nUse Binder when: your audience may not have a Google account; you want packages pre-installed without a setup cell; your notebook is R-first; or you want tight integration with a GitHub repository.\nUse Colab when: your audience is comfortable with Google accounts; you need longer session times; you need GPU access; or your notebook also includes Python code.\nFor maximum accessibility, provide both links and let users choose."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#structure-and-narrative",
+    "href": "tutorials/jupyter/jupyter.html#structure-and-narrative",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Structure and Narrative",
+    "text": "Structure and Narrative\nA well-designed interactive notebook tells a story. Every code cell should be preceded by a Markdown cell explaining what the code does and why. Think of the notebook as a document with executable examples — not a script with comments.\n\n\nPrincipleDetailOne action per cellEach code cell should do one clearly defined thing. Split large cells into smaller steps.Explain before you codeAlways precede a code cell with a Markdown cell that explains what it does and what to expect.Explain after outputsAfter a complex output (plot, table, model summary), add a Markdown cell interpreting the result.Use headings consistentlyUse `#` for the notebook title, `##` for major sections, `###` for subsections — consistently.Keep cells shortAim for code cells of 5–15 lines. Long cells are harder to understand and harder to debug.Never assume prior cells ranEach section should be independently runnable, or at least have clear dependencies documented.Always run top-to-bottom before sharingUse Kernel → Restart & Run All to verify the notebook runs cleanly from a fresh state.Add a 'Run all cells' instructionTell readers in the introduction: click Run → Run All Cells or work through cells with Shift+Enter."
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#reproducibility",
+    "href": "tutorials/jupyter/jupyter.html#reproducibility",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Reproducibility",
+    "text": "Reproducibility\n\n\nPracticeWhySet a random seedAny random process (sampling, bootstrapping, k-means) must use `set.seed()` for reproducibilityPin package versions in `install.R`Package updates can silently change function behaviour and break notebooksPin the R version in `runtime.txt`R version affects package compatibility and default behaviourUse relative file pathsAbsolute paths break on any machine other than the originalInclude `sessionInfo()` at the endAllows readers to see exactly which package versions produced the resultsCommit data files to the repoThe notebook must be self-contained — no missing filesClear all outputs before committingOutputs in `.ipynb` JSON inflate file size and create noisy diffsTest in a fresh Binder sessionVerifies the notebook runs correctly in the exact environment users will encounter"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#accessibility",
+    "href": "tutorials/jupyter/jupyter.html#accessibility",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Accessibility",
+    "text": "Accessibility\n\nProvide alt text for all figures using Markdown image syntax: ![Description of the figure](figure.png)\nUse colour-blind-safe palettes — e.g. scale_color_viridis_d() in ggplot2\nKeep the notebook self-contained — every piece of information a user needs should be in the notebook or clearly linked\nAdd expected output descriptions — tell readers what a correct output looks like so they can verify their execution produced the right result"
+  },
+  {
+    "objectID": "tutorials/jupyter/jupyter.html#cell-output-management",
+    "href": "tutorials/jupyter/jupyter.html#cell-output-management",
+    "title": "Creating Interactive Jupyter Notebooks",
+    "section": "Cell Output Management",
+    "text": "Cell Output Management\nBefore sharing or committing a notebook, clear all outputs:\n\nIn JupyterLab: Edit → Clear All Outputs\nThis keeps the .ipynb file small and the Git diff clean\nUsers will execute the cells themselves and see fresh outputs\n\nException: if your notebook takes a long time to run (e.g. large models), you may want to leave outputs in place so readers can see the expected results without running everything."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#required-software-and-accounts",
+    "href": "tutorials/publish/publish.html#required-software-and-accounts",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Required Software and Accounts",
+    "text": "Required Software and Accounts\nBefore starting either workflow you need:\n\nA free GitHub account — create one at github.com\nGit installed on your machine — download from git-scm.com\nR (version 4.1 or later) and RStudio (version 2022.07 or later, which bundles Quarto)\nThe bookdown package (for Part I) and/or a current Quarto installation (for Part II)\n\nCheck your RStudio version and update if needed: Help → Check for Updates."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#installing-required-packages",
+    "href": "tutorials/publish/publish.html#installing-required-packages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Installing Required Packages",
+    "text": "Installing Required Packages\n\n\nCode\ninstall.packages(\"bookdown\")   # for Part I\ninstall.packages(\"usethis\")    # for GitHub PAT setup\ninstall.packages(\"gitcreds\")   # for storing PAT credentials\n\n\nQuarto is bundled with RStudio 2022.07+. Verify it is available:\n\n\nCode\n# Should return the Quarto version string\nsystem(\"quarto --version\")"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#configuring-git",
+    "href": "tutorials/publish/publish.html#configuring-git",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Configuring Git",
+    "text": "Configuring Git\nIf this is your first time using Git on this machine, tell Git your name and email. These appear in your commit history:\n\n\nCode\n# Run once — uses the usethis package\nusethis::use_git_config(\n  user.name  = \"Your Name\",\n  user.email = \"your.email@example.com\"\n)"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#github-personal-access-token-pat",
+    "href": "tutorials/publish/publish.html#github-personal-access-token-pat",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "GitHub Personal Access Token (PAT)",
+    "text": "GitHub Personal Access Token (PAT)\n\n\n\n\n\n\nSection Overview\n\n\n\nWhat you will learn: What a GitHub PAT is; why you need one; and how to create and store it so RStudio can push to GitHub without a password prompt\n\n\nGitHub no longer accepts your account password for Git operations. Instead, you authenticate with a Personal Access Token (PAT) — a long random string that acts like a password but can be scoped and revoked independently.\n\nStep 1 — Create the Token on GitHub\nThe easiest way is to let usethis open the GitHub token creation page for you:\n\n\nCode\nusethis::create_github_token()\n\n\nThis opens the GitHub New personal access token page in your browser with sensible scopes pre-selected (repo, workflow, gist, user). Give the token a descriptive name (e.g. rstudio-laptop-2026), set an expiry (90 days is a reasonable default), and click Generate token.\n\n\n\n\n\n\nCopy Your Token Immediately\n\n\n\nGitHub shows the token only once. Copy it to your clipboard now — you cannot retrieve it again. If you lose it you must generate a new one.\n\n\n\n\nStep 2 — Store the Token in RStudio\nPaste the token into R using gitcreds:\n\n\nCode\ngitcreds::gitcreds_set()\n# Paste your token at the prompt and press Enter\n\n\ngitcreds stores the token in your system credential manager (Keychain on macOS, Credential Manager on Windows, libsecret on Linux), so you will not need to re-enter it every session.\n\n\nStep 3 — Verify the Token Works\n\n\nCode\nusethis::gh_token_help()\n# Should report: \"GitHub personal access token for 'https://github.com': &lt;discovered&gt;\"\n\n\n\n\n\n\n\n\nRenewing an Expired Token\n\n\n\nPATs expire. When a push fails with a 401 error, run gitcreds::gitcreds_set() again, paste the new token, and push again. Generate a new token at github.com/settings/tokens."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#what-is-bookdown",
+    "href": "tutorials/publish/publish.html#what-is-bookdown",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "What Is Bookdown?",
+    "text": "What Is Bookdown?\nbookdown (xie2016bookdown?) is an R package that extends R Markdown to produce long-form documents — books, theses, course notes, and technical reports — with features that single-document R Markdown lacks: numbered cross-referenceable figures and tables, multi-chapter structure, PDF and EPUB output alongside HTML, and a polished GitBook-style HTML interface with a sidebar navigation, search, and font size controls.\nA bookdown project is a folder of .Rmd files, each representing a chapter, plus a small set of configuration files that control rendering. The rendered output is a set of HTML files that can be hosted anywhere — including GitHub Pages for free.\n\n\nFeatureBookdownQuarto WebsiteSource files`.Rmd` files (one per chapter)`.qmd` files (one per page)Output formatGitBook HTML, PDF (LaTeX), EPUB, WordHTML website (multi-page)NavigationLeft sidebar with chapter treeTop navbar + optional sidebarCross-referencesBuilt-in: `\\@ref(fig:label)`, `\\@ref(tab:label)`Built-in: `@fig-`, `@tbl-`, `@sec-`PDF outputYes — via LaTeX/TinyTeXNo — separate PDF render neededSearchBuilt-in full-text searchVia Algolia or manual setupChapter numberingAuto-numbered chapters and sectionsOptional — not automaticConfig files`_bookdown.yml`, `_output.yml`, `index.Rmd``_quarto.yml`R Markdown compatibleYes — native formatYes — also supports `.Rmd`Quarto compatibleNo — `.Rmd` onlyYes — native formatMaturityMature, stable, widely usedModern, actively developed"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-1-create-your-repository-from-the-template",
+    "href": "tutorials/publish/publish.html#step-1-create-your-repository-from-the-template",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 1 — Create Your Repository from the Template",
+    "text": "Step 1 — Create Your Repository from the Template\nThe fastest way to start a bookdown project is to use the jtr13 bookdown template, which pre-configures GitHub Pages deployment.\n\nGo to github.com/jtr13/bookdown-template\nClick the green Use this template button → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork\n\n\n\nAlways use Use this template, never Fork. Forking creates a copy that is linked to the original repository in ways that complicate independent development. The template option creates a clean, independent copy under your account where you choose the name.\n\n\n\nChoose a descriptive repository name based on your content — e.g. corpus-analysis-notes, phonetics-textbook, or ladal-tutorial. This name will appear in your site’s URL.\nLeave the repository set to Public. GitHub Pages is only available for free on public repositories (or paid GitHub accounts).\nClick Create repository."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-2-configure-github-pages",
+    "href": "tutorials/publish/publish.html#step-2-configure-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 2 — Configure GitHub Pages",
+    "text": "Step 2 — Configure GitHub Pages\nYour new repository is now under your account. Configure Pages so GitHub serves the rendered HTML:\n\nOn your repository’s home page, click Settings (top tab)\nClick Pages in the left sidebar\nUnder Build and deployment:\n\nSet Source to Deploy from a branch\nSet Branch to main and folder to /docs\nClick Save\n\nA box will appear above the Build and Deployment section showing your site’s URL — it will be https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/. Copy this URL.\nGo back to your repository’s home page. Click the gear icon next to About (top right of the file list). Paste the URL into the Website field and click Save changes.\n\n\n\n\n\n\n\nPages Takes a Minute\n\n\n\nGitHub Pages may take 1–3 minutes to build and go live the first time. If the URL shows a 404, wait a minute and refresh. You can also check the build status under Actions on your repository."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-3-clone-the-repository-to-rstudio",
+    "href": "tutorials/publish/publish.html#step-3-clone-the-repository-to-rstudio",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 3 — Clone the Repository to RStudio",
+    "text": "Step 3 — Clone the Repository to RStudio\n\nOn your repository’s home page, click the green Code button\nMake sure HTTPS is selected and copy the URL — it looks like https://github.com/YOUR-USERNAME/YOUR-REPO.git\nIn RStudio: File → New Project → Version Control → Git\nPaste the URL into the Repository URL field. The Project directory name auto-fills with your repo name. Choose where to save it and click Create Project.\n\nRStudio clones the repository, opens the project, and shows the Git panel (top-right pane, Git tab)."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-4-configure-the-key-files",
+    "href": "tutorials/publish/publish.html#step-4-configure-the-key-files",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 4 — Configure the Key Files",
+    "text": "Step 4 — Configure the Key Files\nOpen the project in RStudio and edit these three files:\n\nindex.Rmd\nThis is the first page of your book (the preface or introduction). Edit the YAML header:\ntitle: \"Your Book Title\"\nauthor: \"Your Name\"\ndate: \"2026\"\ndescription: \"A short description of what this book covers.\"\nReplace the placeholder chapter content with your own introduction.\n\n\n_bookdown.yml\nThis file controls the book structure and the GitHub edit/view links. Replace the placeholders:\nbook_filename: \"my-book\"\nlanguage:\n  ui:\n    chapter_name: \"Chapter \"\ndelete_merged_file: true\nrepo: https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-REPO/blob/main/\nThe repo: field enables the edit (pencil) and view (eye) icons in the GitBook toolbar, which link each rendered page back to its source .Rmd file on GitHub.\n\n\n_output.yml\nThis controls the output format and toolbar:\nbookdown::gitbook:\n  css: style.css\n  config:\n    toc:\n      before: |\n        &lt;li&gt;&lt;a href=\"./\"&gt;YOUR BOOK SHORT TITLE&lt;/a&gt;&lt;/li&gt;\n      after: |\n        &lt;li&gt;&lt;a href=\"https://github.com/rstudio/bookdown\" target=\"blank\"&gt;\n        Published with bookdown&lt;/a&gt;&lt;/li&gt;\n    download: [\"pdf\", \"epub\"]\n    edit:\n      link: https://github.com/YOUR-USERNAME/YOUR-REPO/edit/main/%s\n      text: \"Edit\"\nReplace YOUR BOOK SHORT TITLE with a short version of your title. Leave the after: attribution line as-is."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-5-add-and-organise-chapters",
+    "href": "tutorials/publish/publish.html#step-5-add-and-organise-chapters",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 5 — Add and Organise Chapters",
+    "text": "Step 5 — Add and Organise Chapters\nEach chapter is a separate .Rmd file. Bookdown assembles them in alphabetical/numerical order by filename. The template includes 02-tears.Rmd and 03-race.Rmd as examples — replace or delete these and add your own.\nNaming convention: Use a two-digit prefix to control order:\nindex.Rmd          ← always first (Chapter 0 / Preface)\n01-introduction.Rmd\n02-data.Rmd\n03-methods.Rmd\n04-results.Rmd\n05-discussion.Rmd\nChapter structure: Each .Rmd file should start with a # heading (Chapter title) — this becomes the chapter heading in the sidebar. Sections within a chapter use ## and ###.\n# Introduction\n\nThis chapter introduces the corpus and research questions.\n\n## The Corpus\n\nThe corpus consists of...\n\n## Research Questions\n\nWe investigate three questions...\n\n\n\n\n\n\nControlling Chapter Order Explicitly\n\n\n\nInstead of relying on alphabetical order, you can list chapters explicitly in _bookdown.yml:\nrmd_files: [\"index.Rmd\", \"01-intro.Rmd\", \"02-data.Rmd\", \"03-results.Rmd\"]\nThis gives you full control and makes it easy to temporarily exclude a chapter."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-6-render-the-book-locally",
+    "href": "tutorials/publish/publish.html#step-6-render-the-book-locally",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 6 — Render the Book Locally",
+    "text": "Step 6 — Render the Book Locally\nInstall bookdown if you have not already:\n\n\nCode\ninstall.packages(\"bookdown\")\n\n\nRender the book:\n\n\nCode\nbookdown::render_book(\"index.Rmd\")\n\n\nOr click Build Book in the Build tab (same pane as Environment and History).\nPreview the result in your browser:\n\n\nCode\nbrowseURL(\"docs/index.html\")\n\n\nThe rendered HTML files are written to the docs/ folder. This is the folder GitHub Pages will serve.\n\n\n\n\n\n\nAlways Re-render Before Pushing\n\n\n\nGitHub Pages serves the pre-rendered HTML in docs/. If you edit .Rmd files and push without re-rendering, your live site will not reflect the changes. Always re-render, then commit and push."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-7-publish-to-github-pages",
+    "href": "tutorials/publish/publish.html#step-7-publish-to-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 7 — Publish to GitHub Pages",
+    "text": "Step 7 — Publish to GitHub Pages\nOnce the local preview looks good:\n\nIn the Git tab in RStudio, click Commit (or press Ctrl+Alt+M)\nCheck the box next to all changed files to Stage them\nWrite a short commit message describing what changed (e.g. Add introduction chapter)\nClick Commit, then Push\n\nWait 1–2 minutes, then visit your GitHub Pages URL. Your book is now live."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-8-updating-your-book",
+    "href": "tutorials/publish/publish.html#step-8-updating-your-book",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 8 — Updating Your Book",
+    "text": "Step 8 — Updating Your Book\nFor every subsequent update:\n\nEdit your .Rmd files in RStudio\nRe-render: bookdown::render_book(\"index.Rmd\") or Build Book\nReview in browser: browseURL(\"docs/index.html\")\nStage → Commit → Push in the Git tab"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#customising-appearance",
+    "href": "tutorials/publish/publish.html#customising-appearance",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Customising Appearance",
+    "text": "Customising Appearance\n\nCSS Styling\nEdit style.css in the project root to change colours, fonts, and spacing. For example, to change the sidebar background:\n.book .book-summary {\n  background: #2c3e50;\n}\n\n.book .book-summary ul.summary li a {\n  color: #ecf0f1;\n}\n\n\nOutput Options\nIn _output.yml, the bookdown::gitbook section accepts many options:\nbookdown::gitbook:\n  css: style.css\n  split_by: chapter          # one HTML file per chapter (default)\n  split_bib: true            # split bibliography by chapter\n  number_sections: true      # number chapters and sections\n  config:\n    toc:\n      collapse: section      # collapse subsections in sidebar by default\n      scroll_highlight: true\n    fontsettings:\n      theme: white\n      family: sans\n      size: 2\n    sharing:\n      github: yes\n      twitter: yes\n\n\nPDF Output\nTo add PDF download, ensure TinyTeX is installed:\n\n\nCode\ninstall.packages(\"tinytex\")\ntinytex::install_tinytex()\n\n\nThen add to _output.yml:\nbookdown::pdf_book:\n  includes:\n    in_header: preamble.tex\n  latex_engine: xelatex\n  citation_package: natbib\n  keep_tex: yes\nAnd list pdf in the download: config under bookdown::gitbook."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#bookdown-file-structure-reference",
+    "href": "tutorials/publish/publish.html#bookdown-file-structure-reference",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Bookdown File Structure Reference",
+    "text": "Bookdown File Structure Reference\n\n\nFilePurpose`index.Rmd`First page / preface. Must exist. Contains the main YAML header for the book.`01-chapter.Rmd`, `02-chapter.Rmd`, ...Chapter files — one per chapter. Assembled in alphabetical order (or explicit order in `_bookdown.yml`).`_bookdown.yml`Book-level config: filename, repo links, chapter order, language settings.`_output.yml`Output format config: GitBook options, CSS, toolbar, PDF/EPUB settings.`style.css`Custom CSS for appearance. Edit freely.`docs/`Rendered HTML output. Committed to Git and served by GitHub Pages. Do not edit manually.`.gitignore`Tells Git which files to ignore. The default ignores `.Rds` cache files and `.RData`.`preamble.tex`Optional LaTeX preamble for PDF output. Add custom LaTeX packages here."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#what-is-a-quarto-website",
+    "href": "tutorials/publish/publish.html#what-is-a-quarto-website",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "What Is a Quarto Website?",
+    "text": "What Is a Quarto Website?\nA Quarto website is a collection of .qmd pages linked by a shared navigation bar and a common _quarto.yml configuration file. Unlike bookdown, which produces a book-like structure with numbered chapters and a sidebar, a Quarto website produces a standard multi-page website with a top navigation bar and optional sidebars — closer to what you would expect from an academic portfolio, a course homepage, or a project documentation site.\nQuarto websites are rendered by the quarto render command (or the Render Website button in RStudio) and produce HTML in a docs/ folder that GitHub Pages can serve directly."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-1-create-your-repository-from-the-template-1",
+    "href": "tutorials/publish/publish.html#step-1-create-your-repository-from-the-template-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 1 — Create Your Repository from the Template",
+    "text": "Step 1 — Create Your Repository from the Template\n\nGo to github.com/jtr13/website-template\nClick Use this template → Create a new repository\n\n\n\n\n\n\n\nDo Not Fork\n\n\n\nAs with bookdown, always use Use this template, not Fork. This gives you a clean independent repository with a name of your choosing.\n\n\n\nChoose a descriptive repository name — this will form part of your site URL\nLeave the repository Public and click Create repository"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-2-configure-github-pages-1",
+    "href": "tutorials/publish/publish.html#step-2-configure-github-pages-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 2 — Configure GitHub Pages",
+    "text": "Step 2 — Configure GitHub Pages\nThe steps are identical to the bookdown workflow:\n\nSettings → Pages\nSource: Deploy from a branch; Branch: main; Folder: /docs; Save\nCopy the URL that appears (format: https://YOUR-USERNAME.github.io/YOUR-REPO/)\nPaste it into the Website field in the About gear menu on your repo homepage\n\n\n\n\n\n\n\nThe .nojekyll File\n\n\n\nThe template includes a .nojekyll file in the root. This tells GitHub Pages not to process the site through Jekyll (GitHub’s default static site generator). Without this file, Quarto’s output directories that start with _ (like _site/) would be ignored by Jekyll, and your site would appear blank. The .nojekyll file is already present in the template — do not delete it."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-3-clone-the-repository-to-rstudio-1",
+    "href": "tutorials/publish/publish.html#step-3-clone-the-repository-to-rstudio-1",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 3 — Clone the Repository to RStudio",
+    "text": "Step 3 — Clone the Repository to RStudio\n\nClick the green Code button on your repository homepage → copy the HTTPS URL\nIn RStudio: File → New Project → Version Control → Git\nPaste the URL and click Create Project\n\nMake sure RStudio is up to date (Help → Check for Updates) so that Quarto is available."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-4-configure-_quarto.yml",
+    "href": "tutorials/publish/publish.html#step-4-configure-_quarto.yml",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 4 — Configure _quarto.yml",
+    "text": "Step 4 — Configure _quarto.yml\nThe _quarto.yml file controls everything about your website. Open it in RStudio and replace the placeholder values. The template’s default looks like this:\nproject:\n  type: website\n  output-dir: docs\n\nwebsite:\n  title: \"YOUR NAME\"\n  navbar:\n    left:\n      - href: index.qmd\n        text: Home\n      - href: projects.qmd\n        text: Projects\n\nformat:\n  html:\n    theme: cerulean\n    css: styles.css\n    toc: true\nA fully configured example for a linguistics course site:\nproject:\n  type: website\n  output-dir: docs\n\nwebsite:\n  title: \"LING3000: Corpus Linguistics\"\n  description: \"Course materials for LING3000 at the University of Queensland\"\n  favicon: img/favicon.ico\n  navbar:\n    background: primary\n    search: true\n    left:\n      - href: index.qmd\n        text: Home\n      - href: schedule.qmd\n        text: Schedule\n      - text: Tutorials\n        menu:\n          - href: tutorials/freq.qmd\n            text: Frequency Analysis\n          - href: tutorials/colloc.qmd\n            text: Collocations\n          - href: tutorials/kwic.qmd\n            text: KWIC\n      - href: resources.qmd\n        text: Resources\n      - href: about.qmd\n        text: About\n    right:\n      - icon: github\n        href: https://github.com/YOUR-USERNAME/YOUR-REPO\n  page-footer:\n    left: \"© 2026 Martin Schweinberger\"\n    right:\n      - icon: github\n        href: https://github.com/YOUR-USERNAME\n\nformat:\n  html:\n    theme: cosmo\n    toc: true\n    toc-depth: 3\n    code-fold: show\n    code-tools: true\n\nexecute:\n  freeze: auto\n  warning: false\n  message: false\n\n\nFieldEffect`project: type: website`Tells Quarto this is a website project (not a book or presentation)`project: output-dir: docs`Rendered HTML goes into `docs/` — the folder GitHub Pages serves`website: title`Site title shown in the navbar and browser tab`website: navbar: left`Left-aligned navbar links; supports `menu:` for dropdowns`website: navbar: right`Right-aligned items — icons (GitHub, Twitter) or links`website: navbar: search``true` adds a full-text search box to the navbar`website: page-footer`Footer content: left/right text, links, or icons`website: favicon`Path to a `.ico` file for the browser tab icon`format: html: theme`Bootstrap theme — see bootswatch.com for options`execute: freeze: auto`Only re-render `.qmd` files whose source code has changed`execute: warning/message`Suppress warnings and messages globally"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-5-edit-the-content-pages",
+    "href": "tutorials/publish/publish.html#step-5-edit-the-content-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 5 — Edit the Content Pages",
+    "text": "Step 5 — Edit the Content Pages\nThe template provides two starter pages:\nindex.qmd — the site homepage. Edit the YAML header and content:\ntitle: \"LING3000: Corpus Linguistics\"\nAdd your page content below the YAML. The homepage can include an introduction, a photo, links to key resources, or an announcements section.\nprojects.qmd — a second page. Rename it to match your content (e.g. schedule.qmd, tutorials.qmd, about.qmd) and update the reference in _quarto.yml.\nThe template also includes a img/ folder with a placeholder photo. Replace img/photo.jpg with your own image and reference it in index.qmd:\n![](img/photo.jpg){width=200px fig-align=\"left\"}"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-6-adding-new-pages",
+    "href": "tutorials/publish/publish.html#step-6-adding-new-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 6 — Adding New Pages",
+    "text": "Step 6 — Adding New Pages\nTo add a new page to your site:\n\nCreate a new .qmd file in the project root (or a subdirectory for organisation)\nGive it a YAML header with at minimum a title:\nAdd the file to _quarto.yml under navbar: left: (or as a dropdown menu item)\n\nExample — adding a Resources page:\n# In _quarto.yml, add to navbar: left:\n- href: resources.qmd\n  text: Resources\nThen create resources.qmd:\n---\ntitle: \"Resources\"\n---\n\n## Recommended Reading\n\n- Gries, Stefan Th. (2009). *Quantitative Corpus Linguistics with R*. Routledge.\n- Stefanowitsch, Anatol (2020). *Corpus Linguistics: A Guide to the Methodology*. LangSci Press.\n\n## Software\n\n- [LADAL Tutorials](https://ladal.edu.au)\n- [AntConc](https://www.laurenceanthony.net/software/antconc/)\n\nOrganising Pages into Subdirectories\nFor a large site with many pages, organise them into subdirectories:\nindex.qmd\nabout.qmd\ntutorials/\n  freq.qmd\n  colloc.qmd\n  kwic.qmd\ndata/\n  datasets.qmd\nReference them in _quarto.yml with the relative path:\n- text: Tutorials\n  menu:\n    - href: tutorials/freq.qmd\n      text: Frequency Analysis\n    - href: tutorials/colloc.qmd\n      text: Collocations\n\n\nSidebar Navigation\nFor tutorial-heavy sites, a sidebar listing all pages in a section is more readable than a navbar dropdown. Add a sidebar: section to _quarto.yml:\nwebsite:\n  sidebar:\n    style: docked\n    search: true\n    contents:\n      - section: \"Text Analysis\"\n        contents:\n          - tutorials/freq.qmd\n          - tutorials/colloc.qmd\n          - tutorials/kwic.qmd\n      - section: \"Phonetics\"\n        contents:\n          - tutorials/vowels.qmd\n          - tutorials/formants.qmd"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-7-choosing-a-theme",
+    "href": "tutorials/publish/publish.html#step-7-choosing-a-theme",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 7 — Choosing a Theme",
+    "text": "Step 7 — Choosing a Theme\nQuarto websites use Bootswatch themes. Browse the gallery and replace cerulean (the template default) with your preferred theme name in _quarto.yml:\nformat:\n  html:\n    theme: cosmo      # or: flatly, journal, lumen, sandstone, simplex, sketchy, united, yeti\n\n\nThemeCharactercosmoClean, modern — good general-purpose defaultflatlyFlat design, muted palette — professionaljournalBold typography, editorial feellumenLight and airy, high readabilitysandstoneStone tones, subtle texturesimplexMinimal, clean — good for technical docssketchyHand-drawn look — informal/creativeunitedOrange accent, warm tonesyetiFresh, sharp — modern academicceruleanBlue accent, clean — the template default"
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-8-render-the-website-locally",
+    "href": "tutorials/publish/publish.html#step-8-render-the-website-locally",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 8 — Render the Website Locally",
+    "text": "Step 8 — Render the Website Locally\nIn RStudio, click the Build tab → Render Website. Alternatively, run in the terminal:\nquarto render\nPreview the result:\n\n\nCode\nbrowseURL(\"docs/index.html\")\n\n\n\n\n\n\n\n\nLive Preview with quarto preview\n\n\n\nRun quarto preview in the terminal (not the R console) for a live-reloading preview server. The browser updates automatically every time you save a .qmd file — much faster than repeatedly clicking Render Website."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#step-9-publish-to-github-pages",
+    "href": "tutorials/publish/publish.html#step-9-publish-to-github-pages",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Step 9 — Publish to GitHub Pages",
+    "text": "Step 9 — Publish to GitHub Pages\nOnce the local preview looks correct:\n\nStage all changed files in the Git tab\nWrite a commit message and click Commit\nClick Push\n\nWait 1–2 minutes and visit your GitHub Pages URL.\n\n\n\n\n\n\nCommit the docs/ Folder\n\n\n\nThe docs/ folder contains your rendered HTML. It must be committed and pushed to GitHub for the site to update. A common mistake is to push only the .qmd source files — the site will not change unless docs/ is also committed."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#quarto-website-file-structure-reference",
+    "href": "tutorials/publish/publish.html#quarto-website-file-structure-reference",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Quarto Website File Structure Reference",
+    "text": "Quarto Website File Structure Reference\n\n\nFilePurpose`_quarto.yml`Master config file — site title, navbar, theme, execute options. Edit carefully; indentation is significant.`index.qmd`Homepage — always required. Becomes `docs/index.html`.`projects.qmd` (or any `*.qmd`)Additional pages — create as many as needed and list them in `_quarto.yml`.`docs/`Rendered HTML output — committed to Git and served by GitHub Pages.`img/`Image folder — put your photos and figures here.`styles.css`Custom CSS for overriding theme styles.`.nojekyll`Prevents GitHub Pages from running Jekyll. Do not delete.`.gitignore`Files Git should ignore — typically `/.quarto/` and `*_cache/`."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#decision-guide",
+    "href": "tutorials/publish/publish.html#decision-guide",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Decision Guide",
+    "text": "Decision Guide\n\n\nYour situationRecommended toolReasonWriting a multi-chapter book, textbook, or thesisBookdownGitBook sidebar with chapter tree is ideal for long sequential contentBuilding a course homepage or project websiteQuarto websiteNavbar-based navigation suits independent pages without forced orderNeed numbered chapters and auto-numbered figures/tablesBookdownBookdown auto-numbers and cross-references chapters, figures, and tablesNeed PDF and EPUB output alongside HTMLBookdownBookdown has mature PDF/EPUB pipelines via LaTeX and PandocNeed a navbar with multiple independent pagesQuarto websiteQuarto's navbar and dropdown menus handle flat site structures cleanlyUsing Python alongside RQuarto websiteQuarto supports Python, Julia, and Observable JS nativelyMaintaining an existing `.Rmd` projectBookdown (stay in `.Rmd`)No need to migrate — bookdown is stable and fully maintainedStarting a new project from scratchQuarto websiteQuarto is the modern default with more active developmentNeed full-text searchEither (both support search)Bookdown has built-in search; Quarto needs `search: true` in YAMLWant the simplest possible setupQuarto website (one config file)`_quarto.yml` is a single file; bookdown needs three config files\n\n\n\n\n\n\n\n\nThe Short Answer\n\n\n\nUse bookdown if your content is a book (sequential chapters with a narrative arc, numbered sections, cross-referenced figures). Use a Quarto website if your content is a collection of independent pages, a course site, a portfolio, or a documentation hub. When in doubt and starting fresh, Quarto is the better long-term investment."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#the-update-cycle",
+    "href": "tutorials/publish/publish.html#the-update-cycle",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "The Update Cycle",
+    "text": "The Update Cycle\nFor both bookdown and Quarto websites, the update cycle is always the same four steps:\n\nEdit — make changes to your .Rmd or .qmd files in RStudio\nRender — rebuild the site locally (bookdown::render_book() or Render Website)\nReview — open docs/index.html in your browser and check the result\nPush — Stage → Commit → Push in the Git tab\n\nNever push without re-rendering. The live site reflects whatever HTML is in docs/ — not the source files."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#speeding-up-quarto-rebuilds-with-freeze",
+    "href": "tutorials/publish/publish.html#speeding-up-quarto-rebuilds-with-freeze",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Speeding Up Quarto Rebuilds with freeze",
+    "text": "Speeding Up Quarto Rebuilds with freeze\nFor large Quarto websites with many pages containing R code, re-rendering every page on every update is slow. The freeze: auto option caches each page’s executed output and only re-runs chunks whose code has changed:\nexecute:\n  freeze: auto\nQuarto stores cached output in a _freeze/ directory. Commit this directory to Git so collaborators can render the site without re-running all computations.\n\n\n\n\n\n\nWhen to Delete the Cache\n\n\n\nIf your data changes but your code does not, freeze: auto will not detect the change — it only tracks code modifications. Delete the relevant entry in _freeze/ (or the whole folder) and re-render when you need to force a full re-execution."
+  },
+  {
+    "objectID": "tutorials/publish/publish.html#collaborating-on-a-shared-repository",
+    "href": "tutorials/publish/publish.html#collaborating-on-a-shared-repository",
+    "title": "Publishing Free Online Books and Websites with Bookdown and Quarto",
+    "section": "Collaborating on a Shared Repository",
+    "text": "Collaborating on a Shared Repository\nIf multiple people contribute to the same site:\n\nEach contributor clones the repository and works in their own branch\nPull Requests merge changes back to main\nThe maintainer renders and pushes docs/ after merging\nUse renv to ensure all contributors use the same package versions:\n\n\n\nCode\nrenv::init()       # initialise — run once\nrenv::snapshot()   # update lock file after installing packages\nrenv::restore()    # collaborator runs this to match your environment"
   }
 ]
