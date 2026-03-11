@@ -1,0 +1,1111 @@
+---
+title: "Publishing Free Online Books and Websites with Bookdown and Quarto"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/g_chili.jpg){ width=15% style="float:right; padding:10px" }
+
+This tutorial explains how to publish a free, professional-looking online book or website directly from RStudio using either **bookdown** or **Quarto**, hosted for free on **GitHub Pages**. Both workflows follow the same principle: write your content in R Markdown or Quarto, render it to HTML, push the output to GitHub, and let GitHub Pages serve it to the world — all at no cost.
+
+The tutorial is divided into two self-contained parts. **Part I** covers the bookdown workflow for creating a multi-chapter HTML book in the GitBook style. **Part II** covers the Quarto website workflow for creating a multi-page navigable website. A comparison section at the end helps you decide which approach suits your project.
+
+By the end of this tutorial you will be able to:
+
+- Set up a GitHub repository from a template and configure GitHub Pages
+- Clone the repository to RStudio and configure the key project files
+- Render your book or website locally and preview it in a browser
+- Commit and push your changes to publish them online
+- Customise the appearance, navigation, and content of your site
+- Understand when to use bookdown vs. Quarto websites
+
+::: {.callout-note}
+## Prerequisite Knowledge
+
+Before working through this tutorial, you should be familiar with:
+
+- Basic R and RStudio ([Getting Started with R](/tutorials/intror/intror.html))
+- R Markdown or Quarto document basics ([R Markdown and Quarto](/tutorials/notebooks/notebooks.html))
+- Basic Git concepts: repository, commit, push, pull
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Publishing Free Online Books and Websites with Bookdown and Quarto*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/publish/publish.html (Version 2026.03.11).
+:::
+
+---
+
+# Prerequisites and Setup {#prereqs}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What software and accounts you need before starting; how to install the required R packages; and how to configure Git and GitHub authentication so RStudio can push to GitHub
+:::
+
+## Required Software and Accounts {-}
+
+Before starting either workflow you need:
+
+- A free **GitHub account** — create one at [github.com](https://github.com)
+- **Git** installed on your machine — download from [git-scm.com](https://git-scm.com)
+- **R** (version 4.1 or later) and **RStudio** (version 2022.07 or later, which bundles Quarto)
+- The **bookdown** package (for Part I) and/or a current **Quarto** installation (for Part II)
+
+Check your RStudio version and update if needed: **Help → Check for Updates**.
+
+## Installing Required Packages {-}
+
+```{r install_pkgs, eval=FALSE}
+install.packages("bookdown")   # for Part I
+install.packages("usethis")    # for GitHub PAT setup
+install.packages("gitcreds")   # for storing PAT credentials
+```
+
+Quarto is bundled with RStudio 2022.07+. Verify it is available:
+
+```{r check_quarto, eval=FALSE}
+# Should return the Quarto version string
+system("quarto --version")
+```
+
+## Configuring Git {-}
+
+If this is your first time using Git on this machine, tell Git your name and email. These appear in your commit history:
+
+```{r git_config, eval=FALSE}
+# Run once — uses the usethis package
+usethis::use_git_config(
+  user.name  = "Your Name",
+  user.email = "your.email@example.com"
+)
+```
+
+## GitHub Personal Access Token (PAT) {-}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What a GitHub PAT is; why you need one; and how to create and store it so RStudio can push to GitHub without a password prompt
+:::
+
+GitHub no longer accepts your account password for Git operations. Instead, you authenticate with a **Personal Access Token (PAT)** — a long random string that acts like a password but can be scoped and revoked independently.
+
+### Step 1 — Create the Token on GitHub {-}
+
+The easiest way is to let `usethis` open the GitHub token creation page for you:
+
+```{r pat_create, eval=FALSE}
+usethis::create_github_token()
+```
+
+This opens the GitHub **New personal access token** page in your browser with sensible scopes pre-selected (`repo`, `workflow`, `gist`, `user`). Give the token a descriptive name (e.g. `rstudio-laptop-2026`), set an expiry (90 days is a reasonable default), and click **Generate token**. 
+
+::: {.callout-warning}
+## Copy Your Token Immediately
+
+GitHub shows the token only once. Copy it to your clipboard now — you cannot retrieve it again. If you lose it you must generate a new one.
+:::
+
+### Step 2 — Store the Token in RStudio {-}
+
+Paste the token into R using `gitcreds`:
+
+```{r pat_store, eval=FALSE}
+gitcreds::gitcreds_set()
+# Paste your token at the prompt and press Enter
+```
+
+`gitcreds` stores the token in your system credential manager (Keychain on macOS, Credential Manager on Windows, libsecret on Linux), so you will not need to re-enter it every session.
+
+### Step 3 — Verify the Token Works {-}
+
+```{r pat_verify, eval=FALSE}
+usethis::gh_token_help()
+# Should report: "GitHub personal access token for 'https://github.com': <discovered>"
+```
+
+::: {.callout-tip}
+## Renewing an Expired Token
+
+PATs expire. When a push fails with a 401 error, run `gitcreds::gitcreds_set()` again, paste the new token, and push again. Generate a new token at [github.com/settings/tokens](https://github.com/settings/tokens).
+:::
+
+---
+
+# Part I: Bookdown Books {#bookdown}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What bookdown is and what kind of output it produces; how to set up a bookdown project from a template; how to configure the key files; how to render locally and publish to GitHub Pages; and how to add chapters and customise the appearance
+:::
+
+## What Is Bookdown? {-}
+
+**bookdown** [@xie2016bookdown] is an R package that extends R Markdown to produce long-form documents — books, theses, course notes, and technical reports — with features that single-document R Markdown lacks: numbered cross-referenceable figures and tables, multi-chapter structure, PDF and EPUB output alongside HTML, and a polished GitBook-style HTML interface with a sidebar navigation, search, and font size controls.
+
+A bookdown project is a folder of `.Rmd` files, each representing a chapter, plus a small set of configuration files that control rendering. The rendered output is a set of HTML files that can be hosted anywhere — including GitHub Pages for free.
+
+```{r bookdown_vs_quarto, echo=FALSE, message=FALSE, warning=FALSE}
+library(flextable)
+data.frame(
+  Feature = c(
+    "Source files", "Output format", "Navigation", "Cross-references",
+    "PDF output", "Search", "Chapter numbering", "Config files",
+    "R Markdown compatible", "Quarto compatible", "Maturity"
+  ),
+  Bookdown = c(
+    "`.Rmd` files (one per chapter)",
+    "GitBook HTML, PDF (LaTeX), EPUB, Word",
+    "Left sidebar with chapter tree",
+    "Built-in: `\\@ref(fig:label)`, `\\@ref(tab:label)`",
+    "Yes — via LaTeX/TinyTeX",
+    "Built-in full-text search",
+    "Auto-numbered chapters and sections",
+    "`_bookdown.yml`, `_output.yml`, `index.Rmd`",
+    "Yes — native format",
+    "No — `.Rmd` only",
+    "Mature, stable, widely used"
+  ),
+  `Quarto Website` = c(
+    "`.qmd` files (one per page)",
+    "HTML website (multi-page)",
+    "Top navbar + optional sidebar",
+    "Built-in: `@fig-`, `@tbl-`, `@sec-`",
+    "No — separate PDF render needed",
+    "Via Algolia or manual setup",
+    "Optional — not automatic",
+    "`_quarto.yml`",
+    "Yes — also supports `.Rmd`",
+    "Yes — native format",
+    "Modern, actively developed"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Bookdown vs. Quarto website: feature comparison")
+```
+
+## Step 1 — Create Your Repository from the Template {-}
+
+The fastest way to start a bookdown project is to use the jtr13 bookdown template, which pre-configures GitHub Pages deployment.
+
+1. Go to [github.com/jtr13/bookdown-template](https://github.com/jtr13/bookdown-template)
+
+2. Click the green **Use this template** button → **Create a new repository**
+
+::: {.callout-warning}
+## Do Not Fork
+
+Always use **Use this template**, never **Fork**. Forking creates a copy that is linked to the original repository in ways that complicate independent development. The template option creates a clean, independent copy under your account where you choose the name.
+:::
+
+3. Choose a **descriptive repository name** based on your content — e.g. `corpus-analysis-notes`, `phonetics-textbook`, or `ladal-tutorial`. This name will appear in your site's URL.
+
+4. Leave the repository set to **Public**. GitHub Pages is only available for free on public repositories (or paid GitHub accounts).
+
+5. Click **Create repository**.
+
+## Step 2 — Configure GitHub Pages {-}
+
+Your new repository is now under your account. Configure Pages so GitHub serves the rendered HTML:
+
+1. On your repository's home page, click **Settings** (top tab)
+
+2. Click **Pages** in the left sidebar
+
+3. Under **Build and deployment**:
+   - Set **Source** to *Deploy from a branch*
+   - Set **Branch** to `main` and **folder** to `/docs`
+   - Click **Save**
+
+4. A box will appear above the Build and Deployment section showing your site's URL — it will be `https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/`. Copy this URL.
+
+5. Go back to your repository's home page. Click the **gear icon** next to *About* (top right of the file list). Paste the URL into the **Website** field and click **Save changes**.
+
+::: {.callout-tip}
+## Pages Takes a Minute
+
+GitHub Pages may take 1–3 minutes to build and go live the first time. If the URL shows a 404, wait a minute and refresh. You can also check the build status under **Actions** on your repository.
+:::
+
+## Step 3 — Clone the Repository to RStudio {-}
+
+1. On your repository's home page, click the green **Code** button
+
+2. Make sure **HTTPS** is selected and copy the URL — it looks like `https://github.com/YOUR-USERNAME/YOUR-REPO.git`
+
+3. In RStudio: **File → New Project → Version Control → Git**
+
+4. Paste the URL into the **Repository URL** field. The **Project directory name** auto-fills with your repo name. Choose where to save it and click **Create Project**.
+
+RStudio clones the repository, opens the project, and shows the Git panel (top-right pane, **Git** tab).
+
+## Step 4 — Configure the Key Files {-}
+
+Open the project in RStudio and edit these three files:
+
+### `index.Rmd` {-}
+
+This is the first page of your book (the preface or introduction). Edit the YAML header:
+
+```yaml
+title: "Your Book Title"
+author: "Your Name"
+date: "2026"
+description: "A short description of what this book covers."
+```
+
+Replace the placeholder chapter content with your own introduction.
+
+### `_bookdown.yml` {-}
+
+This file controls the book structure and the GitHub edit/view links. Replace the placeholders:
+
+```yaml
+book_filename: "my-book"
+language:
+  ui:
+    chapter_name: "Chapter "
+delete_merged_file: true
+repo: https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-REPO/blob/main/
+```
+
+The `repo:` field enables the **edit** (pencil) and **view** (eye) icons in the GitBook toolbar, which link each rendered page back to its source `.Rmd` file on GitHub.
+
+### `_output.yml` {-}
+
+This controls the output format and toolbar:
+
+```yaml
+bookdown::gitbook:
+  css: style.css
+  config:
+    toc:
+      before: |
+        <li><a href="./">YOUR BOOK SHORT TITLE</a></li>
+      after: |
+        <li><a href="https://github.com/rstudio/bookdown" target="blank">
+        Published with bookdown</a></li>
+    download: ["pdf", "epub"]
+    edit:
+      link: https://github.com/YOUR-USERNAME/YOUR-REPO/edit/main/%s
+      text: "Edit"
+```
+
+Replace `YOUR BOOK SHORT TITLE` with a short version of your title. Leave the `after:` attribution line as-is.
+
+## Step 5 — Add and Organise Chapters {-}
+
+Each chapter is a separate `.Rmd` file. Bookdown assembles them in alphabetical/numerical order by filename. The template includes `02-tears.Rmd` and `03-race.Rmd` as examples — replace or delete these and add your own.
+
+**Naming convention:** Use a two-digit prefix to control order:
+
+```
+index.Rmd          ← always first (Chapter 0 / Preface)
+01-introduction.Rmd
+02-data.Rmd
+03-methods.Rmd
+04-results.Rmd
+05-discussion.Rmd
+```
+
+**Chapter structure:** Each `.Rmd` file should start with a `#` heading (Chapter title) — this becomes the chapter heading in the sidebar. Sections within a chapter use `##` and `###`.
+
+```markdown
+# Introduction
+
+This chapter introduces the corpus and research questions.
+
+## The Corpus
+
+The corpus consists of...
+
+## Research Questions
+
+We investigate three questions...
+```
+
+::: {.callout-tip}
+## Controlling Chapter Order Explicitly
+
+Instead of relying on alphabetical order, you can list chapters explicitly in `_bookdown.yml`:
+
+```yaml
+rmd_files: ["index.Rmd", "01-intro.Rmd", "02-data.Rmd", "03-results.Rmd"]
+```
+
+This gives you full control and makes it easy to temporarily exclude a chapter.
+:::
+
+## Step 6 — Render the Book Locally {-}
+
+Install bookdown if you have not already:
+
+```{r install_bookdown, eval=FALSE}
+install.packages("bookdown")
+```
+
+Render the book:
+
+```{r render_bookdown, eval=FALSE}
+bookdown::render_book("index.Rmd")
+```
+
+Or click **Build Book** in the **Build** tab (same pane as Environment and History).
+
+Preview the result in your browser:
+
+```{r browse_bookdown, eval=FALSE}
+browseURL("docs/index.html")
+```
+
+The rendered HTML files are written to the `docs/` folder. This is the folder GitHub Pages will serve.
+
+::: {.callout-warning}
+## Always Re-render Before Pushing
+
+GitHub Pages serves the pre-rendered HTML in `docs/`. If you edit `.Rmd` files and push without re-rendering, your live site will not reflect the changes. Always re-render, then commit and push.
+:::
+
+## Step 7 — Publish to GitHub Pages {-}
+
+Once the local preview looks good:
+
+1. In the **Git** tab in RStudio, click **Commit** (or press `Ctrl+Alt+M`)
+2. Check the box next to all changed files to **Stage** them
+3. Write a short **commit message** describing what changed (e.g. `Add introduction chapter`)
+4. Click **Commit**, then **Push**
+
+Wait 1–2 minutes, then visit your GitHub Pages URL. Your book is now live.
+
+## Step 8 — Updating Your Book {-}
+
+For every subsequent update:
+
+1. Edit your `.Rmd` files in RStudio
+2. Re-render: `bookdown::render_book("index.Rmd")` or **Build Book**
+3. Review in browser: `browseURL("docs/index.html")`
+4. Stage → Commit → Push in the Git tab
+
+## Customising Appearance {-}
+
+### CSS Styling {-}
+
+Edit `style.css` in the project root to change colours, fonts, and spacing. For example, to change the sidebar background:
+
+```css
+.book .book-summary {
+  background: #2c3e50;
+}
+
+.book .book-summary ul.summary li a {
+  color: #ecf0f1;
+}
+```
+
+### Output Options {-}
+
+In `_output.yml`, the `bookdown::gitbook` section accepts many options:
+
+```yaml
+bookdown::gitbook:
+  css: style.css
+  split_by: chapter          # one HTML file per chapter (default)
+  split_bib: true            # split bibliography by chapter
+  number_sections: true      # number chapters and sections
+  config:
+    toc:
+      collapse: section      # collapse subsections in sidebar by default
+      scroll_highlight: true
+    fontsettings:
+      theme: white
+      family: sans
+      size: 2
+    sharing:
+      github: yes
+      twitter: yes
+```
+
+### PDF Output {-}
+
+To add PDF download, ensure TinyTeX is installed:
+
+```{r tinytex_install, eval=FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+Then add to `_output.yml`:
+
+```yaml
+bookdown::pdf_book:
+  includes:
+    in_header: preamble.tex
+  latex_engine: xelatex
+  citation_package: natbib
+  keep_tex: yes
+```
+
+And list `pdf` in the `download:` config under `bookdown::gitbook`.
+
+## Bookdown File Structure Reference {-}
+
+```{r bookdown_files, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  File = c(
+    "`index.Rmd`",
+    "`01-chapter.Rmd`, `02-chapter.Rmd`, ...",
+    "`_bookdown.yml`",
+    "`_output.yml`",
+    "`style.css`",
+    "`docs/`",
+    "`.gitignore`",
+    "`preamble.tex`"
+  ),
+  Purpose = c(
+    "First page / preface. Must exist. Contains the main YAML header for the book.",
+    "Chapter files — one per chapter. Assembled in alphabetical order (or explicit order in `_bookdown.yml`).",
+    "Book-level config: filename, repo links, chapter order, language settings.",
+    "Output format config: GitBook options, CSS, toolbar, PDF/EPUB settings.",
+    "Custom CSS for appearance. Edit freely.",
+    "Rendered HTML output. Committed to Git and served by GitHub Pages. Do not edit manually.",
+    "Tells Git which files to ignore. The default ignores `.Rds` cache files and `.RData`.",
+    "Optional LaTeX preamble for PDF output. Add custom LaTeX packages here."
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Bookdown project file reference")
+```
+
+---
+
+# Part II: Quarto Websites {#quarto-website}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What a Quarto website is and how it differs from a bookdown book; how to set up a Quarto website from a template; how to configure `_quarto.yml`; how to render and publish to GitHub Pages; and how to add pages, themes, and a navbar
+:::
+
+## What Is a Quarto Website? {-}
+
+A **Quarto website** is a collection of `.qmd` pages linked by a shared navigation bar and a common `_quarto.yml` configuration file. Unlike bookdown, which produces a book-like structure with numbered chapters and a sidebar, a Quarto website produces a standard multi-page website with a top navigation bar and optional sidebars — closer to what you would expect from an academic portfolio, a course homepage, or a project documentation site.
+
+Quarto websites are rendered by the `quarto render` command (or the **Render Website** button in RStudio) and produce HTML in a `docs/` folder that GitHub Pages can serve directly.
+
+## Step 1 — Create Your Repository from the Template {-}
+
+1. Go to [github.com/jtr13/website-template](https://github.com/jtr13/website-template)
+
+2. Click **Use this template** → **Create a new repository**
+
+::: {.callout-warning}
+## Do Not Fork
+
+As with bookdown, always use **Use this template**, not **Fork**. This gives you a clean independent repository with a name of your choosing.
+:::
+
+3. Choose a **descriptive repository name** — this will form part of your site URL
+
+4. Leave the repository **Public** and click **Create repository**
+
+## Step 2 — Configure GitHub Pages {-}
+
+The steps are identical to the bookdown workflow:
+
+1. **Settings → Pages**
+2. **Source**: *Deploy from a branch*; **Branch**: `main`; **Folder**: `/docs`; **Save**
+3. Copy the URL that appears (format: `https://YOUR-USERNAME.github.io/YOUR-REPO/`)
+4. Paste it into the **Website** field in the **About** gear menu on your repo homepage
+
+::: {.callout-tip}
+## The `.nojekyll` File
+
+The template includes a `.nojekyll` file in the root. This tells GitHub Pages **not** to process the site through Jekyll (GitHub's default static site generator). Without this file, Quarto's output directories that start with `_` (like `_site/`) would be ignored by Jekyll, and your site would appear blank. The `.nojekyll` file is already present in the template — do not delete it.
+:::
+
+## Step 3 — Clone the Repository to RStudio {-}
+
+1. Click the green **Code** button on your repository homepage → copy the HTTPS URL
+2. In RStudio: **File → New Project → Version Control → Git**
+3. Paste the URL and click **Create Project**
+
+Make sure RStudio is up to date (**Help → Check for Updates**) so that Quarto is available.
+
+## Step 4 — Configure `_quarto.yml` {-}
+
+The `_quarto.yml` file controls everything about your website. Open it in RStudio and replace the placeholder values. The template's default looks like this:
+
+```yaml
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "YOUR NAME"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: projects.qmd
+        text: Projects
+
+format:
+  html:
+    theme: cerulean
+    css: styles.css
+    toc: true
+```
+
+A fully configured example for a linguistics course site:
+
+```yaml
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "LING3000: Corpus Linguistics"
+  description: "Course materials for LING3000 at the University of Queensland"
+  favicon: img/favicon.ico
+  navbar:
+    background: primary
+    search: true
+    left:
+      - href: index.qmd
+        text: Home
+      - href: schedule.qmd
+        text: Schedule
+      - text: Tutorials
+        menu:
+          - href: tutorials/freq.qmd
+            text: Frequency Analysis
+          - href: tutorials/colloc.qmd
+            text: Collocations
+          - href: tutorials/kwic.qmd
+            text: KWIC
+      - href: resources.qmd
+        text: Resources
+      - href: about.qmd
+        text: About
+    right:
+      - icon: github
+        href: https://github.com/YOUR-USERNAME/YOUR-REPO
+  page-footer:
+    left: "© 2026 Martin Schweinberger"
+    right:
+      - icon: github
+        href: https://github.com/YOUR-USERNAME
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-fold: show
+    code-tools: true
+
+execute:
+  freeze: auto
+  warning: false
+  message: false
+```
+
+```{r quarto_yml_fields, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Field = c(
+    "`project: type: website`",
+    "`project: output-dir: docs`",
+    "`website: title`",
+    "`website: navbar: left`",
+    "`website: navbar: right`",
+    "`website: navbar: search`",
+    "`website: page-footer`",
+    "`website: favicon`",
+    "`format: html: theme`",
+    "`execute: freeze: auto`",
+    "`execute: warning/message`"
+  ),
+  Effect = c(
+    "Tells Quarto this is a website project (not a book or presentation)",
+    "Rendered HTML goes into `docs/` — the folder GitHub Pages serves",
+    "Site title shown in the navbar and browser tab",
+    "Left-aligned navbar links; supports `menu:` for dropdowns",
+    "Right-aligned items — icons (GitHub, Twitter) or links",
+    "`true` adds a full-text search box to the navbar",
+    "Footer content: left/right text, links, or icons",
+    "Path to a `.ico` file for the browser tab icon",
+    "Bootstrap theme — see bootswatch.com for options",
+    "Only re-render `.qmd` files whose source code has changed",
+    "Suppress warnings and messages globally"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Key `_quarto.yml` fields for a Quarto website")
+```
+
+## Step 5 — Edit the Content Pages {-}
+
+The template provides two starter pages:
+
+**`index.qmd`** — the site homepage. Edit the YAML header and content:
+
+```yaml
+title: "LING3000: Corpus Linguistics"
+```
+
+Add your page content below the YAML. The homepage can include an introduction, a photo, links to key resources, or an announcements section.
+
+**`projects.qmd`** — a second page. Rename it to match your content (e.g. `schedule.qmd`, `tutorials.qmd`, `about.qmd`) and update the reference in `_quarto.yml`.
+
+The template also includes a `img/` folder with a placeholder photo. Replace `img/photo.jpg` with your own image and reference it in `index.qmd`:
+
+```markdown
+![](img/photo.jpg){width=200px fig-align="left"}
+```
+
+## Step 6 — Adding New Pages {-}
+
+To add a new page to your site:
+
+1. Create a new `.qmd` file in the project root (or a subdirectory for organisation)
+2. Give it a YAML header with at minimum a `title:`
+3. Add the file to `_quarto.yml` under `navbar: left:` (or as a dropdown menu item)
+
+Example — adding a Resources page:
+
+```yaml
+# In _quarto.yml, add to navbar: left:
+- href: resources.qmd
+  text: Resources
+```
+
+Then create `resources.qmd`:
+
+```markdown
+---
+title: "Resources"
+---
+
+## Recommended Reading
+
+- Gries, Stefan Th. (2009). *Quantitative Corpus Linguistics with R*. Routledge.
+- Stefanowitsch, Anatol (2020). *Corpus Linguistics: A Guide to the Methodology*. LangSci Press.
+
+## Software
+
+- [LADAL Tutorials](https://ladal.edu.au)
+- [AntConc](https://www.laurenceanthony.net/software/antconc/)
+```
+
+### Organising Pages into Subdirectories {-}
+
+For a large site with many pages, organise them into subdirectories:
+
+```
+index.qmd
+about.qmd
+tutorials/
+  freq.qmd
+  colloc.qmd
+  kwic.qmd
+data/
+  datasets.qmd
+```
+
+Reference them in `_quarto.yml` with the relative path:
+
+```yaml
+- text: Tutorials
+  menu:
+    - href: tutorials/freq.qmd
+      text: Frequency Analysis
+    - href: tutorials/colloc.qmd
+      text: Collocations
+```
+
+### Sidebar Navigation {-}
+
+For tutorial-heavy sites, a sidebar listing all pages in a section is more readable than a navbar dropdown. Add a `sidebar:` section to `_quarto.yml`:
+
+```yaml
+website:
+  sidebar:
+    style: docked
+    search: true
+    contents:
+      - section: "Text Analysis"
+        contents:
+          - tutorials/freq.qmd
+          - tutorials/colloc.qmd
+          - tutorials/kwic.qmd
+      - section: "Phonetics"
+        contents:
+          - tutorials/vowels.qmd
+          - tutorials/formants.qmd
+```
+
+## Step 7 — Choosing a Theme {-}
+
+Quarto websites use [Bootswatch](https://bootswatch.com/) themes. Browse the gallery and replace `cerulean` (the template default) with your preferred theme name in `_quarto.yml`:
+
+```yaml
+format:
+  html:
+    theme: cosmo      # or: flatly, journal, lumen, sandstone, simplex, sketchy, united, yeti
+```
+
+```{r themes_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Theme = c("cosmo", "flatly", "journal", "lumen", "sandstone",
+            "simplex", "sketchy", "united", "yeti", "cerulean"),
+  Character = c(
+    "Clean, modern — good general-purpose default",
+    "Flat design, muted palette — professional",
+    "Bold typography, editorial feel",
+    "Light and airy, high readability",
+    "Stone tones, subtle texture",
+    "Minimal, clean — good for technical docs",
+    "Hand-drawn look — informal/creative",
+    "Orange accent, warm tones",
+    "Fresh, sharp — modern academic",
+    "Blue accent, clean — the template default"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Bootswatch themes available for Quarto websites")
+```
+
+## Step 8 — Render the Website Locally {-}
+
+In RStudio, click the **Build** tab → **Render Website**. Alternatively, run in the terminal:
+
+```bash
+quarto render
+```
+
+Preview the result:
+
+```{r browse_quarto, eval=FALSE}
+browseURL("docs/index.html")
+```
+
+::: {.callout-tip}
+## Live Preview with `quarto preview`
+
+Run `quarto preview` in the terminal (not the R console) for a live-reloading preview server. The browser updates automatically every time you save a `.qmd` file — much faster than repeatedly clicking Render Website.
+:::
+
+## Step 9 — Publish to GitHub Pages {-}
+
+Once the local preview looks correct:
+
+1. Stage all changed files in the **Git** tab
+2. Write a commit message and click **Commit**
+3. Click **Push**
+
+Wait 1–2 minutes and visit your GitHub Pages URL.
+
+::: {.callout-warning}
+## Commit the `docs/` Folder
+
+The `docs/` folder contains your rendered HTML. It must be committed and pushed to GitHub for the site to update. A common mistake is to push only the `.qmd` source files — the site will not change unless `docs/` is also committed.
+:::
+
+## Quarto Website File Structure Reference {-}
+
+```{r quarto_files, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  File = c(
+    "`_quarto.yml`",
+    "`index.qmd`",
+    "`projects.qmd` (or any `*.qmd`)",
+    "`docs/`",
+    "`img/`",
+    "`styles.css`",
+    "`.nojekyll`",
+    "`.gitignore`"
+  ),
+  Purpose = c(
+    "Master config file — site title, navbar, theme, execute options. Edit carefully; indentation is significant.",
+    "Homepage — always required. Becomes `docs/index.html`.",
+    "Additional pages — create as many as needed and list them in `_quarto.yml`.",
+    "Rendered HTML output — committed to Git and served by GitHub Pages.",
+    "Image folder — put your photos and figures here.",
+    "Custom CSS for overriding theme styles.",
+    "Prevents GitHub Pages from running Jekyll. Do not delete.",
+    "Files Git should ignore — typically `/.quarto/` and `*_cache/`."
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Quarto website project file reference")
+```
+
+---
+
+# Choosing Between Bookdown and Quarto {#choosing}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to decide which tool is right for your project based on content type, audience, and requirements
+:::
+
+## Decision Guide {-}
+
+```{r decision_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  `Your situation` = c(
+    "Writing a multi-chapter book, textbook, or thesis",
+    "Building a course homepage or project website",
+    "Need numbered chapters and auto-numbered figures/tables",
+    "Need PDF and EPUB output alongside HTML",
+    "Need a navbar with multiple independent pages",
+    "Using Python alongside R",
+    "Maintaining an existing `.Rmd` project",
+    "Starting a new project from scratch",
+    "Need full-text search",
+    "Want the simplest possible setup"
+  ),
+  `Recommended tool` = c(
+    "Bookdown",
+    "Quarto website",
+    "Bookdown",
+    "Bookdown",
+    "Quarto website",
+    "Quarto website",
+    "Bookdown (stay in `.Rmd`)",
+    "Quarto website",
+    "Either (both support search)",
+    "Quarto website (one config file)"
+  ),
+  Reason = c(
+    "GitBook sidebar with chapter tree is ideal for long sequential content",
+    "Navbar-based navigation suits independent pages without forced order",
+    "Bookdown auto-numbers and cross-references chapters, figures, and tables",
+    "Bookdown has mature PDF/EPUB pipelines via LaTeX and Pandoc",
+    "Quarto's navbar and dropdown menus handle flat site structures cleanly",
+    "Quarto supports Python, Julia, and Observable JS natively",
+    "No need to migrate — bookdown is stable and fully maintained",
+    "Quarto is the modern default with more active development",
+    "Bookdown has built-in search; Quarto needs `search: true` in YAML",
+    "`_quarto.yml` is a single file; bookdown needs three config files"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 10) |>
+  set_caption("Decision guide: bookdown vs. Quarto website")
+```
+
+::: {.callout-tip}
+## The Short Answer
+
+Use **bookdown** if your content is a book (sequential chapters with a narrative arc, numbered sections, cross-referenced figures). Use a **Quarto website** if your content is a collection of independent pages, a course site, a portfolio, or a documentation hub. When in doubt and starting fresh, Quarto is the better long-term investment.
+:::
+
+---
+
+# Troubleshooting {#troubleshoot}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to diagnose and fix the most common problems encountered when setting up bookdown or Quarto websites on GitHub Pages
+:::
+
+```{r troubleshoot_table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Problem = c(
+    "GitHub Pages shows a 404 error",
+    "Site URL loads but shows a blank page",
+    "Site loads but images are missing",
+    "Push fails with 'authentication failed' or 401",
+    "Push fails with 'remote: Repository not found'",
+    "`bookdown::render_book()` fails with a LaTeX error",
+    "Quarto: 'quarto command not found' in terminal",
+    "Rendered site does not update after push",
+    "The `.nojekyll` file is missing and pages don't load",
+    "Bookdown edit/view buttons link to wrong files",
+    "Quarto: changes to `.qmd` not reflected after render",
+    "GitHub Pages build takes very long or fails silently"
+  ),
+  Cause = c(
+    "Pages not configured, wrong branch, or wrong folder selected",
+    "Missing `.nojekyll` file, or Pages is running Jekyll on Quarto output",
+    "Image paths are absolute or relative to wrong directory",
+    "PAT has expired or was not stored correctly",
+    "Wrong repo URL, or no push access to the repository",
+    "TinyTeX not installed, or missing LaTeX package",
+    "RStudio is out of date (Quarto not bundled in old versions)",
+    "`docs/` was not staged and committed before pushing",
+    "Template `.nojekyll` was accidentally deleted",
+    "`repo:` field in `_bookdown.yml` has wrong username or repo name",
+    "`freeze: auto` is using cached output — source hasn't changed",
+    "Large `docs/` folder or GitHub Actions queue delay"
+  ),
+  Fix = c(
+    "Settings → Pages → Source: 'Deploy from branch', Branch: main, Folder: /docs, Save",
+    "Add an empty `.nojekyll` file to the repo root and push it",
+    "Use relative paths from the project root; put images in `img/` or `images/`",
+    "Run `gitcreds::gitcreds_set()` and paste a fresh token from github.com/settings/tokens",
+    "Verify the HTTPS URL in the Git tab matches your repository exactly",
+    "Run `tinytex::install_tinytex()`, then `tinytex::tlmgr_update()`",
+    "Run Help → Check for Updates in RStudio to install the latest version with Quarto",
+    "In the Git tab, stage the `docs/` folder, commit, and push",
+    "Create the file: in terminal run `touch .nojekyll`, stage, commit, push",
+    "Edit `_bookdown.yml`: set `repo:` to `https://github.com/USERNAME/REPO/blob/main/`",
+    "Delete the `_freeze/` folder for that file and re-render to force re-execution",
+    "Check the Actions tab on GitHub for build logs; large repos may need a few minutes"
+  ),
+  check.names = FALSE
+) |>
+  flextable() |>
+  set_table_properties(width = 1, layout = "autofit") |>
+  theme_zebra() |>
+  fontsize(size = 9.5) |>
+  set_caption("Common problems and solutions for bookdown and Quarto GitHub Pages deployment")
+```
+
+::: {.callout-tip}
+## Creating `.nojekyll` in RStudio
+
+If the file is missing, create it from the R console:
+
+```r
+file.create(".nojekyll")
+```
+
+Then stage, commit, and push.
+:::
+
+---
+
+# Keeping Your Site Updated {#updating}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Best practices for a sustainable long-term update workflow; how to use `freeze` to speed up Quarto rebuilds; and how to collaborate with others on a shared repository
+:::
+
+## The Update Cycle {-}
+
+For both bookdown and Quarto websites, the update cycle is always the same four steps:
+
+1. **Edit** — make changes to your `.Rmd` or `.qmd` files in RStudio
+2. **Render** — rebuild the site locally (`bookdown::render_book()` or **Render Website**)
+3. **Review** — open `docs/index.html` in your browser and check the result
+4. **Push** — Stage → Commit → Push in the Git tab
+
+Never push without re-rendering. The live site reflects whatever HTML is in `docs/` — not the source files.
+
+## Speeding Up Quarto Rebuilds with `freeze` {-}
+
+For large Quarto websites with many pages containing R code, re-rendering every page on every update is slow. The `freeze: auto` option caches each page's executed output and only re-runs chunks whose code has changed:
+
+```yaml
+execute:
+  freeze: auto
+```
+
+Quarto stores cached output in a `_freeze/` directory. Commit this directory to Git so collaborators can render the site without re-running all computations.
+
+::: {.callout-warning}
+## When to Delete the Cache
+
+If your data changes but your code does not, `freeze: auto` will not detect the change — it only tracks code modifications. Delete the relevant entry in `_freeze/` (or the whole folder) and re-render when you need to force a full re-execution.
+:::
+
+## Collaborating on a Shared Repository {-}
+
+If multiple people contribute to the same site:
+
+- Each contributor clones the repository and works in their own branch
+- Pull Requests merge changes back to `main`
+- The maintainer renders and pushes `docs/` after merging
+- Use `renv` to ensure all contributors use the same package versions:
+
+```{r renv_collab, eval=FALSE}
+renv::init()       # initialise — run once
+renv::snapshot()   # update lock file after installing packages
+renv::restore()    # collaborator runs this to match your environment
+```
+
+---
+
+# Citation and Session Info {-}
+
+Schweinberger, Martin. 2026. *Publishing Free Online Books and Websites with Bookdown and Quarto*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/publish/publish.html (Version 2026.03.11).
+
+```
+@manual{schweinberger2026publish,
+  author       = {Schweinberger, Martin},
+  title        = {Publishing Free Online Books and Websites with Bookdown and Quarto},
+  note         = {https://ladal.edu.au/tutorials/publish/publish.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.03.11}
+}
+```
+
+```{r session_info}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude substantially revised, restructured, and expanded an existing shorter LADAL tutorial on creating bookdown websites. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
