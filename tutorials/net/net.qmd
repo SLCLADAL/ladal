@@ -1,580 +1,1542 @@
 ---
 title: "Network Analysis using R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
 
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction{-}
+# Introduction {#intro}
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial serves as an introduction to network analysis in R using the `quanteda`[@quanteda2018package], `igraph` [@csardi2006igraph], `tidygraph` [@tidygraph2024package], and `ggraph` [@ggraph2024package] packages.
+This tutorial introduces network analysis in R. Networks are a powerful method for visualising relationships among entities such as literary characters, co-authors, words, or speakers. Network analysis goes beyond visualisation: it is a formal technique for uncovering patterns and structures within complex relational systems.
 
-Networks are a powerful method for visualizing relationships among various elements, such as authors, characters, or words. Network analysis goes beyond mere visualization; it's a technique for uncovering patterns and structures within complex systems. In essence, network analysis represents relationships as nodes (elements) connected by edges (relationships) which provides a unique perspective for understanding the connections and interactions within your data.
+In essence, network analysis represents relationships as **nodes** (the entities) connected by **edges** (the relationships between them). This representation provides a unique perspective for understanding interactions and dependencies within data — one that neither regression nor clustering can easily capture, because the unit of analysis is the *relationship itself* rather than individual observations.
 
-Geared towards beginners and intermediate users of R, this tutorial aims to showcase how to perform network analysis based on textual data and it shows how to visualize networks using R. The primary goal is not to deliver a fully-fledged analysis but rather to demonstrate and exemplify selected useful methods associated with network analysis. This tutorial delves into creating and modifying network graphs, allowing users to explore and compare their statistical properties. By the end, you'll not only grasp the basics of network analysis but also gain insights into leveraging statistical measures for a more comprehensive understanding of your data.
+This tutorial is aimed at beginners and intermediate R users. It showcases how to construct, visualise, and statistically describe networks built from textual data. The running example throughout is the character co-occurrence network in William Shakespeare's *Romeo and Juliet*: two characters are connected if they appear in the same scene, and the edge weight reflects how often this happens. A second worked example — a word co-occurrence network — demonstrates how the same pipeline transfers directly to purely linguistic data. The tutorial concludes with interactive network visualisation using `visNetwork`, which allows users to explore networks in a browser by dragging nodes, hovering for information, and zooming in and out.
 
+::: {.callout-note}
+## Prerequisite Tutorials
 
+Before working through this tutorial, we suggest you familiarise yourself with:
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-**LADAL TOOL** 
-</p>
-<p style='margin-top:1em; text-align:center'></p>
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio orientation
+- [Loading and Saving Data in R](/tutorials/load/load.html) — reading files, working with paths
+- [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr`, pipes
+- [String Processing in R](/tutorials/string/string.html) — character manipulation (useful for the word network section)
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what a network is in formal terms and distinguish directed from undirected, and weighted from unweighted networks
+2. Read and interpret an adjacency matrix and an edge list
+3. Build a co-occurrence matrix from tabular long-format data using `crossprod()` and `table()`
+4. Construct node attribute tables and edge lists from raw data
+5. Visualise a network quickly using `quanteda.textplots::textplot_network()`
+6. Build fully customisable static `ggraph` networks with node colours, sizes, and edge weights
+7. Calculate and interpret degree, betweenness, closeness, eigenvector centrality, and PageRank
+8. Compile, compare, and visualise multiple centrality measures in a single summary
+9. Detect communities in a network using the Louvain algorithm and interpret the results
+10. Build and visualise a word co-occurrence / collocation network from a text corpus
+11. Create interactive network visualisations using `visNetwork`
+12. Export network plots, edge lists, node tables, and igraph objects for reuse
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Network Analysis using R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/net/net.html (Version 2026.05.01).
+:::
+
+This tutorial builds on a [tutorial on plotting collocation networks](https://corpling.hypotheses.org/3341) by [Guillaume Desagulier](http://www2.univ-paris8.fr/desagulier/home/), a tutorial on network analysis offered by Alice Miller from the [Digital Observatory](https://www.qut.edu.au/research/why-qut/infrastructure/digital-observatory) at the [Queensland University of Technology](https://www.qut.edu.au/), and [this tutorial](https://tm4ss.github.io/docs/Tutorial_5_Co-occurrence.html) by [Andreas Niekler](http://asv.informatik.uni-leipzig.de/staff/Andreas_Niekler) and [Gregor Wiedemann](https://leibniz-hbi.de/en/staff/gregor-wiedemann).
+
+---
+
+# What Is Network Analysis? {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The core vocabulary of network analysis — nodes, edges, directed vs. undirected, weighted vs. unweighted, adjacency matrices; why network analysis is well-suited to linguistic and literary data; the distinction between adjacency matrix and edge list representations; and what global graph properties (density, diameter, transitivity) tell us about a network's architecture
+:::
+
+## Graphs, Nodes, and Edges {-}
+
+A **network** (or **graph** in mathematics) consists of two components: a set of **nodes** (also called *vertices*) representing entities, and a set of **edges** (also called *links* or *arcs*) representing relationships between pairs of those entities. Formally, a graph is written as $G = (V, E)$, where $V$ is the set of vertices and $E \subseteq V \times V$ is the set of edges.
+
+In linguistics and literary studies, networks can represent a wide variety of relational phenomena:
+
+| Domain | Nodes | Edges | Typical edge weight |
+|---|---|---|---|
+| Literary characters | Characters in a play or novel | Appear in the same scene/chapter | Number of shared scenes |
+| Collocation | Words in a corpus | Co-occur within a context window | Co-occurrence frequency or PMI |
+| Syntactic dependency | Words in a sentence | Syntactic dependency relations | — (usually unweighted) |
+| Co-authorship | Researchers | Wrote a paper together | Number of joint papers |
+| Language contact | Languages or dialects | Share lexical/structural features | Similarity score |
+| Social network | Speakers | Regular interaction | Frequency of contact |
+
+The choice of what counts as a node and what counts as an edge is a *theoretical decision* that must be justified by the research question. The same underlying data can yield quite different networks depending on these choices.
+
+## Directed and Undirected Networks {-}
+
+Networks can be **directed** or **undirected**, depending on whether the edges carry orientation information.
+
+In a **directed network** (also called a *digraph*), every edge has a source and a target. Directed edges indicate asymmetric relationships: the fact that word A precedes word B in a sequence does not imply that B precedes A. In directed networks, we distinguish the **in-degree** (number of incoming edges) from the **out-degree** (number of outgoing edges) of each node.
+
+In an **undirected network**, edges are symmetric: if node A is connected to node B, then B is connected to A by the same edge. Character co-occurrence is a naturally undirected relationship: if Romeo appears in a scene with Juliet, then Juliet appears in that scene with Romeo. Most co-occurrence networks — whether character-level or word-level — are therefore undirected.
+
+::: {.callout-tip}
+## When to Use Directed vs. Undirected
+
+Use **directed** networks when the relationship is inherently asymmetric: citation (A cites B does not mean B cites A), word order (A precedes B), syntactic dependency (head to dependent), or social influence (A mentions B). Use **undirected** networks when the relationship is symmetric by nature, or when directionality is not recorded in the data.
+:::
+
+## Weighted and Unweighted Networks {-}
+
+Edges can carry a **weight** — a numerical value representing the strength, frequency, or magnitude of the relationship. In a character co-occurrence network, the weight is the number of scenes in which two characters appear together. In a word co-occurrence network, the weight is the number of times two words co-occur within a context window.
+
+**Unweighted networks** treat all edges as equally present (weight = 1) or absent (weight = 0). They are appropriate when frequency or strength is not meaningful or not recorded.
+
+**Weighted networks** preserve gradient information. The four combinations of directed/undirected and weighted/unweighted give rise to four basic network types:
+
+| | Unweighted | Weighted |
+|---|---|---|
+| **Undirected** | Friendship (present/absent), binary co-occurrence | Character co-occurrence, word co-occurrence |
+| **Directed** | Citation (presence/absence), follow (Twitter) | Retweet counts, word transition probabilities |
+
+## The Adjacency Matrix and the Edge List {-}
+
+Any network can be represented in two equivalent ways.
+
+The **adjacency matrix** $A$ is a square matrix of size $|V| \times |V|$, where $A_{ij}$ equals the edge weight from node $i$ to node $j$ (or 1 if unweighted), and 0 if no edge exists. For an undirected network, $A$ is symmetric ($A_{ij} = A_{ji}$). The co-occurrence matrix we build in [Data Preparation](#data) is exactly an adjacency matrix.
+
+The **edge list** is a two- or three-column table in which each row records one edge: the source node, the target node, and optionally the edge weight. Edge lists are more memory-efficient than adjacency matrices for sparse networks (where most pairs of nodes are not connected). A vocabulary of 10,000 word types, for example, would require a 10,000 × 10,000 = 100,000,000-cell adjacency matrix, but the same data as an edge list would have only as many rows as there are non-zero co-occurrences.
+
+Both representations carry identical information and can be converted into each other. `igraph` works with both via `graph_from_adjacency_matrix()` and `graph_from_data_frame()`.
+
+## Key Global Network Properties {-}
+
+Beyond individual node statistics, networks have global structural properties that characterise their overall architecture:
+
+**Density** is the proportion of all possible edges that are actually present. A complete graph (every node connected to every other) has density 1; a sparse network has density close to 0. Most real-world networks are sparse.
+
+**Diameter** is the length of the longest shortest path between any two nodes in the network. A small diameter means that any two nodes can be reached in few steps — this is the structural basis of the "small world" phenomenon.
+
+**Clustering coefficient** (or *transitivity*) measures how often two nodes that share a common neighbour are also connected to each other. High transitivity means the network contains many tightly interconnected triangles — characteristic of friendship networks and co-occurrence networks.
+
+**Connected components** are maximal subgraphs in which every node can reach every other node. A network with one giant component and a few isolated nodes is typical of real-world networks.
+
+## Why Network Analysis for Linguistics? {-}
+
+Network methods are particularly well-suited to linguistic data for several reasons. Language is inherently relational: words derive meaning from co-occurrence with other words; characters in a narrative acquire significance through their interactions; speakers in a community are embedded in social networks that shape their linguistic behaviour. Network analysis makes these relational structures explicit, measurable, and comparable across texts, languages, or time periods. It complements frequency-based methods by foregrounding *who relates to whom*, *how centrally*, and *through which structural position*.
+
+Several influential results in computational linguistics and digital humanities rest on network analysis. @mikolov2013distributed embed words in vector spaces whose geometry reflects word co-occurrence networks. @moretti2011network uses character networks to argue that the structural complexity of Shakespeare's plays increases over his career. @trilcke2016theatre demonstrates that network density reliably distinguishes dramatic genre (comedy vs. tragedy). These examples show that network methods yield interpretable, replicable findings rather than merely attractive visualisations.
+
+::: {.callout-tip}
+## Exercises: Graph Theory Concepts
+:::
+
+**Q1. A researcher models Twitter retweet behaviour: User A retweeting User B does NOT imply User B retweets User A. Which network type is most appropriate?**
 
 ```{r}
 #| echo: false
-
-# Define base components
-base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
-repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
-notebook_path <- "interactive-notebooks/notebooks/nettool.ipynb"
-
-# Manually encode each parameter
-repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
-notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
-
-# Combine parameters with 'git-pull' and 'branch'
-params <- paste0(
-    "urlpath=git-pull%3F",
-    repo_param,
-    "%26",
-    notebook_param,
-    "%26branch=main"
+#| label: "concepts_q1"
+check_question(
+  "Directed, weighted network",
+  options = c(
+    "Undirected, unweighted network",
+    "Directed, unweighted network",
+    "Undirected, weighted network",
+    "Directed, weighted network"
+  ),
+  type = "radio",
+  q_id = "concepts_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The relationship is asymmetric (directed: A retweets B does not mean B retweets A) and the number of retweets varies across pairs (weighted). A directed, weighted network captures both the direction and the strength of the relationship.",
+  wrong = "Not quite. Because retweeting is asymmetric (A retweeting B does not mean B retweets A), the network must be directed. Because retweet counts vary in magnitude, weighting edges by frequency adds meaningful information. The most appropriate choice is a directed, weighted network."
 )
-
-# Combine into the final URL
-binder_url <- paste0(base_url, "?", params)
 ```
 
-::: {.text-center}
-[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+---
 
-Click [**here**](`r binder_url`) to open an notebook-based tool <br> that allows you upload your own data, create a network, and download the resulting visualization of the network.
-:::
+**Q2. A co-occurrence matrix for a corpus with 10,000 unique word types would have how many cells?**
 
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-<br>
-
-
-
-
-
-This tutorial builds on [a tutorial on plotting collocation networks](https://corpling.hypotheses.org/3341) by [Guillaume Desagulier](http://www2.univ-paris8.fr/desagulier/home/), a tutorial on network analysis by offered by Alice Miller from the [Digital Observatory](https://www.qut.edu.au/research/why-qut/infrastructure/digital-observatory) at the [Queensland University of Technology](https://www.qut.edu.au/), and [this tutorial](https://tm4ss.github.io/docs/Tutorial_5_Co-occurrence.html) by [Andreas Niekler](http://asv.informatik.uni-leipzig.de/staff/Andreas_Niekler) and [Gregor Wiedemann](https://leibniz-hbi.de/en/staff/gregor-wiedemann).
-
-# What is Network Analysis?{-}
-
-The most common way to visualize relationships between entities is through networks [@silge2017text, 131-137]. Networks, also known as graphs, are powerful tools that represent relationships among entities. They consist of **nodes** (often depicted as dots) and **edges** (typically represented as lines) and can be categorized as directed or undirected networks.
-
-+ In *directed networks*, the direction of edges is captured, signifying the flow or relationship from one node to another. An example of a directed network is the trade relationships between countries, where arrows on the edges indicate the direction of exports. The thickness of these arrows can also encode additional information, such as the frequency or strength of the relationship.  
-+ *Undirected networks*, on the other hand, represent symmetric relationships where the connection between two nodes is mutual. For example, in a social network, the connections between individuals are often undirected, as the relationship between friends is reciprocal.  
-
-Network analysis involves exploring the structure and properties of these networks. One key concept is centrality, which identifies the most important nodes in a network. Centrality metrics, such as *degree centrality* (number of connections) and *betweenness centrality* (importance in connecting other nodes), help unveil the significance of specific nodes.
-
-In R, there are several packages that provide essential tools for constructing, analyzing, and visualizing networks but here, we will focus on the  `quanteda.textplots`, `igraph`, `tidygraph`, and `ggraph` packages. To showcase how to prepare and generate network graphs, we will visualize the network that the characters in William Shakespeare's *Romeo and Juliet* form.
-
-**Preparation and session set up**
-
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorial, we need to install certain packages from an R library so that the scripts shown below can be executed without errors. Before turning to the code in the sections below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code. Don’t worry if it takes a while - it may take up to 5 minutes to install all of the packages.
-
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("flextable")
-install.packages("GGally")
-install.packages("ggraph")
-install.packages("igraph")
-install.packages("Matrix")
-install.packages("quanteda")
-install.packages("sna")
-install.packages("tidygraph")
-install.packages("tidyverse")
-install.packages("tibble")
-install.packages("quanteda.textplots")
+```{r}
+#| echo: false
+#| label: "concepts_q2"
+check_question(
+  "100,000,000",
+  options = c(
+    "10,000",
+    "20,000",
+    "100,000,000",
+    "It depends on the number of documents in the corpus"
+  ),
+  type = "radio",
+  q_id = "concepts_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! An adjacency matrix for n nodes is n x n = 10,000 x 10,000 = 100,000,000 cells. This illustrates why large vocabulary networks are stored as sparse matrices or edge lists rather than full adjacency matrices — the vast majority of cells would be zero.",
+  wrong = "Not quite. An adjacency matrix for n nodes has n x n cells. For 10,000 word types, that is 10,000 x 10,000 = 100,000,000 cells. This is why large co-occurrence networks are typically stored as sparse matrices or edge lists rather than dense matrices."
+)
 ```
 
-Next, we load the packages.
+---
 
-```{r prep2, message=FALSE, warning=FALSE}
-# activate packages
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages("checkdown")          # interactive check-in questions
+install.packages("flextable")          # formatted tables
+install.packages("GGally")             # ggplot2 network extension
+install.packages("ggraph")             # ggplot2-style network plots
+install.packages("igraph")             # core network analysis
+install.packages("Matrix")             # sparse matrix support
+install.packages("quanteda")           # text analysis and FCM
+install.packages("quanteda.textplots") # textplot_network()
+install.packages("tidygraph")          # tidy interface to igraph
+install.packages("tidyverse")          # dplyr, ggplot2, tidyr, readr
+install.packages("tibble")             # tibble data frames
+install.packages("ggrepel")            # non-overlapping node labels
+install.packages("visNetwork")         # interactive network visualisation
+```
+
+## Loading Packages {-}
+
+```{r prep1, message=FALSE, warning=FALSE}
+library(checkdown)
 library(flextable)
 library(GGally)
 library(ggraph)
 library(igraph)
 library(Matrix)
 library(quanteda)
-library(sna)
+library(quanteda.textplots)
 library(tidygraph)
 library(tidyverse)
 library(tibble)
+library(ggrepel)
+library(visNetwork)
 ```
 
-Once you have installed R, RStudio, and have also initiated the session by executing the code shown above, you are good to go.
+Once the packages are loaded you are ready to work through the tutorial. Each section builds on objects created in [Data Preparation](#data), so run that section first before moving to later sections.
 
-# Data preparation{-}
+---
 
-In network analysis, it's crucial to have at least one table indicating the start and end points of edges (lines connecting nodes). Additionally, two additional tables providing information on node size/type and edge size/type are valuable. In the upcoming sections, we'll create these tables from raw data. Alternatively, you can generate network graphs by uploading tables containing the necessary information.
+# Data Preparation {#data}
 
-We'll generate a network showing the frequency of characters in William Shakespeare's *Romeo and Juliet* appearing in the same scene. Our focus is on investigating the networks of personas in Shakespeare's *Romeo and Juliet*, and thus, we'll load this renowned work of fiction.
+::: {.callout-note}
+## Section Overview
 
+**What you will learn:** How to load a scene-level character table for *Romeo and Juliet*; how to transform it into a weighted co-occurrence matrix using `crossprod()` and `table()`; how to build a node attribute table and an edge list from the matrix; and how to combine all three into an `igraph` graph object
 
-## Creating a matrix{-}
+**Data source:** A tab-separated file (`tutorials/net/data/romeo_tidy.txt`) recording which characters appear in each subscene of *Romeo and Juliet* and how many lines they speak.
+:::
 
-We start by loading the data which represents a table that contains the personas that are present during a sub-scene as well as how many contributions they make and how often they occur.
+In network analysis it is essential to have at least one table describing the start and end points of edges — the **edge list**. A separate **node attribute table** (e.g. character family, frequency) and an **edge attribute table** (e.g. weight, type) enrich both the visualisation and the analysis. In the subsections below we build all three from the raw data.
 
+## Loading the Data {-}
 
-```{r na1, echo=T, eval = T, message=FALSE, warning=FALSE}
-# load data
-net_dat <- read.delim("tutorials/net/data/romeo_tidy.txt", sep = "\t")
-```
+We load a tab-separated file in which each row records one character's presence in one subscene, along with the number of lines they speak. This is a **long-format** (tidy) representation: each observation occupies exactly one row.
 
-
-```{r na1b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-net_dat %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 15 rows of rom data.") %>%
-    flextable::border_outer()
-```
-
-We now transform that table into a co-occurrence matrix.
-
-```{r na2, echo = T, message=FALSE, warning=FALSE}
-net_cmx <- crossprod(table(net_dat[1:2]))
-diag(net_cmx) <- 0
-net_df <- as.data.frame(net_cmx)
-```
-
-
-```{r na2b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-net_df[1:5, 1:5] %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("Persona") %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 5 rows and 5 columns of the of romeoco-occurrence matrix.") %>%
-    flextable::border_outer()
-```
-
-The data shows how often a character has appeared with each other character in the play - only Friar Lawrence and Friar John were excluded because they only appear in one scene where they talk to each other. 
-
-# Network Visualization{-}
-
-There are various different ways to visualize a network structure. We will focus on two packages for network visualization here and exemplify how you can visualize networks in R. 
-
-## Quanteda Networks{-} 
-
-The `quanteda` package contains many very useful functions for analyzing texts. Among these functions is the `textplot_network` function which provides a very handy way to display networks. The advantage of the network plots provided by or generated with the `quanteda` package is that you can create them with very little code. However, this comes at a cost as  these visualizations cannot be modified easily (which means that their design is not very flexible compared to other methods for generating network visualizations).    
-
-In a first step, we transform the text vectors of the `romeo` data into a document-feature matrix using the `dfm ` function. 
-
-
-```{r qtda01, warning=F, message=F}
-# create a document feature matrix
-net_dfm <- quanteda::as.dfm(net_df)
-# create feature co-occurrence matrix
-net_fcm <- quanteda::fcm(net_dfm, tri = F)
-# inspect data
-head(net_fcm)
-```
-
-This feature-co-occurrence matrix can then serve as the input for the `textplot_network` function which already generates a nice network graph. 
-
-
-
-Now we generate a network graph using the `textplot_network` function from the `quanteda.textplots` package. This function has the following arguments: 
-
-+ `x`: a fcm or dfm object  
-+ `min_freq`: a frequency count threshold or proportion for co-occurrence frequencies of features to be included (default = 0.5),  
-+ `omit_isolated`: if TRUE, features do not occur more frequent than min_freq will be omitted (default = TRUE),  
-+ `edge_color`: color of edges that connect vertices (default = "#1F78B4"),
-+ `edge_alpha`: opacity of edges ranging from 0 to 1.0 (default = 0.5),
-+ `edge_size`: size of edges for most frequent co-occurrence (default = 2),
-+ `vertex_color`: color of vertices (default = "#4D4D4D"),
-+ `vertex_size`: size of vertices (default = 2),
-+ `vertex_labelcolor`: color of texts. Defaults to the same as vertex_color,
-+ `vertex_labelfont`: font-family of texts,
-+ `vertex_labelsize`: size of vertex labels in mm. Defaults to size 5. Supports both integer values and vector values (default = 5),
-+ `offset`: if NULL (default), the distance between vertices and texts are determined automatically,
-
-
-```{r qtda04}
-quanteda.textplots::textplot_network(
-    x = net_fcm, # a fcm or dfm object
-    min_freq = 0.5, # frequency count threshold or proportion for co-occurrence frequencies (default = 0.5)
-    edge_alpha = 0.5, # opacity of edges ranging from 0 to 1.0 (default = 0.5)
-    edge_color = "gray", # color of edges that connect vertices (default = "#1F78B4")
-    edge_size = 2, # size of edges for most frequent co-occurrence (default = 2)
-    # calculate the size of vertex labels for the network plot
-    vertex_labelsize = net_dfm %>%
-        # convert the dfm object to a data frame
-        quanteda::convert(to = "data.frame") %>%
-        # exclude the 'doc_id' column
-        dplyr::select(-doc_id) %>%
-        # calculate the sum of row values for each row
-        rowSums() %>%
-        # apply the natural logarithm to the resulting sums
-        log(),
-    vertex_color = "#4D4D4D", # color of vertices (default = "#4D4D4D")
-    vertex_size = 2 # size of vertices (default = 2)
+```{r na1, message=FALSE, warning=FALSE}
+net_dat <- read.delim(
+    "tutorials/net/data/romeo_tidy.txt",
+    sep = "\t"
 )
 ```
 
-
-We now turn to generating *tidy networks* which is more complex but also offers more flexibility and options for customization. 
-
-## Tidy Networks{-}
-
-We now turn to a different method for generating networks that is extremely flexible.
-
-First, we define the *nodes* and we can also add information about the nodes that we can use later on (such as frequency information).
-
-```{r tidy4, message=F, warning=F}
-# create a new data frame 'va' using the 'net_dat' data
-net_dat %>%
-    # rename the 'person' column to 'node' and 'occurrences' column to 'n'
-    dplyr::rename(
-        node = person,
-        n = occurrences
-    ) %>%
-    # group the data by the 'node' column
-    dplyr::group_by(node) %>%
-    # summarize the data, calculating the total occurrences ('n') for each 'node'
-    dplyr::summarise(n = sum(n)) -> va
-```
-
-```{r tidy4b, echo = F, message=F, warning=F}
-va %>%
-    as.data.frame() %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Personas and their frequencies of occurrence in Shakespeare's *Romeo and Juliet*.") %>%
+```{r na1b, echo=FALSE, message=FALSE, warning=FALSE}
+net_dat |>
+    as.data.frame() |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .75, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "First 15 rows of the Romeo and Juliet character-scene data.") |>
     flextable::border_outer()
 ```
 
+The three columns are: `person` (character name), `scene` (subscene identifier), and `occurrences` (number of lines spoken). Each row records a single character's appearance in a single subscene. This long-format table is the raw material for building the co-occurrence matrix, the node attribute table, and the edge list.
 
-The next part is optional but it can help highlight important information. We add a column with additional information to our nodes table.
+## Building the Co-occurrence Matrix {-}
 
-```{r}
-# define family
+We use `table()` to create a character-by-scene indicator matrix, then `crossprod()` (the cross-product $X^\top X$) to produce the symmetric character-by-character co-occurrence matrix. Entry $(i,j)$ records how many scenes characters $i$ and $j$ share. Setting the diagonal to zero removes self-co-occurrences.
+
+```{r na2, message=FALSE, warning=FALSE}
+net_cmx <- crossprod(table(net_dat[1:2]))
+diag(net_cmx) <- 0
+net_df  <- as.data.frame(net_cmx)
+```
+
+```{r na2b, echo=FALSE, message=FALSE, warning=FALSE}
+net_df[1:5, 1:5] |>
+    as.data.frame() |>
+    tibble::rownames_to_column("Persona") |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "First 5 rows and columns of the co-occurrence matrix. Cell values = number of shared scenes.") |>
+    flextable::border_outer()
+```
+
+The matrix is symmetric — it represents an undirected network — and the value in cell $(i, j)$ is the edge weight between characters $i$ and $j$. This is the adjacency matrix for the weighted, undirected character co-occurrence network.
+
+## Building the Node Attribute Table {-}
+
+The node table records one row per character with any attributes we want to use in the visualisation. Here we compute each character's total scene frequency and add a family affiliation label:
+
+```{r node_table, message=FALSE, warning=FALSE}
+va <- net_dat |>
+    dplyr::rename(node = person, n = occurrences) |>
+    dplyr::group_by(node) |>
+    dplyr::summarise(n = sum(n))
+
 mon <- c("ABRAM", "BALTHASAR", "BENVOLIO", "LADY MONTAGUE", "MONTAGUE", "ROMEO")
-cap <- c("CAPULET", "CAPULET’S COUSIN", "FIRST SERVANT", "GREGORY", "JULIET", "LADY CAPULET", "NURSE", "PETER", "SAMPSON", "TYBALT")
-oth <- c("APOTHECARY", "CHORUS", "FIRST CITIZEN", "FIRST MUSICIAN", "FIRST WATCH", "FRIAR JOHN", "FRIAR LAWRENCE", "MERCUTIO", "PAGE", "PARIS", "PRINCE", "SECOND MUSICIAN", "SECOND SERVANT", "SECOND WATCH", "SERVANT", "THIRD MUSICIAN")
-# create color vectors
-va <- va %>%
+cap <- c("CAPULET", "CAPULET'S COUSIN", "FIRST SERVANT", "GREGORY", "JULIET",
+         "LADY CAPULET", "NURSE", "PETER", "SAMPSON", "TYBALT")
+
+va <- va |>
     dplyr::mutate(type = dplyr::case_when(
-        node %in% mon ~ "MONTAGUE",
-        node %in% cap ~ "CAPULET",
-        TRUE ~ "Other"
+        node %in% mon ~ "Montague",
+        node %in% cap ~ "Capulet",
+        TRUE          ~ "Other"
     ))
-# inspect updates nodes table
-va
 ```
 
-
-```{r tidy15, echo = F, message=F, warning=F}
-va %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Updated and enriched nodes table") %>%
+```{r node_table_tb, echo=FALSE, message=FALSE, warning=FALSE}
+va |>
+    as.data.frame() |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .6, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Node attribute table: characters, total line frequency, and family affiliation.") |>
     flextable::border_outer()
 ```
 
-Now, we define the *edges*, i.e., the connections between nodes and, again, we can add information in separate variables that we can use later on. 
+## Building the Edge List {-}
 
+We reshape the co-occurrence matrix from wide to long format using `tidyr::pivot_longer()`, then remove zero-weight pairs:
 
-```{r tidy5, message=F, warning=F}
-# create a new data frame 'ed' using the 'dat' data
-ed <- net_df %>%
-    # add a new column 'from' with row names
-    dplyr::mutate(from = rownames(.)) %>%
-    # reshape the data from wide to long format using 'gather'
-    tidyr::gather(to, n, BALTHASAR:TYBALT) %>%
-    # remove zero frequencies
-    dplyr::filter(n != 0)
+```{r edge_list, message=FALSE, warning=FALSE}
+ed <- net_df |>
+    dplyr::mutate(from = rownames(net_df)) |>
+    tidyr::pivot_longer(
+        cols      = -from,
+        names_to  = "to",
+        values_to = "n"
+    ) |>
+    dplyr::filter(n > 0)
 ```
 
-
-```{r tidy5b, echo = F, message=F, warning=F}
-ed %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .5, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Edges between nodes") %>%
+```{r edge_list_tb, echo=FALSE, message=FALSE, warning=FALSE}
+ed |>
+    as.data.frame() |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .55, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "First 15 rows of the edge list. Column n = shared-scene count (edge weight).") |>
     flextable::border_outer()
 ```
 
+## Building the igraph and tidygraph Objects {-}
 
-Now that we have generated tables for the edges and the nodes, we can generate a *graph object*.
+We combine the edge list and node attribute table into an `igraph` graph object and wrap it in a `tidygraph` tbl_graph for use with `ggraph`:
 
-```{r tidy6, message=F, warning=F}
-ig <- igraph::graph_from_data_frame(d = ed, vertices = va, directed = FALSE)
-```
+```{r igraph_obj, message=FALSE, warning=FALSE}
+ig <- igraph::graph_from_data_frame(
+    d        = ed,
+    vertices = va,
+    directed = FALSE
+)
 
-We will also add labels to the nodes as follows:
-
-```{r tidy7, message=F, warning=F}
-tg <- tidygraph::as_tbl_graph(ig) %>%
-    tidygraph::activate(nodes) %>%
+tg <- tidygraph::as_tbl_graph(ig) |>
+    tidygraph::activate(nodes) |>
     dplyr::mutate(label = name)
 ```
 
-When we now plot our network, it looks as shown below.
+We inspect the basic global properties of the network:
 
-```{r tidy11, message=F, warning=F}
-# set seed (so that the exact same network graph is created every time)
-set.seed(12345)
+```{r igraph_summary, message=FALSE, warning=FALSE}
+cat("Nodes:         ", igraph::vcount(ig), "\n")
+cat("Edges:         ", igraph::ecount(ig), "\n")
+cat("Density:       ", round(igraph::edge_density(ig), 3), "\n")
+cat("Diameter:      ", igraph::diameter(ig), "\n")
+cat("Transitivity:  ", round(igraph::transitivity(ig, type = "global"), 3), "\n")
+```
 
-# create a graph using the 'tg' data frame with the Fruchterman-Reingold layout
-tg %>%
+::: {.callout-tip}
+## Exercises: Data Preparation
+:::
+
+**Q3. In the co-occurrence matrix, what does the value in cell (ROMEO, JULIET) represent?**
+
+```{r}
+#| echo: false
+#| label: "data_q1"
+check_question(
+  "The number of scenes in which both Romeo and Juliet appear",
+  options = c(
+    "The total number of lines Romeo speaks directly to Juliet",
+    "The number of scenes in which both Romeo and Juliet appear",
+    "1 if Romeo and Juliet ever appear together, 0 otherwise",
+    "The proportion of Romeo's scenes that also contain Juliet"
+  ),
+  type = "radio",
+  q_id = "data_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! `crossprod(table(...))` computes the dot product X-transposed times X of the character-by-scene indicator matrix. Off-diagonal cell (i, j) counts the number of scenes in which both character i and character j appear — this is the edge weight in the co-occurrence network.",
+  wrong = "Not quite. `crossprod(table(net_dat[1:2]))` creates a matrix where off-diagonal cell (i, j) is the number of scenes shared by characters i and j. It does not count spoken lines, proportions, or binary presence."
+)
+```
+
+---
+
+**Q4. Why do we set the diagonal of the co-occurrence matrix to zero before building the network?**
+
+```{r}
+#| echo: false
+#| label: "data_q2"
+check_question(
+  "Because the diagonal records self-co-occurrences, which are not meaningful edges between different characters",
+  options = c(
+    "To make the matrix symmetric so igraph can read it as an undirected network",
+    "To prevent characters with many scenes from dominating the visualisation",
+    "Because the diagonal records self-co-occurrences, which are not meaningful edges between different characters",
+    "Because igraph requires a zero diagonal to create a graph object from an adjacency matrix"
+  ),
+  type = "radio",
+  q_id = "data_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The diagonal of the co-occurrence matrix records how many scenes each character appears in (co-occurrence with themselves). This is not an edge in the social network we are building — we want edges only between different characters. Setting the diagonal to zero removes self-loops.",
+  wrong = "Not quite. The diagonal records each character's total scene count — their self-co-occurrence. In the co-occurrence network, edges connect pairs of different characters. Setting the diagonal to zero removes self-loops, which are not meaningful relationships in this context. The matrix is already symmetric because crossprod() produces a symmetric result."
+)
+```
+
+---
+
+# Network Visualisation {#viz}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Two complementary approaches to visualising the same network — a quick `quanteda` plot for rapid exploration, and a fully customisable `ggraph` plot for publication-ready figures; how to encode node size, node colour, edge width, and edge transparency as data-driven aesthetics; how layout algorithms position nodes; and the key arguments and customisation options for each approach
+:::
+
+## Quick Visualisation with quanteda {#quanteda-viz}
+
+The `quanteda.textplots::textplot_network()` function generates a network plot directly from a feature co-occurrence matrix (FCM) with very little code. It is ideal for rapid exploratory work. The trade-off is limited customisation compared to `ggraph`.
+
+We first convert the data frame to a document-feature matrix (DFM) and then to a feature co-occurrence matrix (FCM):
+
+```{r qtda01, warning=FALSE, message=FALSE}
+net_dfm <- quanteda::as.dfm(net_df)
+net_fcm <- quanteda::fcm(net_dfm, tri = FALSE)
+```
+
+The key arguments of `textplot_network()` are:
+
+| Argument | Description | Default |
+|---|---|---|
+| `x` | An FCM or DFM object | — |
+| `min_freq` | Minimum co-occurrence frequency/proportion for inclusion | 0.5 |
+| `omit_isolated` | Drop nodes that fall below `min_freq` | `TRUE` |
+| `edge_color` | Colour of edges | `"#1F78B4"` |
+| `edge_alpha` | Opacity of edges (0 = transparent, 1 = opaque) | 0.5 |
+| `edge_size` | Maximum edge thickness | 2 |
+| `vertex_color` | Colour of nodes | `"#4D4D4D"` |
+| `vertex_size` | Size of nodes | 2 |
+| `vertex_labelsize` | Size of node labels in mm (can be a vector) | 5 |
+
+```{r qtda04, message=FALSE, warning=FALSE, fig.cap="Character co-occurrence network for Romeo and Juliet — quick exploratory plot using quanteda.textplots. Label size is scaled to log total co-occurrence frequency."}
+quanteda.textplots::textplot_network(
+    x              = net_fcm,
+    min_freq       = 0.5,
+    edge_alpha     = 0.5,
+    edge_color     = "gray50",
+    edge_size      = 2,
+    vertex_labelsize = net_dfm |>
+        quanteda::convert(to = "data.frame") |>
+        dplyr::select(-doc_id) |>
+        rowSums() |>
+        log(),
+    vertex_color   = "#4D4D4D",
+    vertex_size    = 2
+)
+```
+
+Even this quick plot reveals that Romeo, Juliet, and Friar Lawrence occupy prominent central positions. Peripheral characters — servants and musicians — cluster at the edges of the layout with smaller labels.
+
+## Fully Customisable Tidy Networks with ggraph {#ggraph-viz}
+
+For publication-ready figures and full control over every aesthetic, we use the `igraph` + `tidygraph` + `ggraph` pipeline. This pipeline separates the graph data from the rendering instructions, making it easy to adjust any aspect of the figure without altering the underlying data.
+
+### Layout Algorithms {-}
+
+The `ggraph()` function's `layout` argument controls how nodes are positioned in two-dimensional space. Common choices include:
+
+| Layout | Description | Best for |
+|---|---|---|
+| `"fr"` | Fruchterman–Reingold force-directed | General purpose; groups connected nodes |
+| `"kk"` | Kamada–Kawai spring model | Emphasises shortest-path distances |
+| `"circle"` | Nodes arranged in a circle | Small networks; periodic structure |
+| `"tree"` | Hierarchical tree layout | DAGs and hierarchical data |
+| `"stress"` | Stress-majorisation | More stable than `"fr"` across runs |
+
+We use the Fruchterman–Reingold layout (`"fr"`) throughout this tutorial. It is a **force-directed** algorithm: nodes repel each other like charged particles while edges act as springs pulling connected nodes together. Densely connected subgroups are therefore positioned close to each other. Because the algorithm starts from a random configuration, `set.seed()` is essential for reproducibility.
+
+### The Plot {-}
+
+```{r tidy11, message=FALSE, warning=FALSE, fig.width=9, fig.height=7, fig.cap="Character co-occurrence network for Romeo and Juliet. Node colour = family; node size = log(total line frequency); edge width and opacity = shared-scene count."}
+set.seed(2026)
+
+tg |>
     ggraph::ggraph(layout = "fr") +
 
-    # add arcs for edges with various aesthetics
     geom_edge_arc(
-        colour = "gray50",
-        lineend = "round",
-        strength = .1,
-        aes(
-            edge_width = ed$n,
-            alpha = ed$n
-        )
+        colour   = "gray50",
+        lineend  = "round",
+        strength = 0.1,
+        aes(edge_width = n, alpha = n)
     ) +
 
-    # add points for nodes with size based on log-transformed 'v.size' and color based on 'va$Family'
     geom_node_point(
-        size = log(va$n) * 2,
-        aes(color = va$type)
+        aes(color = type),
+        size = log(va$n) * 2
     ) +
 
-    # add text labels for nodes with various aesthetics
-    geom_node_text(aes(label = name),
-        repel = TRUE,
+    geom_node_text(
+        aes(label = label),
+        repel         = TRUE,
         point.padding = unit(0.2, "lines"),
-        size = sqrt(va$n),
-        colour = "gray10"
+        size          = sqrt(va$n),
+        colour        = "gray10"
     ) +
 
-    # adjust edge width and alpha scales
-    scale_edge_width(range = c(0, 2.5)) +
-    scale_edge_alpha(range = c(0, .3)) +
+    scale_edge_width(range = c(0.2, 3)) +
+    scale_edge_alpha(range = c(0.05, 0.4)) +
 
-    # set graph background color to white
+    scale_color_manual(
+        values = c("Montague" = "#2166ac",
+                   "Capulet"  = "#d6604d",
+                   "Other"    = "#4dac26")
+    ) +
+
     theme_graph(background = "white") +
 
-    # adjust legend position to the top
     theme(
         legend.position = "top",
-        # suppress legend title
-        legend.title = element_blank()
+        legend.title    = element_blank()
     ) +
 
-    # remove edge width and alpha guides from the legend
-    guides(
-        edge_width = FALSE,
-        edge_alpha = FALSE
+    guides(edge_width = "none", edge_alpha = "none")
+```
+
+The layout makes several structural features visible at once: Romeo sits at the junction between the Montague and Capulet clusters, reflecting his central brokering role in the narrative. Friar Lawrence (green) bridges the two family clusters. Peripheral characters — servants, musicians, the Apothecary — appear at the edges of the layout with smaller node sizes.
+
+::: {.callout-tip}
+## Customising the ggraph Plot
+
+Several aspects of the plot above are easy to modify:
+
+- **Layout**: Replace `layout = "fr"` with `"kk"`, `"stress"`, or `"circle"` to compare arrangements
+- **Edge geometry**: Replace `geom_edge_arc()` with `geom_edge_link()` (straight lines) or `geom_edge_fan()` for multiple edges as separate arcs
+- **Node labels**: Replace `geom_node_text()` with `geom_node_label()` for labelled boxes
+- **Colours**: Adjust `scale_color_manual()` values to any hex colour codes or named R colours
+:::
+
+::: {.callout-tip}
+## Exercises: Network Visualisation
+:::
+
+**Q5. In the ggraph plot, node size is mapped to `log(va$n) * 2`. What does a larger node indicate?**
+
+```{r}
+#| echo: false
+#| label: "viz_q1"
+check_question(
+  "The character appears in more scenes and/or speaks more lines",
+  options = c(
+    "The character appears in more scenes and/or speaks more lines",
+    "The character has more unique scene partners (higher degree centrality)",
+    "The character belongs to a larger family group",
+    "The character has a higher betweenness centrality score"
+  ),
+  type = "radio",
+  q_id = "viz_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! `va$n` is the total number of lines spoken across all scenes (summed from the `occurrences` column). Node size reflects speaking frequency — not number of connections, family size, or centrality.",
+  wrong = "Not quite. Node size in this plot is mapped to `log(va$n) * 2`, where `va$n` is the total number of spoken lines per character summed from the `occurrences` column. It reflects speaking frequency, not degree centrality, family size, or betweenness."
+)
+```
+
+---
+
+**Q6. Why is `set.seed(2026)` needed before the ggraph plot but NOT before `textplot_network()`?**
+
+```{r}
+#| echo: false
+#| label: "viz_q2"
+check_question(
+  "The Fruchterman-Reingold layout starts from a random node configuration; textplot_network uses a deterministic layout",
+  options = c(
+    "The Fruchterman-Reingold layout starts from a random node configuration; textplot_network uses a deterministic layout",
+    "textplot_network always produces the same layout regardless of any random seed",
+    "`set.seed()` only affects ggraph, not quanteda functions, so it is unnecessary for textplot_network",
+    "Both layouts are random, but textplot_network uses a fixed internal seed of 42 by default"
+  ),
+  type = "radio",
+  q_id = "viz_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Fruchterman-Reingold algorithm (`layout = 'fr'`) starts from a random initial placement of nodes and iterates toward an energy minimum. Without a seed, node positions differ across runs. `textplot_network()` uses its own internal layout with a fixed state, producing consistent output without an external `set.seed()` call.",
+  wrong = "Not quite. The key issue is that `ggraph(layout = 'fr')` calls a force-directed algorithm with a random starting configuration — different runs produce different layouts. Setting `set.seed()` makes the layout reproducible. `textplot_network()` handles its layout internally and produces consistent output without an external seed."
+)
+```
+
+---
+
+# Network Statistics {#stats}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to quantify the structural role of each node using five centrality measures — degree, betweenness, closeness, eigenvector centrality, and PageRank; the mathematical definition and linguistic interpretation of each measure; how to compile a combined summary table; and how to visualise all five measures side by side for comparison
+:::
+
+Visualising a network is a useful first step, but network **statistics** let us make precise, reproducible claims about structural importance. Different centrality measures capture different senses of "importance", so it is common to compute several and compare them: a node that ranks highly on all measures is more robustly central than one that ranks highly on only one.
+
+We first rebuild a directed edge list expanded by edge weight, so that `igraph` centrality functions treat co-occurrence frequency correctly:
+
+```{r nstat1, message=FALSE, warning=FALSE}
+dg  <- ed[rep(seq_len(nrow(ed)), ed$n), c("from", "to")]
+rownames(dg) <- NULL
+dgg <- igraph::graph_from_edgelist(as.matrix(dg), directed = TRUE)
+```
+
+## Degree Centrality {-}
+
+**Degree centrality** counts the number of edges attached to a node. In a directed network, it splits into **in-degree** (edges pointing in) and **out-degree** (edges pointing out). A character with high degree centrality co-occurs with many different other characters — they have a wide social reach within the play. For a node $v$ in an undirected network with $n$ nodes, normalised degree centrality is:
+
+$$C_D(v) = \frac{\deg(v)}{n - 1}$$
+
+```{r nstat2, message=FALSE, warning=FALSE}
+dc_tbl <- igraph::degree(dgg) |>
+    as.data.frame() |>
+    tibble::rownames_to_column("node") |>
+    dplyr::rename(`degree centrality` = 2) |>
+    dplyr::arrange(dplyr::desc(`degree centrality`))
+```
+
+```{r nstat2b, echo=FALSE, message=FALSE, warning=FALSE}
+dc_tbl |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .5, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Top 15 characters by degree centrality.") |>
+    flextable::border_outer()
+```
+
+```{r nstat2c, message=FALSE, warning=FALSE}
+names(which.max(igraph::degree(dgg)))
+```
+
+## Betweenness Centrality {-}
+
+**Betweenness centrality** measures how often a node lies on the shortest path between two other nodes. A character with high betweenness acts as a structural **broker** or **bridge**: removing them would most severely disrupt the network's overall connectivity. Formally:
+
+$$C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma(s,t \mid v)}{\sigma(s,t)}$$
+
+where $\sigma(s,t)$ is the total number of shortest paths from $s$ to $t$, and $\sigma(s,t \mid v)$ is the number of those paths that pass through $v$.
+
+```{r nstat4, message=FALSE, warning=FALSE}
+bc_tbl <- igraph::betweenness(dgg) |>
+    as.data.frame() |>
+    tibble::rownames_to_column("node") |>
+    dplyr::rename(`betweenness centrality` = 2) |>
+    dplyr::arrange(dplyr::desc(`betweenness centrality`))
+```
+
+```{r nstat4b, echo=FALSE, message=FALSE, warning=FALSE}
+bc_tbl |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .5, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Top 15 characters by betweenness centrality.") |>
+    flextable::border_outer()
+```
+
+```{r nstat4c, message=FALSE, warning=FALSE}
+names(which.max(igraph::betweenness(dgg)))
+```
+
+## Closeness Centrality {-}
+
+**Closeness centrality** measures how quickly a node can reach all other nodes via shortest paths. A character with high closeness has a short average distance to every other character — they sit at the "centre of gravity" of the entire network. The formula is:
+
+$$C_C(v) = \frac{n - 1}{\displaystyle\sum_{u \neq v} d(v, u)}$$
+
+where $d(v, u)$ is the shortest-path distance between nodes $v$ and $u$.
+
+```{r nstat5, message=FALSE, warning=FALSE}
+cl_tbl <- igraph::closeness(dgg) |>
+    as.data.frame() |>
+    tibble::rownames_to_column("node") |>
+    dplyr::rename(closeness = 2) |>
+    dplyr::arrange(dplyr::desc(closeness))
+```
+
+```{r nstat5b, echo=FALSE, message=FALSE, warning=FALSE}
+cl_tbl |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .5, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Top 15 characters by closeness centrality.") |>
+    flextable::border_outer()
+```
+
+```{r nstat5c, message=FALSE, warning=FALSE}
+names(which.max(igraph::closeness(dgg)))
+```
+
+## Eigenvector Centrality {-}
+
+**Eigenvector centrality** extends degree centrality by considering not just *how many* connections a node has, but *how important those connections are*. A node connected to many high-scoring nodes scores higher than a node with the same number of connections to low-scoring nodes. This is the principle underlying Google's original PageRank algorithm. The eigenvector centrality $x_i$ of node $i$ satisfies:
+
+$$x_i = \frac{1}{\lambda} \sum_{j \in \mathcal{N}(i)} x_j$$
+
+where $\lambda$ is the largest eigenvalue of the adjacency matrix and $\mathcal{N}(i)$ is the set of neighbours of node $i$.
+
+```{r nstat6, message=FALSE, warning=FALSE}
+ev_tbl <- igraph::eigen_centrality(dgg)$vector |>
+    as.data.frame() |>
+    tibble::rownames_to_column("node") |>
+    dplyr::rename(`eigenvector centrality` = 2) |>
+    dplyr::arrange(dplyr::desc(`eigenvector centrality`))
+```
+
+```{r nstat6b, echo=FALSE, message=FALSE, warning=FALSE}
+ev_tbl |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .5, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Top 15 characters by eigenvector centrality.") |>
+    flextable::border_outer()
+```
+
+## PageRank {-}
+
+**PageRank** is a variant of eigenvector centrality designed for directed networks. It models a random walker who follows a randomly chosen outgoing edge with probability $d$ (the **damping factor**, typically 0.85) and teleports to a random node with probability $1 - d$. A node's PageRank is proportional to the probability of the random walker visiting that node in the long run. PageRank handles dangling nodes and disconnected components more robustly than pure eigenvector centrality.
+
+```{r nstat7, message=FALSE, warning=FALSE}
+pr_tbl <- igraph::page_rank(dgg, damping = 0.85)$vector |>
+    as.data.frame() |>
+    tibble::rownames_to_column("node") |>
+    dplyr::rename(PageRank = 2) |>
+    dplyr::arrange(dplyr::desc(PageRank))
+```
+
+```{r nstat7b, echo=FALSE, message=FALSE, warning=FALSE}
+pr_tbl |>
+    head(15) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .5, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Top 15 characters by PageRank.") |>
+    flextable::border_outer()
+```
+
+## Combined Centrality Summary {-}
+
+We join all five measures into a single table and visualise them side by side after normalising each to the $[0, 1]$ range:
+
+```{r nstat8, message=FALSE, warning=FALSE}
+centrality_summary <- dc_tbl |>
+    dplyr::left_join(bc_tbl, by = "node") |>
+    dplyr::left_join(cl_tbl, by = "node") |>
+    dplyr::left_join(ev_tbl, by = "node") |>
+    dplyr::left_join(pr_tbl, by = "node") |>
+    dplyr::arrange(dplyr::desc(`degree centrality`))
+```
+
+```{r nstat8b, echo=FALSE, message=FALSE, warning=FALSE}
+centrality_summary |>
+    head(15) |>
+    dplyr::mutate(dplyr::across(where(is.numeric), \(x) round(x, 3))) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 11) |>
+    flextable::fontsize(size = 11, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "All five centrality measures for the top 15 characters, sorted by degree centrality.") |>
+    flextable::border_outer()
+```
+
+```{r centrality_plot, message=FALSE, warning=FALSE, fig.width=11, fig.height=6, fig.cap="Five centrality measures for all characters, rescaled to [0,1] for comparability. Sorted by degree centrality (left panel)."}
+centrality_summary |>
+    dplyr::mutate(dplyr::across(
+        where(is.numeric),
+        \(x) (x - min(x, na.rm = TRUE)) /
+             (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+    )) |>
+    tidyr::pivot_longer(-node, names_to = "measure", values_to = "value") |>
+    dplyr::mutate(node = forcats::fct_reorder(
+        node,
+        ifelse(measure == "degree centrality", value, NA_real_),
+        .fun  = \(x) mean(x, na.rm = TRUE),
+        .desc = TRUE
+    )) |>
+    ggplot(aes(x = value, y = node, fill = measure)) +
+    geom_col(show.legend = FALSE) +
+    facet_wrap(~measure, nrow = 1, scales = "free_x") +
+    labs(
+        x     = "Normalised centrality score",
+        y     = NULL,
+        title = "Five centrality measures for Romeo and Juliet characters"
+    ) +
+    theme_bw(base_size = 10) +
+    theme(strip.text = element_text(size = 7))
+```
+
+::: {.callout-tip}
+## Exercises: Network Statistics
+:::
+
+**Q7. Friar Lawrence scores high on betweenness centrality but lower on degree centrality than Romeo. What does this pattern suggest about his structural role?**
+
+```{r}
+#| echo: false
+#| label: "stats_q1"
+check_question(
+  "Friar Lawrence acts as a bridge between groups that would otherwise be poorly connected",
+  options = c(
+    "Friar Lawrence is the most socially active character and appears in more scenes than Romeo",
+    "Friar Lawrence acts as a bridge between groups that would otherwise be poorly connected",
+    "Friar Lawrence's scenes involve more characters than Romeo's scenes on average",
+    "The betweenness score is an artefact caused by the small size of the network"
+  ),
+  type = "radio",
+  q_id = "stats_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! High betweenness with moderate degree is the classic signature of a *broker* node. Friar Lawrence has relatively few direct connections compared to Romeo, but those connections span different network clusters (Montagues, Capulets, neutral parties). Many shortest paths between these clusters must pass through him.",
+  wrong = "Not quite. Betweenness centrality measures how often a node lies on the shortest path between pairs of other nodes — not how many connections it has (degree) or how large its scenes are. A node with moderate degree can have high betweenness if it is the only bridge between otherwise separate parts of the network."
+)
+```
+
+---
+
+**Q8. Eigenvector centrality and PageRank both account for the importance of a node's neighbours. What is the key practical difference between them?**
+
+```{r}
+#| echo: false
+#| label: "stats_q2"
+check_question(
+  "PageRank adds a random teleportation step (damping factor) that ensures convergence in directed and disconnected networks",
+  options = c(
+    "PageRank adds a random teleportation step (damping factor) that ensures convergence in directed and disconnected networks",
+    "Eigenvector centrality is always numerically larger than PageRank for the most central nodes",
+    "PageRank can only be computed on networks with fewer than 100 nodes",
+    "They are mathematically identical; PageRank is simply the branded name for eigenvector centrality"
+  ),
+  type = "radio",
+  q_id = "stats_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Both measures weight a node's score by the scores of its neighbours, but PageRank adds a random teleportation step: with probability (1-d), the random walker jumps to any node at random. This prevents the algorithm from getting stuck on dangling nodes (nodes with no outgoing edges) and ensures convergence even in disconnected networks, where pure eigenvector centrality can fail.",
+  wrong = "Not quite. The critical difference is the damping factor in PageRank. With probability (1-d), the random walker teleports to any node at random rather than following an edge. This ensures convergence in directed and potentially disconnected networks, whereas pure eigenvector centrality can produce misleading or undefined results for dangling nodes."
+)
+```
+
+---
+
+# Community Detection {#communities}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What communities (modules) are in a network; how modularity $Q$ is defined; how the Louvain algorithm maximises modularity; how to run community detection with `igraph::cluster_louvain()`; how to add community membership to the visualisation; how to cross-tabulate detected communities against predefined labels; and how to interpret community structure in literary networks
+:::
+
+## What Are Communities? {-}
+
+A **community** (also called a *module* or *cluster*) in a network is a group of nodes that are more densely connected to each other than to nodes outside the group. Community detection is the network-level analogue of cluster analysis: it discovers latent grouping structure from the pattern of connections alone, without any predefined labels.
+
+Community structure is ubiquitous in real-world networks. Social networks cluster by shared interests, geography, or profession. Word co-occurrence networks cluster by semantic domain. Character networks in drama cluster by narrative function — which may or may not correspond to surface-level categories such as family membership.
+
+## Modularity and the Louvain Algorithm {-}
+
+The most widely used criterion for community quality is **modularity** $Q$, which measures how much the density of within-community edges exceeds what would be expected by chance in a null model that preserves the degree sequence:
+
+$$Q = \frac{1}{2m} \sum_{i,j} \left[ A_{ij} - \frac{k_i k_j}{2m} \right] \delta(c_i, c_j)$$
+
+where $m$ is the total number of edges, $A_{ij}$ is the adjacency matrix, $k_i$ is the degree of node $i$, and $\delta(c_i, c_j) = 1$ if nodes $i$ and $j$ belong to the same community. Values of $Q$ above 0.3–0.4 are generally considered indicative of meaningful community structure; values near 0 indicate no structure beyond chance.
+
+The **Louvain algorithm** is a greedy modularity-maximisation method that scales to large networks. It proceeds in two phases repeated iteratively: first, each node is reassigned to the community of its neighbour that yields the largest increase in $Q$; second, communities are aggregated into super-nodes and the process repeats on the reduced network. The algorithm terminates when no further improvement in $Q$ is possible.
+
+```{r comm1, message=FALSE, warning=FALSE}
+set.seed(2026)
+communities <- igraph::cluster_louvain(ig)
+
+cat("Modularity Q:          ", round(igraph::modularity(communities), 3), "\n")
+cat("Number of communities: ", length(communities), "\n")
+
+igraph::membership(communities)
+```
+
+We add community membership to the node attribute table and rebuild the graph objects:
+
+```{r comm2, message=FALSE, warning=FALSE}
+va <- va |>
+    dplyr::mutate(community = as.character(igraph::membership(communities)))
+
+ig2 <- igraph::graph_from_data_frame(d = ed, vertices = va, directed = FALSE)
+tg2 <- tidygraph::as_tbl_graph(ig2) |>
+    tidygraph::activate(nodes) |>
+    dplyr::mutate(label = name)
+```
+
+## Visualising Communities {-}
+
+```{r comm_plot, message=FALSE, warning=FALSE, fig.width=9, fig.height=7, fig.cap="Character co-occurrence network coloured by Louvain community membership. Node size = log(total frequency); edge width = shared-scene count."}
+set.seed(2026)
+
+tg2 |>
+    ggraph::ggraph(layout = "fr") +
+
+    geom_edge_arc(
+        colour   = "gray70",
+        lineend  = "round",
+        strength = 0.1,
+        aes(edge_width = n, alpha = n)
+    ) +
+
+    geom_node_point(
+        aes(color = community),
+        size = log(va$n) * 2
+    ) +
+
+    geom_node_text(
+        aes(label = label),
+        repel         = TRUE,
+        point.padding = unit(0.2, "lines"),
+        size          = sqrt(va$n),
+        colour        = "gray10"
+    ) +
+
+    scale_edge_width(range = c(0.2, 3)) +
+    scale_edge_alpha(range = c(0.05, 0.4)) +
+
+    theme_graph(background = "white") +
+
+    theme(legend.position = "top") +
+
+    labs(color = "Community") +
+
+    guides(edge_width = "none", edge_alpha = "none")
+```
+
+## Comparing Communities to Family Membership {-}
+
+Cross-tabulating detected communities against predefined family labels reveals the extent to which network-derived groupings and theoretically motivated categories agree or diverge:
+
+```{r comm_crosstab, message=FALSE, warning=FALSE}
+va |>
+    dplyr::count(community, type) |>
+    tidyr::pivot_wider(names_from = type, values_from = n, values_fill = 0) |>
+    dplyr::arrange(community) |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .6, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "Louvain community membership cross-tabulated with family affiliation.") |>
+    flextable::border_outer()
+```
+
+Partial overlap — where Romeo is grouped with Juliet and Friar Lawrence rather than with other Montagues — reflects the actual pattern of shared scenes: the central love-plot characters co-occur most densely with each other, cutting across family lines. This is a substantive interpretive finding that emerges directly from the network data.
+
+::: {.callout-tip}
+## Exercises: Community Detection
+:::
+
+**Q9. The Louvain algorithm places Romeo in a community with Juliet and Friar Lawrence rather than with other Montague characters. What does this tell us?**
+
+```{r}
+#| echo: false
+#| label: "comm_q1"
+check_question(
+  "Romeo has more shared scenes with Juliet and Friar Lawrence than with the other Montague characters",
+  options = c(
+    "Romeo has more shared scenes with Juliet and Friar Lawrence than with the other Montague characters",
+    "The Louvain algorithm always groups the protagonists together regardless of the data",
+    "Romeo and Friar Lawrence are both members of the Montague family",
+    "Community detection is unreliable for small literary networks"
+  ),
+  type = "radio",
+  q_id = "comm_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Louvain algorithm is entirely data-driven: it groups nodes that share the most and heaviest edges. Romeo co-occurs more densely with Juliet and Friar Lawrence (the central love-plot characters) than with Benvolio or Montague, reflecting the dramatic structure of the play rather than its family lineages.",
+  wrong = "Not quite. The Louvain algorithm maximises modularity based entirely on the edge-weight structure of the network — it has no knowledge of family membership or narrative role. Romeo is grouped with Juliet and Friar Lawrence because he shares more and heavier edges with them than with other Montague characters."
+)
+```
+
+---
+
+**Q10. A network with modularity Q = 0.06 and one with Q = 0.71 are compared. What do these values tell you?**
+
+```{r}
+#| echo: false
+#| label: "comm_q2"
+check_question(
+  "Q = 0.71 has strong community structure; Q = 0.06 has little or no community structure beyond chance",
+  options = c(
+    "Q = 0.06 has 6 communities and Q = 0.71 has 71 communities",
+    "Q = 0.71 has strong community structure; Q = 0.06 has little or no community structure beyond chance",
+    "Q = 0.06 means the network is fully connected; Q = 0.71 means it is fragmented into isolated clusters",
+    "Both values are acceptable; modularity is not a reliable indicator of community quality"
+  ),
+  type = "radio",
+  q_id = "comm_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Modularity Q measures how much within-community edge density exceeds the chance expectation under a null model. Values above 0.3-0.4 are generally considered indicative of meaningful community structure. Q = 0.71 is high; Q = 0.06 is near zero, meaning the partition is barely better than random assignment.",
+  wrong = "Not quite. Modularity Q does not count communities or measure connectivity — it measures the excess of within-community edges over the null model expectation. High Q (e.g. 0.71) indicates strong community structure. Q near 0 (e.g. 0.06) means little or no community structure beyond random chance."
+)
+```
+
+---
+
+# Word Co-occurrence Networks {#wordnet}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to build a word co-occurrence network from a text using `quanteda`'s feature co-occurrence matrix (FCM); how context window size affects the network; how to select high-frequency content words for a legible network; how to use PPMI (positive pointwise mutual information) as an association-adjusted edge weight; and how the semantic structure of a text emerges from its word co-occurrence patterns
+:::
+
+## From Characters to Words {-}
+
+So far the network has modelled *character* co-occurrence: nodes are characters and edges connect characters that appear in the same scene. The same pipeline applies equally well to *word* co-occurrence: nodes are words and edges connect words that appear within the same context window, with edge weight equal to the co-occurrence frequency. This is a foundational technique in distributional semantics and underlies word embedding models such as Word2Vec and GloVe.
+
+Two design decisions are critical:
+
+The **context window size** determines which pairs of words are counted as co-occurring. A narrow window (2–5 tokens) captures syntactic and collocational relationships. A wide window (10–20 tokens) captures topic-level associations. For linguistic collocation analysis, narrow windows are generally preferred.
+
+The **vocabulary filter** determines which words become nodes. Without filtering, the network would contain thousands of nodes — mostly function words or rare types — making it uninterpretable. The two common strategies are: (a) keep only the $k$ most frequent content words after stopword removal, or (b) filter by a minimum co-occurrence frequency combined with a minimum PMI score.
+
+## Building the Feature Co-occurrence Matrix {-}
+
+We build the FCM from the character names in `net_dat` (the data already loaded), treating the combined name sequence as a text. This creates a word network of the character name vocabulary as a demonstration of the FCM pipeline:
+
+```{r wnet1, message=FALSE, warning=FALSE}
+romeo_corpus <- quanteda::corpus(
+    paste(net_dat$person, collapse = " ")
+)
+
+romeo_toks <- quanteda::tokens(
+    romeo_corpus,
+    remove_punct   = TRUE,
+    remove_numbers = TRUE,
+    remove_symbols = TRUE
+) |>
+    quanteda::tokens_tolower()
+
+romeo_fcm <- quanteda::fcm(
+    romeo_toks,
+    context = "window",
+    window  = 5,
+    tri     = FALSE
+)
+
+cat("FCM dimensions:", dim(romeo_fcm), "\n")
+```
+
+## Selecting High-Frequency Terms {-}
+
+We keep the top 40 most frequent features so the resulting network remains interpretable:
+
+```{r wnet2, message=FALSE, warning=FALSE}
+# coerce to plain matrix first to avoid NA issues in sparse FCM
+romeo_fcm_mat <- as.matrix(romeo_fcm)
+
+# drop any all-zero rows/columns before summing
+romeo_fcm_mat <- romeo_fcm_mat[
+    rowSums(romeo_fcm_mat, na.rm = TRUE) > 0,
+    colSums(romeo_fcm_mat, na.rm = TRUE) > 0
+]
+
+top_features <- names(
+    sort(colSums(romeo_fcm_mat, na.rm = TRUE), decreasing = TRUE)
+)[1:40]
+
+# keep only top_features that exist as both row and column names
+valid_features <- intersect(top_features, rownames(romeo_fcm_mat))
+valid_features <- intersect(valid_features, colnames(romeo_fcm_mat))
+
+romeo_fcm_top <- quanteda::as.fcm(
+    romeo_fcm_mat[valid_features, valid_features]
+)
+```
+
+## Visualising the Word Network {-}
+
+```{r wnet3, message=FALSE, warning=FALSE, fig.cap="Word co-occurrence network for the 40 most frequent terms in the Romeo and Juliet character-scene data (5-token context window). Label size is scaled to log marginal frequency."}
+quanteda.textplots::textplot_network(
+    x              = romeo_fcm_top,
+    min_freq       = 0.5,
+    edge_alpha     = 0.4,
+    edge_color     = "steelblue",
+    edge_size      = 2,
+    vertex_labelsize = log(colSums(romeo_fcm_top) + 1),
+    vertex_color   = "#4D4D4D",
+    vertex_size    = 1.5
+)
+```
+
+## PMI-Weighted Word Networks {-}
+
+Raw co-occurrence frequency is biased towards frequent words: very common words co-occur often with *everything*, not because they are specifically associated but simply because they are ubiquitous. **Pointwise mutual information (PMI)** corrects for this by measuring how much more often two words co-occur than expected given their individual frequencies:
+
+$$\text{PMI}(w_1, w_2) = \log_2 \frac{P(w_1, w_2)}{P(w_1) \cdot P(w_2)}$$
+
+Positive PMI indicates that the two words co-occur more than expected; negative PMI indicates less. In practice, **positive PMI (PPMI)** — clamping negative values to zero — is used as an edge weight in word networks, since negative values are unreliable for sparse data.
+
+```{r wnet_pmi, message=FALSE, warning=FALSE}
+marg     <- colSums(romeo_fcm_top)
+total    <- sum(marg)
+fcm_mat  <- as.matrix(romeo_fcm_top)
+p_joint  <- fcm_mat / total
+p_marg   <- marg / total
+pmi_mat  <- log2((p_joint + 1e-10) / (outer(p_marg, p_marg) + 1e-10))
+ppmi_mat <- pmax(pmi_mat, 0)
+ppmi_fcm <- quanteda::as.fcm(ppmi_mat)
+```
+
+```{r wnet_pmi_plot, message=FALSE, warning=FALSE, fig.cap="PPMI-weighted word co-occurrence network. Edge thickness reflects associative strength rather than raw frequency, making genuine semantic associations more prominent."}
+quanteda.textplots::textplot_network(
+    x              = ppmi_fcm,
+    min_freq       = 0.1,
+    edge_alpha     = 0.5,
+    edge_color     = "#8c510a",
+    edge_size      = 2,
+    vertex_labelsize = log(colSums(romeo_fcm_top) + 1),
+    vertex_color   = "#4D4D4D",
+    vertex_size    = 1.5
+)
+```
+
+Comparing the raw-frequency and PPMI-weighted networks reveals an important difference: in the raw network, high-frequency terms (which co-occur often with many others simply by chance) dominate the edge structure. In the PPMI network, only genuinely associated pairs — terms that appear together more than their individual frequencies predict — have thick edges. This makes the semantic clustering more apparent and the network more interpretable.
+
+::: {.callout-tip}
+## Exercises: Word Co-occurrence Networks
+:::
+
+**Q11. You increase the context window from 5 to 20 tokens when building the FCM. What effect would you expect on the resulting word network?**
+
+```{r}
+#| echo: false
+#| label: "wnet_q1"
+check_question(
+  "The network would become denser with more and stronger edges, because more word pairs fall within the wider window",
+  options = c(
+    "The network would have fewer edges because more words would fall below the frequency threshold",
+    "The network would become denser with more and stronger edges, because more word pairs fall within the wider window",
+    "The network would have the same structure — context window size does not affect FCM counts",
+    "The network would only change for rare words, not for frequent ones"
+  ),
+  type = "radio",
+  q_id = "wnet_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! A wider context window includes more word pairs within the counting window, so the FCM will have more non-zero cells and higher counts in existing cells. The network becomes denser. Very wide windows (20+ tokens) capture topic-level rather than syntactic or collocational association.",
+  wrong = "Not quite. A wider context window counts more word pairs as co-occurring, so the FCM gains more non-zero cells and higher counts. The network becomes denser — more edges, higher weights. It does not make the network sparser or leave it unchanged."
+)
+```
+
+---
+
+**Q12. Why might PPMI weighting be preferred over raw co-occurrence frequency as an edge weight in a word network?**
+
+```{r}
+#| echo: false
+#| label: "wnet_q2"
+check_question(
+  "Raw frequency favours high-frequency words that co-occur with many others by chance; PPMI adjusts for individual word frequency, highlighting genuinely associated pairs",
+  options = c(
+    "PPMI always produces fewer edges, making the network easier to visualise",
+    "Raw frequency favours high-frequency words that co-occur with many others by chance; PPMI adjusts for individual word frequency, highlighting genuinely associated pairs",
+    "PPMI is faster to compute than raw co-occurrence frequency counts",
+    "Raw co-occurrence frequency produces negative edge weights, which igraph cannot handle"
+  ),
+  type = "radio",
+  q_id = "wnet_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Very common words co-occur frequently with almost every other word simply because they appear everywhere in the text. PPMI asks: do these two words co-occur *more than expected given how common each is individually*? This rewards genuinely specific associations and down-weights accidental co-occurrence due to high marginal frequency.",
+  wrong = "Not quite. The key advantage of PPMI is that it corrects for baseline word frequency. High-frequency words inflate raw co-occurrence counts regardless of genuine association. PPMI compares observed joint frequency to the marginal expectation, so it highlights words that are specifically drawn together rather than words that co-occur simply because both are common."
+)
+```
+
+---
+
+# Interactive Networks {#interactive}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to create interactive network visualisations using `visNetwork`; when interactive networks are preferable to static ones; how to configure nodes and edges with tooltips, colours, and data-driven sizes; how to add physics simulation, selection controls, and a legend; how to embed an interactive network in a Quarto HTML document; and how to export the interactive network for sharing
+:::
+
+## Why Interactive Networks? {-}
+
+Static `ggraph` plots are ideal for publications and reports where the figure is fixed. Interactive networks serve a different purpose: they allow readers to **explore** the data themselves — hovering over nodes to inspect attributes, clicking to highlight connections, dragging nodes to examine local structure, zooming into dense regions, and filtering by group. For teaching, exploration, or web-based reporting, interactive visualisations are often more useful than static ones.
+
+The `visNetwork` package provides an R interface to the [vis.js](https://visjs.org/) JavaScript library, rendering fully interactive networks in any modern web browser. Because `visNetwork` outputs HTML+JavaScript, it integrates naturally with Quarto HTML documents and R Shiny applications.
+
+## Preparing Data for visNetwork {-}
+
+`visNetwork` requires two data frames: one for **nodes** (with at minimum an `id` column) and one for **edges** (with `from` and `to` columns). We build these from the objects already created:
+
+```{r vnet1, message=FALSE, warning=FALSE}
+vis_nodes <- va |>
+    dplyr::rename(id = node) |>
+    dplyr::mutate(
+        label = id,
+        value = sqrt(n),
+        color = dplyr::case_when(
+            type == "Montague" ~ "#2166ac",
+            type == "Capulet"  ~ "#d6604d",
+            TRUE               ~ "#4dac26"
+        ),
+        title = paste0(
+            "<b>", id, "</b><br>",
+            "Family: ", type, "<br>",
+            "Total lines: ", n
+        )
+    )
+
+vis_edges <- ed |>
+    dplyr::mutate(
+        width = n / max(n) * 5,
+        title = paste0("Shared scenes: ", n)
     )
 ```
 
+The `title` column in both data frames provides the HTML tooltip shown when hovering over a node or edge. The `value` column controls node size (visNetwork scales this automatically). The `color` column sets the node fill colour.
 
-# Network Statistics{-}
+## Building the Interactive Plot {-}
 
-In addition to visualizing networks, we will analyze the network and extract certain statistics about the network that tell us about structural properties of networks. 
-
-To extract the statistics, we use the edge object generated above (called `ed`) and then repeat each combination as often as it occurred based on the value in the `Frequency` column.
-
-```{r nstat1, message=F, warning=F}
-dg <- ed[rep(seq_along(ed$n), ed$n), 1:2]
-rownames(dg) <- NULL
+```{r vnet2, message=FALSE, warning=FALSE}
+visNetwork::visNetwork(
+    nodes  = vis_nodes,
+    edges  = vis_edges,
+    width  = "100%",
+    height = "600px",
+    main   = "Romeo and Juliet: Character Co-occurrence Network"
+) |>
+    visNetwork::visNodes(
+        shape       = "dot",
+        font        = list(size = 14, color = "black"),
+        borderWidth = 1.5,
+        shadow      = list(enabled = TRUE, size = 5)
+    ) |>
+    visNetwork::visEdges(
+        color  = list(color = "gray70", highlight = "#e41a1c"),
+        smooth = list(enabled = TRUE, type = "curvedCW", roundness = 0.1),
+        shadow = FALSE
+    ) |>
+    visNetwork::visOptions(
+        highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
+        nodesIdSelection = TRUE,
+        selectedBy       = list(variable = "type", main = "Select by family")
+    ) |>
+    visNetwork::visLayout(
+        randomSeed = 2026
+    ) |>
+    visNetwork::visPhysics(
+        solver = "forceAtlas2Based",
+        forceAtlas2Based = list(
+            gravitationalConstant = -50,
+            centralGravity        = 0.005,
+            springLength          = 100,
+            springConstant        = 0.08
+        ),
+        stabilization = list(iterations = 150)
+    ) |>
+    visNetwork::visLegend(
+        addNodes = data.frame(
+            label = c("Montague", "Capulet", "Other"),
+            color = c("#2166ac", "#d6604d", "#4dac26"),
+            shape = "dot"
+        ),
+        useGroups = FALSE,
+        position  = "right"
+    ) |>
+    visNetwork::visInteraction(
+        navigationButtons = TRUE,
+        tooltipDelay      = 100
+    )
 ```
 
-The resulting object (`dg`) looks as shown below.
+::: {.callout-tip}
+## Exploring the Interactive Network
 
-```{r nstat1b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-dg %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "First 15 rows of dg data.") %>%
-    flextable::border_outer()
+Once rendered in a browser, you can:
+
+- **Hover** over a node to see its tooltip (character name, family, total lines)
+- **Hover** over an edge to see how many scenes the two characters share
+- **Click** a node to highlight its direct neighbours (degree-1 neighbourhood)
+- **Drag** nodes to rearrange the layout manually
+- **Scroll** to zoom in and out
+- **Use the dropdown** to select all Montague, Capulet, or Other characters at once
+- **Use the navigation buttons** to pan and zoom
+:::
+
+## Customising visNetwork {-}
+
+The table below summarises the most useful `visNetwork` customisation functions:
+
+| Function | Purpose |
+|---|---|
+| `visNodes()` | Node shape, font, border, shadow |
+| `visEdges()` | Edge colour, smoothing curve type, arrows |
+| `visOptions()` | Nearest-neighbour highlighting, node selection dropdown |
+| `visLayout()` | Random seed, hierarchical layout option |
+| `visPhysics()` | Physics solver algorithm and spring constants |
+| `visLegend()` | Colour legend |
+| `visInteraction()` | Navigation buttons, tooltip delay, keyboard shortcuts |
+| `visGroups()` | Group-based styling (alternative to per-node colour) |
+| `visExport()` | Add a "Download as PNG" button |
+
+To add an export button:
+
+```{r vnet3, eval=FALSE, message=FALSE, warning=FALSE}
+# append to the pipe chain above
+visNetwork::visExport(type = "png", name = "romeo_network")
 ```
 
-## Degree centrality{-}
+To render the interactive network in a self-contained HTML file for sharing:
 
-We now generate an edge list from the `dg` object and then extract the *degree centrality*. The *degree centrality* reflects how many edges each node has with the most central node having the highest value.
-
-```{r nstat2, message=F, warning=F}
-dgg <- graph.edgelist(as.matrix(dg), directed = T)
-# extract degree centrality
-igraph::degree(dgg) %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("node") %>%
-    dplyr::rename(`degree centrality` = 2) %>%
-    dplyr::arrange(-`degree centrality`) -> dc_tbl
+```{r vnet4, eval=FALSE, message=FALSE, warning=FALSE}
+# save as standalone HTML (no R required to view)
+net_widget <- visNetwork::visNetwork(
+    nodes = vis_nodes, edges = vis_edges, width = "100%", height = "600px"
+)
+visNetwork::visSave(net_widget, file = "romeo_network_interactive.html",
+                    selfcontained = TRUE)
 ```
 
-```{r nstat2b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-dc_tbl %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Degree centrality") %>%
-    flextable::border_outer()
+::: {.callout-tip}
+## Exercises: Interactive Networks
+:::
+
+**Q13. In visNetwork, the option `highlightNearest = list(enabled = TRUE, degree = 1)` is set. What happens when you click on the ROMEO node?**
+
+```{r}
+#| echo: false
+#| label: "vnet_q1"
+check_question(
+  "Romeo and all nodes within 1 hop (direct neighbours) are highlighted; all others are dimmed",
+  options = c(
+    "Romeo and all nodes within 1 hop (direct neighbours) are highlighted; all others are dimmed",
+    "The 1 nearest node by geographic distance in the layout is highlighted",
+    "All nodes with degree centrality = 1 (leaf nodes) in the network are highlighted",
+    "The network resets so that Romeo moves to the centre of the layout"
+  ),
+  type = "radio",
+  q_id = "vnet_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! `highlightNearest` with `degree = 1` highlights the selected node and all nodes exactly 1 edge away (direct neighbours), dimming everything else. This makes it easy to see each character's immediate scene partners. The `degree` parameter here refers to network neighbourhood depth, not degree centrality.",
+  wrong = "Not quite. The `degree` parameter in `highlightNearest` specifies network neighbourhood depth — how many hops away from the clicked node to include. `degree = 1` includes only direct neighbours (1 hop). It does not refer to nodes with degree centrality equal to 1, or to geographic distance in the layout."
+)
 ```
 
-## Central node{-}
+---
 
-Next, we extract the most *central node*.
+**Q14. A colleague wants to share the interactive Romeo and Juliet network with collaborators who do not have R installed. What is the best approach?**
 
-```{r nstat3b, message=F, warning=F}
-names(igraph::degree(dgg))[which(igraph::degree(dgg) == max(igraph::degree(dgg)))]
+```{r}
+#| echo: false
+#| label: "vnet_q2"
+check_question(
+  "Render the Quarto document to a self-contained HTML file and share the .html file",
+  options = c(
+    "Send them the .rds igraph file and ask them to install R and igraph",
+    "Render the Quarto document to a self-contained HTML file and share the .html file",
+    "Take a screenshot of the visNetwork widget in the RStudio Viewer pane",
+    "Export as a static PDF using ggsave() — PDF preserves interactivity"
+  ),
+  type = "radio",
+  q_id = "vnet_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! When a Quarto document containing a visNetwork widget is rendered to HTML with `embed-resources: true`, the resulting .html file embeds all JavaScript libraries and network data inline. Recipients can open and interact with it in any modern browser without installing R. Alternatively, use `visSave(..., selfcontained = TRUE)` to save the widget directly.",
+  wrong = "Not quite. The most practical approach is to render the Quarto document as a self-contained HTML file (add `embed-resources: true` to the Quarto YAML), or to use `visSave(..., selfcontained = TRUE)`. The HTML file embeds all the vis.js code and network data, so anyone with a browser can interact with it. A screenshot is static; PDF does not support JavaScript interactivity; an .rds file requires R."
+)
 ```
 
-## Betweenness centrality{-}
+---
 
-We now  extract the *betweenness centrality*. *Betweenness centrality* provides a measure of how important nodes are for information flow between nodes in a  network. The node with the highest betweenness centrality creates the shortest  paths in the network.  The higher a node’s *betweenness centrality*, the more important it is for the efficient flow of goods in a network.
+# Exporting Networks {#export}
 
+::: {.callout-note}
+## Section Overview
 
-```{r nstat4, message=F, warning=F}
-igraph::betweenness(dgg) %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("node") %>%
-    dplyr::rename(`betweenness centrality` = 2) %>%
-    dplyr::arrange(-`betweenness centrality`) -> bc_tbl
+**What you will learn:** How to save `ggraph` plots as PNG or PDF; how to write edge lists and node tables to CSV for Gephi or Cytoscape; how to export in standard graph formats (GraphML, GML); and how to save `igraph` objects as RDS files for future R sessions
+:::
+
+## Saving Static Network Plots {-}
+
+Use `ggplot2::ggsave()` immediately after any `ggraph` plot. For publications prefer vector PDF; for slides or web use prefer PNG at ≥ 300 dpi.
+
+```{r export1, eval=FALSE, message=FALSE, warning=FALSE}
+ggplot2::ggsave("romeo_network.png",  width = 10, height = 8, dpi = 300, bg = "white")
+ggplot2::ggsave("romeo_network.pdf",  width = 10, height = 8)
 ```
 
-```{r nstat4b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-bc_tbl %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Betweenness centrality") %>%
-    flextable::border_outer()
+## Writing Edge Lists and Node Tables to CSV {-}
+
+To use the network in Gephi, Cytoscape, or NodeXL, export the edge list and node attribute table as CSV files. Most tools expect `from`, `to`, and optionally `weight` in the edge file, and a column `id` in the node file matching the node names used in the edge file.
+
+```{r export2, eval=FALSE, message=FALSE, warning=FALSE}
+readr::write_csv(ed, "romeo_edges.csv")
+readr::write_csv(centrality_summary, "romeo_nodes.csv")
 ```
 
-We now extract the node with the highest *betweenness centrality*.
+## Standard Graph Exchange Formats {-}
 
-```{r nstat4c, message=F, warning=F}
-names(igraph::betweenness(dgg))[which(igraph::betweenness(dgg) == max(igraph::betweenness(dgg)))]
+`igraph` can write networks in several standard formats: **GraphML** (XML-based, supported by Gephi, Cytoscape, and most network tools) and **GML** (a simpler text-based format widely used in network research).
+
+```{r export3, eval=FALSE, message=FALSE, warning=FALSE}
+igraph::write_graph(ig, file = "romeo_network.graphml", format = "graphml")
+igraph::write_graph(ig, file = "romeo_network.gml",     format = "gml")
+
+ig_from_graphml <- igraph::read_graph("romeo_network.graphml", format = "graphml")
 ```
 
-## Closeness{-}
+## Saving the igraph Object as RDS {-}
 
-In addition, we extract the closeness statistic of all edges in the `dg` object by using the `closeness` function from the `igraph` package. Closeness centrality refers to the shortest paths between nodes. The distance between two nodes represents the length of the shortest path between them. The closeness of a node is the average distance from that node to all other nodes. 
+To avoid rebuilding the network from scratch in a future session, save the `igraph` object:
 
-```{r nstat5, message=F, warning=F}
-igraph::closeness(dgg) %>%
-    as.data.frame() %>%
-    tibble::rownames_to_column("node") %>%
-    dplyr::rename(closeness = 2) %>%
-    dplyr::arrange(-closeness) -> c_tbl
+```{r export4, eval=FALSE, message=FALSE, warning=FALSE}
+saveRDS(ig, "romeo_network.rds")
+ig_loaded <- readRDS("romeo_network.rds")
 ```
 
+---
 
-```{r nstat5b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-c_tbl %>%
-    as.data.frame() %>%
-    head(15) %>%
-    flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Closeness statistic") %>%
-    flextable::border_outer()
-```
+# Summary and Further Reading {#summary}
 
+This tutorial has provided a comprehensive introduction to network analysis in R, from formal graph theory to interactive visualisation.
 
-We now extract the node with the highest closeness.
+We began with the vocabulary of graph theory — nodes, edges, directed vs. undirected, weighted vs. unweighted, adjacency matrices, edge lists, and global network properties (density, diameter, transitivity). We then built a character co-occurrence network for Shakespeare's *Romeo and Juliet* step by step: loading raw data, constructing the co-occurrence matrix with `crossprod()`, creating node attribute and edge list tables, and combining them into an `igraph`/`tidygraph` graph object.
 
-```{r nstat5c, message=F, warning=F}
-names(igraph::closeness(dgg))[which(igraph::closeness(dgg) == max(igraph::closeness(dgg)))]
-```
+Network visualisation was covered at two levels — a rapid exploratory `textplot_network()` and a fully customisable `ggraph` plot encoding node colour (family), node size (frequency), and edge width and transparency (shared-scene count). We discussed layout algorithms, the Fruchterman–Reingold force-directed method, and the role of `set.seed()` for reproducibility.
 
+Five centrality measures were computed, formally defined, and interpreted in the context of the play: degree (social reach), betweenness (brokerage), closeness (proximity to all others), eigenvector centrality (influence through well-connected neighbours), and PageRank (robust directed-network influence). All five were compared in a combined summary table and faceted bar chart.
 
-We have reached the end of this tutorial and you now know how to create and modify networks in R and how you can highlight aspects of your data. 
+Community detection using the Louvain algorithm revealed that network-derived groupings correspond more closely to dramatic function — the love plot, the street-brawl characters, the family hierarchy — than to simple family membership. This is a substantive interpretive result that emerges from the data alone.
 
+The same pipeline was extended to **word co-occurrence networks**, demonstrating FCM construction from tokenised text, PPMI weighting to correct for high-frequency bias, and the emergence of semantic clusters from lexical co-occurrence patterns.
+
+**Interactive visualisation** with `visNetwork` allows browser-based network exploration with hover tooltips, click-to-highlight, node selection by attribute, and physics simulation. Self-contained HTML export means interactive networks can be shared with anyone who has a modern browser.
+
+**Further reading:** For a broader treatment of network science see @posfai2016network. For statistical approaches see @kolaczyk2014statistical. For applications in computational linguistics and digital humanities see @moretti2011network, @trilcke2016theatre, and @croft2001radical. For word embedding and distributional semantics see @mikolov2013distributed.
+
+---
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2024. *Network Analysis using R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/net.html (Version 2024.04.24).
+Schweinberger, Martin. 2026. *Network Analysis using R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/net/net.html (Version 2026.05.01).
 
 ```
-@manual{schweinberger2024net,
-  author = {Schweinberger, Martin},
-  title = {Network Analysis using R},
-  note = {tutorials/net/net.html},
-  year = {2024},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2024.04.24}
+@manual{schweinberger2026net,
+  author       = {Schweinberger, Martin},
+  title        = {Network Analysis using R},
+  note         = {tutorials/net/net.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
 }
 ```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL tutorial on network analysis. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
 
 ```{r fin}
 sessionInfo()
 ```
 
+---
 
-
-***
-
-[Back to top](#introduction)
+[Back to top](#intro)
 
 [Back to LADAL home](/)
 
-***
+---
 
 # References {-}
-
