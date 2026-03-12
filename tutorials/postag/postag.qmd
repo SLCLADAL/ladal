@@ -1,339 +1,1200 @@
 ---
-title: "Part-of-speech Tagging in R"
+title: "Part-of-Speech Tagging and Dependency Parsing in R"
 author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction{-}
+# Introduction {#intro}
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial introduces part-of-speech tagging and syntactic parsing using R. This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to annotate textual data with part-of-speech (pos) tags and how to syntactically parse textual data  using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with pos-tagging and syntactic parsing. Another highly recommendable tutorial on part-of-speech tagging in R with UDPipe is available [here](https://bnosac.github.io/udpipe/en/) and another tutorial on pos-tagging and syntactic parsing by Andreas Niekler and Gregor Wiedemann can be found [here](https://tm4ss.github.io/docs/Tutorial_8_NER_POS.html)  [see @WN17].
+This tutorial introduces **part-of-speech (POS) tagging** and **syntactic dependency parsing** using R. It is aimed at beginners and intermediate users of R who want to annotate textual data with POS tags, extract noun phrases, visualise parse trees, and work with multi-language corpora. All tools used in this tutorial are **pure R packages** — no Python, Java runtime, or external software installation is required beyond a standard R environment.
 
+The tutorial covers two core R packages — `udpipe` [@udpipe] and `cleanNLP` [@cleanNLP] — plus noun phrase extraction routines built directly on `udpipe` output. `udpipe` is the recommended starting point: it is fast, covers 64 languages, and requires no external dependencies. `cleanNLP` offers a tidy-data wrapper around `udpipe` with convenient multi-document handling. The noun phrase extraction section demonstrates two strategies — dependency traversal and UPOS sequence scanning — that exploit `udpipe`'s rich output without requiring any additional packages.
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-**LADAL TOOL** 
-</p>
-<p style='margin-top:1em; text-align:center'></p>
+Highly recommended complementary resources include the official `udpipe` vignette [available here](https://bnosac.github.io/udpipe/en/) and the POS and NER tutorial by @WN17 [available here](https://tm4ss.github.io/docs/Tutorial_8_NER_POS.html).
 
-```{r}
-#| echo: false
+::: {.callout-note}
+## Prerequisite Tutorials
 
-# Define base components
-base_url <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
-repo_url <- "https://github.com/SLCLADAL/interactive-notebooks"
-notebook_path <- "interactive-notebooks/notebooks/postool.ipynb"
+Before working through this tutorial, we recommend familiarity with:
 
-# Manually encode each parameter
-repo_param <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio orientation
+- [String Processing in R](/tutorials/string/string.html) — regular expressions, `stringr`
+- [Loading and Saving Data in R](/tutorials/load/load.html) — reading text files into R
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what POS tagging is and why it is useful for linguistic analysis
+2. Interpret Penn Treebank and Universal Dependencies POS tagsets
+3. POS-tag English, German, and Spanish texts using `udpipe`
+4. Extract noun phrases using dependency traversal and UPOS sequence scanning
+5. POS-tag text and annotate multiple documents using `cleanNLP`
+6. Generate and interpret dependency parse trees
+7. Apply POS tagging to a multi-text corpus and summarise results across documents and languages
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Part-of-Speech Tagging and Dependency Parsing in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/postag/postag.html (Version 2026.05.01).
+:::
+
+::: {.callout-note}
+## LADAL Tool
+
+A notebook-based interactive tool that allows you to upload your own texts, POS-tag them, and download the annotated output is available via the LADAL Binder:
+
+```{r binderurl, echo=FALSE, message=FALSE, warning=FALSE}
+base_url       <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url       <- "https://github.com/SLCLADAL/interactive-notebooks"
+notebook_path  <- "interactive-notebooks/notebooks/postool.ipynb"
+repo_param     <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
 notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
-
-# Combine parameters with 'git-pull' and 'branch'
-params <- paste0(
-    "urlpath=git-pull%3F",
-    repo_param,
-    "%26",
-    notebook_param,
-    "%26branch=main"
-)
-
-# Combine into the final URL
-binder_url <- paste0(base_url, "?", params)
+params         <- paste0("urlpath=git-pull%3F", repo_param, "%26", notebook_param, "%26branch=main")
+binder_url     <- paste0(base_url, "?", params)
 ```
 
 ::: {.text-center}
 [![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
 
-Click [**here**](`r binder_url`) to open an notebook-based tool <br> that allows you upload your own text(s), pos-tag them and download the resulting pos-tagged texts.
+Click [**here**](`r binder_url`) to open the interactive POS-tagging notebook.
+:::
 :::
 
+---
 
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+# What Is Part-of-Speech Tagging? {#concepts}
 
-<br>
+::: {.callout-note}
+## Section Overview
 
+**What you will learn:** The definition of POS tagging; the difference between rule-based, dictionary-based, and statistical tagging; how the Penn Treebank and Universal Dependencies tagsets differ; and what dependency parsing adds on top of POS tagging
+:::
 
-# Part-Of-Speech Tagging{-}
+## Annotation and Word Classes {-}
 
-Many analyses of language data require that we distinguish different parts of speech. In order to determine the word class of a certain word, we use a procedure which is called part-of-speech tagging (commonly referred to as pos-, pos-, or PoS-tagging). pos-tagging is a common procedure when working with natural language data. Despite being used quite frequently, it is a rather complex issue that requires the application of statistical methods that are quite advanced. In the following, we will explore different options for pos-tagging and syntactic parsing. 
+Many analyses of language data require that we distinguish different **parts of speech** (also called *word classes* or *grammatical categories*). The process of assigning a word-class label to each token in a text is called **part-of-speech tagging**, commonly abbreviated as POS-tagging or PoS-tagging.
 
-Parts-of-speech, or word categories, refer to the grammatical nature or category of a lexical item, e.g. in the sentence *Jane likes the girl* each lexical item can be classified according to whether it belongs to the group of determiners, verbs, nouns, etc.  pos-tagging refers to a (computation) process in which information is added to existing text. This process is also called *annotation*. Annotation can be very different depending on the task at hand. The most common type of annotation when it comes to language data is part-of-speech tagging where the word class is determined for each word in a text and the word class is then added to the word as a tag. However, there are many different ways to tag or annotate texts. 
+Consider the sentence:
 
-Pos–tagging assigns part-of-speech tags to character strings (these represent mostly words, of course, but also encompass punctuation marks and other elements). This means that pos–tagging is one specific type of annotation, i.e. adding information to data (either by directly adding information to the data itself or by storing information in e.g. a list which is linked to the data). It is important to note that annotation encompasses various types of information such as pauses, overlap, etc. pos–tagging is just one of these many ways in which corpus data can be *enriched*. Sentiment Analysis, for instance, also annotates texts or words with respect to its or their emotional value or polarity. 
+> *Jane likes the girl.*
 
-Annotation is required in many machine-learning contexts because annotated texts are commonly used as training sets on which machine learning or deep learning models are trained that then predict, for unknown words or texts, what values they would most likely be assigned if the annotation were done manually. Also, it should be mentioned that  by many online services offer pos-tagging (e.g. [here](http://www.infogistics.com/posdemo.htm) or [here](https://linguakit.com/en/part-of-speech-tagging).
+Each token can be classified as belonging to a grammatical category:
 
-When pos–tagged, the example sentence could look like the example below.
+| Token | POS tag | Category |
+|---|---|---|
+| Jane | NNP | Proper noun (singular) |
+| likes | VBZ | Verb (3rd person singular present) |
+| the | DT | Determiner |
+| girl | NN | Noun (singular) |
 
-1. Jane/NNP likes/VBZ the/DT girl/NN
+POS tags are not ends in themselves — they are the foundation for a wide range of downstream analyses: extracting noun phrases, studying syntactic change, comparing registers, identifying argument structure, and building features for machine learning classifiers.
 
-In the example above, `NNP` stands for proper noun (singular), `VBZ` stands for 3rd person singular present tense verb, `DT` for determiner, and `NN` for noun(singular or mass). The pos-tags used by the `openNLPpackage` are the [Penn English Treebank pos-tags](https://dpdearing.com/posts/2011/12/opennlp-part-of-speech-pos-tags-penn-english-treebank/). A more elaborate description of the tags can be found here which is summarised below:
+## How Taggers Work {-}
 
-```{r tags, echo=FALSE, eval = T, message=F, warning=F}
+There are three broad approaches to automatic POS tagging:
+
+**Rule-based tagging** uses manually crafted morphological and contextual rules — for example, *if a word ends in* -ment*, tag it as* NN. These are transparent but brittle: most words are class-ambiguous and the number of rules required grows rapidly.
+
+**Dictionary-based tagging** looks each word up in a pre-compiled lexicon and assigns the most frequent tag. This works well for known words but fails on out-of-vocabulary items and on class-ambiguous words like *studies* (verb or noun depending on context).
+
+**Statistical tagging** — the dominant modern approach — uses a manually annotated training corpus to learn the conditional probability that a given word receives a given POS tag given its surrounding context. Contemporary systems use neural sequence models that achieve close to human inter-annotator agreement on standard benchmarks. All packages covered in this tutorial rely on statistical models.
+
+## Penn Treebank and Universal Dependencies {-}
+
+Two tagsets are in widespread use:
+
+The **Penn English Treebank (PTB)** tagset [@marcus1993building] uses 36 fine-grained, English-specific tags (e.g. `VBZ` for 3rd-person singular present verb vs `VBP` for non-3rd-person). It is used by `openNLP` and appears in the `xpos` column of `udpipe` output.
+
+The **Universal Dependencies (UD)** tagset [@nivre2016universal] provides 17 coarse-grained UPOS tags consistent across all languages — making cross-linguistic comparison straightforward. It appears in the `upos` column of `udpipe` and in `cleanNLP` output.
+
+```{r tags, echo=FALSE, message=FALSE, warning=FALSE}
 library(flextable)
 library(dplyr)
-Tag <- c("CC", "CD", "DT", "EX", "FW", "IN", "JJ", "JJR", "JJS", "LS", "MD", "NN", "NNS", "NNP", "NNPS", "PDT", "POS", "PRP", "PRP$", "RB", "RBR", "RBS", "RP", "SYM", "TO", "UH", "VB", "VBD", "VBG", "VBN", "VBP", "VBZ", "WDT", "WP", "WP$", "WRB")
-Description <- c("Coordinating conjunction", "Cardinal number", "Determiner", "Existential there", "Foreign word", "Preposition or subordinating con", "Adjective", "Adjective, comparative", "Adjective, superlative", "List item marker", "Modal", "Noun, singular or mass", "Noun, plural", "Proper noun, singular", "Proper noun, plural", "Predeterminer", "Possessive ending", "Personal pronoun", "Possessive pronoun", "Adverb", "Adverb, comparative", "Adverb, superlative", "Particle", "Symbol", "to", "Interjection", "Verb, base form", "Verb, past tense", "Verb, gerund or present particip", "Verb, past participle", "Verb, non-3rd person singular pr", "Verb, 3rd person singular presen", "Wh-determiner", "Wh-pronoun", "Possessive wh-pronoun", "Wh-adverb")
-Examples <- c("and, or, but", "one, two, three", "a, the", "There/EX was a party in progress", "persona/FW non/FW grata/FW", "uh, well, yes", "good, bad, ugly", "better, nicer", "best, nicest", "a., b., 1., 2.", "can, would, will", "tree, chair", "trees, chairs", "John, Paul, CIA", "Johns, Pauls, CIAs", "all/PDT this marble, many/PDT a soul", "John/NNP 's/POS, the parentss/NNP '/POS distress", "I, you, he", "mine, yours", "evry, enough, not", "later", "latest", "RP", "CO2", "to", "uhm, uh", "go, walk", "walked, saw", "walking, seeing", "walked, thought", "walk, think", "walks, thinks", "which, that", "what, who, whom (wh-pronoun)", "whose, who (wh-words)", "how, where, why (wh-adverb)")
-data.frame(Tag, Description, Examples) %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 10) %>%
-    flextable::fontsize(size = 10, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "Overview of Penn English Treebank part-of-speech tags.") %>%
-    flextable::border_outer()
+Tag <- c("CC","CD","DT","EX","FW","IN","JJ","JJR","JJS","LS","MD",
+         "NN","NNS","NNP","NNPS","PDT","POS","PRP","PRP$",
+         "RB","RBR","RBS","RP","SYM","TO","UH",
+         "VB","VBD","VBG","VBN","VBP","VBZ","WDT","WP","WP$","WRB")
+Description <- c("Coordinating conjunction","Cardinal number","Determiner",
+  "Existential there","Foreign word","Preposition or subordinating conjunction",
+  "Adjective","Adjective, comparative","Adjective, superlative","List item marker",
+  "Modal","Noun, singular or mass","Noun, plural","Proper noun, singular",
+  "Proper noun, plural","Predeterminer","Possessive ending","Personal pronoun",
+  "Possessive pronoun","Adverb","Adverb, comparative","Adverb, superlative",
+  "Particle","Symbol","to","Interjection","Verb, base form","Verb, past tense",
+  "Verb, gerund or present participle","Verb, past participle",
+  "Verb, non-3rd person singular present","Verb, 3rd person singular present",
+  "Wh-determiner","Wh-pronoun","Possessive wh-pronoun","Wh-adverb")
+Examples <- c("and, or, but","one, two, three","a, the",
+  "There was a party","persona non grata","in, of, because",
+  "good, bad, ugly","better, nicer","best, nicest","a., b., 1.",
+  "can, would, will","tree, chair","trees, chairs","John, CIA",
+  "Johns, CIAs","all this marble","John's, parents'","I, you, he",
+  "mine, yours","very, enough, not","later","latest","up, off",
+  "CO2","to","uhm, uh","go, walk","walked, saw","walking, seeing",
+  "walked, thought","walk, think","walks, thinks","which, that",
+  "what, who","whose","how, where, why")
+data.frame(Tag, Description, Examples) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::fontsize(size = 10, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Penn English Treebank POS tags with examples.") |>
+  flextable::border_outer()
 ```
 
-Assigning these pos-tags to words appears to be rather straight forward. However, pos-tagging is quite complex and there are various ways by which a computer can be trained to assign pos-tags. For example, one could use orthographic or morphological information to devise rules such as. . .
+A comparison of the two tagsets for the most frequent categories:
 
-* If a word ends in *ment*, assign the pos-tag `NN` (for common noun)
+| PTB tag(s) | UPOS tag | Meaning |
+|---|---|---|
+| NN, NNS, NNP, NNPS | NOUN / PROPN | Noun / proper noun |
+| VB, VBD, VBG, VBN, VBP, VBZ | VERB | Verb |
+| JJ, JJR, JJS | ADJ | Adjective |
+| RB, RBR, RBS | ADV | Adverb |
+| DT, PDT | DET | Determiner |
+| IN | ADP / SCONJ | Adposition or subordinating conjunction |
+| CC | CCONJ | Coordinating conjunction |
+| PRP, PRP$ | PRON | Pronoun |
+| MD | AUX | Auxiliary |
 
-* If a word does not occur at the beginning of a sentence but is capitalized, assign the pos-tag `NNP` (for proper noun)
+## Dependency Parsing {-}
 
-Using such rules has the disadvantage that pos-tags can only be assigned to a relatively small number of words as most words will be ambiguous – think of the similarity of the English plural (-*(e)s*)  and the English 3^rd^ person, present tense indicative morpheme (-*(e)s*), for instance, which are orthographically identical.Another option would be to use a dictionary in which each word is as-signed a certain pos-tag and a program could assign the pos-tag if the word occurs in a given text. This procedure has the disadvantage that most words belong to more than one word class and pos-tagging would thus have to rely on additional information.The problem of words that belong to more than one word class can partly be remedied by including contextual information such as. . 
+**Dependency parsing** goes beyond POS tagging to identify the syntactic *relations* between tokens — which word is the head of which dependent, and what grammatical role the dependent plays (subject, object, modifier, etc.). The result is a directed tree rooted at the main predicate.
 
-* If the previous word is a determiner and the following word is a common noun, assign the pos-tag `JJ` (for a common adjective)
+For the sentence *Linguistics is the scientific study of language*, a dependency parser identifies *study* as the root, *Linguistics* as `nsubj`, *is* as `cop`, *the* and *scientific* as `det` and `amod`, and *language* as the complement of the preposition *of*. Visualising this tree makes the syntactic structure immediately legible and is a powerful tool for teaching syntax and for building features in NLP pipelines.
 
+::: {.callout-tip}
+## Exercises: Concepts
+:::
 
-This procedure works quite well but there are still better options.The best way to pos-tag a text is to create a manually annotated training set which resembles the language variety at hand. Based on the frequency of the association between a given word and the pos-tags it is assigned in the training data, it is possible to tag a word with the pos-tag that is most often assigned to the given word in the training data.All of the above methods can and should be optimized by combining them and additionally including pos–n–grams, i.e. determining a pos-tag of an unknown word based on which sequence of pos-tags is most similar to the sequence at hand and also most common in the training data.This introduction is extremely superficial and only intends to scratch some of the basic procedures that pos-tagging relies on. The interested reader is referred to introductions on machine learning and pos-tagging such as e.g.https://class.coursera.org/nlp/lecture/149.
+**Q1. Which of the following best describes the key difference between PTB and UPOS tagsets?**
 
-
-There are several different R packages that assist with pos-tagging texts [see @kumar2016mastering]. In this tutorial, we will use the `udpipe` [@udpipe] and the `openNLP`  packages [@opennlp]. Each of these has advantages and shortcomings and it is advantageous to try which result best matches one's needs. That said, the `udpipe` package is really great as it is easy to use, covers a wide range of languages, is very flexible, and very accurate.
-
-**Preparation and session set up**
-
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
-
-
-```{r prep1, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("dplyr")
-install.packages("stringr")
-install.packages("udpipe")
-install.packages("flextable")
+```{r}
+#| echo: false
+#| label: "concepts_q1"
+check_question(
+  "PTB is English-specific with 36 fine-grained tags; UPOS is cross-linguistically consistent with 17 coarse tags",
+  options = c(
+    "PTB is used for spoken language; UPOS is used for written language",
+    "PTB is cross-linguistically consistent with 17 coarse tags; UPOS is English-specific with 36 fine-grained tags",
+    "PTB is English-specific with 36 fine-grained tags; UPOS is cross-linguistically consistent with 17 coarse tags",
+    "There is no difference — both tagsets use the same labels"
+  ),
+  type = "radio",
+  q_id = "concepts_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Penn Treebank tagset (used by openNLP and in the xpos column of udpipe) has 36 tags optimised for English. The Universal Dependencies UPOS tagset has 17 tags consistent across all languages. In udpipe output, xpos = PTB tags and upos = UD tags — both are available simultaneously.",
+  wrong = "Not quite. PTB (Penn Treebank) is an English-specific tagset with 36 fine-grained distinctions. Universal Dependencies UPOS is a cross-linguistic tagset with 17 coarse categories applicable to any language. In udpipe output, xpos gives the PTB tag and upos gives the UPOS tag."
+)
 ```
 
+---
 
-Now that we have installed the packages, we activate them as shown below.
+**Q2. The word *studies* appears in (a) *She studies linguistics* and (b) *Her studies are ongoing*. A good tagger assigns VBZ to (a) and NNS to (b). What does this illustrate?**
 
-```{r initalisierung, message=FALSE, warning=FALSE}
-# load packages
+```{r}
+#| echo: false
+#| label: "concepts_q2"
+check_question(
+  "Statistical taggers use surrounding context to disambiguate class-ambiguous words — the determiner Her signals a noun in (b)",
+  options = c(
+    "Statistical taggers assign every word a single fixed tag regardless of context",
+    "Statistical taggers only work for unambiguous words and skip the rest",
+    "Statistical taggers use surrounding context to disambiguate class-ambiguous words — the determiner Her signals a noun in (b)",
+    "Statistical taggers cannot handle words that belong to more than one class"
+  ),
+  type = "radio",
+  q_id = "concepts_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Most content words in English are class-ambiguous. Statistical taggers resolve this by incorporating the surrounding context — the preceding determiner Her in sentence (b) is a strong cue that studies is a noun. This contextual sensitivity is why statistical models substantially outperform simple dictionary lookups.",
+  wrong = "Not quite. The key insight is that the same word can belong to different classes depending on context. Statistical taggers incorporate information about surrounding words and tags to resolve such ambiguity. In (a), the subject pronoun She signals a verb slot; in (b), the possessive Her signals a noun slot."
+)
+```
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages(c("dplyr", "stringr", "tidyr", "ggplot2", "purrr",
+                   "udpipe", "cleanNLP", "flextable",
+                   "textplot", "here", "checkdown"))
+```
+
+::: {.callout-note}
+**No Python, Java, or external software required.** All packages are on CRAN and self-contained within R.
+:::
+
+## Loading Packages {-}
+
+```{r prep1, message=FALSE, warning=FALSE}
 library(dplyr)
 library(stringr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
 library(udpipe)
+library(cleanNLP)
 library(flextable)
+library(here)
+library(checkdown)
 ```
 
-Once you have installed R and RStudio and initiated the session by executing the code shown above, you are good to go.
+---
 
-# POS-Tagging with UDPipe{-}
+# POS Tagging with `udpipe` {#udpipe}
 
-UDPipe was developed at the Charles University in Prague and the `udpipe` R package [@udpipe] is an extremely interesting and really fantastic package as it provides a very easy and handy way for language-agnostic tokenization, pos-tagging, lemmatization and dependency parsing of raw text in R. It is particularly handy because it addresses and remedies major shortcomings that previous methods for pos-tagging had, namely
+::: {.callout-note}
+## Section Overview
 
-* it offers a wide range of language models (64 languages at this point)
-* it does not rely on external software (like, e.g., TreeTagger, that had to be installed separately and could be challenging when using different operating systems)
-* it is really easy to implement as one only need to install and load the `udpipe` package and download and activate the language model one is interested in
-* it allows to train and tune one's own models rather easily
+**What you will learn:** How to download and load pre-trained `udpipe` language models; how to POS-tag English, German, and Spanish texts; how to interpret both PTB (`xpos`) and UPOS (`upos`) output columns; and how to extract lemmas and dependency relations from the annotated data frame
+:::
 
-The available pre-trained language models in UDPipe are:
+`udpipe` [@udpipe] was developed at Charles University in Prague and is the recommended starting point for POS tagging in R. It requires **no external software** and provides:
 
-```{r lmod, echo = F, message=F, warning=F}
-Languages <- c("Afrikaans", "Ancient Greek", "Arabic", "Armenian", "Basque", "Belarusian", "bulgarian-btb", "Buryat", "Catalan", "Chinese", "Coptic", "Croatian", "Czech", "Danish", "Dutch", "English", "Estonian", "Finnish", "French", "Galician", "German", "Gothic", "Greek", "Hebrew", "Hindi", "Hungarian", "Indonesian", "Irish Gaelic", "Italian", "Japanese", "Kazakh", "Korean", "Kurmanji", "Latin", "Latvian", "Lithuanian", "Maltese", "Marathi", "North Sami", "Norwegian", "Old Church Slavonic", "Old French", "Old Russian", "Persian", "Polish", "Portugese", "Romanian", "Russian", "Sanskrit", "Scottish Gaelic", "Serbian", "Slovak", "Slovenian", "Spanish", "Swedish", "Tamil", "Telugu", "Turkish", "Ukrainian", "Upper Sorbia", "Urdu", "Uyghur", "Vietnamese", "Wolof")
-Models <- c("afrikaans-afribooms", "ancient_greek-perseus, ancient_greek-proiel", "arabic-padt", "armenian-armtdp", "basque-bdt", "belarusian-hse", "bulgarian-btb", "buryat-bdt", "catalan-ancora", "chinese-gsd, chinese-gsdsimp, classical_chinese-kyoto", "coptic-scriptorium", "croatian-set", "czech-cac, czech-cltt, czech-fictree, czech-pdt", "danish-ddt", "dutch-alpino, dutch-lassysmall", "english-ewt, english-gum, english-lines, english-partut", "estonian-edt, estonian-ewt", "finnish-ftb, finnish-tdt", "french-gsd, french-partut, french-sequoia, french-spoken", "galician-ctg, galician-treegal", "german-gsd, german-hdt", "gothic-proiel", "greek-gdt", "hebrew-htb", "hindi-hdtb", "hungarian-szeged", "indonesian-gsd", "irish-idt", "italian-isdt, italian-partut, italian-postwita, italian-twittiro, italian-vit", "japanese-gsd", "kazakh-ktb", "korean-gsd, korean-kaist", "kurmanji-mg", "latin-ittb, latin-perseus, latin-proiel", "latvian-lvtb", "lithuanian-alksnis, lithuanian-hse", "maltese-mudt", "marathi-ufal", "north_sami-giella", "norwegian-bokmaal, norwegian-nynorsk, norwegian-nynorsklia", "old_church_slavonic-proiel", "old_french-srcmf", "old_russian-torot", "persian-seraji", "polish-lfg, polish-pdb, polish-sz", "portuguese-bosque, portuguese-br, portuguese-gsd", "romanian-nonstandard, romanian-rrt", "russian-gsd, russian-syntagrus, russian-taiga", "sanskrit-ufal", "scottish_gaelic-arcosg", "serbian-set", "slovak-snk", "slovenian-ssj, slovenian-sst", "spanish-ancora, spanish-gsd", "swedish-lines, swedish-talbanken", "tamil-ttb", "telugu-mtg", "turkish-imst", "ukrainian-iu", "upper_sorbian-ufal", "urdu-udtb", "uyghur-udt", "vietnamese-vtb", "wolof-wtb")
-data.frame(Languages, Models) %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 10) %>%
-    flextable::fontsize(size = 10, part = "header") %>%
-    flextable::align_text_col(align = "left") %>%
-    flextable::set_caption(caption = "Languages and langauge modesl available via udpipe.") %>%
-    flextable::border_outer()
-```
+- pre-trained models for **64 languages**
+- **tokenisation, lemmatisation, POS tagging, and dependency parsing** in a single function call
+- both PTB (`xpos`) and Universal Dependencies (`upos`) tags simultaneously
+- the ability to train custom models on CoNLL-U formatted data
 
- 
+## Downloading and Loading a Model {-}
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-The udpipe R package also allows you to easily train your own models, based on data in CONLL-U format, so that you can use these for your own commercial or non-commercial purposes. This is described in the other vignette of this package which you can view by the command <br><br>
-` vignette("udpipe-train", package = "udpipe")`<br></p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+Models are downloaded once and saved as `.udpipe` files. We download the English Web Treebank model:
 
-<br>
- 
-
-To download any of these models, we can use the `udpipe_download_model` function. For example, to download the `english-ewt` model, we would use the call: `m_eng	<- udpipe::udpipe_download_model(language = "english-ewt")`. 
-
-We start by loading  a text
-
-```{r udi1a, message=FALSE, warning=FALSE}
-# load text
-text <- readLines("tutorials/postag/data/testcorpus/linguistics06.txt", skipNul = T) %>%
-    str_squish() %>%
-    .[1]
-# inspect
-text
-```
-
-Now that we have a text that we can work with, we will download a pre-trained language model.
-
-```{r udi1b, eval = F, message=FALSE, warning=FALSE}
-# download language model
+```{r udi1b, eval=FALSE, message=FALSE, warning=FALSE}
+# Download once — saves an .udpipe file in your working directory
 m_eng <- udpipe::udpipe_download_model(language = "english-ewt")
 ```
 
-If you have downloaded a model once, you can also load the model directly from the place where you stored it on your computer. In my case, I have stored the model in a folder called *udpipemodels*
+After downloading, load the model from disk at the start of each session:
 
 ```{r udi1c, message=FALSE, warning=FALSE}
-# load language model from your computer after you have downloaded it once
-m_eng <- udpipe_load_model(file = here::here("udpipemodels", "english-ewt-ud-2.5-191206.udpipe"))
+# Adjust the path to wherever you saved the model file
+m_eng <- udpipe::udpipe_load_model(
+  file = here::here("udpipemodels", "english-ewt-ud-2.5-191206.udpipe")
+)
 ```
 
-We can now use the model to annotate out text.
+## Tagging an English Text {-}
+
+We load a sample linguistics text and annotate it in a single call:
+
+```{r udi1a, message=FALSE, warning=FALSE}
+text <- readLines("tutorials/postag/data/testcorpus/linguistics06.txt",
+                  skipNul = TRUE) |>
+  stringr::str_squish() |>
+  (\(x) x[nchar(x) > 0])() |>
+  paste(collapse = " ")
+
+substr(text, 1, 300)
+```
 
 ```{r udi1d, message=FALSE, warning=FALSE}
-# tokenise, tag, dependency parsing
-text_anndf <- udpipe::udpipe_annotate(m_eng, x = text) %>%
-    as.data.frame() %>%
-    dplyr::select(-sentence)
-# inspect
-head(text_anndf, 10)
+text_ann <- udpipe::udpipe_annotate(m_eng, x = text) |>
+  as.data.frame() |>
+  dplyr::select(doc_id, sentence_id, token_id, token, lemma,
+                upos, xpos, dep_rel, head_token_id)
+head(text_ann, 12)
 ```
 
-It can be useful to extract only the words and their pos-tags and convert them back into a text format (rather than a tabular format). 
+The most important output columns are:
+
+| Column | Content |
+|---|---|
+| `token` | Surface form of the word |
+| `lemma` | Dictionary base form (e.g. *ran* → *run*) |
+| `upos` | Universal POS tag — 17 cross-linguistic categories |
+| `xpos` | Penn Treebank POS tag — 36 English-specific categories |
+| `dep_rel` | Dependency relation to head (e.g. `nsubj`, `obj`, `amod`) |
+| `head_token_id` | Token ID of the syntactic head |
+
+## Reconstructing a POS-Tagged String {-}
+
+For corpus-style output, tokens and tags can be pasted back into a readable string:
 
 ```{r udi2, message=FALSE, warning=FALSE}
-tagged_text <- paste(text_anndf$token, "/", text_anndf$xpos, collapse = " ", sep = "")
-# inspect tagged text
-tagged_text
+tagged_text <- paste(text_ann$token, "/", text_ann$upos,
+                     collapse = " ", sep = "")
+substr(tagged_text, 1, 500)
 ```
 
-# POS-Tagging non-English texts {-}
+## Available Language Models {-}
 
-We can apply the same method for annotating, e.g. adding pos-tags, to other languages. For this, we could train our own model, or, we can use one of the many pre-trained language models that `udpipe` provides.
-
-Let us explore how to do this by using  example texts from different languages, here from German and Spanish (but we could also annotate texts from any of the wide variety of languages for which UDPipe provides pre-trained models.
-
-
-We begin by loading a German and a Dutch text.
-
-```{r txts, warning=F, message=F}
-# load texts
-gertext <- readLines("tutorials/postag/data/german.txt")
-duttext <- readLines("tutorials/postag/data/dutch.txt")
-# inspect texts
-gertext
-duttext
+```{r lmod, echo=FALSE, message=FALSE, warning=FALSE}
+Languages <- c("Afrikaans","Ancient Greek","Arabic","Armenian","Basque",
+  "Belarusian","Bulgarian","Buryat","Catalan","Chinese","Coptic","Croatian",
+  "Czech","Danish","Dutch","English","Estonian","Finnish","French","Galician",
+  "German","Gothic","Greek","Hebrew","Hindi","Hungarian","Indonesian",
+  "Irish Gaelic","Italian","Japanese","Kazakh","Korean","Kurmanji","Latin",
+  "Latvian","Lithuanian","Maltese","Marathi","North Sami","Norwegian",
+  "Old Church Slavonic","Old French","Old Russian","Persian","Polish",
+  "Portuguese","Romanian","Russian","Sanskrit","Scottish Gaelic","Serbian",
+  "Slovak","Slovenian","Spanish","Swedish","Tamil","Telugu","Turkish",
+  "Ukrainian","Upper Sorbian","Urdu","Uyghur","Vietnamese","Wolof")
+Models <- c("afrikaans-afribooms","ancient_greek-perseus, ancient_greek-proiel",
+  "arabic-padt","armenian-armtdp","basque-bdt","belarusian-hse","bulgarian-btb",
+  "buryat-bdt","catalan-ancora","chinese-gsd, chinese-gsdsimp",
+  "coptic-scriptorium","croatian-set","czech-cac, czech-pdt","danish-ddt",
+  "dutch-alpino, dutch-lassysmall","english-ewt, english-gum, english-lines",
+  "estonian-edt, estonian-ewt","finnish-ftb, finnish-tdt",
+  "french-gsd, french-partut, french-sequoia","galician-ctg, galician-treegal",
+  "german-gsd, german-hdt","gothic-proiel","greek-gdt","hebrew-htb",
+  "hindi-hdtb","hungarian-szeged","indonesian-gsd","irish-idt",
+  "italian-isdt, italian-partut","japanese-gsd","kazakh-ktb",
+  "korean-gsd, korean-kaist","kurmanji-mg","latin-ittb, latin-perseus",
+  "latvian-lvtb","lithuanian-alksnis","maltese-mudt","marathi-ufal",
+  "north_sami-giella","norwegian-bokmaal, norwegian-nynorsk",
+  "old_church_slavonic-proiel","old_french-srcmf","old_russian-torot",
+  "persian-seraji","polish-lfg, polish-pdb","portuguese-bosque, portuguese-gsd",
+  "romanian-nonstandard, romanian-rrt","russian-gsd, russian-syntagrus",
+  "sanskrit-ufal","scottish_gaelic-arcosg","serbian-set","slovak-snk",
+  "slovenian-ssj, slovenian-sst","spanish-ancora, spanish-gsd",
+  "swedish-lines, swedish-talbanken","tamil-ttb","telugu-mtg","turkish-imst",
+  "ukrainian-iu","upper_sorbian-ufal","urdu-udtb","uyghur-udt",
+  "vietnamese-vtb","wolof-wtb")
+data.frame(Languages, Models) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::fontsize(size = 10, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Languages and models available via udpipe.") |>
+  flextable::border_outer()
 ```
 
+## Tagging German and Spanish Texts {-}
 
-Next, we install the pre-trained language models.
+The same workflow applies to any of the 64 supported languages:
 
-```{r udi_mod2, eval = F, message=FALSE, warning=FALSE}
-# download language model
+```{r udi_mod2, eval=FALSE, message=FALSE, warning=FALSE}
 m_ger <- udpipe::udpipe_download_model(language = "german-gsd")
-m_dut <- udpipe::udpipe_download_model(language = "dutch-alpino")
+m_esp <- udpipe::udpipe_download_model(language = "spanish-ancora")
 ```
-
-Or we load them from our machine (if we have downloaded and saved them before).
 
 ```{r udi_mod4, message=FALSE, warning=FALSE}
-# load language model from your computer after you have downloaded it once
-m_ger <- udpipe::udpipe_load_model(file = here::here("udpipemodels", "german-gsd-ud-2.5-191206.udpipe"))
-m_dut <- udpipe::udpipe_load_model(file = here::here("udpipemodels", "dutch-alpino-ud-2.5-191206.udpipe"))
+m_ger <- udpipe::udpipe_load_model(
+  file = here::here("udpipemodels", "german-gsd-ud-2.5-191206.udpipe"))
+m_esp <- udpipe::udpipe_load_model(
+  file = here::here("udpipemodels", "spanish-ancora-ud-2.5-191206.udpipe"))
 ```
 
+```{r txts, message=FALSE, warning=FALSE}
+gertext <- readLines("tutorials/postag/data/german.txt",
+                     encoding = "UTF-8") |>
+  stringr::str_squish() |> paste(collapse = " ")
 
-Now, pos-tag the German text.
-
-
-```{r pos_ger, warning=F, message=F}
-# tokenise, tag, dependency parsing of german text
-ger_pos <- udpipe::udpipe_annotate(m_ger, x = gertext) %>%
-    as.data.frame() %>%
-    dplyr::summarise(postxt = paste(token, "/", xpos, collapse = " ", sep = "")) %>%
-    dplyr::pull(unique(postxt))
-# inspect
-ger_pos
+esptext <- readLines("tutorials/postag/data/spanish.txt",
+                     encoding = "UTF-8") |>
+  stringr::str_squish() |> paste(collapse = " ")
 ```
 
-And finally, we also pos-tag the Dutch text.
+```{r pos_ger, message=FALSE, warning=FALSE}
+ger_ann <- udpipe::udpipe_annotate(m_ger, x = gertext) |>
+  as.data.frame() |>
+  dplyr::select(sentence_id, token_id, token, lemma,
+                upos, xpos, dep_rel, head_token_id)
 
-
-```{r pos_nl, warning=F, message=F}
-# tokenise, tag, dependency parsing of german text
-nl_pos <- udpipe::udpipe_annotate(m_dut, x = duttext) %>%
-    as.data.frame() %>%
-    dplyr::summarise(postxt = paste(token, "/", xpos, collapse = " ", sep = "")) %>%
-    dplyr::pull(unique(postxt))
-# inspect
-nl_pos
+substr(paste(ger_ann$token, "/", ger_ann$upos, collapse = " ", sep = ""), 1, 400)
 ```
 
-# Dependency Parsing Using UDPipe{-}
+```{r pos_esp, message=FALSE, warning=FALSE}
+esp_ann <- udpipe::udpipe_annotate(m_esp, x = esptext) |>
+  as.data.frame() |>
+  dplyr::select(sentence_id, token_id, token, lemma,
+                upos, xpos, dep_rel, head_token_id)
 
-In addition to pos-tagging, we can also generate plots showing the syntactic dependencies of the different constituents of a sentence. For this, we generate an object that contains a sentence (in this case, the sentence *Linguistics is the scientific study of language*), and we then plot (or visualize) the dependencies using the `textplot_dependencyparser` function.  
-
-```{r udi3, message=FALSE, warning=FALSE}
-# parse text
-sent <- udpipe::udpipe_annotate(m_eng, x = "Linguistics is the scientific study of language") %>%
-    as.data.frame()
-# inspect
-head(sent)
+substr(paste(esp_ann$token, "/", esp_ann$upos, collapse = " ", sep = ""), 1, 400)
 ```
 
-We now generate the plot.
+Because all three models use Universal Dependencies UPOS tags, the `upos` column is directly comparable across languages.
 
-```{r udi5, message=FALSE, warning=FALSE}
-# generate dependency plot
-dplot <- textplot::textplot_dependencyparser(sent, size = 3)
-# show plot
-dplot
+::: {.callout-tip}
+## Exercises: udpipe
+:::
+
+**Q3. You annotate a text with `udpipe` and want to extract all common and proper nouns together with their lemmas. Which column(s) should you use?**
+
+```{r}
+#| echo: false
+#| label: "udpipe_q1"
+check_question(
+  "Filter the upos column for NOUN and PROPN; retrieve the base form from the lemma column",
+  options = c(
+    "Filter the xpos column for NN and NNP; lemmatisation is not available in udpipe",
+    "Filter the upos column for NOUN and PROPN; retrieve the base form from the lemma column",
+    "Filter the token column using a regex for capitalised words",
+    "Filter the dep_rel column for nsubj — these are always nouns"
+  ),
+  type = "radio",
+  q_id = "udpipe_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In Universal Dependencies, NOUN covers common nouns and PROPN covers proper nouns. The lemma column provides the dictionary base form (e.g. studies → study). Using upos rather than xpos is preferred for cross-linguistic work because the categories are consistent across all 64 udpipe languages.",
+  wrong = "Not quite. udpipe output includes both upos (Universal Dependencies, 17 categories) and xpos (Penn Treebank, 36 categories). For nouns the UPOS labels are NOUN (common noun) and PROPN (proper noun). The lemma column contains the base form — for example, running has lemma run and upos VERB."
+)
 ```
 
+---
 
+**Q4. A colleague wants to POS-tag a corpus of Wolof texts. Can `udpipe` handle this?**
 
-That's it for this tutorial. We hope that you have enjoyed this tutorial and learned how to annotate texts using language models and perform pos-tagging and dependency parsing of English texts as well as texts in other languages.
+```{r}
+#| echo: false
+#| label: "udpipe_q2"
+check_question(
+  "Yes — udpipe provides a pre-trained Wolof model (wolof-wtb) downloadable with udpipe_download_model(), with no external software required",
+  options = c(
+    "No — udpipe only covers European languages",
+    "Yes — udpipe provides a pre-trained Wolof model (wolof-wtb) downloadable with udpipe_download_model(), with no external software required",
+    "Yes — but only if they install a separate Java runtime environment",
+    "No — Wolof requires a custom-trained model; no pre-trained option exists"
+  ),
+  type = "radio",
+  q_id = "udpipe_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! udpipe covers 64 languages including Wolof (model: wolof-wtb). The workflow is identical to the English example: udpipe_download_model('wolof-wtb'), udpipe_load_model(), udpipe_annotate(). No Python, Java, or external software required.",
+  wrong = "Not quite. udpipe provides pre-trained models for 64 languages including Wolof (wolof-wtb) and several other African languages. Download with udpipe::udpipe_download_model(language = 'wolof-wtb') — no external software required."
+)
+```
+
+---
+
+# Noun Phrase Extraction with `udpipe` {#npextract}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to extract noun phrases from `udpipe` dependency output using two complementary strategies — a dependency-traversal approach that assembles NPs from head nouns and their nominal dependents, and a UPOS-sequence approach that identifies contiguous adjectival/determiner + noun runs; how to compile frequency tables of the resulting NPs; and how to visualise the most frequent NPs
+:::
+
+`udpipe`'s dependency parse output provides everything needed to identify noun phrases without any additional packages. Two approaches are practical and complement each other.
+
+**Dependency-traversal NP extraction** identifies every noun token as a head, then collects all tokens whose `dep_rel` marks them as nominal dependents of that head (determiners, adjectives, quantifiers, possessives, compound nouns, and cardinal numbers). This mirrors the linguistic definition of a noun phrase and works for any language with a `udpipe` model.
+
+**UPOS-sequence NP extraction** scans token sequences within each sentence for runs of determiner/adjective/numeral tokens immediately followed by a noun, assembling them into multi-word phrases. This is simpler, language-agnostic, and robust to annotation errors.
+
+## Strategy 1: Dependency-Traversal NP Extraction {-}
+
+We use the annotations produced earlier in `text_ann`:
+
+```{r np_dep, message=FALSE, warning=FALSE}
+# Dependency relations that indicate a token is a nominal modifier
+np_dep_rels <- c("det", "amod", "nmod:poss", "nummod",
+                 "compound", "nmod", "advmod", "appos")
+
+np_dep_extract <- function(ann_df) {
+  # Find all noun heads (common or proper noun, not punctuation or pronoun)
+  noun_heads <- ann_df |>
+    dplyr::filter(upos %in% c("NOUN", "PROPN"))
+
+  purrr::map_dfr(seq_len(nrow(noun_heads)), function(i) {
+    head_row  <- noun_heads[i, ]
+    head_sid  <- head_row$sentence_id
+    head_tid  <- as.integer(head_row$token_id)
+
+    # Collect dependents within the same sentence that modify this head
+    deps <- ann_df |>
+      dplyr::filter(
+        sentence_id   == head_sid,
+        as.integer(head_token_id) == head_tid,
+        dep_rel       %in% np_dep_rels
+      )
+
+    all_tokens <- dplyr::bind_rows(head_row, deps) |>
+      dplyr::mutate(token_id = as.integer(token_id)) |>
+      dplyr::arrange(token_id)
+
+    data.frame(
+      sentence_id = head_sid,
+      np_head     = head_row$token,
+      noun_phrase = paste(all_tokens$token, collapse = " "),
+      n_tokens    = nrow(all_tokens),
+      stringsAsFactors = FALSE
+    )
+  })
+}
+
+np_dep_results <- np_dep_extract(text_ann)
+head(np_dep_results, 15)
+```
+
+Filter to multi-word NPs and tabulate frequency:
+
+```{r np_dep_freq, message=FALSE, warning=FALSE}
+np_dep_freq <- np_dep_results |>
+  dplyr::filter(n_tokens > 1) |>
+  dplyr::count(noun_phrase, sort = TRUE)
+
+head(np_dep_freq, 15) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .6, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Most frequent multi-word noun phrases (dependency traversal).") |>
+  flextable::border_outer()
+```
+
+## Strategy 2: UPOS-Sequence NP Extraction {-}
+
+This approach scans each sentence for contiguous sequences of `DET`, `ADJ`, or `NUM` tokens immediately followed by a `NOUN` or `PROPN`, grouping them into candidate NPs:
+
+```{r np_seq, message=FALSE, warning=FALSE}
+np_seq_extract <- function(ann_df) {
+  # Work sentence by sentence
+  ann_df |>
+    dplyr::filter(!upos %in% c("PUNCT", "SYM", "X", "SPACE")) |>
+    dplyr::mutate(token_id = as.integer(token_id)) |>
+    dplyr::group_by(sentence_id) |>
+    dplyr::group_modify(~ {
+      df  <- dplyr::arrange(.x, token_id)
+      n   <- nrow(df)
+      nps <- character(0)
+      i   <- 1L
+      while (i <= n) {
+        if (df$upos[i] %in% c("NOUN", "PROPN")) {
+          # Look back for preceding DET/ADJ/NUM in the same run
+          j <- i - 1L
+          while (j >= 1L && df$upos[j] %in% c("DET", "ADJ", "NUM", "PRON") &&
+                 df$token_id[j] == df$token_id[j + 1L] - 1L) j <- j - 1L
+          np_tokens <- df$token[(j + 1L):i]
+          if (length(np_tokens) > 1L)
+            nps <- c(nps, paste(np_tokens, collapse = " "))
+        }
+        i <- i + 1L
+      }
+      if (length(nps) == 0L) return(data.frame(noun_phrase = character(0)))
+      data.frame(noun_phrase = nps, stringsAsFactors = FALSE)
+    }) |>
+    dplyr::ungroup()
+}
+
+np_seq_results <- np_seq_extract(text_ann)
+head(np_seq_results, 15)
+```
+
+```{r np_seq_freq, message=FALSE, warning=FALSE}
+np_seq_freq <- np_seq_results |>
+  dplyr::count(noun_phrase, sort = TRUE)
+
+head(np_seq_freq, 15) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .6, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Most frequent multi-word noun phrases (UPOS sequence scan).") |>
+  flextable::border_outer()
+```
+
+## Visualising the Top NPs {-}
+
+```{r np_plot, message=FALSE, warning=FALSE, fig.cap="Top 20 most frequent multi-word noun phrases extracted via dependency traversal."}
+np_dep_freq |>
+  dplyr::slice_max(n, n = 20) |>
+  ggplot(aes(x = reorder(noun_phrase, n), y = n)) +
+  geom_col(fill = "#1f77b4") +
+  coord_flip() +
+  labs(title = "Top 20 Noun Phrases",
+       x = NULL, y = "Frequency") +
+  theme_bw()
+```
+
+::: {.callout-tip}
+## Exercises: Noun Phrase Extraction
+:::
+
+**Q5. In the dependency-traversal approach, why is the `dep_rel` check more linguistically precise than simply grouping consecutive `NOUN` and `ADJ` tokens?**
+
+```{r}
+#| echo: false
+#| label: "np_q1"
+check_question(
+  "Dependency relations encode which tokens actually modify a specific head noun — consecutive adjectives may belong to different NPs or modify different heads",
+  options = c(
+    "Dependency relations are faster to compute than sequence scans",
+    "Consecutive token sequences cannot include determiners, only adjectives",
+    "Dependency relations encode which tokens actually modify a specific head noun — consecutive adjectives may belong to different NPs or modify different heads",
+    "The sequence approach only works for English; the dependency approach works for any language"
+  ),
+  type = "radio",
+  q_id = "np_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In a sentence like 'small cats and large dogs', a sequence scan could group 'large dogs' correctly but might miscombine tokens across coordination boundaries. Dependency traversal follows the actual parse tree, so 'small' is linked to 'cats' and 'large' to 'dogs' by their dep_rel labels, not just by adjacency.",
+  wrong = "Not quite. The key advantage of dependency traversal is that it uses the parse tree's head–dependent links rather than surface adjacency. In a sentence like 'small cats and large dogs', the dependency structure explicitly encodes that 'small' modifies 'cats' and 'large' modifies 'dogs'. A sequence scan based on adjacency alone could incorrectly cross coordination boundaries."
+)
+```
+
+---
+
+**Q6. You apply `np_dep_extract()` to a German text annotated with the `german-gsd` model. Will it work without modification, and why?**
+
+```{r}
+#| echo: false
+#| label: "np_q2"
+check_question(
+  "Yes — Universal Dependencies relation labels (det, amod, compound, etc.) are the same across all udpipe language models",
+  options = c(
+    "No — German has different dependency relation labels so np_dep_rels must be translated",
+    "Yes — Universal Dependencies relation labels (det, amod, compound, etc.) are the same across all udpipe language models",
+    "No — German requires a separate chunker because udpipe does not parse German dependency trees",
+    "Yes — but only if the German text is first transliterated to ASCII"
+  ),
+  type = "radio",
+  q_id = "np_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! All udpipe models use Universal Dependencies relation labels regardless of language. The labels det, amod, compound, nmod, nummod, and so on are standardised across all 64 languages. The np_dep_extract() function therefore works unchanged on German, Spanish, or any other udpipe-supported language.",
+  wrong = "Not quite. All udpipe language models use Universal Dependencies, which standardises both UPOS tags and dependency relation labels across languages. The dep_rel labels (det, amod, nmod, compound, etc.) mean the same thing in German and Spanish models as in the English model. No modification to np_dep_extract() is needed."
+)
+```
+
+---
+
+# POS Tagging with `cleanNLP` {#cleannlp}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to use `cleanNLP` as a tidy-data wrapper around `udpipe`; how to annotate text and access the token table via `anno$token`; how to annotate multiple documents at once; and how `cleanNLP` compares to direct `udpipe` output
+:::
+
+`cleanNLP` [@cleanNLP] is a high-level annotation framework that wraps `udpipe` behind a consistent tidy-data interface. In this tutorial we use exclusively its **`udpipe` backend**, which is fully self-contained within R and requires no external software.
+
+::: {.callout-note}
+`cleanNLP` also supports a Python/spaCy backend, but this requires a Python installation and is therefore not covered here. The `udpipe` backend provides equivalent POS tagging and dependency parsing with no additional setup.
+:::
+
+## Initialising and Annotating {-}
+
+```{r cnlp_init, message=FALSE, warning=FALSE}
+cleanNLP::cnlp_init_udpipe(model_name = "english")
+```
+
+```{r cnlp_annotate, message=FALSE, warning=FALSE}
+text_cn <- readLines("tutorials/postag/data/testcorpus/linguistics06.txt",
+                     skipNul = TRUE) |>
+  stringr::str_squish() |>
+  paste(collapse = " ")
+
+anno <- cleanNLP::cnlp_annotate(text_cn)
+```
+
+## Accessing the Token Table {-}
+
+In `cleanNLP` v3, `cnlp_annotate()` returns a **named list**. The token table — containing POS tags, lemmas, and dependency relations — is accessed with `$token`:
+
+```{r cnlp_tokens, message=FALSE, warning=FALSE}
+tokens_cn <- anno$token
+head(tokens_cn, 12)
+```
+
+The key columns are `upos`, `xpos`, `lemma`, `tid_source` (head token ID), and `relation` (dependency relation label) — equivalent to the corresponding columns in direct `udpipe` output, with dependency information already merged in.
+
+## Annotating Multiple Documents {-}
+
+The main practical advantage of `cleanNLP` over direct `udpipe` is that it natively handles a named character vector of multiple documents, returning a single tidy token table with a `doc_id` column:
+
+```{r cnlp_multi, message=FALSE, warning=FALSE}
+texts_vec <- c(
+  doc1 = "Linguistics is the scientific study of language.",
+  doc2 = "Syntax describes the rules governing sentence structure.",
+  doc3 = "Phonology examines the sound systems of human languages."
+)
+
+anno_multi <- cleanNLP::cnlp_annotate(texts_vec)
+anno_multi$token |>
+  dplyr::select(doc_id, sid, tid, token, lemma, upos, relation) |>
+  head(18)
+```
+
+## Comparing `cleanNLP` and Direct `udpipe` {-}
+
+| Feature | Direct `udpipe` | `cleanNLP` (udpipe backend) |
+|---|---|---|
+| Output format | Flat data frame via `as.data.frame()` | Named list; token table at `$token` |
+| Dependency info | Separate `head_token_id` + `dep_rel` columns | `tid_source` + `relation` merged into token table |
+| Multiple documents | Loop + `bind_rows()` required | Native: pass named character vector |
+| Language models | Explicit download + `udpipe_load_model()` | `cnlp_init_udpipe(model_name = ...)` |
+| Annotation quality | Identical | Identical (uses udpipe internally) |
+
+::: {.callout-tip}
+## Exercises: cleanNLP
+:::
+
+**Q7. In `cleanNLP` v3, how do you access the token table from the object returned by `cnlp_annotate()`?**
+
+```{r}
+#| echo: false
+#| label: "cleannlp_q1"
+check_question(
+  "With the $ operator: anno$token — cnlp_annotate() returns a named list in v3",
+  options = c(
+    "With cnlp_get_token(anno) — this is the standard accessor function",
+    "With get_token(anno) — cleanNLP uses tidyverse-style getter functions",
+    "With anno[[1]] — the token table is always the first list element",
+    "With the $ operator: anno$token — cnlp_annotate() returns a named list in v3"
+  ),
+  type = "radio",
+  q_id = "cleannlp_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In cleanNLP v3, cnlp_annotate() returns a named list. Accessor functions like cnlp_get_token() and get_token() from earlier versions are no longer exported. Access the token table with anno$token and document metadata with anno$document.",
+  wrong = "Not quite. cleanNLP v3 changed the API: cnlp_annotate() now returns a named list, and accessor functions like cnlp_get_token() are no longer available. Use anno$token to access the token table directly."
+)
+```
+
+---
+
+**Q8. What is the main practical advantage of `cleanNLP` over direct `udpipe` when annotating a corpus of 50 text files?**
+
+```{r}
+#| echo: false
+#| label: "cleannlp_q2"
+check_question(
+  "cleanNLP natively accepts a named character vector and returns one token table with a doc_id column — no loop required",
+  options = c(
+    "cleanNLP produces higher-quality POS tags than direct udpipe for large corpora",
+    "cleanNLP natively accepts a named character vector and returns one token table with a doc_id column — no loop required",
+    "cleanNLP is faster than udpipe because it uses parallel processing by default",
+    "cleanNLP automatically downloads language models without any configuration"
+  ),
+  type = "radio",
+  q_id = "cleannlp_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Passing a named character vector to cnlp_annotate() annotates all documents and returns a single tidy token table with a doc_id column. With direct udpipe, you would need a loop and manual bind_rows(). The underlying annotation quality is identical — cleanNLP uses udpipe internally.",
+  wrong = "Not quite. The annotation quality is the same — cleanNLP uses udpipe internally. The practical advantage is that cnlp_annotate() accepts a named character vector of multiple documents and returns a single data frame with a doc_id column, whereas direct udpipe requires a loop and manual row-binding."
+)
+```
+
+---
+
+# Dependency Parsing {#depparsing}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to visualise syntactic dependency trees using `textplot`; how to read CoNLL-U formatted output; how to extract subject–verb and verb–object pairs from `udpipe` output; and how to compare dependency structures across English, German, and Spanish
+:::
+
+## Visualising a Dependency Parse {-}
+
+The `textplot` package generates dependency tree visualisations from `udpipe`-annotated data frames:
+
+```{r dep_sent, message=FALSE, warning=FALSE}
+sent1 <- udpipe::udpipe_annotate(
+  m_eng,
+  x = "Linguistics is the scientific study of language"
+) |>
+  as.data.frame()
+
+sent1 |>
+  dplyr::select(token, upos, dep_rel, head_token_id) |>
+  head(8)
+```
+
+```{r dep_plot1, message=FALSE, warning=FALSE, fig.cap="Dependency parse tree for 'Linguistics is the scientific study of language'."}
+library(textplot)
+textplot::textplot_dependencyparser(sent1, size = 3.5)
+```
+
+A more complex sentence with an embedded relative clause:
+
+```{r dep_plot2, message=FALSE, warning=FALSE, fig.cap="Dependency parse of a sentence with a relative clause."}
+sent2 <- udpipe::udpipe_annotate(
+  m_eng,
+  x = "The researcher who conducted the experiment published her results."
+) |>
+  as.data.frame()
+textplot::textplot_dependencyparser(sent2, size = 3)
+```
+
+## CoNLL-U Format {-}
+
+`udpipe` output maps directly to the CoNLL-U interchange format used by all Universal Dependencies treebanks:
+
+```{r conllu, message=FALSE, warning=FALSE}
+sent1 |>
+  dplyr::transmute(
+    ID     = token_id,
+    FORM   = token,
+    LEMMA  = lemma,
+    UPOS   = upos,
+    XPOS   = xpos,
+    HEAD   = head_token_id,
+    DEPREL = dep_rel
+  ) |>
+  head(8)
+```
+
+## Extracting Grammatical Relation Pairs {-}
+
+The `dep_rel` column enables extraction of specific grammatical relations across a full text. Subject–verb pairs:
+
+```{r dep_subj, message=FALSE, warning=FALSE}
+subj_verb <- text_ann |>
+  dplyr::filter(dep_rel == "nsubj") |>
+  dplyr::left_join(
+    text_ann |> dplyr::select(sentence_id, token_id, head_token = token),
+    by = c("sentence_id", "head_token_id" = "token_id")
+  ) |>
+  dplyr::select(sentence_id, subject = token, verb = head_token) |>
+  dplyr::distinct()
+
+head(subj_verb, 15)
+```
+
+Verb–direct object pairs:
+
+```{r dep_obj, message=FALSE, warning=FALSE}
+verb_obj <- text_ann |>
+  dplyr::filter(dep_rel == "obj") |>
+  dplyr::left_join(
+    text_ann |> dplyr::select(sentence_id, token_id, head_token = token),
+    by = c("sentence_id", "head_token_id" = "token_id")
+  ) |>
+  dplyr::select(sentence_id, verb = head_token, object = token) |>
+  dplyr::distinct()
+
+head(verb_obj, 15)
+```
+
+## Cross-Language Comparison {-}
+
+Because Universal Dependencies labels are consistent across languages, subject–verb pairs from English, German, and Spanish are directly comparable:
+
+```{r dep_cross, message=FALSE, warning=FALSE}
+get_subj_verb <- function(ann_df, lang) {
+  ann_df |>
+    dplyr::mutate(across(c(token_id, head_token_id, sentence_id), as.integer)) |>
+    dplyr::filter(dep_rel == "nsubj") |>
+    dplyr::left_join(
+      ann_df |>
+        dplyr::mutate(across(c(token_id, sentence_id), as.integer)) |>
+        dplyr::select(sentence_id, token_id, head_token = token),
+      by = c("sentence_id", "head_token_id" = "token_id")
+    ) |>
+    dplyr::mutate(language = lang) |>
+    dplyr::select(language, subject = token, verb = head_token)
+}
+
+sv_all <- dplyr::bind_rows(
+  get_subj_verb(text_ann, "English"),
+  get_subj_verb(ger_ann,  "German"),
+  get_subj_verb(esp_ann,  "Spanish")
+)
+head(sv_all, 18)
+```
+
+::: {.callout-tip}
+## Exercises: Dependency Parsing
+:::
+
+**Q9. In a Universal Dependencies parse, what value does `head_token_id` contain for the root token, and why?**
+
+```{r}
+#| echo: false
+#| label: "dep_q1"
+check_question(
+  "0 — the root has no syntactic head within the sentence, so its head is set to 0 by convention",
+  options = c(
+    "The token ID of the main noun in the sentence",
+    "NA — the root has a missing head by definition",
+    "0 — the root has no syntactic head within the sentence, so its head is set to 0 by convention",
+    "The same as its own token_id — the root points to itself"
+  ),
+  type = "radio",
+  q_id = "dep_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In CoNLL-U format, the root token has HEAD = 0 — a conventional sentinel meaning 'no syntactic governor within this sentence'. In the udpipe data frame this appears as head_token_id == 0. You can always find the main predicate of a sentence by filtering for dep_rel == 'root'.",
+  wrong = "Not quite. In Universal Dependencies and CoNLL-U format, the root token has its HEAD field set to 0 — a conventional value meaning 'no head'. It is not NA and it does not point to itself. In the udpipe data frame, head_token_id == 0 identifies the root of each sentence."
+)
+```
+
+---
+
+**Q10. You want to extract direct objects and their governing verbs. Why must the join include both `sentence_id` AND `head_token_id == token_id`?**
+
+```{r}
+#| echo: false
+#| label: "dep_q2"
+check_question(
+  "Token IDs restart at 1 for each new sentence, so joining on token_id alone would match tokens across different sentences with the same ID",
+  options = c(
+    "The sentence_id condition is redundant — token IDs are unique across the whole document",
+    "Token IDs restart at 1 for each new sentence, so joining on token_id alone would match tokens across different sentences with the same ID",
+    "The join needs sentence_id because head_token_id is only populated for verbs",
+    "dep_rel values repeat across sentences so both keys are needed to disambiguate them"
+  ),
+  type = "radio",
+  q_id = "dep_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In udpipe output, token_id resets to 1 at the start of each new sentence. If you join only on token_id == head_token_id, an object in sentence 3 pointing to token 4 would incorrectly match token 4 in sentences 1, 2, 4, and so on. Including sentence_id in the join restricts each match to the correct sentence.",
+  wrong = "Not quite. In udpipe output, token_id restarts at 1 for each new sentence. Joining only on head_token_id == token_id would produce spurious cross-sentence matches (e.g. an object in sentence 5 pointing to head token 2 would match token 2 in every other sentence). The sentence_id condition restricts the join to the correct sentence."
+)
+```
+
+---
+
+# Worked Corpus Example {#corpus}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply POS tagging to a folder of text files; how to summarise POS distributions across documents and languages; how to compute noun-to-verb ratios as a register measure; and how to visualise cross-language POS profiles
+:::
+
+## Loading and Annotating a Multi-File Corpus {-}
+
+```{r corp_load, message=FALSE, warning=FALSE}
+eng_files <- list.files(
+  "tutorials/postag/data/testcorpus/",
+  pattern = "\\.txt$", full.names = TRUE
+)
+
+eng_texts <- purrr::set_names(
+  purrr::map_chr(eng_files, ~ {
+    readLines(.x, skipNul = TRUE) |>
+      stringr::str_squish() |>
+      paste(collapse = " ")
+  }),
+  basename(eng_files)
+)
+```
+
+We annotate all English files at once with `cleanNLP`:
+
+```{r corp_ann, message=FALSE, warning=FALSE}
+cleanNLP::cnlp_init_udpipe(model_name = "english")
+corpus_ann <- cleanNLP::cnlp_annotate(eng_texts)
+eng_tokens <- corpus_ann$token |> dplyr::mutate(language = "English")
+```
+
+We annotate the German and Spanish texts directly with `udpipe` and bind everything together:
+
+```{r corp_multi, message=FALSE, warning=FALSE}
+ger_tokens <- udpipe::udpipe_annotate(m_ger, x = gertext,
+                                       doc_id = "german01") |>
+  as.data.frame() |>
+  dplyr::mutate(language = "German") |>
+  dplyr::select(doc_id, sentence_id, token_id, token, lemma,
+                upos, xpos, dep_rel, head_token_id, language)
+
+esp_tokens <- udpipe::udpipe_annotate(m_esp, x = esptext,
+                                       doc_id = "spanish01") |>
+  as.data.frame() |>
+  dplyr::mutate(language = "Spanish") |>
+  dplyr::select(doc_id, sentence_id, token_id, token, lemma,
+                upos, xpos, dep_rel, head_token_id, language)
+
+full_corpus <- dplyr::bind_rows(eng_tokens, ger_tokens, esp_tokens)
+```
+
+## POS Distributions by Language {-}
+
+```{r corp_pos_tab, message=FALSE, warning=FALSE}
+pos_summary <- full_corpus |>
+  dplyr::filter(!is.na(upos), !upos %in% c("PUNCT", "SYM", "X")) |>
+  dplyr::count(language, doc_id, upos) |>
+  dplyr::group_by(language, doc_id) |>
+  dplyr::mutate(prop = n / sum(n)) |>
+  dplyr::ungroup()
+```
+
+```{r corp_plot1, message=FALSE, warning=FALSE, fig.cap="Mean proportion of each UPOS category by language. UPOS tags are cross-linguistically consistent, so categories are directly comparable."}
+pos_lang <- pos_summary |>
+  dplyr::group_by(language, upos) |>
+  dplyr::summarise(mean_prop = mean(prop), .groups = "drop")
+
+ggplot(pos_lang, aes(x = reorder(upos, -mean_prop),
+                     y = mean_prop, fill = language)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("English" = "#1f77b4",
+                                "German"  = "#ff7f0e",
+                                "Spanish" = "#2ca02c")) +
+  labs(title = "POS Profile by Language",
+       x = "UPOS Category", y = "Mean proportion of tokens",
+       fill = "Language") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+```
+
+## Noun-to-Verb Ratio {-}
+
+The **noun-to-verb ratio (NVR)** is a widely used measure of nominal density in register analysis [@biber1995dimensions]. Academic and technical texts tend to show high NVR because they pack propositional content into noun phrases rather than finite clauses.
+
+```{r corp_nvr, message=FALSE, warning=FALSE, fig.cap="Noun-to-verb ratio per document. Higher values indicate more nominal style, characteristic of academic and technical registers."}
+nvr <- full_corpus |>
+  dplyr::filter(upos %in% c("NOUN", "PROPN", "VERB")) |>
+  dplyr::count(language, doc_id, upos) |>
+  tidyr::pivot_wider(names_from = upos, values_from = n,
+                     values_fill = 0) |>
+  dplyr::mutate(nouns = NOUN + PROPN, nvr = nouns / VERB)
+
+ggplot(nvr, aes(x = reorder(doc_id, nvr), y = nvr, fill = language)) +
+  geom_col() +
+  scale_fill_manual(values = c("English" = "#1f77b4",
+                                "German"  = "#ff7f0e",
+                                "Spanish" = "#2ca02c")) +
+  coord_flip() +
+  labs(title = "Noun-to-Verb Ratio by Document",
+       x = "Document", y = "Noun-to-verb ratio", fill = "Language") +
+  theme_bw() +
+  theme(legend.position = "top")
+```
+
+## Most Frequent Noun Lemmas per Language {-}
+
+```{r corp_nouns, message=FALSE, warning=FALSE}
+full_corpus |>
+  dplyr::filter(upos == "NOUN") |>
+  dplyr::count(language, lemma, sort = TRUE) |>
+  dplyr::group_by(language) |>
+  dplyr::slice_max(n, n = 10) |>
+  dplyr::ungroup() |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .65, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Top 10 noun lemmas per language.") |>
+  flextable::border_outer()
+```
+
+::: {.callout-tip}
+## Exercises: Worked Corpus Example
+:::
+
+**Q11. A document has NVR = 3.5. What register would you expect to produce the highest NVR, and why?**
+
+```{r}
+#| echo: false
+#| label: "corpus_q1"
+check_question(
+  "Academic or technical writing — it uses dense nominal style, compressing propositional content into noun phrases rather than finite clauses",
+  options = c(
+    "Spoken conversation — speakers name many objects in their environment",
+    "Fiction — novels have more characters (nouns) than actions (verbs)",
+    "Academic or technical writing — it uses dense nominal style, compressing propositional content into noun phrases rather than finite clauses",
+    "Social media posts — short texts have fewer verbs because sentences are truncated"
+  ),
+  type = "radio",
+  q_id = "corpus_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Academic and technical writing is characterised by high nominal density — compressing content into complex noun phrases (nominalisations) rather than finite clauses. For example, 'the acquisition of language by children' (nominal) vs 'how children acquire language' (clausal). Biber (1995) identified this as a key dimension separating written from spoken registers.",
+  wrong = "Not quite. The NVR is a classic measure of nominal density. Academic and technical writing shows the highest NVR because it relies on complex noun phrases and nominalisations. Spoken conversation and fiction tend to be more verbal (lower NVR), relying more on finite clauses and action verbs."
+)
+```
+
+---
+
+**Q12. You want to add Dutch texts to the corpus analysis. What steps are needed, and will the downstream code need to change?**
+
+```{r}
+#| echo: false
+#| label: "corpus_q2"
+check_question(
+  "Download the dutch-alpino model, annotate with udpipe_annotate(), add language = 'Dutch', bind_rows() — no downstream changes needed",
+  options = c(
+    "Install a separate Dutch NLP package — udpipe does not support Dutch",
+    "Download the dutch-alpino model, annotate with udpipe_annotate(), add language = 'Dutch', bind_rows() — no downstream changes needed",
+    "Translate the Dutch texts to English first, then use the English model",
+    "Dutch requires a different column structure so downstream code would need substantial changes"
+  ),
+  type = "radio",
+  q_id = "corpus_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! udpipe supports Dutch (dutch-alpino, dutch-lassysmall). The steps are identical to the German and Spanish additions: download once, load, udpipe_annotate(), mutate(language = 'Dutch'), bind_rows() into full_corpus. All udpipe models produce identical column structures and UPOS tags, so every downstream step runs without modification.",
+  wrong = "Not quite. udpipe supports Dutch via dutch-alpino and dutch-lassysmall. The workflow is: udpipe_download_model('dutch-alpino'), udpipe_load_model(), udpipe_annotate(), mutate(language = 'Dutch'), bind_rows() into full_corpus. All udpipe models produce the same output structure and UPOS tags — no downstream code changes needed."
+)
+```
+
+---
+
+# Summary and Further Reading {#summary}
+
+This tutorial introduced POS tagging and dependency parsing using three self-contained, pure-R packages — no Python or external software required.
+
+We began with the conceptual foundations: the difference between PTB and UPOS tagsets, the three approaches to automatic tagging, and the distinction between POS tagging and dependency parsing.
+
+`udpipe` was demonstrated as the recommended starting point. A single `udpipe_annotate()` call produces tokenisation, lemmatisation, UPOS and PTB tags, and dependency relations for 64 languages. English, German, and Spanish examples illustrated the cross-linguistic consistency of Universal Dependencies.
+
+The noun phrase extraction section demonstrated two pure-`udpipe` strategies: **dependency traversal**, which assembles NPs by following head–dependent links in the parse tree, and **UPOS sequence scanning**, which identifies contiguous determiner/adjective/numeral + noun runs. Both approaches work for all 64 `udpipe` languages without additional packages.
+
+`cleanNLP` was presented as a tidy-data convenience wrapper around `udpipe`. In v3, `cnlp_annotate()` returns a named list and the token table is accessed via `anno$token`. Its key advantage is native multi-document handling: passing a named character vector returns a single token table with a `doc_id` column, removing the need for a manual loop.
+
+The dependency parsing section demonstrated tree visualisation with `textplot`, CoNLL-U format construction, and extraction of subject–verb and verb–object pairs with cross-language comparison.
+
+The worked corpus example brought all tools together: annotating a multi-file, multi-language corpus, computing POS distribution profiles and noun-to-verb ratios, and visualising cross-language differences in grammatical style.
+
+**Further reading:** @manning2008introduction provides a comprehensive introduction to NLP with a strong linguistic grounding. @nivre2016universal is the key reference for Universal Dependencies. @biber1995dimensions demonstrates large-scale POS-based register analysis. The official `udpipe` documentation at [bnosac.github.io/udpipe](https://bnosac.github.io/udpipe/en/) covers model training and all annotation options in detail.
+
+---
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2025. *Part-of-Speech Tagging and Dependency Parsing with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/postag/postag.html (Version 2025.04.02).
+Schweinberger, Martin. 2026. *Part-of-Speech Tagging and Dependency Parsing in R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/postag/postag.html (Version 2026.05.01).
 
 ```
-@manual{schweinberger2025postag,
-  author = {Schweinberger, Martin},
-  title = {Part-of-Speech Tagging and Dependency Parsing with R},
-  note = {https://ladal.edu.au/tutorials/postag/postag.html},
-  year = {2025},
-  organization = "The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.02}
+@manual{schweinberger2026postag,
+  author       = {Schweinberger, Martin},
+  title        = {Part-of-Speech Tagging and Dependency Parsing in R},
+  note         = {tutorials/postag/postag.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
 }
 ```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL draft tutorial on POS tagging. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
 
 ```{r fin}
 sessionInfo()
 ```
 
-***
+---
 
-[Back to top](#introduction)
+[Back to top](#intro)
 
-[Back to HOME](/)
+[Back to LADAL home](/)
 
-***
+---
 
-
-# References{-}
+# References {-}
