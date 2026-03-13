@@ -1,2845 +1,1743 @@
----  
-title: "Finding Words in Text: Concordancing"  
-author: "Martin Schweinberger"  
-format:  
-  html:  
-    toc: true  
-    toc-depth: 3  
-    code-fold: show  
-    code-tools: true  
-    theme: cosmo  
----  
-  
-![](/images/uq1.jpg){ width=100% }  
-  
-# Welcome to Concordancing! {.unnumbered}  
-  
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
-  
-::: {.callout-tip}  
-## What You'll Learn  
-  
-By the end of this tutorial, you will be able to:  
-  
-- Understand what concordancing is and why it's essential for language research  
-- Extract keywords-in-context (KWICs) from texts using R and quanteda  
-- Use regular expressions to find complex patterns  
-- Filter and organize concordances strategically  
-- Analyze collocational patterns around target words  
-- Work with transcribed spoken data  
-- Create publication-ready concordance tables  
-- Build reproducible concordancing workflows  
-:::  
-  
-## Who This Tutorial Is For  
-  
-This tutorial is perfect for:  
-  
-- **Linguists** studying language patterns in corpora  
-- **Language teachers** creating authentic materials  
-- **Digital humanities scholars** analyzing literary texts  
-- **Translation studies researchers** examining source/target texts  
-- **Social scientists** investigating discourse and framing  
-- **Complete beginners** with basic R knowledge  
-- **Anyone** curious about how language actually works in practice  
-  
-::: {.callout-note}  
-## Tutorial Citation  
-  
-If you use this tutorial, please cite as:    
-Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/kwics/kwics.html (version 2026.02.08)  
-:::  
-  
-## Prerequisites  
-  
-<div class="warning">  
-<span>  
-<p style='margin-top:1em; text-align:center'>  
-**Before starting, familiarize yourself with:**<br>  
-</p>  
-<p style='margin-top:1em; text-align:left'>  
-<ul>  
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>  
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>  
-  <li>[String Processing in R](/tutorials/string/string.html) </li>  
-  <li>[Regular Expressions in R](/tutorials/regex/regex.html) </li>  
-</ul>  
-</p>  
-</span>  
-</div>  
-  
----  
-  
-# Part 1: Understanding Concordancing {#part1}  
-  
-## What is Concordancing? {#what-is}  
-  
-Have you ever wondered how researchers find patterns in massive collections of text—whether in tweets, novels, news articles, or historical documents? One of the most powerful techniques is **concordancing**: the systematic extraction and display of words or phrases along with their surrounding context.  
-  
-### The KWIC Display: Your Window into Language Use  
-  
-When you perform a concordance search, the results typically appear in a **keyword-in-context (KWIC) display**. Imagine looking through a window where your search term—the **node word** or **search term**—appears highlighted in the center of each line, with words before and after it neatly aligned:  
-  
-```  
-...couldn't help thinking there  must  be more to life than being  
-...you are my density. I        must  go. Please excuse me. I mean  
-...situation requires that we    must  work together to achieve our  
-...extraordinary claims require  extraordinary  evidence before they  
-...but the Emperor has no clothes! We  must  speak truth to power and  
-```  
-  
-This simple but powerful display format reveals patterns invisible to casual reading. By presenting multiple instances simultaneously, concordances let you see:  
-  
-- **How words are actually used** (not how we think they're used)  
-- **What words consistently appear nearby** (collocation patterns)  
-- **Different meanings and senses** of the same word  
-- **Grammatical patterns and constructions**  
-- **Register and genre variations**  
-  
-### Beyond Individual Words: The Power of Context  
-  
-Traditional reading presents texts linearly—one sentence after another, one page after the next. Concordancing transforms this experience by making texts **queryable**, turning them from objects to be read into databases to be investigated. This shift in perspective has revolutionized language research.  
-  
-Consider the word "run." You might have strong intuitions about how it's used. But a concordance instantly reveals whether an author primarily uses it:  
-- As a verb ("run fast")  
-- As a noun ("a long run")  
-- In phrasal verbs ("run into", "run out")  
-- In idioms ("run for office", "run the show")  
-  
-And crucially, concordances show you the **company a word keeps**—its collocates—revealing associations that might never emerge from reading alone.  
-  
-## Why Concordancing Matters {#why-matters}  
-  
-Concordancing isn't just a technical procedure—it's a fundamental methodology that addresses core challenges in language research.  
-  
-### Bridging Intuition and Reality  
-  
-Native speakers have strong beliefs about their language. We feel confident about word meanings, frequency, and usage. But these intuitions can be surprisingly inaccurate when confronted with corpus evidence.  
-  
-**Example paradoxes:**  
-- We think we use "very" more than "really" (corpus evidence often shows the reverse)  
-- We believe formal writing avoids contractions (many genres use them strategically)  
-- We assume certain collocations are rare (they might be pervasive in specific registers)  
-  
-Concordancing grounds claims in **observable, verifiable data** rather than introspection alone. This empirical foundation makes linguistic analysis more rigorous and falsifiable.  
-  
-### From Observation to Discovery  
-  
-Concordances enable several crucial research operations:  
-  
-**1. Semantic Analysis**  
-- Identify different senses of polysemous words  
-- Observe how context disambiguates meaning  
-- Track semantic prosody (positive/negative associations)  
-- Map conceptual metaphors and framing  
-  
-**2. Collocational Analysis**  
-- Discover words that habitually co-occur  
-- Identify significant vs. accidental co-occurrences  
-- Build collocational profiles of terms  
-- Compare usage across varieties or time periods  
-  
-**3. Grammatical Investigation**  
-- Examine verb complementation patterns  
-- Study preposition selection  
-- Analyze word order variations  
-- Investigate grammaticalization processes  
-  
-**4. Discourse Analysis**  
-- Track how concepts are discussed  
-- Identify discursive strategies  
-- Examine attitude and evaluation  
-- Study ideology and framing  
-  
-**5. Historical Linguistics**  
-- Compare usage across time periods  
-- Document language change  
-- Trace the development of constructions  
-- Study obsolescence and innovation  
-  
-### The Quantitative-Qualitative Bridge  
-  
-Concordancing uniquely bridges quantitative and qualitative analysis:  
-  
-**Quantitative aspects:**  
-- Frequency counts (how often does it occur?)  
-- Distribution patterns (where does it occur?)  
-- Collocational strength (what co-occurs significantly?)  
-- Statistical significance (are patterns real or random?)  
-  
-**Qualitative aspects:**  
-- Close reading of individual instances  
-- Interpretation of nuanced meanings  
-- Recognition of contextual factors  
-- Understanding of pragmatic effects  
-  
-This combination makes concordancing invaluable for **mixed-methods research** that requires both breadth and depth.  
-  
-## The Cognitive Science of Concordancing {#cognitive-science}  
-  
-Understanding why concordances work so well requires appreciating how humans process language.  
-  
-### Pattern Recognition and the Human Brain  
-  
-Humans excel at recognizing patterns, but we have limitations:  
-  
-**Working memory constraints:**  
-- We can hold only 4-7 items in working memory simultaneously  
-- Traditional reading makes it hard to compare distant instances  
-- We forget earlier examples while reading later ones  
-  
-**Concordances overcome these limits by:**  
-- Displaying multiple instances simultaneously  
-- Aligning examples for easy comparison  
-- Externalizing the comparison task  
-- Supporting visual pattern recognition  
-  
-**Confirmation bias:**  
-- We tend to notice examples confirming our beliefs  
-- We overlook counter-examples  
-- We remember exceptional cases more than typical ones  
-  
-**Concordances combat bias by:**  
-- Presenting all instances (not just memorable ones)  
-- Showing frequency and distribution objectively  
-- Making absence as visible as presence  
-- Supporting systematic rather than selective analysis  
-  
-### From Reading to Querying  
-  
-Concordancing fundamentally changes how we engage with texts:  
-  
-**Traditional Reading:**  
-- Linear, sequential processing  
-- Author-determined order  
-- Focus on content and narrative  
-- Individual texts as complete units  
-  
-**Concordance Analysis:**  
-- Non-linear, query-driven investigation  
-- Researcher-determined retrieval  
-- Focus on linguistic patterns  
-- Texts as data repositories  
-  
-This shift parallels the transition from libraries (browse and read) to databases (query and retrieve). Both modes are valuable, but concordancing opens analytical possibilities unavailable through reading alone.  
-  
-## Applications Across Disciplines {#applications}  
-  
-Concordancing serves diverse scholarly and practical purposes across multiple fields.  
-  
-### Linguistic Research  
-  
-**Corpus Linguistics:**  
-- Document authentic language use at scale  
-- Test theoretical claims against evidence  
-- Discover patterns invisible to introspection  
-- Build usage-based grammatical descriptions  
-  
-**Example: Investigating Verb Complementation**  
-A researcher might use concordances to examine whether "enable" prefers infinitival complements ("enable us to succeed") or nominal complements ("enable success"), and whether this varies by register.  
-  
-**Sociolinguistics:**  
-- Compare language use across social groups  
-- Track variation by age, gender, region, etc.  
-- Document style-shifting and register variation  
-- Study language and identity  
-  
-**Example: Gender Differences in Modal Usage**  
-Concordances can reveal whether men and women use epistemic modals ("might", "could", "perhaps") at different rates in professional emails, testing claims about gendered communication styles.  
-  
-**Historical Linguistics:**  
-- Track language change over time  
-- Document semantic shifts  
-- Study grammaticalization  
-- Identify obsolescence and innovation  
-  
-**Example: Tracking Grammaticalization**  
-Concordances can show how "going to" evolved from a verb of motion to a future marker by examining its contexts across centuries.  
-  
-### Language Teaching and Learning  
-  
-**Data-Driven Learning (DDL):**  
-Rather than memorizing rules from textbooks, students discover patterns through guided concordance analysis.  
-  
-**Vocabulary Instruction:**  
-- Show authentic usage examples  
-- Illustrate collocational patterns  
-- Demonstrate register appropriateness  
-- Build intuitions about natural use  
-  
-**Example: Teaching Phrasal Verbs**  
-Instead of lists, students examine concordances of "put off", "put up with", and "put down" to discover meanings from context and observe typical subjects, objects, and situations.  
-  
-**Grammar Instruction:**  
-- Illustrate grammatical constructions in authentic contexts  
-- Show frequency and typicality  
-- Demonstrate exceptions and edge cases  
-- Build corpus-informed materials  
-  
-**Writing Instruction:**  
-- Show students how professional writers use language  
-- Demonstrate discipline-specific conventions  
-- Illustrate effective rhetorical strategies  
-- Provide authentic models  
-  
-### Literary and Stylistic Analysis  
-  
-**Authorship Attribution:**  
-- Compare stylistic fingerprints  
-- Identify distinctive usage patterns  
-- Resolve disputed authorship  
-- Detect ghostwriting or editing  
-  
-**Example: Determining Authorship**  
-Concordances of function words, punctuation patterns, and favorite expressions can distinguish authors even when content differs.  
-  
-**Stylistic Analysis:**  
-- Track recurring motifs and themes  
-- Analyze characterization through dialogue  
-- Study narrative technique and voice  
-- Examine evolution across an author's career  
-  
-**Example: Color Imagery in Poetry**  
-Concordances of color terms reveal an author's symbolic system, showing whether colors carry consistent associations or shift across works.  
-  
-**Comparative Literature:**  
-- Compare authors, genres, or periods  
-- Identify influence and intertextuality  
-- Study translation strategies  
-- Examine cultural framing  
-  
-### Translation Studies  
-  
-**Parallel Concordancing:**  
-Aligning source and target texts allows translators to:  
-- Find equivalents for difficult terms  
-- Identify translation strategies  
-- Maintain consistency across large projects  
-- Build translation memories  
-  
-**Example: Technical Translation**  
-A translator working on a manual can concordance source and target texts to see how other translators rendered "interface" in different contexts, ensuring consistency.  
-  
-**Translation Quality Assessment:**  
-- Identify under/over-translation  
-- Detect shifts in register or style  
-- Spot consistency issues  
-- Evaluate naturalness  
-  
-### Lexicography  
-  
-Modern dictionaries increasingly rely on corpus evidence obtained through concordancing rather than lexicographer intuition alone.  
-  
-**Dictionary Compilation:**  
-- Identify all senses of polysemous words  
-- Find authentic example sentences  
-- Document collocations and phraseology  
-- Determine frequency and currency  
-- Discover new words and meanings  
-  
-**Example: Defining "Cloud"**  
-Concordances reveal technical senses ("cloud computing", "cloud storage") that didn't exist when older dictionaries were compiled.  
-  
-### Content Analysis and Digital Humanities  
-  
-**Discourse Analysis:**  
-- Track how concepts are discussed in media  
-- Identify framing and ideology  
-- Study attitude and evaluation  
-- Document discursive strategies  
-  
-**Example: Climate Change Discourse**  
-Concordances of "climate change" vs. "global warming" across news outlets can reveal ideological positioning through word choice.  
-  
-**Sentiment Analysis:**  
-- Build sentiment lexicons from usage  
-- Identify opinion-bearing expressions  
-- Study emotional language  
-- Detect stance and perspective  
-  
-**Historical Text Analysis:**  
-- Track concept evolution  
-- Study historical world-views  
-- Document intellectual history  
-- Examine power and ideology  
-  
-**Example: Democracy Over Centuries**  
-Concordances show how "democracy" shifted from referring to ancient Athens to becoming a contested modern ideal, revealing changing political thought.  
-  
-### Practical Applications Beyond Academia  
-  
-**Search Engine Optimization (SEO):**  
-- Identify keyword patterns  
-- Discover related terms  
-- Analyze competitor language  
-- Optimize content  
-  
-**Customer Feedback Analysis:**  
-- Extract recurring themes  
-- Identify pain points  
-- Track brand associations  
-- Improve products/services  
-  
-**Legal Discovery:**  
-- Find relevant passages in document collections  
-- Identify key terms and phrases  
-- Support evidence gathering  
-- Prepare for litigation  
-  
-## From Concordances to Insights {#insights}  
-  
-The real power of concordancing emerges not from individual concordance lines but from what you do with them:  
-  
-**Sorting and Grouping:**  
-- Organize by left/right context  
-- Group by collocates  
-- Classify by sense or function  
-- Identify sub-patterns  
-  
-**Quantification:**  
-- Count frequencies  
-- Calculate collocational strength  
-- Measure dispersion  
-- Test statistical significance  
-  
-**Visualization:**  
-- Create dispersion plots  
-- Display collocational networks  
-- Show frequency trends  
-- Illustrate distribution patterns  
-  
-**Integration:**  
-- Combine with metadata  
-- Cross-reference with other analyses  
-- Feed into machine learning  
-- Support mixed-methods research  
-  
-The concordance is the starting point—the analytical journey that follows determines the insights you gain.  
-  
-### Exercise 1.1: Critical Reading of Concordance Research {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Understanding Research Applications  
-  
-Find a linguistics or digital humanities paper that uses concordances (search for "KWIC", "concordance analysis", or "corpus study").  
-  
-**Analyze:**  
-1. What research question does concordancing address?  
-2. What specific patterns does the concordance reveal?  
-3. How does the researcher move from concordances to interpretation?  
-4. What would be lost without concordancing?  
-  
-**Reflect:**  
-- Could this research be done through traditional reading?  
-- What are the advantages of the concordance approach?  
-- What are the limitations?  
-  
-**Discussion:** How does concordancing change what questions we can ask about language?  
-:::  
-  
----  
-  
-# Part 2: Concordancing Tools and Approaches {#part2}  
-  
-## The Concordancing Toolkit {#toolkit}  
-  
-The landscape of concordancing tools is diverse, ranging from simple web interfaces to sophisticated programming environments. Understanding the strengths and use cases of different approaches helps you choose the right tool for your needs.  
-  
-### Standalone Desktop Applications {#desktop-tools}  
-  
-Desktop concordancing applications offer powerful functionality without programming knowledge, making them accessible to researchers across experience levels.  
-  
-#### AntConc: The Standard for Teaching and Research  
-  
-[**AntConc**](https://www.laurenceanthony.net/software/antconc/) is the most widely used free concordancing tool, and for good reason:  
-  
-**Strengths:**  
-- Completely free and cross-platform (Windows, Mac, Linux)  
-- No installation hassles or dependencies  
-- Intuitive interface ideal for beginners  
-- Powerful search capabilities including regex  
-- Beyond concordancing: collocates, clusters, keywords  
-- Handles large corpora efficiently  
-- Widely taught, extensive documentation  
-  
-**When to use AntConc:**  
-- Teaching concordancing to students  
-- Quick exploratory analysis  
-- Working with local text files  
-- Classroom demonstrations  
-- Collaborative research (everyone can use the same tool)  
-- When you need quick results without coding  
-  
-**Limitations:**  
-- Limited statistical analysis  
-- Batch processing requires manual steps  
-- Visualization capabilities modest  
-- Can't integrate with other analyses easily  
-- Reproducibility requires documentation  
-  
-![AntConc showing concordance lines for "language" with collocates panel](/images/AntConcConcordance.png){ width=100% }  
-  
-#### WordSmith Tools: The Professional Standard  
-  
-[**WordSmith**](https://www.lexically.net/wordsmith/) is commercial software that has long been the gold standard for corpus linguistics research.  
-  
-**Strengths:**  
-- Comprehensive suite of interconnected tools  
-- Sophisticated statistical analysis built-in  
-- Dispersion plots show distribution across texts  
-- Keyword analysis identifies characteristic vocabulary  
-- Excellent documentation and tutorials  
-- Handles very large corpora  
-- Professional-quality visualizations  
-  
-**When to use WordSmith:**  
-- Professional corpus linguistics research  
-- Publication-quality statistical analysis  
-- When budget allows (institutional licenses available)  
-- Complex multi-step workflows  
-- Teaching advanced corpus methods  
-  
-**Limitations:**  
-- Costs money (though reasonable for professional tool)  
-- Windows only (though runs on Mac via Wine)  
-- Steeper learning curve than AntConc  
-- Still limited in reproducibility vs. scripting  
-  
-#### SketchEngine: Web-Based Power  
-  
-[**SketchEngine**](https://www.sketchengine.eu/) offers both web and desktop access with advanced features.  
-  
-**Strengths:**  
-- Access to pre-loaded corpora in 90+ languages  
-- "Word Sketch" shows grammatical/collocational behavior at a glance  
-- Automatic corpus processing and annotation  
-- Terminology extraction for specialized fields  
-- Parallel corpora for translation studies  
-- Web interface means no installation  
-- Collaborative features for team projects  
-  
-**When to use SketchEngine:**  
-- Multilingual research  
-- Need immediate access to large corpora  
-- Working with team members remotely  
-- Translation and terminology work  
-- When you want professional corpus preparation done for you  
-  
-**Limitations:**  
-- Subscription based (though free trial available)  
-- Less control over corpus composition  
-- Learning curve for advanced features  
-- Depends on internet connection  
-  
-#### Specialized Tools  
-  
-**ParaConc**: Purpose-built for parallel texts (source + translation)  
-- Aligns source and target sentences  
-- Search both sides simultaneously  
-- Essential for translation studies  
-- More specialized than general tools  
-  
-**MONOCONC**: Focused on monolingual concordancing with strong customization options  
-  
-### Web-Based Corpus Interfaces {#web-interfaces}  
-  
-Many large corpora are accessible through web interfaces, eliminating setup overhead.  
-  
-#### BYU Corpora Family  
-  
-Mark Davies's suite includes industry-standard reference corpora:  
-  
-**COCA (Corpus of Contemporary American English):**  
-- Over 1 billion words (1990-present)  
-- Balanced across genres (spoken, fiction, magazines, newspapers, academic)  
-- Updated annually  
-- Rich metadata for filtering  
-  
-**COHA (Corpus of Historical American English):**  
-- 400+ million words (1820s-2000s)  
-- Track language change across two centuries  
-- Balanced by decade and genre  
-  
-**Other BYU Corpora:**  
-- NOW Corpus (web, constantly updated)  
-- TV Corpus (soap operas)  
-- Movie Corpus  
-- Wikipedia Corpus  
-- And many more...  
-  
-**Strengths of BYU Corpora:**  
-- Immediate access—no download or setup  
-- Professional corpus design  
-- Sophisticated search interface  
-- Metadata filtering (genre, date, etc.)  
-- Frequency/trend visualizations  
-- Free for academic use  
-  
-**When to use BYU Corpora:**  
-- Quick checks of English usage  
-- Tracking diachronic change  
-- Comparing across genres  
-- Teaching with real data  
-- Exploring before building custom corpus  
-  
-**Limitations:**  
-- Can't upload your own texts  
-- English-focused (though some other languages available)  
-- Search options limited to interface  
-- Can't save/export large result sets in free version  
-- Dependent on their corpus design decisions  
-  
-![COCA concordance for "language" showing genre distribution](/images/KwicCocaLanguage.png){ width=100% }  
-  
-#### Lextutor and Other Web Concordancers  
-  
-[Lextutor](https://www.lextutor.ca/) offers free web-based tools including concordancers, vocabulary profilers, and more.  
-  
-**When to use web concordancers:**  
-- Classroom demonstrations (no installation)  
-- Quick vocabulary lookups  
-- Exploring concordancing concepts  
-- Public/shared computers  
-- Mobile devices  
-  
-### Programming-Based Solutions {#programming}  
-  
-For maximum flexibility, reproducibility, and integration with other analytical tools, programming languages offer unmatched power.  
-  
-#### R with quanteda (Our Focus)  
-  
-**Why R and quanteda for concordancing:**  
-  
-**Reproducibility:**  
-- Scripts document every step  
-- Share exact methodology with colleagues  
-- Regenerate results precisely  
-- Satisfy open science requirements  
-- Version control with Git  
-  
-**Flexibility:**  
-- Custom search patterns  
-- Unlimited filtering and grouping  
-- Integration with data manipulation (dplyr)  
-- Combine concordancing with statistics  
-- Automated workflows for large projects  
-  
-**Integration:**  
-- Connect to databases  
-- Web scraping for corpus building  
-- Statistical modeling on results  
-- Machine learning pipelines  
-- Advanced visualization (ggplot2)  
-  
-**Scalability:**  
-- Handle massive datasets  
-- Parallel processing for speed  
-- Cloud computing integration  
-- Automated batch processing  
-- Memory-efficient for large corpora  
-  
-**Cost:**  
-- Completely free and open source  
-- No licensing fees ever  
-- Extensive package ecosystem  
-- Active development community  
-  
-**When to use R/quanteda:**  
-- Reproducible research publications  
-- Complex analytical workflows  
-- Large-scale or custom corpora  
-- Integration with statistics/modeling  
-- Automated/repeating analyses  
-- When you need to document everything  
-  
-**Learning investment:**  
-- Steeper initial learning curve than GUI tools  
-- Programming basics required  
-- But: transferable skills across research career  
-- Worth it for serious corpus work  
-- This tutorial will guide you!  
-  
-#### Python with NLTK and Others  
-  
-Python offers similar advantages through packages like NLTK, spaCy, and others.  
-  
-**When Python might be better:**  
-- You already know Python  
-- Heavy NLP preprocessing needed  
-- Machine learning focus  
-- Web development integration  
-- You're in a Python-centric community  
-  
-**For most linguistic concordancing, R/quanteda is excellent.**  
-  
-#### Our Interactive Notebook Tool  
-  
-The [Concordancing Tool](https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main?urlpath=git-pull%3Frepo=https://github.com/SLCLADAL/interactive-notebooks%26urlpath=lab/tree/interactive-notebooks/notebooks/kwictool.ipynb%26branch=main) bridges GUI and programming approaches:  
-  
-**Features:**  
-- Upload your own texts  
-- Pre-written code chunks (just click run)  
-- Modify code as you learn  
-- Download results (CSV, Excel)  
-- No installation needed  
-- Reproducible but accessible  
-  
-**When to use:**  
-- Learning concordancing and coding together  
-- One-off analyses  
-- Quick results with your own texts  
-- Sharing with non-programmers  
-- Teaching hybrid approaches  
-  
-## Choosing the Right Tool {#choosing-tool}  
-  
-Different tasks call for different tools. Many researchers use multiple approaches:  
-  
-| Task | Recommended Tool | Why |  
-|------|------------------|-----|  
-| Teaching basics | AntConc or Web interfaces | Zero barrier to entry, visual, immediate |  
-| Quick exploration | Web corpora (COCA, etc.) | No setup, instant results |  
-| Translation work | ParaConc or SketchEngine | Purpose-built for parallel texts |  
-| Publication research | WordSmith or R | Professional features, reproducibility |  
-| Large custom corpora | R/Python | Scalability, automation |  
-| Reproducible workflows | R/Python | Script everything, version control |  
-| Team projects | SketchEngine or R | Collaboration features |  
-| Learning to code | Our notebook tool | Gentle introduction |  
-  
-**Pro tip:** Start with AntConc or web interfaces to learn concepts, then graduate to R when you need more power or reproducibility.  
-  
-## Why Use R for Concordancing? {#why-r}  
-  
-Given the excellent GUI tools available, why invest in learning R for concordancing?  
-  
-### The Reproducibility Imperative  
-  
-Modern science increasingly demands reproducibility:  
-  
-**With GUI tools:**  
-- "I opened AntConc, loaded corpus X, searched for Y, sorted by..."  
-- Hard to document exact steps  
-- Difficult for others to replicate  
-- Easy to forget what you did  
-  
-**With R scripts:**  
-```r  
-# Load corpus  
-corpus <- readLines("my_texts.txt")  
-  
-# Create concordance    
-kwic_result <- quanteda::kwic(  
-  tokens(corpus),  
-  pattern = "test_pattern",  
-  window = 5  
-)  
-  
-# Filter and arrange  
-kwic_filtered <- kwic_result |>  
-  filter(str_detect(post, "specific_pattern")) |>  
-  arrange(pre)  
-  
-# Export  
-write.csv(kwic_filtered, "results.csv")  
-```  
-  
-- Every step explicit  
-- Exact replication possible  
-- Share script with paper  
-- Satisfies open science standards  
-  
-### Integration and Power  
-  
-**Seamless workflow:**  
-```r  
-# 1. Build corpus  
-texts <- scrape_websites(urls)  
-  
-# 2. Concordance  
-kwics <- kwic(tokens(texts), pattern)  
-  
-# 3. Statistical analysis  
-collocation_test(kwics)  
-  
-# 4. Visualization  
-ggplot(kwics) + ...  
-  
-# 5. Modeling  
-regression_model <- lm(frequency ~ variables)  
-  
-# All in one environment!  
-```  
-  
-**vs. GUI approach:**  
-- Export from concordancer  
-- Import to Excel  
-- Clean/rearrange  
-- Import to statistics software  
-- Export results  
-- Import to visualization tool  
-- Hope nothing was lost in translation!  
-  
-### Customization and Control  
-  
-**R allows:**  
-- Custom search patterns beyond tool limitations  
-- Arbitrary filtering logic  
-- Novel analysis approaches  
-- Integration with your specific workflow  
-- Automation of repetitive tasks  
-- Handling of unusual data formats  
-  
-**Example: Complex filtering**  
-```r  
-# Find "must" but only:  
-# - In questions  
-# - Followed by a verb  
-# - Not in negation  
-# - In formal register  
-  
-# Easy in R, impossible/tedious in GUI tools  
-```  
-  
-### Scalability  
-  
-**GUI tools struggle with:**  
-- Thousands of text files  
-- Gigabyte+ corpora  
-- Batch processing  
-- Complex workflows  
-- Memory limitations  
-  
-**R handles:**  
-- Massive datasets efficiently  
-- Parallel processing  
-- Cloud computing  
-- Automated pipelines  
-- Memory management  
-  
-### The Learning Investment  
-  
-**Yes, R has a learning curve.** But:  
-  
-- Skills transfer across research career  
-- Massive online community  
-- Extensive free resources  
-- Used across disciplines  
-- Increasingly expected in academia  
-- This tutorial guides you step-by-step!  
-  
-**You don't need to be a programmer** - basic R suffices for concordancing, and you'll learn by doing.  
-  
-### When GUI Tools Are Better  
-  
-**Use GUI tools when:**  
-- Quick one-off exploration  
-- Teaching complete beginners  
-- Working with non-technical collaborators  
-- You need results immediately  
-- The analysis is truly simple  
-- Learning R isn't worth it for this project  
-  
-**But consider R when:**  
-- Doing serious research  
-- Need reproducibility  
-- Complex or custom analysis  
-- Working with large corpora  
-- Building a research program  
-- Want transferable skills  
-  
-### Exercise 2.1: Tool Comparison {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Hands-On Tool Exploration  
-  
-**Task:** Search for the same pattern in the same text using two different tools.  
-  
-1. Choose a simple text (e.g., a news article)  
-2. Search for a word (e.g., "government")  
-3. Try in:  
-   - AntConc (download and use)  
-   - A web concordancer (e.g., Lextutor)  
-   - OR our R notebook tool  
-  
-**Compare:**  
-- Which was easiest to set up?  
-- Which gave you most control?  
-- Which had best export options?  
-- Which would you use for what purposes?  
-  
-**Discuss:**  
-- What are the trade-offs?  
-- When would each be appropriate?  
-- What features matter most to you?  
-:::  
-  
----  
-  
-# Part 3: Getting Started with R Concordancing {#part3}  
-  
-Now we'll move from theory to practice, learning to create concordances using R and the quanteda package.  
-  
-## Setup and Installation {#setup}  
-  
-### Installing Required Packages  
-  
-If you're new to R, see our [Getting Started with R](/tutorials/intror/intror.html) tutorial first.  
-  
-**Install packages (run once):**  
-  
-```{r prep1, echo=T, eval = F}  
-# Install core packages  
-install.packages("quanteda")      # Text analysis framework  
-install.packages("dplyr")          # Data manipulation  
-install.packages("stringr")        # String processing  
-install.packages("writexl")        # Excel export  
-install.packages("here")           # File path management  
-install.packages("flextable")      # Pretty tables  
-install.packages("tidyr")          # Data reshaping  
-```  
-  
-This may take a few minutes. Don't worry if you see red text—that's normal installation output, not necessarily errors!  
-  
-### Loading Packages  
-  
-**Load packages (run every session):**  
-  
-```{r prep2, message=FALSE, warning=FALSE, class.source='klippy'}  
-# Load packages  
-library(quanteda)      # Core concordancing  
-library(dplyr)         # Data wrangling    
-library(stringr)       # String manipulation  
-library(writexl)       # Export to Excel  
-library(here)          # Smart file paths  
-library(flextable)     # Display tables  
-library(tidyr)         # Reshape data  
-```  
-  
-::: {.callout-tip}  
-## Package Loading Best Practice  
-  
-**Always load packages at the top of your script**  
-  
-Benefits:  
-- Clear what dependencies you have  
-- Others can see what they need to install  
-- Easier to troubleshoot if something's missing  
-- Professional script organization  
-  
-```r  
-# Good practice  
-library(quanteda)  
-library(dplyr)  
-# ... rest of script  
-  
-# Poor practice    
-# Code scattered throughout  
-library(quanteda)  
-# more code  
-library(dplyr)  # forgot earlier  
-# more code  
-```  
-:::  
-  
-## Loading Your First Text {#loading-text}  
-  
-We'll use Lewis Carroll's *Alice's Adventures in Wonderland* as our example text. This classic provides:  
-- Rich literary language  
-- Memorable characters and phrases  
-- Sufficient length for meaningful patterns  
-- Public domain (freely available)  
-  
-### Loading from Project Gutenberg  
-  
-Project Gutenberg provides free access to thousands of public domain texts.  
-  
-```{r skwic2, warning=F, message=F}  
-# Load Alice's Adventures in Wonderland  
-rawtext <- readLines("https://www.gutenberg.org/files/11/11-0.txt")  
-```  
-  
-```{r skwic2b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-# Inspect first 25 non-empty lines  
-rawtext |>  
-  as.data.frame() |>  
-  dplyr::filter(rawtext != "") |>  
-  head(25) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "First 25 non-empty lines of Alice's Adventures in Wonderland from Project Gutenberg.") |>  
-  flextable::border_outer()  
-```  
-  
-**What just happened:**  
-- `readLines()` fetched the text file from the web  
-- Each line became an element in a vector called `rawtext`  
-- We now have the complete book in R memory  
-  
-### Understanding the Raw Text Structure  
-  
-Looking at the output, we see:  
-- **Line 1-30**: Title page, legal information, contents  
-- **Real text starts**: After "CHAPTER I"  
-- **Formatting**: Chapter headings, line breaks, spaces  
-  
-This is typical of Project Gutenberg texts—they include metadata and formatting we need to handle.  
-  
-## Data Preparation: Cleaning the Text {#cleaning}  
-  
-Raw texts require preprocessing before analysis. This crucial step ensures clean, analysis-ready data.  
-  
-### Why Data Preparation Matters  
-  
-**The reality of text data:**  
-- Downloaded texts include metadata (titles, licenses, etc.)  
-- Formatting varies (line breaks, spaces, special characters)  
-- Inconsistencies abound (encodings, punctuation)  
-- Structure needs standardization  
-  
-**Impact on analysis:**  
-- Bad: Metadata contaminates results    
-- Bad: Formatting breaks pattern matching  
-- Bad: Inconsistencies cause missed matches  
-- Good: Clean data = reliable results  
-  
-::: {.callout-important}  
-## The 80/20 Rule of Text Analysis  
-  
-Researchers often spend:  
-- **80% of time**: Cleaning and preparing data  
-- **20% of time**: Actually analyzing it  
-  
-This isn't wasted time—it's **essential investment**. Poor preparation leads to unreliable results, wasted effort, and potentially wrong conclusions.  
-  
-**The payoff:**  
-- Accurate results  
-- Reproducible analyses  
-- Confidence in findings  
-- Time saved troubleshooting later  
-:::  
-  
-### Cleaning Alice in Wonderland  
-  
-Let's transform our raw text into analysis-ready format:  
-  
-```{r skwic3, message=F, warning=F}  
-text <- rawtext |>  
-  # Collapse all lines into one continuous text  
-  paste0(collapse = " ") |>  
-  # Remove extra white spaces (multiple spaces → single space)  
-  stringr::str_squish() |>  
-  # Remove everything before "CHAPTER I." (title page, contents, etc.)  
-  stringr::str_remove(".*CHAPTER I\\.")   
-```  
-  
-```{r skwic3b, echo = F, message=FALSE, warning=FALSE}  
-# Display first 1000 characters  
-text |>  
-  substr(start = 1, stop = 1000) |>  
-  as.data.frame() |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "First 1000 characters of cleaned Alice text—ready for concordancing!") |>  
-  flextable::border_outer()  
-```  
-  
-**What each step does:**  
-  
-**1. `paste0(collapse = " ")`**  
-- Joins all separate lines into one continuous string  
-- Why: Concordancing works better on continuous text  
-- Prevents artificial line-break effects on patterns  
-  
-**2. `stringr::str_squish()`**  
-- Removes leading/trailing whitespace  
-- Reduces multiple spaces to single space  
-- Standardizes spacing throughout  
-  
-**3. `stringr::str_remove(".*CHAPTER I\\.")`**    
-- Removes everything up to and including "CHAPTER I."  
-- `.*` means "any characters"  
-- `\\.` means a literal period (escaped)  
-- Isolates the actual story text  
-  
-::: {.callout-note}  
-## Understanding the Regular Expression  
-  
-The pattern `".*CHAPTER I\\."` breaks down as:  
-  
-- `.` = any character  
-- `*` = zero or more times  
-- `CHAPTER I` = literal text  
-- `\\.` = escaped period (`.` is special in regex)  
-  
-**Together**: "Match any amount of any characters, followed by 'CHAPTER I.'"  
-  
-Regular expressions are powerful pattern-matching tools we'll explore more later!  
-:::  
-  
-### Exercise 3.1: Text Preparation Practice {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Clean Your Own Text  
-  
-**Load a different Project Gutenberg text:**  
-  
-```{r ex3_1_setup, eval=FALSE}  
-# Example: Pride and Prejudice  
-raw_pride <- readLines("https://www.gutenberg.org/files/1342/1342-0.txt")  
-```  
-  
-**Your tasks:**  
-1. Examine the first 50 lines—what needs removing?  
-2. Find where the actual text starts (look for "Chapter" or similar)  
-3. Clean the text using the Alice example as a model  
-4. Verify your result looks correct  
-  
-**Questions:**  
-- What patterns did you use to identify the start of the text?  
-- Were there any challenges specific to this text?  
-- How would you generalize this cleaning procedure?  
-  
-**Bonus:** Write a function that automates Gutenberg text cleaning:  
-```{r ex3_1_bonus, eval=FALSE}  
-clean_gutenberg <- function(url, start_pattern) {  
-  # Your code here  
-}  
-```  
-:::  
-  
----  
-  
-# Part 4: Creating Your First Concordance {#part4}  
-  
-Now that we have clean text, let's extract our first concordances!  
-  
-## Basic KWIC Extraction {#basic-kwic}  
-  
-The `kwic()` function from quanteda makes concordancing straightforward.  
-  
-### Your First Concordance  
-  
-Let's search for "Alice":  
-  
-```{r basekwic2, message=F, warning=F}  
-mykwic <- quanteda::kwic(  
-  quanteda::tokens(text),                   # Tokenize the text first  
-  pattern = quanteda::phrase("Alice")) |>   # What to search for  
-  as.data.frame()                           # Convert to data frame  
-```  
-  
-```{r basekwic2b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-# Display first 6 concordance lines  
-mykwic |>  
-  head() |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "First 6 concordance lines for 'Alice' in our example text.") |>  
-  flextable::border_outer()  
-```  
-  
-**Success!** You've created your first concordance. Let's understand what happened.  
-  
-### Understanding the `kwic()` Function  
-  
-**Function structure:**  
-```r  
-kwic(  
-  x =,        # The tokenized text    
-  pattern =,  # What to search for  
-  window =,   # Context size (default: 5)  
-  ...         # Other options  
-)  
-```  
-  
-**Required arguments:**  
-- `x`: Must be a **tokens object** (created by `tokens()`)  
-- `pattern`: What you're searching for  
-  
-**Important pattern specification:**  
-- `quanteda::phrase("Alice")` = exact phrase (case-sensitive)  
-- Without `phrase()`, searches for individual tokens  
-- We'll explore more pattern types soon!  
-  
-### The Concordance Table Structure  
-  
-The result is a data frame with these columns:  
-  
-| Column | Contains | Purpose |  
-|--------|----------|---------|  
-| `docname` | Document name | Track source (useful for multi-text corpora) |  
-| `from` | Start position | Where match begins (token number) |  
-| `to` | End position | Where match ends |  
-| `pre` | Left context | Words before the keyword |  
-| `keyword` | The match | Your search term |  
-| `post` | Right context | Words after the keyword |  
-| `pattern` | Search pattern | What you searched for (useful when searching multiple patterns) |  
-  
-### Exploring Your Concordance  
-  
-**How many matches did we find?**  
-  
-```{r basekwic4}  
-nrow(mykwic)  # Count rows  
-```  
-  
-OR  
-  
-```{r basekwic5}  
-length(mykwic$keyword)  # Count keywords  
-```  
-  
-We found `r nrow(mykwic)` instances of "Alice" in the text!  
-  
-**What variations were found?**  
-  
-```{r basekwic6}  
-table(mykwic$keyword)  
-```  
-  
-All instances are exactly "Alice" (case-sensitive match).  
-  
-### Adjusting the Context Window  
-  
-The default context is 5 words on each side. Sometimes you need more:  
-  
-```{r basekwic8, message=F, warning=F}  
-mykwic_long <- quanteda::kwic(  
-  quanteda::tokens(text),    
-  pattern = quanteda::phrase("alice"),  
-  window = 10) |>           # Extended context!  
-  as.data.frame()  
-```  
-  
-```{r skwic8b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-# Display with longer context  
-mykwic_long |>  
-  head() |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances with extended 10-word context windows.") |>  
-  flextable::border_outer()  
-```  
-  
-**When to use wider windows:**  
-- Understanding full sentence context  
-- Analyzing longer constructions  
-- Studying distant relationships  
-- Literary analysis requiring more text  
-  
-**When to use narrower windows:**  
-- Focused on immediate collocates  
-- Large result sets (easier to scan)  
-- Identifying local patterns  
-- Quick exploration  
-  
-::: {.callout-tip}  
-## Choosing Context Window Size  
-  
-**General guidelines:**  
-- **5 words** (default): Good starting point for most analyses  
-- **3 words**: Immediate collocates, tight focus  
-- **10-15 words**: Sentence-level context  
-- **20+ words**: Paragraph-level context (rare, usually too much)  
-  
-**Experiment!** Try different sizes and see what reveals patterns best for your research question.  
-:::  
-  
-### Exercise 4.1: Basic Concordancing Practice {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Your Turn!  
-  
-Using the Alice text, complete these tasks:  
-  
-**1. Extract concordances for "confused"**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex4_1_1, class.source = NULL, eval = T}  
-kwic_confused <- quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = quanteda::phrase("confused")  
-)  
-  
-# Display first 10  
-kwic_confused |>  
-  as.data.frame() |>  
-  head(10)  
-```  
-</details>  
-  
-**2. How many times does "wondering" appear?**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex4_1_2, class.source = NULL, eval = T}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = quanteda::phrase("wondering")  
-) |>  
-  as.data.frame() |>  
-  nrow()  
-```  
-  
-There are `r nrow(quanteda::kwic(x = quanteda::tokens(text), pattern = quanteda::phrase("wondering")))` instances.  
-</details>  
-  
-**3. Extract "strange" with a 7-word window, show first 5 lines**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex4_1_3, class.source = NULL, eval = T}  
-kwic_strange <- quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = quanteda::phrase("strange"),  
-  window = 7  
-)  
-  
-kwic_strange |>  
-  as.data.frame() |>  
-  head(5)  
-```  
-</details>  
-  
-**Challenge:** Pick your own word and explore different window sizes. Which size reveals the most about how the word is used?  
-:::  
-  
----  
-  
-# Part 5: Exporting and Saving Concordances {#part5}  
-  
-Once you've created concordances, you'll often want to save them for further analysis, sharing, or documentation.  
-  
-## Exporting to Excel {#export-excel}  
-  
-Excel spreadsheets are widely compatible and easy to share with colleagues.  
-  
-```{r export_demo, eval=F, warning=F, message=F}  
-# Export to Excel  
-write_xlsx(mykwic, here::here("my_alice_concordance.xlsx"))  
-```  
-  
-**What this does:**  
-- `write_xlsx()` creates an Excel file (.xlsx)  
-- `here::here()` saves it in your working directory  
-- Result: A spreadsheet with all concordance data  
-  
-::: {.callout-tip}  
-## Using `here()` for File Paths  
-  
-The `here` package makes file paths easier and more portable:  
-  
-```{r here_demo, eval=FALSE}  
-# Without here - breaks if you move project  
-write_xlsx(data, "C:/Users/YourName/Documents/project/file.xlsx")  
-  
-# With here - works anywhere  
-write_xlsx(data, here::here("file.xlsx"))  
-  
-# Subdirectories    
-write_xlsx(data, here::here("output", "results", "file.xlsx"))  
-```  
-  
-**Benefits:**  
-- Works on Windows, Mac, Linux  
-- No hard-coded paths  
-- Project-relative paths  
-- Collaborators can run your code  
-:::  
-  
-## Other Export Formats {#other-exports}  
-  
-```{r other_exports, eval=FALSE}  
-# CSV (universal, simple)  
-write.csv(mykwic, here::here("concordance.csv"), row.names = FALSE)  
-  
-# Tab-separated (good for large texts)  
-write.table(mykwic, here::here("concordance.txt"), sep = "\t", row.names = FALSE)  
-  
-# R data format (preserves all R attributes)  
-saveRDS(mykwic, here::here("concordance.rds"))  
-  
-# Load RDS back later  
-mykwic_loaded <- readRDS(here::here("concordance.rds"))  
-```  
-  
-**When to use each:**  
-  
-| Format | Best For | Why |  
-|--------|----------|-----|  
-| Excel (.xlsx) | Sharing with non-R users | Widely compatible, can open directly |  
-| CSV | Simple data exchange | Universal, plain text, version control friendly |  
-| TSV/TXT | Very large datasets | Smaller file size than Excel |  
-| RDS | R-to-R sharing | Preserves all object attributes, efficient |  
-  
-## Creating Export-Ready Tables {#export-tables}  
-  
-For presentations or reports, format your concordances nicely:  
-  
-```{r export_table, eval=FALSE}  
-# Create a nicely formatted subset  
-mykwic |>  
-  head(20) |>                     # First 20 for manageable size  
-  select(pre, keyword, post) |>   # Just the interesting columns  
-  flextable() |>  
-  set_caption("Concordance of 'Alice' in Alice's Adventures in Wonderland") |>  
-  theme_zebra() |>  
-  autofit() |>  
-  save_as_docx(path = here::here("concordance_table.docx"))  
-```  
-  
-This creates a Word document with a professional-looking table—perfect for embedding in papers!  
-  
-# Part 6: Advanced Pattern Matching {#part6}  
-  
-## Multi-Word Expressions and Phrases {#multiword}  
-  
-While single words are common search targets, language research often requires extracting phrases or multi-word expressions (MWEs).  
-  
-### Why Multi-Word Expressions Matter  
-  
-**Language is more than individual words:**  
-- Idioms: "kick the bucket", "spill the beans"  
-- Collocations: "strong coffee", "make a decision"  
-- Fixed expressions: "by and large", "as a matter of fact"  
-- Titles and names: "Mad Hatter", "Cheshire Cat"  
-- Technical terms: "global warming", "machine learning"  
-  
-These MWEs often function as single semantic units despite containing multiple words. Searching for individual words misses the unified meaning.  
-  
-### Extracting Phrases with quanteda  
-  
-The `phrase()` function tells quanteda to treat multiple words as a single search unit:  
-  
-```{r multikwic2, message=FALSE, warning=FALSE}  
-# Search for "poor alice" as a phrase  
-kwic_pooralice <- quanteda::kwic(  
-  quanteda::tokens(text),  
-  pattern = quanteda::phrase("poor alice")) |>  
-  as.data.frame()  
-```  
-  
-```{r multikwic2b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-# Display results  
-kwic_pooralice |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances for the phrase 'poor alice' in Alice's Adventures in Wonderland.") |>  
-  flextable::border_outer()  
-```  
-  
-**What `phrase()` does:**  
-- Treats "poor alice" as an inseparable unit  
-- Both words must appear consecutively  
-- Respects word boundaries  
-- Case-sensitive by default  
-  
-**Without `phrase()`:**  
-```{r no_phrase_demo, eval=FALSE}  
-# This would match "poor" and "alice" separately, anywhere in the text  
-kwic(tokens(text), pattern = c("poor", "alice"))  
-```  
-  
-### Case Sensitivity Control  
-  
-By default, searches are case-sensitive. Control this behavior:  
-  
-```{r case_demo, eval=FALSE}  
-# Case-sensitive (default) - only matches exactly "Alice"  
-kwic(tokens(text), pattern = quanteda::phrase("Alice"))  
-  
-# Case-insensitive - matches "Alice", "alice", "ALICE", etc.  
-kwic(tokens(text, remove_punct = TRUE),   
-     pattern = quanteda::phrase("alice"),  
-     case_insensitive = TRUE)  
-```  
-  
-::: {.callout-tip}  
-## When to Use Case-Insensitive Search  
-  
-**Use case-insensitive when:**  
-- Names might be capitalized variably  
-- Sentence-initial position matters  
-- Historical texts with inconsistent capitalization  
-- You want all variants regardless of position  
-  
-**Keep case-sensitive when:**  
-- Proper names vs. common words matter (e.g., "Apple" vs. "apple")  
-- You're studying capitalization patterns  
-- Precision is more important than recall  
-:::  
-  
-### Searching Multiple Phrases  
-  
-Search for several phrases simultaneously:  
-  
-```{r multiple_phrases, eval=FALSE}  
-# Search for multiple character descriptions  
-patterns <- c("poor alice", "little alice", "dear alice")  
-  
-kwic_alice_variants <- quanteda::kwic(  
-  quanteda::tokens(text),  
-  pattern = phrase(patterns)  
-) |>  
-  as.data.frame()  
-  
-# See which variants were found  
-table(kwic_alice_variants$keyword)  
-```  
-  
-### Exercise 6.1: Phrase Extraction {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Practice with Phrases  
-  
-**1. Extract "the hatter" (first 10 lines)**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex6_1_1, eval=T}  
-kwic_thehatter <- quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = quanteda::phrase("the hatter")  
-)  
-  
-kwic_thehatter |>  
-  as.data.frame() |>  
-  head(10)  
-```  
-</details>  
-  
-**2. How many instances of "the hatter"?**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex6_1_2, eval=T}  
-kwic_thehatter |>  
-  as.data.frame() |>  
-  nrow()  
-```  
-  
-There are `r nrow(kwic_thehatter)` instances.  
-</details>  
-  
-**3. Extract "the cat" (first 5 lines)**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex6_1_3, eval=T}  
-kwic_thecat <- quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = quanteda::phrase("the cat")  
-)  
-  
-kwic_thecat |>  
-  as.data.frame() |>  
-  head(5)  
-```  
-</details>  
-  
-**Challenge:** Find all instances of character names with titles (e.g., "the Duchess", "the King", "the Queen"). How would you search for these patterns efficiently?  
-:::  
-  
----  
-  
-# Part 7: Regular Expressions for Power Users {#part7}  
-  
-Regular expressions (regex) provide powerful pattern-matching capabilities beyond exact words or phrases.  
-  
-## Understanding Regular Expressions {#regex-intro}  
-  
-A **regular expression** is a sequence of characters that describes a search pattern. Think of it as a wildcard on steroids.  
-  
-### Why Regular Expressions Matter  
-  
-**Without regex:**  
-- Search for "walk", "walks", "walked", "walking" separately  
-- Four searches, combine results manually  
-- Miss any variants you didn't think of  
-  
-**With regex:**  
-- `"walk.*"` finds all forms in one search  
-- Captures "walks", "walked", "walking", "walker", etc.  
-- Systematic, comprehensive  
-  
-### Regular Expression Types  
-  
-There are three fundamental categories:  
-  
-#### 1. Symbols for Frequencies  
-  
-These control how many times a pattern appears:  
-  
-```{r regex_freq_table, echo=FALSE, eval=T, message=FALSE, warning=FALSE}  
-symbols1 <- c("?", "*", "+", "{n}", "{n,}", "{n,m}")  
-explanation1 <- c(  
-  "Preceding item is optional (0 or 1 times)",  
-  "Preceding item appears 0 or more times",   
-  "Preceding item appears 1 or more times",  
-  "Preceding item appears exactly n times",  
-  "Preceding item appears n or more times",  
-  "Preceding item appears n to m times"  
-)  
-example1 <- c(  
-  "walk[a-z]? → walk, walks",  
-  "walk[a-z]* → walk, walks, walked, walking",  
-  "walk[a-z]+ → walks, walked, walking (not walk)",  
-  "walk[a-z]{2} → walked",  
-  "walk[a-z]{2,} → walked, walking",  
-  "walk[a-z]{2,3} → walked, walking"  
-)  
-  
-data.frame(Symbol = symbols1, Explanation = explanation1, Example = example1) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::set_caption(caption = "Regular expression symbols for frequency matching.") |>  
-  flextable::border_outer()  
-```  
-  
-#### 2. Character Classes  
-  
-These represent groups of characters:  
-  
-```{r regex_classes_table, echo=FALSE, eval=T, message=FALSE, warning=FALSE}  
-symbols2 <- c(  
-  "[ab]", "[AB]", "[12]", "[:digit:]", "[:lower:]", "[:upper:]",   
-  "[:alpha:]", "[:alnum:]", "[:punct:]", "[:space:]", "."  
-)  
-explanations2 <- c(  
-  "Lowercase a or b",  
-  "Uppercase A or B",   
-  "Digits 1 or 2",  
-  "Any digit: 0-9",  
-  "Any lowercase letter: a-z",  
-  "Any uppercase letter: A-Z",  
-  "Any letter: a-z, A-Z",  
-  "Any letter or digit",  
-  "Any punctuation character",  
-  "Any whitespace (space, tab, newline)",  
-  "Any single character (wildcard)"  
-)  
-  
-data.frame(Symbol = symbols2, Explanation = explanations2) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .75, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::set_caption(caption = "Regular expression character classes.") |>  
-  flextable::border_outer()  
-```  
-  
-#### 3. Position Anchors  
-  
-These specify where patterns must appear:  
-  
-```{r regex_anchors_table, echo=FALSE, eval=T, message=FALSE, warning=FALSE}  
-symbols3 <- c("\\\\b", "\\\\B", "^", "$", "<", ">")  
-explanations3 <- c(  
-  "Word boundary (start or end of word)",  
-  "Not a word boundary (inside a word)",  
-  "Start of string/line",  
-  "End of string/line",  
-  "Start of word",  
-  "End of word"  
-)  
-  
-data.frame(Symbol = symbols3, Explanation = explanations3) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .6, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::set_caption(caption = "Regular expression position anchors.") |>  
-  flextable::border_outer()  
-```  
-  
-## Using Regular Expressions in Concordancing {#regex-kwic}  
-  
-To use regex in `kwic()`, set `valuetype = "regex"`:  
-  
-```{r rkwic6, message=FALSE, warning=FALSE}  
-# Find words starting with "alic" OR "hatt"  
-patterns <- "\\b(alic|hatt).*"  
-  
-kwic_regex <- quanteda::kwic(  
-  quanteda::tokens(text),  
-  pattern = patterns,  
-  valuetype = "regex") |>  
-  as.data.frame()  
-```  
-  
-```{r rkwic6b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_regex |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances using regex pattern to find words beginning with 'alic' or 'hatt'.") |>  
-  flextable::border_outer()  
-```  
-  
-**Pattern breakdown:**  
-- `\\b` = word boundary (start of word)  
-- `(alic|hatt)` = either "alic" OR "hatt"  
-- `.*` = followed by any characters  
-- Result: "alice", "hatter", "hatters" but NOT "malice" or "shatter"  
-  
-### Common Regex Patterns for Concordancing  
-  
-**Find all forms of a word:**  
-```{r regex_patterns, eval=FALSE}  
-# All forms of "think"  
-kwic(tokens(text), pattern = "\\bthink.*", valuetype = "regex")  
-# Matches: think, thinks, thinking, thought, thinker  
-  
-# Words ending in "ing"  
-kwic(tokens(text), pattern = ".*ing\\b", valuetype = "regex")  
-  
-# Words ending in "tion"  
-kwic(tokens(text), pattern = ".*tion\\b", valuetype = "regex")  
-```  
-  
-**Find words of specific length:**  
-```{r length_patterns, eval=FALSE}  
-# Three-letter words  
-kwic(tokens(text), pattern = "\\b[a-z]{3}\\b", valuetype = "regex")  
-  
-# Words 10+ letters long  
-kwic(tokens(text), pattern = "\\b[a-z]{10,}\\b", valuetype = "regex")  
-```  
-  
-**Find patterns with specific structure:**  
-```{r structure_patterns, eval=FALSE}  
-# Words with double letters  
-kwic(tokens(text), pattern = "\\b\\w*(.)\\1\\w*\\b", valuetype = "regex")  
-# Matches: little, bottle, matters, etc.  
-  
-# Words starting with vowels  
-kwic(tokens(text), pattern = "\\b[aeiou]\\w*", valuetype = "regex")  
-```  
-  
-::: {.callout-warning}  
-## Regex Can Be Tricky!  
-  
-Regular expressions are powerful but can be:  
-- **Cryptic**: `\\b(?:alic|hatt).*` looks like gibberish at first  
-- **Fragile**: Small changes can break patterns  
-- **Surprising**: They might match more (or less) than you expect  
-  
-**Best practices:**  
-- Test patterns on small samples first  
-- Use online regex testers (regex101.com)  
-- Comment your patterns explaining what they do  
-- Start simple, add complexity gradually  
-- Check results carefully—regex can surprise you!  
-:::  
-  
-### Exercise 7.1: Regular Expression Practice {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Mastering Regex  
-  
-**1. Find words containing "exu" (first 10)**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex7_1_1, eval=T}  
-kwic_exu <- quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = ".*exu.*",   
-  valuetype = "regex"  
-)  
-  
-kwic_exu |>  
-  as.data.frame() |>  
-  head(10)  
-```  
-</details>  
-  
-**2. How many words begin with "pit"?**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex7_1_2, eval=T}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = "\\bpit.*",   
-  valuetype = "regex"  
-) |>  
-  as.data.frame() |>  
-  nrow()  
-```  
-</details>  
-  
-**3. Find words ending in "ption" (first 5)**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex7_1_3, eval=T}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),   
-  pattern = ".*ption\\b",   
-  valuetype = "regex"  
-) |>  
-  as.data.frame() |>  
-  head(5)  
-```  
-</details>  
-  
-**Challenge:**   
-1. Find all words starting with "un-" (negative prefix)  
-2. Find all words with exactly 4 letters  
-3. Find all words containing "qu"   
-4. Find words that appear to be capitalized names (hint: uppercase start)  
-:::  
-  
----  
-  
-# Part 8: Filtering and Refining Concordances {#part8}  
-  
-Raw concordances are just the starting point. The real power comes from filtering, sorting, and refining results to reveal patterns.  
-  
-## Piping for Conditional Concordances {#piping}  
-  
-Often we want concordances only when specific conditions are met. **Piping** with dplyr makes this elegant.  
-  
-### The Pipe Operator: `|>` or `%>%`  
-  
-Piping chains operations together: "do this, **then** do that"  
-  
-```{r pipe_concept, eval=FALSE}  
-# Without piping (nested, hard to read)  
-filter(as.data.frame(kwic(tokens(text), "alice")), condition)  
-  
-# With piping (clear, sequential)  
-kwic(tokens(text), "alice") |>  
-  as.data.frame() |>  
-  filter(condition)  
-  
-# Read as: "take text, make concordance, convert to dataframe, filter"  
-```  
-  
-### Filtering by Context  
-  
-Find "alice" only when preceded by "poor" or "little":  
-  
-```{r pipekwic7, echo=T, eval=T, message=FALSE, warning=FALSE}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),  
-  pattern = "alice") |>  
-  as.data.frame() |>  
-  # Filter: "pre" column must end with "poor" or "little"  
-  dplyr::filter(stringr::str_detect(pre, "poor$|little$")) -> kwic_pipe  
-```   
-  
-```{r pipekwic7b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_pipe |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Instances of 'alice' preceded by 'poor' or 'little'.") |>  
-  flextable::border_outer()  
-```  
-  
-**Pattern breakdown:**  
-- `str_detect(pre, "poor$|little$")`   
-- Check if `pre` (preceding context) contains...  
-- `poor$` = "poor" at the end ($ = end anchor)  
-- `|` = OR  
-- `little$` = "little" at the end  
-  
-**Why the `$` matters:**  
-- `"poor$"` = must be last word before keyword  
-- `"poor"` = anywhere in preceding context  
-- Precision prevents false matches like "poorly alice"  
-  
-### Multiple Conditions  
-  
-Combine filters for complex queries:  
-  
-```{r complex_filter, eval=FALSE}  
-kwic(tokens(text), "said") |>  
-  as.data.frame() |>  
-  # Must be preceded by name AND followed by specific punctuation  
-  filter(  
-    str_detect(pre, "Alice$|Hatter$|Queen$"),  
-    str_detect(post, "^,|^\\.")  
-  )  
-```  
-  
-This finds speech acts: "[Character] said, ..."  
-  
-### Filtering by Position  
-  
-Find instances only at specific positions in the text:  
-  
-```{r position_filter, eval=FALSE}  
-kwic(tokens(text), "alice") |>  
-  as.data.frame() |>  
-  # Only in first 1000 tokens  
-  filter(from <= 1000)  
-  
-# Only in last quarter of text  
-max_position <- max(from)  
-kwic_data |>  
-  filter(from >= max_position * 0.75)  
-```  
-  
-## Sorting and Arranging Concordances {#sorting}  
-  
-Reordering concordances reveals patterns invisible in occurrence order.  
-  
-### Alphabetical Sorting  
-  
-Sort by what follows the keyword:  
-  
-```{r orderkwic2, echo=T, eval=T, message=FALSE, warning=FALSE}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),  
-  pattern = "alice") |>  
-  as.data.frame() |>  
-  # Arrange alphabetically by following context  
-  dplyr::arrange(post) -> kwic_ordered  
-```  
-  
-```{r orderkwic2b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_ordered |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances sorted alphabetically by following word.") |>  
-  flextable::border_outer()  
-```  
-  
-**Why sort alphabetically?**  
-- Groups similar contexts together  
-- Reveals collocational patterns  
-- Makes manual analysis easier  
-- Identifies semantic prosody  
-  
-**Sort by different columns:**  
-```{r sort_variations, eval=FALSE}  
-arrange(pre)    # By preceding context  
-arrange(keyword)  # By matched pattern (if searching multiple)  
-arrange(from)     # By position in text (chronological)  
-```  
-  
-### Sorting by Frequency  
-  
-More powerful: arrange by how common collocates are.  
-  
-#### Step-by-Step Frequency Sorting  
-  
-```{r arrange_kwic, echo=T, eval=T, message=FALSE, warning=FALSE}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),  
-  pattern = "alice"  
-) |>  
-  as.data.frame() |>  
-  # Extract first word after keyword  
-  dplyr::mutate(post1 = str_remove_all(post, " .*")) |>  
-  # Group by that word  
-  dplyr::group_by(post1) |>  
-  # Count frequency of each  
-  dplyr::mutate(post1_freq = n()) |>  
-  # Sort by frequency (descending)  
-  dplyr::arrange(-post1_freq) -> kwic_ordered_coll  
-```   
-  
-```{r orderkwic4j, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_ordered_coll |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances sorted by frequency of following word.") |>  
-  flextable::border_outer()  
-```  
-  
-**What each step does:**  
-  
-1. **`mutate(post1 = str_remove_all(post, " .*"))`**  
-   - Creates new column `post1`  
-   - Extracts just the first word after keyword  
-   - Removes everything after first space  
-  
-2. **`group_by(post1)`**  
-   - Groups all rows with same following word  
-   - Enables per-group calculations  
-  
-3. **`mutate(post1_freq = n())`**  
-   - Counts how many in each group  
-   - `n()` returns group size  
-   - Adds frequency to each row  
-  
-4. **`arrange(-post1_freq)`**  
-   - Sorts by frequency  
-   - `-` means descending (highest first)  
-   - Most common collocates appear first  
-  
-**Why frequency sorting matters:**  
-- Reveals strongest collocational patterns  
-- Identifies typical vs. unusual usage  
-- Quantifies intuitions  
-- Prioritizes analysis (examine common patterns first)  
-  
-### Multi-Level Sorting  
-  
-Sort by multiple criteria:  
-  
-```{r multilevel_sort, eval=FALSE}  
-kwic_data |>  
-  arrange(-post1_freq, -post2_freq, pre1)  
-  
-# Read as: "sort by post1 frequency (desc),   
-#           then post2 frequency (desc),   
-#           then pre1 (ascending)"  
-```  
-  
-## Extracting N-grams Around Keywords {#ngrams}  
-  
-Sometimes you want to analyze not just the next word, but the next 2-3 words (bigrams, trigrams).  
-  
-```{r ngrams_demo, eval=FALSE}  
-mykwic |>  
-  rowwise() |>  
-  mutate(  
-    # First word after  
-    post1 = unlist(strsplit(post, " "))[1],  
-    # Second word after  
-    post2 = unlist(strsplit(post, " "))[2],  
-    # Third word after  
-    post3 = unlist(strsplit(post, " "))[3],  
-    # Last word before  
-    pre1 = tail(unlist(strsplit(pre, " ")), 1),  
-    # Second-to-last before  
-    pre2 = tail(unlist(strsplit(pre, " ")), 2)[1],  
-    # Third-to-last before  
-    pre3 = tail(unlist(strsplit(pre, " ")), 3)[1]  
-  )  
-```  
-  
-This creates columns for analyzing collocational patterns at different distances.  
-  
-### Exercise 8.1: Filtering and Sorting {.exercise}  
-  
-::: {.callout-warning icon=false}  
-## Advanced Concordance Manipulation  
-  
-Using the Alice text:  
-  
-**1. Find "said" preceded by a character name**  
-Hint: Filter for names ending the `pre` context  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex8_1_1, eval=T}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),  
-  pattern = "said"  
-) |>  
-  as.data.frame() |>  
-  filter(str_detect(pre, "Alice$|Hatter$|Queen$|King$|Cat$")) |>  
-  head(10)  
-```  
-</details>  
-  
-**2. Sort "and" concordances by preceding word frequency**  
-  
-<details>  
-<summary>Answer</summary>  
-  
-```{r ex8_1_2, eval=T}  
-quanteda::kwic(  
-  x = quanteda::tokens(text),  
-  pattern = "and"  
-) |>  
-  as.data.frame() |>  
-  mutate(pre1 = str_extract(pre, "\\w+$")) |>  
-  group_by(pre1) |>  
-  mutate(pre1_freq = n()) |>  
-  arrange(-pre1_freq) |>  
-  head(10)  
-```  
-</details>  
-  
-**Challenge:** Find all instances of "very" followed by an adjective. How would you identify adjectives? (Hint: might need manual classification or a part-of-speech tagger)  
-:::  
-  
----  
-  
-# Part 9: Working with Transcripts {#part9}  
-  
-Spoken language transcripts require special handling due to their unique features: speaker turns, pauses, laughter, overlaps, and other paralinguistic information.  
-  
-## Understanding Transcript Structure {#transcript-structure}  
-  
-Transcripts differ from written texts in important ways:  
-  
-**Written text:**  
-- Continuous prose  
-- Standard punctuation  
-- Paragraph structure  
-- Edited and polished  
-  
-**Transcripts:**  
-- Speaker turns  
-- Paralinguistic markers: `<,>` (pauses), `<&> laughter </&>`  
-- Incomplete utterances  
-- Overlaps and interruptions  
-- Metadata tags: `<S1A-001$A>` (speaker IDs)  
-  
-### Loading Transcript Data  
-  
-We'll use transcripts from the [International Corpus of English](https://www.ice-corpora.uzh.ch/en.html) Irish component:  
-  
-```{r trans2, echo=T, eval=T, message=FALSE, warning=FALSE}  
-# Define file paths  
-files <- paste("tutorials/kwics/data/ICEIrelandSample/S1A-00", 1:5, ".txt", sep = "")  
-  
-# Load all transcripts  
-transcripts <- sapply(files, function(x) {  
-  readLines(x)  
-})  
-```  
-  
-```{r trans2b, echo=F, message=FALSE, warning=FALSE}  
-# Display first 10 lines of first transcript  
-transcripts[[1]][1:10] |>  
-  as.data.frame() |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "First 10 utterances from an ICE-Ireland transcript showing markup.") |>  
-  flextable::border_outer()  
-```  
-  
-**Transcript features visible:**  
-- `<S1A-001 Riding>` = Header with file ID and title  
-- `<I>` = Transcript start marker  
-- `<S1A-001$A>` = Speaker A in file 001, section S1A  
-- `<#>` = Speech unit boundary  
-- `<,>` = Pause  
-- `<&> laughter </&>` = Paralinguistic information  
-  
-## Preprocessing Transcripts {#transcript-prep}  
-  
-Transcripts need different preprocessing than written texts.  
-  
-### Deciding What to Keep/Remove  
-  
-**Keep:**  
-- Speaker IDs (if analyzing by speaker)  
-- Pause markers (if studying fluency)  
-- Laughter/paralinguistics (if studying interaction)  
-  
-**Remove:**  
-- Headers and metadata (usually)  
-- Markup that interferes with searching  
-- Excess spacing  
-  
-**It depends on your research question!**  
-  
-### Collapsing Transcripts  
-  
-For basic concordancing, collapse into continuous text:  
-  
-```{r trans4, echo=T, eval=T, message=FALSE, warning=FALSE}  
-transcripts_collapsed <- sapply(files, function(x) {  
-  x <- readLines(x)  
-  # Collapse all lines together  
-  x <- paste0(x, collapse = " ")  
-  # Clean up spacing  
-  x <- str_squish(x)  
-})  
-```  
-  
-```{r trans4b, echo=F, message=FALSE, warning=FALSE}  
-transcripts_collapsed |>  
-  substr(start = 1, stop = 500) |>  
-  as.data.frame() |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "First 500 characters of collapsed transcript.") |>  
-  flextable::border_outer()  
-```  
-  
-## Concordancing Transcripts {#transcript-concordancing}  
-  
-Now extract concordances, being mindful of markup:  
-  
-```{r trans6, echo=T, eval=T, message=FALSE, warning=FALSE}  
-kwic_trans <- quanteda::kwic(  
-  # Tokenize by whitespace to preserve markup  
-  quanteda::tokens(transcripts_collapsed, what = "fasterword"),  
-  # Search for "you know"  
-  pattern = quanteda::phrase("you know"),  
-  # Wider context for spoken language  
-  window = 10  
-) |>  
-  as.data.frame() |>  
-  # Clean up file names  
-  dplyr::mutate(docname = str_replace_all(docname, ".*/(.*?).txt", "\\1"))  
-```  
-  
-```{r trans6b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_trans |>  
-  head(10) |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances for 'you know' in spoken transcripts.") |>  
-  flextable::border_outer()  
-```  
-  
-**Key considerations:**  
-  
-**`what = "fasterword"`**  
-- Tokenizes by whitespace  
-- Preserves tags like `<#>`, `<,>`  
-- Alternative to default tokenization  
-  
-**Wider window (10 tokens)**  
-- Spoken language has more fillers, pauses  
-- Need more context to understand utterance  
-- Captures more of the conversational flow  
-  
-**Why study "you know"?**  
-- Discourse marker in spoken English  
-- Not about knowledge—about interaction  
-- Signals common ground, turn-taking  
-- Varies by speaker, context, genre  
-  
-## Analyzing Speaker Patterns {#speaker-analysis}  
-  
-Extract concordances by speaker:  
-  
-```{r speaker_analysis, eval=FALSE}  
-# First, extract speaker IDs into a separate column  
-kwic_trans |>  
-  mutate(  
-    # Extract speaker ID from preceding context  
-    speaker = str_extract(pre, "<S1A-[0-9]+\\$[A-Z]>")  
-  ) |>  
-  # Analyze by speaker  
-  group_by(speaker) |>  
-  summarize(  
-    count = n(),  
-    per_1000_words = count / (total_words / 1000)  
-  )  
-```  
-  
-This reveals which speakers use "you know" most frequently—useful for sociolinguistic analysis!  
-  
----  
-  
-# Part 10: Custom Concordance Functions {#part10}  
-  
-While quanteda's `kwic()` is excellent, sometimes you need custom functionality. Building your own concordance function teaches how concordancing works under the hood.  
-  
-## Understanding Concordance Mechanics {#mechanics}  
-  
-**What `kwic()` does internally:**  
-1. Find positions where pattern matches  
-2. Calculate context window boundaries  
-3. Extract text at those positions  
-4. Format as table  
-  
-**We can replicate this!**  
-  
-## Building a Custom Function {#custom-function}  
-  
-```{r customkwic2, message=F, warning=F}  
-# Custom concordance function  
-mykwic <- function(txts, pattern, context) {  
-  require(stringr)  
-    
-  # Find texts containing pattern  
-  txts <- txts[str_detect(txts, pattern)]  
-    
-  # Process each text  
-  conc <- sapply(txts, function(x) {  
-    # Text length  
-    lngth <- nchar(x)  
-      
-    # Find all pattern positions  
-    idx <- str_locate_all(x, pattern)[[1]]  
-      
-    if (nrow(idx) < 1) return(NA)  
-      
-    # Extract positions  
-    token.start <- idx[, 1]  
-    token.end <- idx[, 2]  
-      
-    # Context window boundaries  
-    pre.start <- ifelse(token.start - context < 1, 1, token.start - context)  
-    pre.end <- token.start - 1  
-    post.start <- token.end + 1  
-    post.end <- ifelse(token.end + context > lngth, lngth, token.end + context)  
-      
-    # Extract context and keyword  
-    PrecedingContext <- substring(x, pre.start, pre.end)  
-    Token <- substring(x, token.start, token.end)  
-    SubsequentContext <- substring(x, post.start, post.end)  
-    Id <- 1:length(Token)  
-      
-    # Combine into concordance  
-    conc <- cbind(Id, PrecedingContext, Token, SubsequentContext)  
-    return(conc)  
-  })  
-    
-  # Convert to dataframe  
-  concdf <- do.call(rbind, conc) |>  
-    as.data.frame()  
-    
-  return(concdf)  
-}  
-```  
-  
-**Key differences from quanteda:**  
-- Uses **characters** not tokens for context  
-- More control over exact boundaries  
-- Can customize any aspect  
-- Educational: see how it works!  
-  
-### Using the Custom Function  
-  
-```{r customkwic4, message=F, warning=F}  
-# Search for "you know" with 50-character context  
-kwic_youknow <- mykwic(transcripts_collapsed, "you know", 50)  
-```  
-  
-```{r customkwic4b, echo=FALSE, message=FALSE, warning=FALSE, class.source='klippy'}  
-kwic_youknow |>  
-  as.data.frame() |>  
-  head() |>  
-  flextable::flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Concordances from custom function using character-based context.") |>  
-  flextable::border_outer()  
-```  
-  
-## When to Build Custom Functions {#when-custom}  
-  
-**Use custom functions when:**  
-- Need character-based (not token-based) windows  
-- Want very specific extraction logic  
-- Learning how concordancing works  
-- quanteda doesn't quite fit your needs  
-  
-**Use quanteda when:**  
-- Standard concordancing suffices  
-- Want tested, optimized code  
-- Need integration with other quanteda features  
-- Working with complex token objects  
-  
----  
-  
-# Part 11: Reproducible Workflows {#part11}  
-  
-Professional research requires reproducible, well-documented workflows.  
-  
-## Organizing Your Concordancing Project {#project-organization}  
-  
-**Recommended structure:**  
-```  
-my-concordance-project/  
-├── data/  
-│   ├── raw/                 # Original texts (never edit!)  
-│   └── processed/           # Cleaned texts  
-├── scripts/  
-│   ├── 01-load-clean.R      # Data preparation  
-│   ├── 02-concordance.R     # KWIC extraction  
-│   └── 03-analysis.R        # Pattern analysis  
-├── output/  
-│   ├── concordances/        # Saved KWICs  
-│   ├── figures/             # Visualizations  
-│   └── tables/              # Summary tables  
-├── README.md                # Project documentation  
-└── my-project.Rproj         # RStudio project file  
-```  
-  
-## Documenting Your Workflow {#documentation}  
-  
-**Essential documentation:**  
-  
-```r  
-# At top of script  
-# Title: Concordance Analysis of Character Names in Alice  
-# Author: Your Name  
-# Date: 2026-02-08  
-# Purpose: Extract and analyze character name patterns  
-  
-# Load packages  
-library(quanteda)  
-library(dplyr)  
-  
-# Set parameters  
-CONTEXT_WINDOW <- 5  
-OUTPUT_DIR <- here::here("output", "concordances")  
-  
-# Load data  
-text <- readLines(here::here("data", "processed", "alice_clean.txt"))  
-  
-# Extract concordances  
-kwic_alice <- quanteda::kwic(  
-  tokens(text),  
-  pattern = quanteda::phrase("Alice"),  
-  window = CONTEXT_WINDOW  
-) |>  
-  as.data.frame()  
-  
-# Save results  
-write_xlsx(  
-  kwic_alice,  
-  file.path(OUTPUT_DIR, paste0("alice_concordance_", Sys.Date(), ".xlsx"))  
-)  
-  
-# Session info (for reproducibility)  
-sessionInfo()  
-```  
-  
-## Version Control with Git {#git}  
-  
-For serious projects, use version control:  
-  
-**Benefits:**  
-- Track all changes  
-- Revert to previous versions  
-- Collaborate safely  
-- Required by many journals  
-  
-**Basic Git workflow:**  
-```bash  
-git init                    # Initialize repository  
-git add script.R           # Stage changes  
-git commit -m "Added concordancing script"  # Commit  
-git push                   # Push to GitHub  
-```  
-  
----  
-  
-# Part 12: Best Practices and Tips {#part12}  
-  
-## Concordancing Best Practices {#best-practices}  
-  
-### 1. Always Explore Your Data First  
-  
-```{r explore_data, eval=FALSE}  
-# Before concordancing  
-summary(text)           # Basic stats  
-head(text, 50)         # Look at the beginning  
-str_count(text, "\\w+")  # Word count  
-```  
-  
-### 2. Start with Simple Patterns  
-  
-```{r simple_first, eval=FALSE}  
-# Start simple  
-kwic(tokens(text), "alice")  
-  
-# Then refine  
-kwic(tokens(text), "alice", case_insensitive = TRUE)  
-  
-# Then get complex  
-kwic(tokens(text), "\\b(alice|hatter).*", valuetype = "regex")  
-```  
-  
-### 3. Validate Your Results  
-  
-```{r validate, eval=FALSE}  
-# Check sample manually  
-kwic_results |>  
-  sample_n(20) |>  
-  View()  
-  
-# Verify counts make sense  
-nrow(kwic_results)  # Does this seem right?  
-  
-# Check for edge cases  
-kwic_results |>  
-  filter(str_length(keyword) > 20)  # Unexpected long matches?  
-```  
-  
-### 4. Document Everything  
-  
-```{r document, eval=FALSE}  
-# What, why, when  
-# Extracted: 2026-02-08  
-# Pattern: \\balice.* (all words starting with "alice")  
-# Context: 5 tokens  
-# Rationale: Investigating Alice's linguistic behavior  
-```  
-  
-### 5. Save Intermediate Results  
-  
-```{r save_intermediate, eval=FALSE}  
-# Save cleaned text  
-saveRDS(text_clean, "data/processed/text_clean.rds")  
-  
-# Save raw concordances  
-saveRDS(kwic_raw, "output/kwic_raw.rds")  
-  
-# Save filtered concordances  
-write_xlsx(kwic_filtered, "output/kwic_filtered.xlsx")  
-```  
-  
-## Common Mistakes and How to Avoid Them {#mistakes}  
-  
-### Mistake 1: Forgetting Case Sensitivity  
-  
-```{r case_mistake, eval=FALSE}  
-# Problem: Misses "Alice" because searching for "alice"  
-kwic(tokens(text), quanteda::phrase("alice"))  
-  
-# Solution: Use case_insensitive or search both  
-kwic(tokens(text), quanteda::phrase("alice"), case_insensitive = TRUE)  
-```  
-  
-### Mistake 2: Wrong Pattern Type  
-  
-```{r pattern_mistake, eval=FALSE}  
-# Problem: Searches for literal ".*" characters  
-kwic(tokens(text), ".*alice.*")  
-  
-# Solution: Specify valuetype  
-kwic(tokens(text), ".*alice.*", valuetype = "regex")  
-```  
-  
-### Mistake 3: Ignoring Preprocessing  
-  
-```{r prep_mistake, eval=FALSE}  
-# Problem: Messy data contaminates results  
-kwic(tokens(raw_text), pattern)  
-  
-# Solution: Clean first  
-text_clean <- raw_text |>  
-  str_squish() |>  
-  str_remove(".*CHAPTER I\\.")  
-  
-kwic(tokens(text_clean), pattern)  
-```  
-  
-### Mistake 4: Not Checking Results  
-  
-```{r check_mistake, eval=FALSE}  
-# Problem: Assuming all matches are correct  
-kwic_results <- kwic(tokens(text), "bank")  
-# "Bank" (financial) vs "bank" (river edge) mixed together!  
-  
-# Solution: Manually inspect sample  
-kwic_results |>  
-  sample_n(20) |>  
-  View()  
-```  
-  
-## Troubleshooting Guide {#troubleshooting}  
-  
-**"No matches found"**  
-- Check spelling  
-- Verify case sensitivity  
-- Try case_insensitive = TRUE  
-- Check if pattern exists: `str_detect(text, "pattern")`  
-  
-**"Too many matches"**  
-- Narrow your pattern  
-- Add context filters  
-- Use more specific regex  
-  
-**"Weird characters in output"**  
-- Encoding issues  
-- Try: `iconv(text, to = "UTF-8")`  
-  
-**"Function not found"**  
-- Did you load the package?  
-- Check for typos  
-- Verify package installed  
-  
-**"Out of memory"**  
-- Corpus too large  
-- Process in batches  
-- Increase R memory limit  
-- Use sampling  
-  
----  
-  
-# Quick Reference Guide {.unnumbered}  
-  
-## Essential Functions  
-  
-```{r ref_functions, eval=FALSE}  
-# Basic concordancing  
-kwic(tokens(text), pattern = "word")  
-  
-# With options  
-kwic(  
-  tokens(text),   
-  pattern = "pattern",  
-  window = 5,                    # Context size  
-  case_insensitive = TRUE,       # Ignore case  
-  valuetype = "regex"            # Use regex  
-)  
-  
-# Multiple patterns  
-kwic(tokens(text), pattern = phrase(c("poor alice", "dear alice")))  
-```  
-  
-## Common Patterns  
-  
-```{r ref_patterns, eval=FALSE}  
-# Exact word  
-"alice"  
-  
-# Phrase  
-quanteda::phrase("poor alice")  
-  
-# Word family  
-"walk.*" with valuetype = "regex"  
-  
-# Starting with  
-"\\bun.*" with valuetype = "regex"  
-  
-# Ending with  
-".*ing\\b" with valuetype = "regex"  
-  
-# Alternative  
-"alice|hatter" with valuetype = "regex"  
-```  
-  
-## Essential Pipelines  
-  
-```{r ref_pipelines, eval=FALSE}  
-# Filter and sort  
-kwic(tokens(text), "said") |>  
-  as.data.frame() |>  
-  filter(str_detect(pre, "Alice$")) |>  
-  arrange(post)  
-  
-# Extract collocates  
-kwic(tokens(text), "alice") |>  
-  as.data.frame() |>  
-  mutate(next_word = str_extract(post, "^\\w+")) |>  
-  count(next_word, sort = TRUE)  
-  
-# Export  
-kwic_results |>  
-  write_xlsx(here::here("output", "concordances.xlsx"))  
-```  
-  
----  
-  
-# Resources and Next Steps {.unnumbered}  
-  
-## Recommended Reading  
-  
-**Books:**  
-  
-1. **"Corpus Linguistics: Method, Theory and Practice"** - Tony McEnery & Andrew Hardie  
-   - Comprehensive introduction  
-   - Covers theory and practice  
-   - Excellent concordancing chapter  
-  
-2. **"Introducing Corpus Linguistics"** - Charles Meyer  
-   - Accessible for beginners  
-   - Practical examples  
-   - Good on concordancing applications  
-  
-3. **"Keywords: A Vocabulary of Culture and Society"** - Raymond Williams  
-   - Classic on keyword analysis  
-   - Theoretical foundation  
-   - Inspired modern corpus approaches  
-  
-**Papers:**  
-  
-- Sinclair, J. (1991). *Corpus, Concordance, Collocation*  
-- Hunston, S. (2002). *Corpora in Applied Linguistics*  
-- Anthony, L. (2013). "A critical look at software tools in corpus linguistics"  
-  
-## Online Resources  
-  
-**Tutorials:**  
-- [Quanteda tutorials](https://tutorials.quanteda.io/)  
-- [Corpus Linguistics with R](https://www.tidytextmining.com/)  
-- [LADAL tutorials](https://ladal.edu.au/)  
-  
-**Tools:**  
-- [AntConc homepage](https://www.laurenceanthony.net/software/antconc/)  
-- [BYU Corpora](https://www.english-corpora.org/)  
-- [Sketch Engine](https://www.sketchengine.eu/)  
-  
-**Communities:**  
-- [Corpora mailing list](https://www.hit.uib.no/corpora/)  
-- [#corpuslinguistics on Twitter](https://twitter.com/hashtag/corpuslinguistics)  
-- [r-sig-corpus](https://stat.ethz.ch/mailman/listinfo/r-sig-corpus)  
-  
-## Next Steps  
-  
-**Continue learning:**  
-1. Explore collocational analysis  
-2. Study keyword analysis  
-3. Learn n-gram extraction  
-4. Try sentiment analysis  
-5. Investigate topic modeling  
-  
-**Related LADAL tutorials:**  
-- [Collocations](/tutorials/coll/coll.html)  
-- [Keywords](/tutorials/keywords/keywords.html)  
-- [N-grams](/tutorials/ngrams/ngrams.html)  
-  
----  
-  
-# Final Challenge {.unnumbered}  
-  
-::: {.callout-warning icon=false}  
-## Capstone Concordancing Project  
-  
-Create a complete concordance analysis demonstrating everything you've learned:  
-  
-**Requirements:**  
-  
-1. **Choose a corpus**  
-   - Your own texts OR public domain literature  
-   - At least 50,000 words  
-   - Clear research question  
-  
-2. **Extract concordances for 3-5 patterns**  
-   - Use different search techniques (exact, phrase, regex)  
-   - Vary context windows appropriately  
-   - Filter to relevant instances  
-  
-3. **Analyze patterns**  
-   - Sort by collocate frequency  
-   - Identify semantic patterns  
-   - Compare across sub-corpora if applicable  
-  
-4. **Document everything**  
-   - Clear R script with comments  
-   - Explanation of decisions  
-   - Interpretation of findings  
-  
-5. **Present results**  
-   - Export key concordances  
-   - Create summary visualizations  
-   - Write brief report (500 words)  
-  
-**Deliverable:**  
-- Organized project folder  
-- Commented R script  
-- Output files  
-- Brief analytical report  
-  
-**Bonus:**  
-- Create custom concordance function  
-- Build interactive visualization  
-- Compare with another corpus  
-:::  
-  
----  
-  
-# Citation & Session Info {.unnumbered}  
-  
-Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/kwics/kwics.html (Version 2026.02.08).  
-  
-```  
-@manual{schweinberger2026kwics,  
-  author = {Schweinberger, Martin},  
-  title = {Finding Words in Text: Concordancing},  
-  note = {https://ladal.edu.au/tutorials/kwics/kwics.html},  
-  year = {2026},  
-  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},  
-  address = {Brisbane},  
-  edition = {2026.02.08}  
-}  
-```  
-  
-## Session Information  
-  
-```{r fin}  
-sessionInfo()  
-```  
-  
----  
-  
-**[Back to top](#welcome-to-concordancing)**  
-  
-**[Back to HOME](https://ladal.edu.au/)**  
-  
----  
-  
-# Acknowledgments {.unnumbered}  
-  
-This tutorial builds on the excellent work of:  
-  
-- **John Sinclair** for pioneering corpus linguistics and concordancing  
-- **The quanteda team** for creating excellent R tools  
-- **Laurence Anthony** for making concordancing accessible through AntConc  
-- **The ICE team** for providing high-quality corpus data  
-- **Project Gutenberg** for freely accessible texts  
-- **The LADAL team** for hosting and supporting this tutorial  
-- **All researchers** who have shared their concordancing methods  
-  
-Special thanks to the R community for continuous development and support!  
+---
+title: "Finding Words in Text: Concordancing with R"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+::: {.callout-note}
+## Preparing the Tutorial Data File
+
+The Alice text must be downloaded once and saved before knitting. Run this code once in your console (not in the tutorial itself):
+
+```r
+rawtext <- readLines("https://www.gutenberg.org/files/11/11-0.txt")
+dir.create("tutorials/kwics/data", recursive = TRUE, showWarnings = FALSE)
+save(rawtext, file = "tutorials/kwics/data/alice.rda")
+```
+
+This creates `tutorials/kwics/data/alice.rda`, which the tutorial loads at knit time.
+:::
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **concordancing** — one of the most fundamental and powerful methods in corpus linguistics. Concordancing allows researchers to search systematically through large text collections, extracting every occurrence of a word or phrase together with the surrounding context. The resulting display, known as a **keyword-in-context (KWIC)** display, makes patterns of language use visible that would be impossible to detect through ordinary reading.
+
+The tutorial covers the core concepts of concordancing, a survey of available tools from desktop software to web interfaces to R, and a hands-on practical guide to extracting, filtering, sorting, and analysing concordances using the `quanteda` package. It includes a section on working with spoken language transcripts and demonstrates how to build a custom concordance function that extends `quanteda`'s built-in capabilities.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, we recommend familiarity with:
+
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, basic syntax, RStudio orientation
+- [Loading and Saving Data in R](/tutorials/load/load.html) — reading files into R
+- [String Processing in R](/tutorials/string/string.html) — working with text using `stringr`
+- [Regular Expressions in R](/tutorials/regex/regex.html) — pattern matching with regex
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what concordancing is, how the KWIC display works, and why it is central to corpus linguistics
+2. Navigate the landscape of concordancing tools and choose the right tool for different research tasks
+3. Load and preprocess text data for concordancing in R
+4. Extract keyword-in-context concordances using `quanteda::kwic()`
+5. Use regular expressions to search for morphological variants and complex patterns
+6. Filter and sort concordances using `dplyr` pipelines to reveal collocational patterns
+7. Work with spoken language transcripts and handle annotation markup
+8. Build and use a custom concordance function for character-based context windows
+9. Export concordances in Excel, CSV, and other formats for further analysis
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/kwics/kwics.html (Version 2026.05.01).
+:::
+
+::: {.callout-note}
+## LADAL Notebook Tool
+
+An interactive Binder notebook that lets you upload your own texts and run the concordancing code without installing R is available here:
+
+```{r binderurl, echo=FALSE, message=FALSE, warning=FALSE}
+base_url       <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
+repo_url       <- "https://github.com/SLCLADAL/interactive-notebooks"
+notebook_path  <- "interactive-notebooks/notebooks/kwictool.ipynb"
+repo_param     <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
+notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
+params         <- paste0("urlpath=git-pull%3F", repo_param, "%26", notebook_param, "%26branch=main")
+binder_url     <- paste0(base_url, "?", params)
+```
+
+::: {.text-center}
+[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
+
+Click [**here**](`r binder_url`) to open the interactive concordancing notebook.
+:::
+:::
+
+---
+
+# What Is Concordancing? {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What a concordance is and how the KWIC display works; why concordancing is central to corpus linguistics; how concordances bridge quantitative and qualitative analysis; and a survey of application areas from linguistics to lexicography to digital humanities
+:::
+
+## The KWIC Display {-}
+
+A **concordance** is a systematic list of every occurrence of a search term in a text or corpus, presented with its surrounding context. The standard presentation format is the **keyword-in-context (KWIC)** display, in which the search term — the **node word** — appears aligned in the centre of each line, with a fixed window of context on either side:
+
+```
+...couldn't help thinking there  must   be more to life than being merely
+...you are my density. I          must   go. Please excuse me. I mean, my
+...the situation requires that we  must   work together to achieve our aims.
+...extraordinary claims require    extraordinary   evidence before they are
+...but the Emperor has no clothes!  must   speak truth to power and be heard
+```
+
+This deceptively simple layout makes linguistic patterns visible that are impossible to detect through ordinary reading. By displaying multiple instances simultaneously and aligning the node word vertically, concordances allow researchers to:
+
+- observe **how words are actually used** rather than how we imagine they are used
+- identify **collocational patterns** — words that systematically appear nearby
+- distinguish **different meanings or senses** of a polysemous word from context
+- examine **grammatical constructions** that a word participates in
+- compare **register and genre variation** across different text types
+
+## From Intuition to Evidence {-}
+
+One of the most important contributions of concordancing to linguistics is the systematic correction of native-speaker intuition. Speakers often hold confident but inaccurate beliefs about their own language use. Concordances provide **observable, verifiable evidence** that can confirm, nuance, or directly contradict such intuitions.
+
+Some well-documented intuition-corpus mismatches include:
+
+- speakers typically believe they use *very* more than *really*, but corpus evidence frequently shows the reverse
+- formal writing is assumed to avoid contractions, yet concordances reveal they are common in specific formal genres
+- particular collocations assumed to be rare prove pervasive in specific registers once a corpus is examined
+
+This empirical grounding is what distinguishes corpus linguistics from introspection-based approaches and makes concordancing indispensable for rigorous language research.
+
+## What Concordances Reveal {-}
+
+Concordancing supports several distinct types of linguistic investigation:
+
+**Semantic analysis** — concordances allow researchers to identify the different senses of polysemous words, observe how context disambiguates meaning, and study **semantic prosody**: the tendency of words to collocate preferentially with words that carry a positive or negative evaluative charge. The word *cause*, for instance, collocates predominantly with negative nouns (*cause harm*, *cause problems*, *cause damage*) even though the word itself is semantically neutral.
+
+**Collocational analysis** — the study of words that habitually co-occur is one of the core contributions of corpus linguistics to lexicography and language description. Concordances make it possible to build **collocational profiles** for words and to use association measures (mutual information, log-likelihood) to distinguish significant co-occurrences from accidental ones.
+
+**Grammatical investigation** — concordances reveal verb complementation patterns (does this verb prefer an infinitival or a gerundive complement?), preposition selection, word order preferences, and evidence for grammaticalization processes.
+
+**Discourse and framing analysis** — by examining what vocabulary surrounds key terms, researchers can study how concepts are constructed and contested in public discourse, identify ideological positioning through word choice, and track the evolution of discursive strategies over time.
+
+**Historical linguistics** — applied to diachronic corpora, concordancing can document language change, track the semantic bleaching or expansion of words over centuries, and identify grammaticalization paths.
+
+## The Quantitative–Qualitative Bridge {-}
+
+Concordancing is unusual among research methods in that it supports both quantitative and qualitative analysis within a single workflow. The quantitative dimension includes frequency counts (how often does the pattern occur?), collocational strength statistics, and distributional comparisons across sub-corpora. The qualitative dimension involves close reading of individual concordance lines, interpretation of pragmatic effects, and recognition of contextual nuance.
+
+This combination makes concordancing particularly well suited to **mixed-methods research** — studies that require both the breadth of corpus evidence and the depth of interpretive analysis.
+
+## Application Areas {-}
+
+Concordancing serves researchers and practitioners across a wide range of disciplines:
+
+**Corpus linguistics** — documenting authentic language use at scale, testing theoretical claims against corpus evidence, and building usage-based grammatical descriptions.
+
+**Sociolinguistics** — comparing language use across social groups (age, gender, region, register), studying style-shifting, and investigating language and identity.
+
+**Historical linguistics** — tracking semantic change over time, documenting grammaticalization, and studying obsolescence and innovation.
+
+**Language teaching (Data-Driven Learning)** — rather than presenting rules abstractly, DDL approaches have learners discover patterns through guided concordance analysis, building more robust intuitions about authentic usage.
+
+**Literary and stylistic analysis** — concordances support authorship attribution, the study of recurring motifs and themes, and analysis of an author's stylistic evolution across a career.
+
+**Translation studies** — parallel concordancing of source and target texts helps translators find consistent equivalents, identify translation strategies, and maintain terminology consistency across large projects.
+
+**Lexicography** — modern dictionaries rely on corpus evidence obtained through concordancing to identify word senses, document collocations, find authentic example sentences, and discover new words and meanings.
+
+**Content analysis and digital humanities** — tracking how concepts are discussed in media, studying framing and ideology through keyword analysis, and examining the historical evolution of key terms.
+
+::: {.callout-tip}
+## Exercises: What Is Concordancing?
+:::
+
+**Q1. A researcher notices that the word *risk* appears frequently in a corpus of financial news. She searches for it in a concordance and finds it consistently appears with words like *exposure*, *mitigation*, *management*, and *assessment*. What type of linguistic phenomenon is she observing, and what does it tell her about the word?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q1"
+check_question(
+  "She is observing collocational patterning — the systematic co-occurrence of *risk* with specific vocabulary reveals that in financial news, the word is used predominantly in a technical, professional register with a focus on risk management rather than danger in the everyday sense",
+  options = c(
+    "She is observing frequency — the word *risk* is simply very common in financial texts",
+    "She is observing collocational patterning — the systematic co-occurrence of *risk* with specific vocabulary reveals that in financial news, the word is used predominantly in a technical, professional register with a focus on risk management rather than danger in the everyday sense",
+    "She is observing semantic prosody — *risk* collocates with negative words, confirming it is a negative word",
+    "She is observing grammaticalization — *risk* is in the process of changing its grammatical category"
+  ),
+  type = "radio",
+  q_id = "concepts_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The pattern of co-occurrence with *exposure*, *mitigation*, *management*, and *assessment* reveals the collocational profile of *risk* in financial discourse. This collocational profile is register-specific: the same word in everyday speech would collocate with very different partners (e.g. *take a risk*, *risk injury*). Corpus evidence of this kind is what gives collocational analysis its power — it reveals not just what words mean but what company they keep in specific contexts.",
+  wrong = "Not quite. While frequency is relevant context, what the researcher is specifically observing is the pattern of co-occurrence — which words appear consistently alongside *risk*. This is collocational analysis. The specific collocates (*exposure*, *mitigation*, *management*) also tell us something about the register (professional financial discourse) and the dominant sense of the word in this corpus (risk as something to be managed rather than taken)."
+)
+```
+
+---
+
+**Q2. A student claims that concordancing is just a fancy search function — no different from Ctrl+F in a word processor. What is the most important limitation of Ctrl+F that concordancing overcomes?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q2"
+check_question(
+  "Ctrl+F shows one match at a time in its original document context; concordancing displays all matches simultaneously with aligned context, enabling pattern recognition across instances that is impossible one match at a time",
+  options = c(
+    "Ctrl+F cannot handle regular expressions; concordancing can",
+    "Ctrl+F is case-sensitive; concordancing is always case-insensitive",
+    "Ctrl+F shows one match at a time in its original document context; concordancing displays all matches simultaneously with aligned context, enabling pattern recognition across instances that is impossible one match at a time",
+    "Ctrl+F only works on single files; concordancing works on the internet"
+  ),
+  type = "radio",
+  q_id = "concepts_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The defining feature of a KWIC concordance is the simultaneous, aligned display of all instances. This overcomes two key limitations of sequential search: working memory constraints (we cannot hold multiple instances in mind at once while reading) and confirmation bias (we tend to notice instances that confirm our expectations and overlook counter-examples). By displaying all instances at once with the node word aligned, concordances externalise the comparison task and make patterns visible that would never emerge from one-at-a-time search.",
+  wrong = "Not quite — while concordancing does support regex and multi-file search, the most fundamental advantage is the KWIC display format itself. Displaying all instances simultaneously with the node word aligned in the centre allows pattern recognition across instances that is cognitively impossible when viewing matches one at a time in their original document context. This is what makes concordancing a qualitatively different analytical tool, not just a quantitatively more powerful search."
+)
+```
+
+---
+
+# Concordancing Tools {#tools}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The main categories of concordancing tool — desktop software, web-based corpus interfaces, and programming environments; the strengths and appropriate use cases of each; and why R with `quanteda` is the recommended environment for reproducible research
+:::
+
+## Desktop Concordancing Software {-}
+
+Desktop concordancing applications provide powerful functionality without requiring programming knowledge and remain the most widely used tools in teaching and exploratory research.
+
+**AntConc** ([laurenceanthony.net](https://www.laurenceanthony.net/software/antconc/)) is the most widely used free concordancing tool. It is cross-platform (Windows, Mac, Linux), requires no installation dependencies, and provides an intuitive interface ideal for teaching and exploratory analysis. Beyond concordancing, it offers collocate analysis, cluster/n-gram extraction, keyword comparison across corpora, and a dispersion plot view. Its main limitations are modest statistical capabilities, limited export options, and no integration with other analytical environments. AntConc is the recommended starting point for researchers new to concordancing.
+
+**WordSmith Tools** ([lexically.net](https://www.lexically.net/wordsmith/)) is commercial software that has long been the professional standard in corpus linguistics. It provides a comprehensive suite of interconnected tools including concordancing, keyword analysis, and dispersion plots, with sophisticated built-in statistics and professional-quality visualisations. Its main limitations are cost (though institutional licences are available) and Windows-only operation.
+
+**SketchEngine** ([sketchengine.eu](https://www.sketchengine.eu/)) is a web and desktop tool with access to pre-loaded corpora in over 90 languages, automatic corpus annotation, a distinctive "Word Sketch" display showing grammatical and collocational behaviour at a glance, and collaboration features for team research. It is subscription-based but widely used in professional and institutional contexts.
+
+**ParaConc** is purpose-built for parallel texts (source and translation), allowing researchers to search both sides simultaneously and identify translation strategies — essential for translation studies research.
+
+## Web-Based Corpus Interfaces {-}
+
+Many large, professionally designed reference corpora are accessible through web interfaces, eliminating setup overhead and providing immediate access to billions of words of annotated text.
+
+**The BYU/English-Corpora.org family** ([english-corpora.org](https://www.english-corpora.org/)) created by Mark Davies includes several industry-standard reference corpora for English:
+
+- **COCA** (Corpus of Contemporary American English) — over 1 billion words (1990–present), balanced across spoken, fiction, magazine, newspaper, and academic genres, updated annually
+- **COHA** (Corpus of Historical American English) — 400+ million words (1820s–2000s) for diachronic research
+- **NOW Corpus** — continuously updated web corpus for tracking very recent language change
+
+These interfaces offer sophisticated search, metadata filtering (by genre, date, etc.), frequency trend visualisations, and free academic access. Their main limitation is that researchers cannot upload their own texts.
+
+**Lextutor** ([lextutor.ca](https://www.lextutor.ca/)) provides free web-based concordancing alongside vocabulary profiling tools, well suited to classroom use and quick lookups without any installation.
+
+## Why R and quanteda? {-}
+
+Given the range of excellent GUI tools available, why invest in learning R for concordancing? The answer lies in four properties that become increasingly important as research grows in scale and ambition:
+
+**Reproducibility** is the most compelling reason. With a GUI tool, the workflow must be documented in prose ("I opened AntConc, loaded corpus X, searched for Y...") and is difficult for others to replicate exactly. With an R script, every step is explicit, executable, and shareable. Scripts can be submitted alongside manuscripts, satisfying open science requirements and enabling exact replication.
+
+**Integration** — R allows concordancing to be embedded in a seamless analytical pipeline. Text can be scraped from the web, cleaned, concordanced, collocates can be tested for statistical significance, results can be visualised with `ggplot2`, and statistical models can be fit — all within a single environment, without the error-prone import/export steps required when switching between tools.
+
+**Flexibility and customisation** — R allows arbitrary filtering logic, novel analysis approaches, and automation of repetitive tasks that would be tedious or impossible in GUI tools. This tutorial's custom concordance function (Section 10) illustrates how `quanteda` can be extended for specific research needs.
+
+**Scalability** — R handles corpora of any size efficiently, supports parallel processing, and can be deployed on cloud computing infrastructure for very large-scale projects.
+
+::: {.callout-warning}
+## When GUI Tools Are Better
+
+R's advantages come with a learning investment. For quick one-off explorations, classroom demonstrations with non-technical audiences, or analyses that are genuinely simple, GUI tools like AntConc or COCA are faster and more practical. Many experienced corpus linguists use both: GUI tools for rapid exploration and R for the final reproducible analysis.
+:::
+
+::: {.callout-tip}
+## Exercises: Concordancing Tools
+:::
+
+**Q3. A postgraduate student is conducting a diachronic study of the word *awful* across 200 years of American English. She has no programming experience. Which tool is most directly suited to her needs, and why?**
+
+```{r}
+#| echo: false
+#| label: "tools_q1"
+check_question(
+  "COHA (Corpus of Historical American English) via the English-Corpora.org web interface — it provides 400+ million words of balanced American English from the 1820s to the 2000s with metadata filtering by decade, accessible without any programming",
+  options = c(
+    "AntConc — it is free and works on all platforms, making it the best default choice",
+    "COHA (Corpus of Historical American English) via the English-Corpora.org web interface — it provides 400+ million words of balanced American English from the 1820s to the 2000s with metadata filtering by decade, accessible without any programming",
+    "R with quanteda — reproducibility is always the priority in academic research",
+    "SketchEngine — it has the most languages and the most advanced features"
+  ),
+  type = "radio",
+  q_id = "tools_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! COHA is specifically designed for diachronic research on American English, covering almost two centuries of balanced, genre-stratified text. The web interface provides frequency trend visualisations and metadata filtering by decade — exactly what a diachronic study requires — without any programming. AntConc would require the student to assemble and load a diachronic corpus herself, which is a significant additional task. R/quanteda is excellent but inappropriate given her current skill level and the availability of a purpose-built resource.",
+  wrong = "Not quite. The key constraints are (a) the need for diachronic American English data and (b) no programming experience. COHA (the Corpus of Historical American English) is specifically designed for exactly this use case and is accessible through a web interface. AntConc would require her to build her own diachronic corpus. R/quanteda is powerful but requires programming skills she does not yet have."
+)
+```
+
+---
+
+**Q4. A research team plans to publish a corpus study of hedging in academic writing. They have built their own corpus from PDFs and need to submit their complete workflow alongside the manuscript. Which approach is most appropriate?**
+
+```{r}
+#| echo: false
+#| label: "tools_q2"
+check_question(
+  "R with quanteda — scripted workflows are fully reproducible, can be submitted alongside the manuscript, and satisfy open science reproducibility requirements",
+  options = c(
+    "AntConc — it is the most widely used tool so reviewers will be familiar with it",
+    "WordSmith — it is the professional standard in corpus linguistics",
+    "R with quanteda — scripted workflows are fully reproducible, can be submitted alongside the manuscript, and satisfy open science reproducibility requirements",
+    "SketchEngine — it handles corpus upload and provides professional annotation automatically"
+  ),
+  type = "radio",
+  q_id = "tools_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! When reproducibility is a core requirement — as it increasingly is for publication — only a scripted workflow satisfies it fully. An R script documents every step (file loading, preprocessing, search patterns, filtering, statistical tests) in executable form that any reviewer or reader can run on the same corpus to obtain exactly the same results. GUI workflows, however carefully documented in prose, cannot achieve this level of reproducibility.",
+  wrong = "Not quite. The key requirement here is reproducibility for publication — the ability to submit an executable record of every step in the analysis. Only a scripted approach (R or Python) satisfies this requirement. GUI tools like AntConc, WordSmith, and SketchEngine produce results but do not generate a reusable, executable record of the analytical steps."
+)
+```
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages(c(
+  "quanteda",    # core concordancing and tokenisation
+  "dplyr",       # data manipulation
+  "stringr",     # string processing
+  "writexl",     # Excel export
+  "here",        # portable file paths
+  "flextable",   # formatted tables
+  "tidyr",       # data reshaping
+  "ggplot2",     # visualisation
+  "checkdown"    # interactive exercises
+))
+```
+
+## Loading Packages {-}
+
+```{r prep1, message=FALSE, warning=FALSE}
+library(quanteda)
+library(dplyr)
+library(stringr)
+library(writexl)
+library(here)
+library(flextable)
+library(tidyr)
+library(ggplot2)
+library(checkdown)
+```
+
+::: {.callout-tip}
+## Best Practice: Load Packages at the Top
+
+Always load all packages at the very top of your script, before any analysis code. This makes dependencies immediately visible to anyone reading or reusing your script and avoids the common frustration of hitting a "function not found" error halfway through a long analysis.
+:::
+
+---
+
+# Loading and Preparing Text {#loading}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to load a pre-saved text file into R; what raw text data looks like and why it requires preprocessing; how to clean text for concordancing using `stringr`; and why data preparation is an essential — not optional — step in any text analysis
+:::
+
+## Loading Alice in Wonderland {-}
+
+We use Lewis Carroll's *Alice's Adventures in Wonderland* throughout the practical sections of this tutorial. This classic novel provides rich literary language, memorable characters and constructions, sufficient length for meaningful frequency patterns, and is freely available in the public domain via Project Gutenberg.
+
+The text has been pre-downloaded and saved as an `.rda` file in the tutorial's `data/` folder so that the tutorial renders without requiring an active internet connection at knit time.
+
+```{r load_alice, message=FALSE, warning=FALSE}
+rawtext <- readRDS(here::here("tutorials/kwics/data/alice.rda"))   # loads object: rawtext
+```
+
+Let us inspect the first non-empty lines to understand the structure of the raw file:
+
+```{r inspect_raw, message=FALSE, warning=FALSE}
+rawtext[rawtext != ""] |> head(25)
+```
+
+The output reveals several features typical of Project Gutenberg files: a title page, legal boilerplate, a table of contents, and chapter headings, all preceding the actual narrative text. These must be handled before analysis.
+
+## Cleaning the Text {-}
+
+::: {.callout-warning}
+## The 80/20 Rule of Text Analysis
+
+In practice, researchers typically spend around 80% of their time cleaning and preparing data and 20% analysing it. This is not wasted effort — it is essential investment. Contaminated or inconsistently formatted data produces unreliable concordance results. Poor preparation leads to missed matches, false matches, and results that cannot be replicated.
+:::
+
+We apply three cleaning steps in sequence:
+
+```{r clean_alice, message=FALSE, warning=FALSE}
+text <- rawtext |>
+  # 1. Collapse all lines into one continuous string
+  paste0(collapse = " ") |>
+  # 2. Normalise whitespace (multiple spaces → single space)
+  stringr::str_squish() |>
+  # 3. Remove Project Gutenberg header up to and including "CHAPTER I."
+  stringr::str_remove(".*CHAPTER I\\.")
+```
+
+```{r inspect_clean, message=FALSE, warning=FALSE}
+substr(text, 1, 600)
+```
+
+**What each step does:**
+
+`paste0(collapse = " ")` collapses all the separate line elements of the vector into a single continuous string. This is necessary because `kwic()` works best on continuous text rather than line-by-line vectors.
+
+`stringr::str_squish()` removes leading and trailing whitespace and reduces any internal sequence of whitespace characters (spaces, tabs, line breaks) to a single space. This standardises spacing throughout the document.
+
+`stringr::str_remove(".*CHAPTER I\\.")` removes everything from the beginning of the string up to and including the literal text "CHAPTER I." The `.*` matches any characters (including newlines if `dotall` is set), and `\\.` is an escaped period (`.` is a special regex character meaning "any character", so we must escape it to mean a literal full stop).
+
+::: {.callout-tip}
+## Exercises: Loading and Preparing Text
+:::
+
+**Q5. You load a Project Gutenberg text and collapse it with `paste0(collapse = " ")`. Before running `str_squish()`, you notice the collapsed string contains stretches like `"Chapter  I    Down   the    Rabbit-Hole"`. What does `str_squish()` do to this, and why is this normalisation important for concordancing?**
+
+```{r}
+#| echo: false
+#| label: "load_q1"
+check_question(
+  "str_squish() reduces all internal runs of whitespace to a single space, producing 'Chapter I Down the Rabbit-Hole' — without this, tokenisation splits on whitespace and multiple spaces create empty tokens or shift context window boundaries",
+  options = c(
+    "str_squish() removes all spaces, producing 'ChapterIDowntheRabbit-Hole'",
+    "str_squish() reduces all internal runs of whitespace to a single space, producing 'Chapter I Down the Rabbit-Hole' — without this, tokenisation splits on whitespace and multiple spaces create empty tokens or shift context window boundaries",
+    "str_squish() has no effect on internal whitespace — it only removes leading and trailing spaces",
+    "str_squish() replaces spaces with underscores to prevent tokenisation errors"
+  ),
+  type = "radio",
+  q_id = "load_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! str_squish() trims leading/trailing whitespace AND reduces all internal whitespace sequences to a single space. In a concordance context, multiple consecutive spaces cause problems: tokenisers may produce empty tokens, and context window counts (measured in tokens) shift unpredictably depending on how many spaces fall within the window. Normalising to single spaces before tokenisation ensures consistent, predictable concordance output.",
+  wrong = "Not quite. str_squish() performs three operations: removing leading whitespace, removing trailing whitespace, and reducing any internal run of whitespace characters (spaces, tabs, newlines) to a single space. In concordancing, consistent single-space tokenisation is important because context windows are measured in tokens — multiple spaces would shift window boundaries and produce inconsistent results."
+)
+```
+
+---
+
+**Q6. A colleague skips the `str_remove(".*CHAPTER I\\.")` step and runs the concordance directly on the uncleaned text. What specific problems might this cause?**
+
+```{r}
+#| echo: false
+#| label: "load_q2"
+check_question(
+  "The concordance will include hits from the table of contents, chapter headings, and legal boilerplate — inflating frequency counts and introducing non-narrative context into what should be a literary analysis",
+  options = c(
+    "The concordance will not run at all — quanteda requires pre-cleaned text",
+    "The concordance will include hits from the table of contents, chapter headings, and legal boilerplate — inflating frequency counts and introducing non-narrative context into what should be a literary analysis",
+    "The regular expression will fail because the text is too long",
+    "The context windows will be too short because of all the extra text"
+  ),
+  type = "radio",
+  q_id = "load_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Project Gutenberg header includes a table of contents listing every chapter title — so any word appearing in a chapter title will be found in the concordance twice: once in the header and once in the actual narrative. The legal boilerplate also contains vocabulary that would produce spurious hits. For a literary analysis, the researcher almost certainly wants to analyse only the narrative text, making header removal an essential preprocessing step.",
+  wrong = "Not quite. quanteda will process the uncleaned text without error — the problem is analytic, not technical. The Project Gutenberg header includes a table of contents that lists chapter titles, so chapter title words will appear in both the header and the narrative body, inflating their frequency. The legal boilerplate at the start contains vocabulary that has nothing to do with the literary text. Removing the header is essential for a clean analysis."
+)
+```
+
+---
+
+# Creating Concordances with quanteda {#kwic}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How `quanteda::kwic()` works; the structure of the KWIC output table; how to control the context window size; how to search for single words, phrases, and case-insensitive patterns; and how to interpret and count concordance results
+:::
+
+## Basic KWIC Extraction {-}
+
+The `kwic()` function is quanteda's concordancing engine. It requires a **tokens object** as its first argument — raw text must be passed through `quanteda::tokens()` before it can be concordanced.
+
+```{r basic_kwic, message=FALSE, warning=FALSE}
+mykwic <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern = quanteda::phrase("Alice")
+) |>
+  as.data.frame()
+```
+
+```{r basic_kwic_display, echo=FALSE, message=FALSE, warning=FALSE}
+mykwic |>
+  head(8) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "First 8 concordance lines for 'Alice' in Alice's Adventures in Wonderland.") |>
+  flextable::border_outer()
+```
+
+## The Concordance Table Structure {-}
+
+The output is a data frame with six key columns:
+
+| Column | Contents |
+|---|---|
+| `docname` | Source document name (useful for multi-text corpora) |
+| `from` | Start position (token index) of the match |
+| `to` | End position (token index) of the match |
+| `pre` | Left context — tokens to the left of the keyword |
+| `keyword` | The matched token(s) |
+| `post` | Right context — tokens to the right of the keyword |
+
+The `pre` and `post` columns contain the context window. By default, `kwic()` returns 5 tokens on each side.
+
+## Counting Matches {-}
+
+```{r count_kwic, message=FALSE, warning=FALSE}
+nrow(mykwic)
+```
+
+There are `r nrow(mykwic)` occurrences of "Alice" in the text. We can also see what exact forms were matched:
+
+```{r table_kwic, message=FALSE, warning=FALSE}
+table(mykwic$keyword)
+```
+
+## Adjusting the Context Window {-}
+
+The `window` argument controls how many tokens appear on each side of the keyword. The default is 5; wider windows provide more context for interpretation, while narrower windows are better for studying immediate collocates.
+
+```{r wide_kwic, message=FALSE, warning=FALSE}
+mykwic_wide <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern = quanteda::phrase("Alice"),
+  window  = 10
+) |>
+  as.data.frame()
+
+head(mykwic_wide, 4)
+```
+
+**Guidelines for window size:**
+
+- **3 tokens** — immediate collocates; tight focus on the word's closest neighbours
+- **5 tokens** (default) — a good general starting point; captures most relevant local context
+- **10–15 tokens** — sentence-level context; useful for pragmatic and discourse analysis
+- **20+ tokens** — paragraph-level context; rarely needed and can make concordance lines unwieldy
+
+## Phrase Search {-}
+
+`quanteda::phrase()` tells `kwic()` to treat a multi-word expression as a single search unit. Without `phrase()`, each word would be searched independently.
+
+```{r phrase_kwic, message=FALSE, warning=FALSE}
+kwic_pooralice <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern = quanteda::phrase("poor Alice")
+) |>
+  as.data.frame()
+
+nrow(kwic_pooralice)
+head(kwic_pooralice, 5)
+```
+
+## Case-Insensitive Search {-}
+
+By default, `kwic()` is case-sensitive. Setting `case_insensitive = TRUE` matches all capitalisation variants:
+
+```{r case_kwic, message=FALSE, warning=FALSE}
+kwic_ci <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern          = quanteda::phrase("alice"),
+  case_insensitive = TRUE
+) |>
+  as.data.frame()
+
+# Compare case-sensitive vs case-insensitive counts
+cat("Case-sensitive matches:", nrow(mykwic), "\n")
+cat("Case-insensitive matches:", nrow(kwic_ci), "\n")
+```
+
+## Searching Multiple Patterns Simultaneously {-}
+
+Pass a character vector to `pattern` (with `phrase()`) to search for several expressions in one call:
+
+```{r multi_kwic, message=FALSE, warning=FALSE}
+alice_variants <- c("poor Alice", "little Alice", "dear Alice")
+
+kwic_variants <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern = quanteda::phrase(alice_variants)
+) |>
+  as.data.frame()
+
+table(kwic_variants$keyword)
+```
+
+::: {.callout-tip}
+## Exercises: Creating Concordances
+:::
+
+**Q7. You run `kwic(tokens(text), pattern = phrase("the Hatter"))` and get 37 results. You then run `kwic(tokens(text), pattern = phrase("the hatter"), case_insensitive = TRUE)` and get 42 results. What explains the 5 additional matches in the second run?**
+
+```{r}
+#| echo: false
+#| label: "kwic_q1"
+check_question(
+  "The 5 additional matches are instances where 'the hatter' appears with non-standard capitalisation — for example at the beginning of a sentence ('The hatter') or in dialogue where the name is written in lowercase",
+  options = c(
+    "The case-insensitive search found 5 errors in the text where the author misspelled the name",
+    "The 5 additional matches are instances where 'the hatter' appears with non-standard capitalisation — for example at the beginning of a sentence ('The hatter') or in dialogue where the name is written in lowercase",
+    "The case-insensitive search is less accurate and produces 5 false positives",
+    "The additional matches come from the Project Gutenberg header which was not fully removed"
+  ),
+  type = "radio",
+  q_id = "kwic_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In a literary text, a character's name may appear with different capitalisation in different positions. At the start of a sentence, 'The' is always capitalised, but 'hatter' might appear in lowercase. In the case-sensitive search, only the capitalised form 'the Hatter' is matched. The case-insensitive search additionally captures 'The hatter', 'the hatter', and any other capitalisation variant. The additional 5 matches represent these variant-capitalisation instances.",
+  wrong = "Not quite. The difference between case-sensitive and case-insensitive search is purely about capitalisation. The 5 additional matches found by the case-insensitive search are instances of the same phrase with different capitalisation — most likely sentence-initial position where 'The' is capitalised but 'hatter' is not, or occurrences where the author used lowercase throughout."
+)
+```
+
+---
+
+**Q8. What is the difference between `kwic(tokens(text), pattern = "poor Alice")` and `kwic(tokens(text), pattern = phrase("poor Alice"))`?**
+
+```{r}
+#| echo: false
+#| label: "kwic_q2"
+check_question(
+  "Without phrase(), quanteda treats 'poor Alice' as two separate search terms and finds all tokens matching either 'poor' or 'Alice' anywhere in the text; with phrase(), it searches for the two words as a contiguous unit",
+  options = c(
+    "There is no difference — both search for the phrase 'poor Alice'",
+    "Without phrase(), quanteda treats 'poor Alice' as two separate search terms and finds all tokens matching either 'poor' or 'Alice' anywhere in the text; with phrase(), it searches for the two words as a contiguous unit",
+    "Without phrase(), the search is case-sensitive; phrase() makes it case-insensitive",
+    "phrase() is only needed for expressions of three or more words; two-word expressions work without it"
+  ),
+  type = "radio",
+  q_id = "kwic_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! quanteda::kwic() accepts either a single pattern token or a multi-token phrase object. Without phrase(), a multi-word string is treated as a glob pattern matching individual tokens, which produces unexpected results for multi-word expressions. phrase() instructs kwic() to require the tokens to appear consecutively in order — i.e., to treat the expression as a single search unit. Always use phrase() when searching for multi-word expressions.",
+  wrong = "Not quite. The phrase() wrapper has a specific and important function: it tells quanteda to treat the expression as a contiguous multi-token unit. Without phrase(), a string like 'poor Alice' is interpreted as a glob pattern matching individual tokens, which may return all tokens matching 'poor' OR 'Alice' separately. With phrase(), both tokens must appear consecutively for a match to be returned."
+)
+```
+
+---
+
+# Exporting Concordances {#export}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to export concordances to Excel, CSV, and R's native `.rds` format; how to use `here()` for portable file paths; and how to create formatted concordance tables for reports and presentations
+:::
+
+## Exporting to Excel {-}
+
+Excel is the most widely compatible format for sharing concordances with colleagues who do not use R:
+
+```{r export_excel, eval=FALSE, message=FALSE, warning=FALSE}
+writexl::write_xlsx(mykwic, here::here("output", "alice_concordance.xlsx"))
+```
+
+::: {.callout-tip}
+## Using `here()` for File Paths
+
+The `here` package constructs file paths relative to your RStudio project root, making your code portable across operating systems and user accounts:
+
+```r
+# Hard-coded path — breaks on any other machine
+write_xlsx(data, "C:/Users/Martin/Documents/project/output/file.xlsx")
+
+# here() path — works anywhere the project folder is
+write_xlsx(data, here::here("output", "file.xlsx"))
+```
+
+Always use `here::here()` in scripts you intend to share.
+:::
+
+## Other Export Formats {-}
+
+```{r other_exports, eval=FALSE, message=FALSE, warning=FALSE}
+# CSV — universal plain-text format, ideal for version control
+write.csv(mykwic, here::here("output", "concordance.csv"), row.names = FALSE)
+
+# Tab-separated — handles commas in text better than CSV
+write.table(mykwic, here::here("output", "concordance.tsv"),
+            sep = "\t", row.names = FALSE)
+
+# R native format — preserves all R object attributes, smallest file size
+saveRDS(mykwic, here::here("output", "concordance.rds"))
+
+# Reload later
+mykwic_reloaded <- readRDS(here::here("output", "concordance.rds"))
+```
+
+| Format | Best for |
+|---|---|
+| `.xlsx` | Sharing with non-R users; easy manual annotation |
+| `.csv` | Plain-text exchange; version control (Git-friendly) |
+| `.tsv` | Large texts with commas in content |
+| `.rds` | R-to-R sharing; preserves object class and attributes |
+
+## Formatted Tables for Reports {-}
+
+For presentations and papers, use `flextable` to create publication-ready concordance displays:
+
+```{r formatted_table, message=FALSE, warning=FALSE}
+mykwic |>
+  head(10) |>
+  dplyr::select(pre, keyword, post) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Concordance of 'Alice' — first 10 instances.") |>
+  flextable::border_outer()
+```
+
+---
+
+# Regular Expressions for Pattern Matching {#regex}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What regular expressions are and why they are essential for flexible concordancing; the three main categories of regex operator (frequency quantifiers, character classes, position anchors); how to use `valuetype = "regex"` in `kwic()`; and how to apply regex to find morphological word families, words of specific structures, and complex patterns
+:::
+
+## What Are Regular Expressions? {-}
+
+A **regular expression** (regex) is a sequence of characters that describes a search pattern. Where a literal search finds only the exact string specified, a regex can match an entire family of strings defined by a structural rule. For concordancing, this means that instead of running separate searches for *walk*, *walks*, *walked*, and *walking*, a single regex `\\bwalk\\w*` finds all of them at once.
+
+Regular expressions operate through three main types of operator:
+
+## Frequency Quantifiers {-}
+
+These control how many times a unit must appear:
+
+```{r regex_freq, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Symbol = c("?", "*", "+", "{n}", "{n,}", "{n,m}"),
+  Meaning = c(
+    "Preceding item is optional (0 or 1 times)",
+    "Preceding item appears 0 or more times",
+    "Preceding item appears 1 or more times",
+    "Preceding item appears exactly n times",
+    "Preceding item appears at least n times",
+    "Preceding item appears between n and m times"
+  ),
+  Example = c(
+    "colou?r → colour, color",
+    "walk\\w* → walk, walks, walked, walking",
+    "walk\\w+ → walks, walked, walking (not bare walk)",
+    "\\w{5} → any 5-letter word",
+    "\\w{5,} → words of 5 or more letters",
+    "\\w{4,6} → words of 4, 5 or 6 letters"
+  )
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Regular expression frequency quantifiers.") |>
+  flextable::border_outer()
+```
+
+## Character Classes {-}
+
+These represent sets of characters:
+
+```{r regex_classes, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Symbol = c("[ab]", "[A-Z]", "[0-9]", "[:digit:]", "[:lower:]",
+             "[:upper:]", "[:alpha:]", "[:alnum:]", "[:punct:]", "."),
+  Meaning = c(
+    "Literal a or b",
+    "Any uppercase letter A through Z",
+    "Any digit 0 through 9",
+    "Any digit (equivalent to [0-9])",
+    "Any lowercase letter",
+    "Any uppercase letter",
+    "Any letter (upper or lower)",
+    "Any letter or digit",
+    "Any punctuation character",
+    "Any single character (wildcard)"
+  )
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Regular expression character classes.") |>
+  flextable::border_outer()
+```
+
+## Position Anchors {-}
+
+These constrain where in a string the pattern must match:
+
+```{r regex_anchors, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Symbol = c("\\\\b", "\\\\B", "^", "$"),
+  Meaning = c(
+    "Word boundary (between a word character and a non-word character)",
+    "Non-boundary (inside a word, between two word characters)",
+    "Start of the string",
+    "End of the string"
+  ),
+  Example = c(
+    "\\\\brun\\\\b matches run but not running or rerun",
+    "\\\\Brun\\\\B matches the run in rerunning but not standalone run",
+    "^Alice matches Alice only at the very start of the text",
+    "Alice$ matches Alice only at the very end of the text"
+  )
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Regular expression position anchors.") |>
+  flextable::border_outer()
+```
+
+## Using Regex in kwic() {-}
+
+Set `valuetype = "regex"` to activate regular expression matching:
+
+```{r regex_kwic, message=FALSE, warning=FALSE}
+# Find all words beginning with "alic" OR "hatt"
+kwic_regex <- quanteda::kwic(
+  quanteda::tokens(text),
+  pattern   = "\\b(alic|hatt)\\w*",
+  valuetype = "regex"
+) |>
+  as.data.frame()
+
+table(kwic_regex$keyword)
+```
+
+**Pattern breakdown:**
+
+- `\\b` — word boundary: the match must begin at the start of a word
+- `(alic|hatt)` — alternation: either "alic" or "hatt"
+- `\\w*` — zero or more word characters: captures any continuation of the stem
+
+```{r regex_kwic_display, echo=FALSE, message=FALSE, warning=FALSE}
+kwic_regex |>
+  head(8) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Concordance results using the regex pattern \\b(alic|hatt)\\w*.") |>
+  flextable::border_outer()
+```
+
+## Common Regex Concordance Patterns {-}
+
+```{r regex_examples, eval=FALSE, message=FALSE, warning=FALSE}
+# All morphological forms of "think"
+kwic(tokens(text), pattern = "\\bthink\\w*", valuetype = "regex")
+# Matches: think, thinks, thinking, thinker, thought (if you add |thought)
+
+# Words ending in "-tion"
+kwic(tokens(text), pattern = "\\w+tion\\b", valuetype = "regex")
+
+# Words ending in "-ing"
+kwic(tokens(text), pattern = "\\w+ing\\b", valuetype = "regex")
+
+# Exactly four-letter words
+kwic(tokens(text), pattern = "\\b\\w{4}\\b", valuetype = "regex")
+
+# Words of ten or more letters
+kwic(tokens(text), pattern = "\\b\\w{10,}\\b", valuetype = "regex")
+
+# Words beginning with un- (negative prefix)
+kwic(tokens(text), pattern = "\\bun\\w+", valuetype = "regex")
+
+# Words beginning with a vowel
+kwic(tokens(text), pattern = "\\b[aeiou]\\w*", valuetype = "regex")
+```
+
+::: {.callout-warning}
+## Test Regex Patterns Before Running
+
+Regular expressions can be deceptively fragile. Small errors produce patterns that match either too much (returning thousands of false positives) or too little (missing the intended targets silently). Best practice is to test your pattern on a small sample using `stringr::str_detect()` or an online regex tester (e.g., regex101.com) before running it on a full corpus. Always inspect a random sample of the results to verify the pattern is working as intended.
+:::
+
+::: {.callout-tip}
+## Exercises: Regular Expressions
+:::
+
+**Q9. A researcher wants to find all words in the Alice text that begin with the prefix *re-* (such as *return*, *repeat*, *remember*). She writes the pattern `"re\\w*"` with `valuetype = "regex"`. What is the problem with this pattern, and how should it be fixed?**
+
+```{r}
+#| echo: false
+#| label: "regex_q1"
+check_question(
+  "The pattern matches 're' anywhere in a word, including in the middle (e.g. 'already', 'great', 'very') — adding \\\\b at the start fixes this by requiring the match to begin at a word boundary",
+  options = c(
+    "The pattern is correct — re\\\\w* only matches word-initial re-",
+    "The pattern matches 're' anywhere in a word, including in the middle (e.g. 'already', 'great', 'very') — adding \\\\b at the start fixes this by requiring the match to begin at a word boundary",
+    "The \\\\w* quantifier should be \\\\w+ to require at least one letter after 're'",
+    "The pattern needs case_insensitive = TRUE to catch 'Re-' at sentence starts"
+  ),
+  type = "radio",
+  q_id = "regex_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Without a word boundary anchor \\b at the start, re\\w* matches any substring beginning with 're' anywhere in a word — including 'already' (which contains 'ready'), 'great' (which contains 're' embedded), and 'very'. The fix is \\bre\\w*, which restricts the match to positions at the start of a word. Adding \\w+ instead of \\w* is also a good idea if you want to exclude bare 're' as a match, since the prefix always attaches to a base.",
+  wrong = "Not quite. The issue is the absence of a word boundary anchor. The pattern re\\w* matches any occurrence of the letters 're' followed by zero or more word characters, regardless of where in a word 're' appears. Words like 'already', 'great', 'theatre', and 'very' all contain 're' and would be matched. The fix is to add \\b before 're' to anchor the match to the start of a word: \\bre\\w+."
+)
+```
+
+---
+
+**Q10. You want to find all words in the text that end in either *-ful* or *-less* (e.g. *careful*, *careless*, *wonderful*, *hopeless*). Write the regex pattern you would use.**
+
+```{r}
+#| echo: false
+#| label: "regex_q2"
+check_question(
+  "\\\\w+(ful|less)\\\\b — this matches one or more word characters followed by either 'ful' or 'less' at a word boundary",
+  options = c(
+    "(ful|less) — the alternation alone is sufficient",
+    "\\\\w+(ful|less)\\\\b — this matches one or more word characters followed by either 'ful' or 'less' at a word boundary",
+    ".*ful|.*less — this uses the dot-star wildcard to match any prefix",
+    "\\\\b\\\\w+(ful|less) — the boundary should be at the start, not the end"
+  ),
+  type = "radio",
+  q_id = "regex_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! \\w+(ful|less)\\b requires at least one word character before the suffix (\\w+), followed by either 'ful' or 'less' as an alternation group, anchored at a word boundary (\\b) to prevent matching e.g. 'fulness' when you only want words ending in '-ful'. The \\w+ before the alternation ensures the suffix is attached to a stem rather than matching bare 'ful' or 'less'. The dot-star alternative (.*ful|.*less) would also work but is less precise — \\w+ is preferable because it restricts matches to word characters.",
+  wrong = "Not quite. The pattern needs three components: (1) a requirement for a stem before the suffix — \\w+ matches one or more word characters; (2) an alternation group for the two possible suffixes — (ful|less); (3) a word boundary anchor \\b at the end to prevent matching words where -ful or -less is not the final element (e.g. 'fulness'). The full pattern is \\w+(ful|less)\\b."
+)
+```
+
+---
+
+# Filtering and Sorting Concordances {#filtering}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to use `dplyr` pipelines to filter concordance output by context patterns; how to sort concordances alphabetically and by collocate frequency; how to extract the immediate left and right neighbours of a keyword; and why sorting and filtering are essential for moving from raw concordance output to linguistic insight
+:::
+
+## Why Filtering and Sorting Matter {-}
+
+A raw concordance of a high-frequency word in a full-length novel may contain hundreds or thousands of lines. The analytical work of concordancing only begins once the raw output has been filtered to relevant instances and sorted in ways that group similar contexts together. Two operations are central to this:
+
+**Filtering** restricts the concordance to lines meeting a specified context condition — for example, instances of *said* preceded by a character name, or instances of *very* followed by an adjective. Filtering uses `dplyr::filter()` in combination with `stringr::str_detect()`.
+
+**Sorting** reorders the concordance lines to surface patterns. Alphabetical sorting by the word immediately following the keyword groups lines that share the same collocate. Frequency sorting prioritises the most common collocates, immediately revealing the strongest patterns in the data.
+
+## Filtering by Context Pattern {-}
+
+The following pipeline finds instances of *alice* only when the immediately preceding word is *poor* or *little*:
+
+```{r filter_kwic, message=FALSE, warning=FALSE}
+kwic_filtered <- quanteda::kwic(
+  x       = quanteda::tokens(text),
+  pattern = "alice",
+  case_insensitive = TRUE
+) |>
+  as.data.frame() |>
+  # Keep only lines where the last word of the left context is "poor" or "little"
+  dplyr::filter(stringr::str_detect(pre, "(poor|little)$"))
+
+nrow(kwic_filtered)
+```
+
+```{r filter_display, echo=FALSE, message=FALSE, warning=FALSE}
+kwic_filtered |>
+  head(10) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Instances of 'alice' immediately preceded by 'poor' or 'little'.") |>
+  flextable::border_outer()
+```
+
+**Pattern anatomy:** `str_detect(pre, "(poor|little)$")` checks whether the `pre` column (the left context string) ends with (`$`) either *poor* or *little*. The `$` anchor is important: without it, the filter would also match lines where *poor* or *little* appears earlier in the left context but is not the immediately preceding word.
+
+## Multiple Conditions {-}
+
+Conditions can be combined with `&` (AND) or `|` (OR):
+
+```{r multi_filter, message=FALSE, warning=FALSE}
+# Find "said" preceded by a character name AND followed by a comma or period
+kwic_said <- quanteda::kwic(
+  x       = quanteda::tokens(text),
+  pattern = "said"
+) |>
+  as.data.frame() |>
+  dplyr::filter(
+    stringr::str_detect(pre,  "(Alice|Hatter|Queen|King|Cat|Mouse)$"),
+    stringr::str_detect(post, "^[,.]")
+  )
+
+head(kwic_said, 8)
+```
+
+This pipeline extracts speech acts of the form "[Character name] said, ..." — a common construction in narrative fiction.
+
+## Alphabetical Sorting {-}
+
+Sorting alphabetically by the right context groups together lines with the same immediately following word, making collocational patterns immediately visible:
+
+```{r sort_alpha, message=FALSE, warning=FALSE}
+kwic_sorted_alpha <- quanteda::kwic(
+  x       = quanteda::tokens(text),
+  pattern = "alice",
+  case_insensitive = TRUE
+) |>
+  as.data.frame() |>
+  dplyr::arrange(post)
+
+head(kwic_sorted_alpha, 8)
+```
+
+## Frequency Sorting {-}
+
+Frequency sorting identifies the most common collocates — the words that appear most often immediately before or after the keyword:
+
+```{r sort_freq, message=FALSE, warning=FALSE}
+kwic_sorted_freq <- quanteda::kwic(
+  x       = quanteda::tokens(text),
+  pattern = "alice",
+  case_insensitive = TRUE
+) |>
+  as.data.frame() |>
+  # Extract the first word of the right context
+  dplyr::mutate(post1 = stringr::str_extract(post, "^\\w+")) |>
+  # Count how often each right-context word occurs
+  dplyr::add_count(post1, name = "post1_freq") |>
+  # Sort from most to least frequent
+  dplyr::arrange(dplyr::desc(post1_freq))
+
+head(kwic_sorted_freq |> dplyr::select(pre, keyword, post, post1, post1_freq), 12)
+```
+
+```{r freq_table, message=FALSE, warning=FALSE}
+# Summary table: top 10 right-context collocates
+kwic_sorted_freq |>
+  dplyr::distinct(post1, post1_freq) |>
+  dplyr::arrange(dplyr::desc(post1_freq)) |>
+  head(10) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .4, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Top 10 words immediately following 'alice'.") |>
+  flextable::border_outer()
+```
+
+## Extracting N-gram Collocates {-}
+
+It is often useful to extract not just the immediately adjacent word but the first two or three words on each side, building a more complete collocational profile:
+
+```{r ngram_collocates, message=FALSE, warning=FALSE}
+kwic_ngram <- quanteda::kwic(
+  x       = quanteda::tokens(text),
+  pattern = "alice",
+  case_insensitive = TRUE,
+  window  = 5
+) |>
+  as.data.frame() |>
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    post1 = stringr::str_split(post, " ")[[1]][1],
+    post2 = stringr::str_split(post, " ")[[1]][2],
+    pre1  = dplyr::last(stringr::str_split(pre, " ")[[1]]),
+    pre2  = rev(stringr::str_split(pre, " ")[[1]])[2]
+  ) |>
+  dplyr::ungroup()
+
+# Most common bigrams following "alice"
+kwic_ngram |>
+  dplyr::count(post1, post2, sort = TRUE) |>
+  head(10) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .4, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Most frequent bigrams immediately following 'alice'.") |>
+  flextable::border_outer()
+```
+
+::: {.callout-tip}
+## Exercises: Filtering and Sorting
+:::
+
+**Q11. You extract a concordance of the word *thought* in the Alice text and want to find only instances where the preceding context ends with *she* (i.e. "she thought"). Which `dplyr::filter()` call achieves this?**
+
+```{r}
+#| echo: false
+#| label: "filter_q1"
+check_question(
+  "dplyr::filter(str_detect(pre, 'she$')) — the $ anchor requires 'she' to be the last element of the left context string",
+  options = c(
+    "dplyr::filter(pre == 'she') — the pre column must equal 'she' exactly",
+    "dplyr::filter(str_detect(pre, 'she$')) — the $ anchor requires 'she' to be the last element of the left context string",
+    "dplyr::filter(str_detect(pre, '^she')) — the ^ anchor finds 'she' at the start of the left context",
+    "dplyr::filter(keyword == 'she thought') — filter on the keyword column"
+  ),
+  type = "radio",
+  q_id = "filter_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The pre column contains the full left-context string (e.g. 'looking at it she'). To select only lines where the word immediately before the keyword is 'she', we need str_detect(pre, 'she$') — the $ anchor at the end of the pattern means 'she' must be the final word in the pre string. Without the anchor, str_detect(pre, 'she') would also match lines where 'she' appears somewhere earlier in the left context but is not the immediately preceding word.",
+  wrong = "Not quite. The pre column contains the full left-context string, not just the immediately preceding word. pre == 'she' would require the entire left context to be exactly 'she' — almost never the case with a 5-token window. str_detect(pre, '^she') uses a start-of-string anchor and would find 'she' at the beginning of the context window, not immediately before the keyword. The correct approach is str_detect(pre, 'she$') — the $ anchor ensures 'she' is the last word in the left context."
+)
+```
+
+---
+
+**Q12. After sorting a concordance of *very* by frequency of the immediately following word, you find that *much* is the most frequent right-context collocate. What does this tell you about the grammatical behaviour of *very* in the text, and what follow-up analysis might you do?**
+
+```{r}
+#| echo: false
+#| label: "filter_q2"
+check_question(
+  "*very much* is a strong fixed collocation; a follow-up analysis could examine what *very much* itself modifies (its own right context) to understand the pragmatic contexts in which this intensifier phrase appears",
+  options = c(
+    "It tells us *very* is used incorrectly — 'very much' is not standard English",
+    "*very much* is a strong fixed collocation; a follow-up analysis could examine what *very much* itself modifies (its own right context) to understand the pragmatic contexts in which this intensifier phrase appears",
+    "It means *much* is the most common word in the text overall",
+    "The finding is not meaningful because frequency sorting always puts function words first"
+  ),
+  type = "radio",
+  q_id = "filter_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The high frequency of 'much' as the immediate right-context collocate of 'very' identifies 'very much' as a strong lexical collocation — a fixed or semi-fixed multi-word unit. This is a standard finding in collocation analysis: many adverb+modifier combinations function as units. Useful follow-up analyses include: (1) extracting all 'very much' instances and examining what they modify or how they function pragmatically; (2) comparing the proportion of 'very much' vs. 'very + adjective' constructions; (3) studying whether 'very much' is used as a degree modifier or as a polite intensifier in different contexts.",
+  wrong = "Not quite. 'Very much' being a frequent collocation is a linguistically meaningful finding — it suggests that 'very' in this text often functions as part of the fixed expression 'very much' rather than as a pre-adjectival intensifier (e.g. 'very large'). The appropriate follow-up is to treat 'very much' as a unit and study its distribution and function — a standard step in collocation analysis."
+)
+```
+
+---
+
+# Working with Spoken Transcripts {#transcripts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How spoken language transcripts differ structurally from written text; how to load and preprocess ICE-Ireland transcript files; how to handle annotation markup in concordancing; and how to extract and analyse discourse markers in spoken data
+:::
+
+## Characteristics of Spoken Transcripts {-}
+
+Spoken language transcripts differ from written texts in several ways that require adapted preprocessing:
+
+**Speaker turn structure** — transcripts are organised by speaker turns, often with speaker IDs encoded in annotation tags.
+
+**Paralinguistic markers** — laughter, coughing, pauses, and overlaps are typically encoded using special markup: `<,>` for pauses, `<&> laughter </&>` for paralinguistic events.
+
+**Incomplete and non-standard forms** — spoken language contains false starts, filled pauses (*uh*, *um*), and incomplete utterances that do not correspond to standard written sentences.
+
+**Metadata headers** — corpus transcripts typically begin with file-level metadata: recording date, speaker demographics, and topic information.
+
+These features mean that the same preprocessing pipeline used for written texts will not work cleanly for transcripts. The approach must be adapted to the specific annotation conventions of the corpus being used.
+
+## Loading ICE-Ireland Transcripts {-}
+
+We work with a sample of five files from the spoken dialogue section of the International Corpus of English — Irish component:
+
+```{r trans_load, message=FALSE, warning=FALSE}
+files <- paste0("tutorials/kwics/data/ICEIrelandSample/S1A-00", 1:5, ".txt")
+
+transcripts <- sapply(files, readLines, USE.NAMES = TRUE)
+```
+
+```{r trans_inspect, message=FALSE, warning=FALSE}
+# Inspect the first 12 lines of the first file
+transcripts[[1]][1:12]
+```
+
+The output reveals the ICE annotation conventions:
+
+- `<S1A-001 Riding>` — file header with ID and title
+- `<I>` — transcript start marker
+- `<S1A-001$A>` — speaker A in file 001
+- `<#>` — speech unit boundary
+- `<,>` — pause
+- `<&> laughter </&>` — paralinguistic event
+
+## Collapsing and Cleaning Transcripts {-}
+
+For basic concordancing we collapse each transcript to a single string and normalise whitespace. We retain the annotation tags for now — they can be used later to extract speaker-specific data:
+
+```{r trans_collapse, message=FALSE, warning=FALSE}
+transcripts_collapsed <- sapply(transcripts, function(x) {
+  x |>
+    paste0(collapse = " ") |>
+    stringr::str_squish()
+})
+
+# Preview the first 400 characters of the first transcript
+substr(transcripts_collapsed[[1]], 1, 400)
+```
+
+## Concordancing Transcripts {-}
+
+We search for the discourse marker *you know*, a high-frequency pragmatic expression in spoken Irish English used to signal common ground, manage turn-taking, and mark informational status:
+
+```{r trans_kwic, message=FALSE, warning=FALSE}
+kwic_youknow <- quanteda::kwic(
+  # Use "fasterword" tokeniser to preserve annotation tags as tokens
+  quanteda::tokens(transcripts_collapsed, what = "fasterword"),
+  pattern = quanteda::phrase("you know"),
+  window  = 10
+) |>
+  as.data.frame() |>
+  # Clean up document names to show only the file ID
+  dplyr::mutate(docname = stringr::str_extract(docname, "S1A-\\d+"))
+```
+
+```{r trans_display, echo=FALSE, message=FALSE, warning=FALSE}
+kwic_youknow |>
+  head(10) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::set_caption(caption = "Concordance of 'you know' in five ICE-Ireland spoken dialogue files.") |>
+  flextable::border_outer()
+```
+
+::: {.callout-note}
+## Why `what = "fasterword"`?
+
+The default `quanteda::tokens()` tokeniser strips punctuation and special characters. For annotated transcripts, this would remove the `<#>`, `<,>`, and speaker tags — information that may be important for the analysis. `what = "fasterword"` tokenises by whitespace only, preserving tags as tokens. A wider context window (here, 10) is also appropriate for spoken data because pauses, tags, and fillers occupy tokens within the window.
+:::
+
+## Distribution Across Files {-}
+
+We can compare the frequency of *you know* across the five files:
+
+```{r trans_distribution, message=FALSE, warning=FALSE}
+kwic_youknow |>
+  dplyr::count(docname, name = "n_youknow") |>
+  dplyr::arrange(dplyr::desc(n_youknow)) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .35, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Frequency of 'you know' per file.") |>
+  flextable::border_outer()
+```
+
+## Filtering Out Annotation Tags {-}
+
+For some analyses, it is preferable to work with clean text from which all annotation markup has been removed. We can strip tags before concordancing:
+
+```{r trans_clean, message=FALSE, warning=FALSE}
+transcripts_clean <- sapply(transcripts_collapsed, function(x) {
+  x |>
+    # Remove all XML-style tags
+    stringr::str_remove_all("<[^>]+>") |>
+    # Remove multiple spaces left by tag removal
+    stringr::str_squish()
+})
+
+substr(transcripts_clean[[1]], 1, 300)
+```
+
+```{r trans_clean_kwic, message=FALSE, warning=FALSE}
+kwic_yk_clean <- quanteda::kwic(
+  quanteda::tokens(transcripts_clean),
+  pattern = quanteda::phrase("you know"),
+  window  = 7
+) |>
+  as.data.frame()
+
+head(kwic_yk_clean, 5)
+```
+
+::: {.callout-tip}
+## Exercises: Spoken Transcripts
+:::
+
+**Q13. You are studying hedging in spoken Irish English and want to find all instances of *kind of* and *sort of* in the ICE transcripts. Write the `kwic()` call that would achieve this using both the annotated and cleaned versions of the transcripts.**
+
+```{r}
+#| echo: false
+#| label: "trans_q1"
+check_question(
+  "kwic(tokens(transcripts_collapsed, what = 'fasterword'), pattern = phrase(c('kind of', 'sort of')), window = 7) for annotated; replace tokens(..., what='fasterword') with tokens(transcripts_clean) for the cleaned version",
+  options = c(
+    "kwic(transcripts_collapsed, pattern = 'kind of|sort of', valuetype = 'regex')",
+    "kwic(tokens(transcripts_collapsed, what = 'fasterword'), pattern = phrase(c('kind of', 'sort of')), window = 7) for annotated; replace tokens(..., what='fasterword') with tokens(transcripts_clean) for the cleaned version",
+    "kwic(tokens(transcripts_collapsed), pattern = phrase('kind of sort of'))",
+    "filter(kwic_youknow, str_detect(keyword, 'kind|sort'))"
+  ),
+  type = "radio",
+  q_id = "trans_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! For the annotated transcripts, what = 'fasterword' is needed to preserve the annotation tags. To search for two different phrases simultaneously, pass a character vector to pattern inside phrase(). For the cleaned transcripts, the default tokeniser works fine since tags have been removed. A wider context window (7–10) is appropriate for spoken data where pauses and tags consume tokens within the window.",
+  wrong = "Not quite. Two issues: (1) for multi-word phrases, you must use phrase() — without it, 'kind of' would be treated as two separate search terms. (2) For the annotated transcripts, you need what = 'fasterword' to prevent the default tokeniser from stripping the annotation tags. The correct call is: kwic(tokens(transcripts_collapsed, what = 'fasterword'), pattern = phrase(c('kind of', 'sort of')), window = 7)."
+)
+```
+
+---
+
+**Q14. After running a concordance of *you know* on the annotated transcripts, you notice that many concordance lines contain annotation tags like `<#>` and `<,>` in the context windows. A colleague says you should always remove the tags before concordancing. Do you agree?**
+
+```{r}
+#| echo: false
+#| label: "trans_q2"
+check_question(
+  "It depends on the research question — if you are studying the relationship between 'you know' and speech unit boundaries or pauses, the tags are informative and should be retained; if you are studying lexical collocates, removing them is sensible",
+  options = c(
+    "Yes — tags should always be removed because they are not linguistic content",
+    "No — tags should always be retained because they encode important prosodic information",
+    "It depends on the research question — if you are studying the relationship between 'you know' and speech unit boundaries or pauses, the tags are informative and should be retained; if you are studying lexical collocates, removing them is sensible",
+    "It does not matter — quanteda ignores annotation tags automatically"
+  ),
+  type = "radio",
+  q_id = "trans_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The decision to retain or remove annotation markup depends entirely on the research question. If you are studying whether 'you know' tends to appear at speech unit boundaries (marked by <#>) or before or after pauses (marked by <,>), the tags are the data — removing them would destroy the evidence you need. If you are studying the lexical environment of 'you know' (what words collocate with it), the tags are noise that should be removed to bring the lexical collocates into the context window. Good corpus methodology always begins with a clear research question before deciding how to preprocess the data.",
+  wrong = "Not quite. Whether to retain or remove annotation tags is not a universal methodological decision — it depends on what the tags represent and what the research question is. Tags encoding speech unit boundaries, pauses, or speaker turns are linguistic data in their own right. If the research question involves these phenomena, removing the tags destroys the evidence. If the question is purely about lexical collocates, removing tags is appropriate."
+)
+```
+
+---
+
+# A Custom Concordance Function {#custom}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How `quanteda::kwic()` works internally; how to build an improved custom concordance function with character-based (rather than token-based) context windows, structured output with named columns, and input validation; and when a custom function provides capabilities that `kwic()` does not
+:::
+
+## Why Build a Custom Function? {-}
+
+`quanteda::kwic()` is an excellent, well-tested concordancer for the vast majority of use cases. There are, however, situations where a custom function is useful:
+
+- **Character-based context windows** — `kwic()` measures context in tokens. For some analyses (e.g. studies of typographic or layout features, or working with very short texts), a character-count window is more appropriate.
+- **Fine-grained output control** — a custom function can return exactly the columns and naming conventions your workflow requires without post-hoc renaming.
+- **Educational transparency** — writing the function from scratch makes the mechanics of concordancing explicit and demystifiable.
+- **Integration with non-standard inputs** — for data sources that do not fit naturally into quanteda's corpus/tokens workflow, a character-level function may be simpler.
+
+## The Improved Custom Function {-}
+
+The function below improves on the approach in the original draft in several ways:
+
+1. **Input validation** — it checks that the text and pattern are non-empty and the context length is positive, issuing informative error messages if not.
+2. **Vectorised output** — it returns a properly typed `tibble` rather than a matrix-derived data frame.
+3. **Named, clean columns** — `Left`, `Node`, `Right`, `DocID`, and `MatchID` are returned for clarity.
+4. **Multiple document support** — the function accepts a named vector and records the source document for each hit.
+5. **Safe handling of edge positions** — matches near the start or end of a text are handled without errors by clamping the window to the text boundaries.
+
+```{r custom_fn, message=FALSE, warning=FALSE}
+concordance <- function(texts, pattern, context = 80,
+                        ignore_case = FALSE, perl = TRUE) {
+  # ── Input validation ──────────────────────────────────────────────────────
+  if (!is.character(texts) || length(texts) == 0)
+    stop("`texts` must be a non-empty character vector.")
+  if (!is.character(pattern) || length(pattern) != 1 || nchar(pattern) == 0)
+    stop("`pattern` must be a single non-empty character string (regex allowed).")
+  if (!is.numeric(context) || context < 1)
+    stop("`context` must be a positive integer (number of characters per side).")
+
+  context <- as.integer(context)
+
+  # ── Ensure texts are named (for DocID column) ─────────────────────────────
+  if (is.null(names(texts))) names(texts) <- paste0("doc", seq_along(texts))
+
+  # ── Process each document ─────────────────────────────────────────────────
+  results <- purrr::imap(texts, function(txt, doc_id) {
+
+    # Find all match positions
+    m <- gregexpr(pattern, txt,
+                  ignore.case = ignore_case,
+                  perl        = perl)[[1]]
+
+    # No matches in this document
+    if (m[1] == -1) return(NULL)
+
+    match_starts  <- as.integer(m)
+    match_lengths <- attr(m, "match.length")
+    match_ends    <- match_starts + match_lengths - 1L
+    txt_len       <- nchar(txt)
+
+    purrr::pmap_dfr(
+      list(match_starts, match_ends, seq_along(match_starts)),
+      function(ms, me, idx) {
+
+        # Character-based window, clamped to text boundaries
+        left_start  <- max(1L,        ms - context)
+        right_end   <- min(txt_len,   me + context)
+
+        left  <- substr(txt, left_start, ms - 1L)
+        node  <- substr(txt, ms,         me)
+        right <- substr(txt, me + 1L,    right_end)
+
+        # Trim to nearest word boundary for cleaner display
+        left  <- stringr::str_remove(left,  "^\\S*\\s")   # remove partial first word
+        right <- stringr::str_remove(right, "\\s\\S*$")   # remove partial last word
+
+        tibble::tibble(
+          DocID   = doc_id,
+          MatchID = idx,
+          Left    = left,
+          Node    = node,
+          Right   = right
+        )
+      }
+    )
+  })
+
+  # ── Combine and return ────────────────────────────────────────────────────
+  out <- dplyr::bind_rows(results)
+
+  if (nrow(out) == 0) {
+    message("No matches found for pattern: ", pattern)
+    return(tibble::tibble(DocID   = character(),
+                          MatchID = integer(),
+                          Left    = character(),
+                          Node    = character(),
+                          Right   = character()))
+  }
+
+  out
+}
+```
+
+## Using the Custom Function {-}
+
+```{r custom_use1, message=FALSE, warning=FALSE}
+# Search for "you know" with 60-character context windows
+kwic_custom <- concordance(
+  texts   = transcripts_collapsed,
+  pattern = "you know",
+  context = 60
+)
+
+nrow(kwic_custom)
+head(kwic_custom, 6)
+```
+
+```{r custom_display, echo=FALSE, message=FALSE, warning=FALSE}
+kwic_custom |>
+  head(8) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::set_caption(caption = "Custom concordance output: character-based 60-character context windows.") |>
+  flextable::border_outer()
+```
+
+## Regex Patterns and Case Insensitivity {-}
+
+The function accepts any R regular expression in its `pattern` argument:
+
+```{r custom_regex, message=FALSE, warning=FALSE}
+# Find "kind of" and "sort of" (hedges), case-insensitive
+kwic_hedges <- concordance(
+  texts       = transcripts_clean,
+  pattern     = "\\b(kind|sort) of\\b",
+  context     = 70,
+  ignore_case = TRUE
+)
+
+nrow(kwic_hedges)
+head(kwic_hedges, 5)
+```
+
+## Comparing Token-Based and Character-Based Windows {-}
+
+The key practical difference between `kwic()` and our custom function is the unit of the context window:
+
+```{r compare_windows, message=FALSE, warning=FALSE}
+# quanteda: 7-token window
+kwic_token <- quanteda::kwic(
+  quanteda::tokens(transcripts_clean[[1]]),
+  pattern = quanteda::phrase("you know"),
+  window  = 7
+) |>
+  as.data.frame() |>
+  head(3) |>
+  dplyr::mutate(type = "token-based (7 tokens)")
+
+# Custom: 50-character window
+kwic_char <- concordance(
+  texts   = transcripts_clean[1],
+  pattern = "you know",
+  context = 50
+) |>
+  head(3) |>
+  dplyr::mutate(type = "char-based (50 chars)")
+
+# Show the difference
+cat("=== Token-based (7 tokens) ===\n")
+kwic_token[1, c("pre", "keyword", "post")]
+
+cat("\n=== Character-based (50 chars) ===\n")
+kwic_char[1, c("Left", "Node", "Right")]
+```
+
+With a token-based window, a text full of short function words will show more words on each side than a text with many long technical terms — because a token is a token regardless of length. With a character-based window, the amount of displayed text is constant regardless of token length, which can be preferable when the visual appearance of the concordance matters.
+
+::: {.callout-tip}
+## Exercises: Custom Concordance Function
+:::
+
+**Q15. The custom `concordance()` function uses `gregexpr()` to find match positions and then calls `substr()` to extract context. What would happen if you removed the line that trims to the nearest word boundary, and why was that step added?**
+
+```{r}
+#| echo: false
+#| label: "custom_q1"
+check_question(
+  "Without trimming, left and right context strings would begin and end mid-word, producing partial tokens that look like typos and make the concordance harder to read — trimming produces cleaner, word-aligned display",
+  options = c(
+    "The function would crash — gregexpr() requires word-boundary trimming to work",
+    "Without trimming, left and right context strings would begin and end mid-word, producing partial tokens that look like typos and make the concordance harder to read — trimming produces cleaner, word-aligned display",
+    "The function would return duplicate matches",
+    "The context window would shift by one character causing all match positions to be off by one"
+  ),
+  type = "radio",
+  q_id = "custom_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! A character-based window cuts the text at exactly the specified character position, which will often fall in the middle of a word. For example, a 60-character window might return '...and she was beginning to get very tired of sitting by her si' — where 'si' is the start of 'sister', cut off by the window boundary. Trimming to the nearest word boundary (removing the partial word at the start of left context and the end of right context) produces cleaner output: '...and she was beginning to get very tired of sitting by her'. The cost is a slightly variable effective window width.",
+  wrong = "Not quite. The function would not crash without the trimming step — it would simply return context strings that begin and end at arbitrary character positions, which frequently fall inside a word. This produces partial tokens like 'si' (the beginning of 'sister') at the edge of the context, which look like typos and make the concordance harder to read. The trimming step removes the partial word at the left edge of the left context and the right edge of the right context, producing cleaner word-aligned display."
+)
+```
+
+---
+
+**Q16. You want to use the custom `concordance()` function to find all instances of British English *-ise* spellings (e.g. *recognise*, *organise*, *realise*) in a corpus of newspaper editorials. Write the function call you would use.**
+
+```{r}
+#| echo: false
+#| label: "custom_q2"
+check_question(
+  "concordance(texts = editorials, pattern = '\\\\b\\\\w+ise\\\\b', context = 80, ignore_case = TRUE) — the regex matches any word ending in -ise at a word boundary",
+  options = c(
+    "concordance(texts = editorials, pattern = 'ise', context = 80) — 'ise' alone is sufficient",
+    "concordance(texts = editorials, pattern = '\\\\b\\\\w+ise\\\\b', context = 80, ignore_case = TRUE) — the regex matches any word ending in -ise at a word boundary",
+    "concordance(texts = editorials, pattern = phrase('ise'), context = 80) — phrase() is needed for suffix patterns",
+    "kwic(tokens(editorials), pattern = '*ise', valuetype = 'glob') — use quanteda for spelling variants"
+  ),
+  type = "radio",
+  q_id = "custom_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The pattern \\b\\w+ise\\b breaks down as: \\b (word boundary at start), \\w+ (one or more word characters — the stem), ise (the target suffix), \\b (word boundary at end — prevents matching 'miser', 'miserable'). ignore_case = TRUE is a sensible precaution for sentence-initial capitalisation. The context of 80 characters is a reasonable default for editorial text where sentences tend to be longer than in conversation.",
+  wrong = "Not quite. Just 'ise' would match this string anywhere in any word — including 'mise' (from mise-en-scène), 'promise' (where -ise is not an inflectional suffix), and 'miser'. The correct approach uses a word boundary at each end (\\b) and requires at least one word character before the suffix (\\w+): the pattern is \\b\\w+ise\\b. The custom function accepts standard R regex, so this pattern works directly in the pattern argument."
+)
+```
+
+---
+
+# Reproducible Workflows {#workflows}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to organise a concordancing project for reproducibility; essential script documentation conventions; how to parameterise analyses for easy modification; and how to export results in formats that support open science
+:::
+
+## Project Structure {-}
+
+A well-organised project folder makes it easy to return to an analysis months later, share it with collaborators, or submit it alongside a manuscript:
+
+```
+my-concordance-project/
+├── data/
+│   ├── raw/              # Original texts — never edit these
+│   └── processed/        # Cleaned texts and intermediate objects
+├── scripts/
+│   ├── 01-load-clean.R   # Data loading and preprocessing
+│   ├── 02-concordance.R  # KWIC extraction
+│   └── 03-analysis.R     # Filtering, sorting, statistics
+├── output/
+│   ├── concordances/     # Saved KWIC tables
+│   └── figures/          # Plots and visualisations
+├── README.md             # Project description
+└── project.Rproj         # RStudio project file
+```
+
+## Script Documentation {-}
+
+A reproducible script begins with a header block and uses parameters rather than hard-coded values:
+
+```{r reproducible, eval=FALSE, message=FALSE, warning=FALSE}
+# ============================================================
+# Title:   Concordance analysis of hedging in Alice in Wonderland
+# Author:  Martin Schweinberger
+# Date:    2026-05-01
+# Purpose: Extract and analyse instances of epistemic hedges
+# ============================================================
+
+library(quanteda)
+library(dplyr)
+library(writexl)
+library(here)
+
+# ── Parameters (change these, not the code below) ───────────
+CONTEXT_WINDOW <- 7          # tokens per side
+MIN_FREQ       <- 3          # minimum collocate frequency to report
+OUTPUT_DIR     <- here::here("output", "concordances")
+
+# ── Load and clean text ──────────────────────────────────────
+load("tutorials/kwics/data/alice.rda")   # loads object: rawtext
+text_clean <- paste0(rawtext, collapse = " ") |>
+  stringr::str_squish() |>
+  stringr::str_remove(".*CHAPTER I\\.")
+
+# ── Extract concordances ─────────────────────────────────────
+kwic_hedge <- quanteda::kwic(
+  quanteda::tokens(text_clean),
+  pattern = quanteda::phrase(c("perhaps", "might", "seemed to",
+                                "appeared to", "as if")),
+  window  = CONTEXT_WINDOW
+) |>
+  as.data.frame()
+
+# ── Save results ──────────────────────────────────────────────
+dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
+writexl::write_xlsx(
+  kwic_hedge,
+  file.path(OUTPUT_DIR, paste0("hedges_kwic_", Sys.Date(), ".xlsx"))
+)
+
+# ── Session info for reproducibility ─────────────────────────
+sessionInfo()
+```
+
+Key practices demonstrated here:
+
+- **Parameterisation** — `CONTEXT_WINDOW`, `MIN_FREQ`, and `OUTPUT_DIR` are defined at the top so the entire analysis can be reconfigured by changing three lines.
+- **Datestamped output** — `Sys.Date()` in the filename means each run creates a new output file, preserving the history of the analysis.
+- **`sessionInfo()` at the end** — records the exact R and package versions used, essential for replication.
+
+## Common Mistakes and How to Avoid Them {-}
+
+::: {.callout-warning}
+## Top Five Concordancing Pitfalls
+
+**1. Forgetting case sensitivity.** `kwic(tokens(text), phrase("alice"))` returns zero results if the text uses "Alice". Always check capitalisation conventions in your data, and use `case_insensitive = TRUE` when appropriate.
+
+**2. Using regex without `valuetype = "regex"`.** The pattern `"walk.*"` without `valuetype = "regex"` is treated as a literal glob pattern, not a regular expression. The result may be zero matches or unexpected results.
+
+**3. Skipping preprocessing.** Running `kwic()` on uncleaned text means metadata, headers, and formatting artefacts contaminate the concordance.
+
+**4. Not inspecting results.** Always examine a random sample of concordance lines to verify the pattern matched what you intended. Use `sample_n(20)` to spot-check.
+
+**5. Confusing `phrase()` and bare strings.** Always use `phrase()` for multi-word search targets. Without it, quanteda may treat the multi-word string as a glob matching individual tokens.
+:::
+
+---
+
+# Summary and Further Reading {#summary}
+
+This tutorial has provided a comprehensive introduction to concordancing with R, covering the conceptual foundations, the tool landscape, and the full practical workflow from loading text to exporting results.
+
+**Section 1** established what concordancing is — the systematic KWIC-display extraction of words in context — and why it is central to corpus linguistics: it grounds linguistic claims in observable, verifiable evidence, overcomes the limitations of native-speaker intuition and working memory, and enables both quantitative and qualitative analysis within a single framework.
+
+**Section 2** surveyed the concordancing tool landscape: desktop software (AntConc, WordSmith, SketchEngine), web corpus interfaces (COCA, COHA, Lextutor), and R with `quanteda`. The case for R rests on reproducibility, integration with statistics and visualisation, flexibility, and scalability.
+
+**Sections 3 and 4** covered data loading and preprocessing, with emphasis on the importance of cleaning (collapsing lines, normalising whitespace, removing headers) before concordancing.
+
+**Section 5** introduced `quanteda::kwic()` in depth: the structure of the KWIC output table, window size control, phrase search with `phrase()`, case-insensitive search, and multi-pattern search.
+
+**Section 6** introduced regular expressions as a tool for flexible concordancing: frequency quantifiers, character classes, position anchors, and common concordancing patterns including morphological word families, suffix-based searches, and word length filters.
+
+**Section 7** extended the workflow to filtering and sorting: using `dplyr` pipelines with `str_detect()` to restrict concordances to specific context conditions, and sorting by alphabetical and frequency criteria to surface collocational patterns.
+
+**Section 8** addressed spoken language transcripts, covering the structural differences between written and transcribed spoken text, how to handle annotation markup, and the discourse marker *you know* as a worked example.
+
+**Section 9** presented an improved custom concordance function using character-based context windows, input validation, and support for named multi-document input — extending `kwic()` for use cases that token-based windows cannot serve.
+
+**Section 10** demonstrated reproducible workflow conventions: project folder structure, parameterised scripts, datestamped output, and `sessionInfo()` documentation.
+
+**Further reading:** @sinclair1991corpus remains the foundational reference for concordance-based language description. @mcenery2011corpus provides a comprehensive methodological overview of corpus linguistics. @stubbs1996text is essential on collocation and semantic prosody. @anthony2013critical discusses tool choice for corpus work. @brezina2018statistics covers the statistical analysis of concordance-derived collocations. For quanteda specifically, the package documentation and tutorials at [tutorials.quanteda.io](https://tutorials.quanteda.io/) are the primary resource.
+
+---
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2026. *Finding Words in Text: Concordancing with R*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/kwics/kwics.html (Version 2026.05.01).
+
+```
+@manual{schweinberger2026kwics,
+  author       = {Schweinberger, Martin},
+  title        = {Finding Words in Text: Concordancing with R},
+  note         = {tutorials/kwics/kwics.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially expand and restructure a shorter existing LADAL draft tutorial on concordancing. All content — including all R code — was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
