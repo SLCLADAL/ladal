@@ -1,0 +1,409 @@
+---
+title: "LADAL Concordancing Tool"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_folding: hide
+    df_print: paged
+---
+
+```{css, echo=FALSE}
+/* ── LADAL brand colours ───────────────────────────────────────────── */
+:root {
+  --ladal-purple:  #51247a;
+  --ladal-light:   #f4f0f8;
+  --ladal-accent:  #8e44ad;
+  --ladal-gold:    #f0a500;
+  --ladal-success: #27ae60;
+  --ladal-info:    #d6eaf8;
+  --ladal-border:  #d7d1cc;
+}
+
+/* Page header */
+h1.title {
+  color: var(--ladal-purple);
+  border-bottom: 4px solid var(--ladal-gold);
+  padding-bottom: 0.4em;
+}
+h2, h3 { color: var(--ladal-purple); }
+
+/* Info / warning boxes */
+.info-box {
+  background-color: var(--ladal-light);
+  border-left: 5px solid var(--ladal-purple);
+  border-radius: 4px;
+  padding: 0.9em 1.2em;
+  margin: 1em 0;
+  color: #333;
+}
+.info-box strong { color: var(--ladal-purple); }
+
+.success-box {
+  background-color: #eafaf1;
+  border-left: 5px solid var(--ladal-success);
+  border-radius: 4px;
+  padding: 0.9em 1.2em;
+  margin: 1em 0;
+}
+
+.tip-box {
+  background-color: #fef9e7;
+  border-left: 5px solid var(--ladal-gold);
+  border-radius: 4px;
+  padding: 0.9em 1.2em;
+  margin: 1em 0;
+}
+
+/* Parameter table */
+.param-table th {
+  background-color: var(--ladal-purple);
+  color: white;
+}
+
+/* Keyword highlight inside kwic output */
+.keyword { color: var(--ladal-accent); font-weight: bold; }
+
+/* Keep code chunks readable */
+pre { background-color: #f8f6fb !important; }
+```
+
+---
+
+<div class="info-box">
+📖 **About this tool** — This notebook accompanies the
+[LADAL tutorial *Concordancing with R*](https://ladal.edu.au/kwics.html).
+It lets you upload your own plain-text files and run keyword-in-context
+(KWIC) concordance searches, then explore and export your results.
+All code is **folded by default** — click **Code** on the right of any
+chunk to expand it.
+</div>
+
+---
+
+## 1 · Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+# ── Packages ──────────────────────────────────────────────────────────
+required_pkgs <- c("quanteda", "tidyverse", "writexl", "here", "DT", "knitr")
+
+for (pkg in required_pkgs) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+  }
+}
+
+library(quanteda)
+library(tidyverse)
+library(writexl)
+library(here)
+library(DT)
+library(knitr)
+
+# Silence quanteda startup messages
+quanteda_options(verbose = FALSE)
+```
+
+---
+
+## 2 · Load your texts
+
+<div class="info-box">
+📂 **How to upload your own texts**
+
+1. Open the **`MyTexts`** folder in the file browser on the left.
+2. **Drag and drop** your `.txt` files into that folder.
+3. Run the code chunk below — it will read every `.txt` file it finds.
+
+> Only plain-text (`.txt`) files are supported. One file = one "document"
+> in the concordance. File names become document IDs.
+</div>
+
+```{r load-texts, message=FALSE, warning=FALSE}
+# ── Helper: load all .txt files from a folder ─────────────────────────
+load_texts <- function(folder = "notebooks/MyTexts") {
+  txt_files <- list.files(folder, pattern = "\\.txt$",
+                          full.names = TRUE, ignore.case = TRUE)
+
+  if (length(txt_files) == 0) {
+    message("⚠  No .txt files found in '", folder, "'.")
+    message("   Falling back to a built-in demo corpus (quanteda::data_corpus_inaugural).")
+    corp <- corpus(quanteda::data_corpus_inaugural)
+    return(corp)
+  }
+
+  raw <- map(txt_files, ~ readLines(.x, warn = FALSE) |> paste(collapse = " "))
+  names(raw) <- tools::file_path_sans_ext(basename(txt_files))
+  corp <- corpus(unlist(raw), docnames = names(raw))
+  message("✔  Loaded ", length(txt_files), " file(s): ",
+          paste(names(raw), collapse = ", "))
+  corp
+}
+
+# ── Load ──────────────────────────────────────────────────────────────
+corp <- load_texts("notebooks/MyTexts")
+
+# Quick summary
+summary(corp, n = 10) |>
+  select(Text, Types, Tokens, Sentences) |>
+  kable(caption = "Loaded documents (first 10 shown)")
+```
+
+---
+
+## 3 · Run a concordance search
+
+<div class="tip-box">
+⚙️ **Customise your search** — Edit the parameters in the chunk below:
+
+| Parameter | What it does | Example |
+|---|---|---|
+| `search_pattern` | The word / phrase to find | `"climate"`, `"the economy"` |
+| `context_window` | Words shown left & right of keyword | `5`, `10` |
+| `match_type` | How the pattern is interpreted | `"regex"`, `"glob"`, `"fixed"` |
+| `ignore_case` | Ignore upper/lower case | `TRUE` / `FALSE` |
+| `max_display` | Rows shown in the table | `50`, `100`, `Inf` |
+</div>
+
+```{r concordance, message=FALSE, warning=FALSE}
+# ══════════════════════════════════════════════════════════════════════
+#  ▶  EDIT THESE PARAMETERS TO CUSTOMISE YOUR SEARCH
+# ══════════════════════════════════════════════════════════════════════
+
+search_pattern  <- "the"   # word, phrase, or regex pattern
+context_window  <- 5       # words left and right
+match_type      <- "regex" # "regex" | "glob" | "fixed"
+ignore_case     <- TRUE    # TRUE = case insensitive
+max_display     <- 100     # max rows shown in interactive table
+
+# ══════════════════════════════════════════════════════════════════════
+#  (no need to edit below this line)
+# ══════════════════════════════════════════════════════════════════════
+
+mykwic <- kwic(
+  tokens(corp),
+  pattern        = phrase(search_pattern),
+  window         = context_window,
+  valuetype      = match_type,
+  separator      = " ",
+  case_insensitive = ignore_case
+)
+
+if (nrow(mykwic) == 0) {
+  message("⚠  No matches found for pattern: '", search_pattern, "'")
+} else {
+  message("✔  Found ", nrow(mykwic), " match(es) for '", search_pattern, "'")
+}
+```
+
+---
+
+## 4 · Frequency summary
+
+```{r frequency-summary, message=FALSE, warning=FALSE}
+if (nrow(mykwic) > 0) {
+  freq_summary <- as.data.frame(mykwic) |>
+    group_by(docname) |>
+    summarise(
+      Hits      = n(),
+      .groups   = "drop"
+    ) |>
+    arrange(desc(Hits)) |>
+    rename(Document = docname)
+
+  total_row <- tibble(Document = "**TOTAL**", Hits = sum(freq_summary$Hits))
+  freq_table <- bind_rows(freq_summary, total_row)
+
+  kable(freq_table,
+        caption = paste0("Hit counts per document — pattern: '",
+                         search_pattern, "'"))
+} else {
+  message("No results to summarise.")
+}
+```
+
+---
+
+## 5 · Browse results
+
+<div class="info-box">
+🔍 **Interactive table** — You can:
+
+- **Sort** any column by clicking its header (▲ / ▼)
+- **Filter by document** using the search box above each column
+- **Search** across all columns using the global search box (top right)
+- Use **Previous / Next** to page through results
+</div>
+
+```{r results-table, message=FALSE, warning=FALSE}
+if (nrow(mykwic) > 0) {
+  kwic_df <- as.data.frame(mykwic) |>
+    select(
+      Document  = docname,
+      Position  = from,
+      Left      = pre,
+      Keyword   = keyword,
+      Right     = post,
+      Pattern   = pattern
+    ) |>
+    slice_head(n = max_display)
+
+  datatable(
+    kwic_df,
+    rownames   = FALSE,
+    filter     = "top",          # per-column filter boxes
+    extensions = c("Buttons", "Scroller"),
+    options    = list(
+      dom          = "Bfrtip",
+      buttons      = list("copy", "csv", "excel"),
+      scrollY      = 420,
+      scroller     = TRUE,
+      pageLength   = 25,
+      autoWidth    = TRUE,
+      columnDefs   = list(
+        list(className = "dt-left",  targets = c(2, 3, 4)),   # L/Kw/R left-aligned
+        list(className = "dt-center", targets = c(0, 1, 5))   # doc/pos/pat centred
+      )
+    ),
+    caption = htmltools::tags$caption(
+      style = "color:#51247a; font-weight:bold;",
+      paste0("KWIC results for '", search_pattern,
+             "' (showing up to ", max_display, " of ",
+             nrow(mykwic), " hits)")
+    )
+  ) |>
+  formatStyle(
+    "Keyword",
+    color      = "#8e44ad",
+    fontWeight = "bold"
+  )
+} else {
+  cat("No results to display.")
+}
+```
+
+---
+
+## 6 · Export results
+
+<div class="success-box">
+💾 **Saving your concordance** — Run the chunk below to write an Excel
+file to `notebooks/MyOutput/mykwic.xlsx`.  
+Then right-click the file in the left-hand file browser and choose
+**Download**.
+</div>
+
+```{r export, message=FALSE, warning=FALSE}
+if (nrow(mykwic) > 0) {
+
+  # ── Build a clean export table ─────────────────────────────────────
+  export_df <- as.data.frame(mykwic) |>
+    select(
+      Document = docname,
+      Position = from,
+      Left     = pre,
+      Keyword  = keyword,
+      Right    = post,
+      Pattern  = pattern
+    )
+
+  # ── Write Excel file ───────────────────────────────────────────────
+  out_dir  <- here::here("notebooks/MyOutput")
+  dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+  out_path <- file.path(out_dir, "mykwic.xlsx")
+
+  write_xlsx(export_df, out_path)
+
+  message("✔  Saved ", nrow(export_df), " rows to:\n   ", out_path)
+
+} else {
+  message("⚠  Nothing to export — no matches were found.")
+}
+```
+
+<div class="success-box">
+Also written as a CSV (useful if you don't have Excel):
+</div>
+
+```{r export-csv, message=FALSE, warning=FALSE}
+if (nrow(mykwic) > 0) {
+  csv_path <- file.path(here::here("notebooks/MyOutput"), "mykwic.csv")
+  write_csv(export_df, csv_path)
+  message("✔  CSV saved to: ", csv_path)
+}
+```
+
+---
+
+## 7 · Advanced: multiple searches
+
+<div class="tip-box">
+🔁 **Run several searches at once** — add as many patterns as you like
+to `patterns_list` and re-run the chunk. All results are stacked into
+one table and exported together.
+</div>
+
+```{r multi-search, message=FALSE, warning=FALSE}
+# ══════════════════════════════════════════════════════════════════════
+#  ▶  EDIT: list of search patterns
+# ══════════════════════════════════════════════════════════════════════
+patterns_list <- c("the", "a")
+
+# ══════════════════════════════════════════════════════════════════════
+
+multi_kwic <- map_dfr(patterns_list, function(pat) {
+  hits <- kwic(
+    tokens(corp),
+    pattern          = phrase(pat),
+    window           = context_window,
+    valuetype        = match_type,
+    case_insensitive = ignore_case
+  ) |> as.data.frame()
+
+  if (nrow(hits) > 0) hits else NULL
+})
+
+if (!is.null(multi_kwic) && nrow(multi_kwic) > 0) {
+  cat("Multi-pattern hit counts:\n")
+  multi_kwic |>
+    count(pattern, name = "Hits") |>
+    arrange(desc(Hits)) |>
+    kable()
+} else {
+  cat("No hits across any of the supplied patterns.")
+}
+```
+
+---
+
+## Citation & Session Info
+
+```{r citation, echo=FALSE}
+cat(
+'@manual{schweinberger2024kwictool,
+  author       = {Schweinberger, Martin},
+  title        = {LADAL Concordancing Tool},
+  note         = {https://ladal.edu.au/tools.html},
+  year         = {2024},
+  organization = {The University of Queensland, School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2024.04.21}
+}')
+```
+
+> Schweinberger, Martin. (2024). *LADAL Concordancing Tool*. Brisbane:
+> The University of Queensland.
+> <https://ladal.edu.au/tools.html> (Version 2024.04.21).
+
+---
+
+[LADAL Concordancing tutorial](https://ladal.edu.au/kwics.html) ·
+[LADAL home](https://ladal.edu.au)
+
+```{r session-info, collapse=TRUE}
+sessionInfo()
+```

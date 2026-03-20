@@ -1,0 +1,1654 @@
+---
+title: "Local Large Language Models in R with Ollama"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **Ollama** and the **`ollamar`** R package — a toolkit for running open-source large language models (LLMs) directly on your own machine and calling them from R. Unlike cloud-based AI services, Ollama requires no API key, sends no data to external servers, and works entirely offline once a model has been downloaded. This makes it particularly well suited for research involving sensitive or proprietary text, for reproducible analyses that must not depend on third-party service availability, and for teaching environments without budget for commercial API access.
+
+The tutorial covers the conceptual foundations of local LLM inference, installation and setup, and eight practical workflows relevant to corpus linguistics and NLP research: basic text generation, multi-turn conversation, sentiment analysis and text classification, named entity recognition, text summarisation, generating embeddings, corpus-scale batch processing, and using a model to assist with writing R code.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, you should be comfortable with:
+
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, functions, and the tidyverse
+- [String Processing in R](/tutorials/string/string.html) — working with text in R
+- [Loading and Saving Data](/tutorials/load/load.html) — reading files into R
+
+Familiarity with basic NLP concepts (tokens, sentiment, named entities) is helpful but not required — concepts are introduced as they arise.
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what Ollama is, how local LLM inference works, and when to prefer it over cloud APIs
+2. Install Ollama, pull a model, and verify the connection from R
+3. Generate text from a prompt using `generate()`
+4. Build multi-turn conversations using `chat()` and conversation history management
+5. Use prompt engineering to perform sentiment analysis, NER, and text summarisation
+6. Generate sentence embeddings with `embed()` for downstream analysis
+7. Process a corpus of texts at scale using parallelisation
+8. Use a local LLM to assist with writing and debugging R code
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Local Large Language Models in R with Ollama*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/ollama/ollama.html (Version 2026.05.01).
+:::
+
+---
+
+# What Is Ollama and Why Use It? {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What Ollama is and how it works; the difference between local and cloud-based LLM inference; the key advantages of running models locally; hardware requirements; and how `ollamar` connects R to the Ollama server
+:::
+
+## Local vs Cloud LLM Inference {-}
+
+When you use a cloud-based LLM service — such as OpenAI's GPT, Anthropic's Claude, or Google's Gemini — your text is sent over the internet to a remote server, processed there, and the response is returned to you. This works well for many tasks but raises concerns in three areas:
+
+**Privacy** — any text you send to a cloud API is processed on servers you do not control. For research involving sensitive data (patient records, confidential documents, anonymised survey responses), this is often unacceptable under institutional ethics approvals and data governance policies.
+
+**Cost** — commercial APIs charge per token. For corpus linguistics, where you may need to process thousands of texts, costs can escalate rapidly. A corpus of 10,000 abstracts processed with a cloud API at typical 2025 pricing can cost tens to hundreds of dollars.
+
+**Reproducibility** — cloud models are updated without notice. An analysis run today against GPT-4o may produce different results next month against a silently updated version of the same model. Local models, by contrast, are fixed: the weights you download today are the weights you use in six months.
+
+Ollama eliminates all three concerns by running the model entirely on your own hardware.
+
+## What Ollama Is {-}
+
+Ollama is a free, open-source application that downloads, manages, and serves open-source LLMs locally. It provides a REST API on `http://127.0.0.1:11434` that any application — including R, Python, or a web browser — can call to generate text, chat, or produce embeddings. From R, the `ollamar` package [@lin2024ollamar] wraps this API in a clean set of R functions.
+
+```
+Your R script
+    │
+    ▼
+ollamar (R package) ──HTTP──▶ Ollama server (127.0.0.1:11434)
+                                    │
+                                    ▼
+                            Local LLM weights
+                         (stored on your machine)
+                                    │
+                                    ▼
+                              Response text
+```
+
+Ollama supports a large and growing library of models. Once you have installed Ollama, pulling a new model is a single command.
+
+## Hardware Requirements {-}
+
+LLMs vary greatly in size. The model used throughout this tutorial, **llama3.2:3b**, is a 3-billion-parameter model that runs on virtually any modern laptop with at least 8 GB of RAM, without a GPU. Larger models require more resources:
+
+| Model size | RAM required | GPU needed? | Typical use |
+|---|---|---|---|
+| 1B–3B | 4–8 GB | No | Teaching, prototyping, simple tasks |
+| 7B–8B | 8–16 GB | Optional | Most NLP research tasks |
+| 13B | 16 GB | Recommended | High-quality generation |
+| 70B+ | 48 GB+ | Required | Near-GPT-4 quality |
+
+For the tasks in this tutorial, llama3.2:3b is sufficient and runs comfortably without a GPU on a standard research laptop.
+
+## The ollamar Package {-}
+
+The `ollamar` package [@lin2024ollamar] uses the `httr2` library to make HTTP requests to the Ollama server. Most functions return an `httr2_response` object by default, which must be parsed with `resp_process()`. Alternatively, you can specify the output format directly using the `output` parameter, which accepts `"text"`, `"df"` (tibble), `"jsonlist"`, `"raw"`, or `"resp"` (the default httr2 response).
+
+::: {.callout-warning}
+## Ollama Must Be Installed Before Using ollamar
+
+`ollamar` is an R interface to **Ollama** — a separate application that must be installed on your machine before any `ollamar` function will work. Installing the R package alone is not sufficient.
+
+**To install Ollama:**
+
+1. Go to **[ollama.com](https://ollama.com)** in your browser
+2. Click **Download** — the site detects your operating system (Windows, Mac, or Linux) automatically
+3. Run the installer (`OllamaSetup.exe` on Windows; drag to Applications on Mac)
+4. After installation, **close and reopen your terminal** — Windows and Mac need a fresh terminal session to recognise the new `ollama` command
+5. Verify the installation worked by opening a terminal and running:
+```bash
+ollama --version
+```
+
+You should see a version number. If you see "not recognised" or "command not found", restart your computer and try again.
+
+**Then download the model used in this tutorial:**
+```bash
+ollama pull llama3.2
+```
+
+This downloads the 3B model (~2 GB) and only needs to be done once. Ollama stores model weights automatically in its own cache folder — you do not need to specify a location.
+
+Once installed, Ollama runs as a background service and starts automatically at login. You can confirm it is running by checking the system tray (Windows) or menu bar (Mac) for the Ollama icon. From R, verify the connection with `ollamar::test_connection()` before running any analysis code.
+:::
+
+::: {.callout-tip}
+## Exercises: What Is Ollama?
+:::
+
+**Q1. A researcher wants to use an LLM to analyse 5,000 interview transcripts that contain sensitive personal information about mental health. She is considering using a commercial cloud API. What are the two most important reasons she should use a local model via Ollama instead?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q1"
+check_question(
+  "Privacy — sending sensitive personal data to a commercial server may violate ethics approval and data governance requirements; and reproducibility — cloud models are silently updated, meaning results may not be replicable with the same model version in future",
+  options = c(
+    "Local models are always faster than cloud APIs, and they are easier to install",
+    "Privacy — sending sensitive personal data to a commercial server may violate ethics approval and data governance requirements; and reproducibility — cloud models are silently updated, meaning results may not be replicable with the same model version in future",
+    "Cloud APIs require a credit card; Ollama is free to use",
+    "Local models produce better quality output than cloud models for NLP tasks"
+  ),
+  type = "radio",
+  q_id = "concepts_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! For sensitive data, privacy is the primary concern — institutional ethics approvals and data governance policies frequently prohibit sending identifiable or sensitive information to third-party servers. Reproducibility is the second major concern: cloud API providers update their models without notice, so an analysis run in January may produce different results in July even if you specify the same model name. With Ollama, the model weights are fixed on your machine and will not change unless you explicitly pull an update.",
+  wrong = "Not quite. While cost is a real advantage of local models, the two most important concerns for sensitive research data are privacy (sending data to an external server may breach ethics approval) and reproducibility (cloud models change without notice). Local models address both: data never leaves the researcher's machine, and the model weights are fixed until explicitly updated."
+)
+```
+
+---
+
+**Q2. A colleague says: 'llama3.2:3b is only 3 billion parameters — it must be far worse than GPT-4 and not worth using for research.' What is the most accurate response to this argument?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q2"
+check_question(
+  "Parameter count is one factor in model quality, but a well-trained 3B model is often sufficient for structured tasks like classification, NER, and summarisation — especially when guided by a good system prompt. The right model is the smallest one that reliably performs the task, because smaller models are faster and cheaper to run at scale.",
+  options = c(
+    "The colleague is correct — smaller models should never be used for research",
+    "Parameter count is one factor in model quality, but a well-trained 3B model is often sufficient for structured tasks like classification, NER, and summarisation — especially when guided by a good system prompt. The right model is the smallest one that reliably performs the task, because smaller models are faster and cheaper to run at scale.",
+    "llama3.2:3b is actually better than GPT-4 on all NLP tasks",
+    "Parameter count has no relationship to model quality"
+  ),
+  type = "radio",
+  q_id = "concepts_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Parameter count correlates with model capability but is not the only factor — training data quality, instruction tuning, and task-prompt alignment all matter. For constrained tasks like 'classify this text as positive/negative/neutral' or 'extract person names from this sentence', a well-prompted 3B model performs surprisingly well. The practical principle is to use the smallest model that reliably performs the task, since smaller models generate faster and allow more texts to be processed in a given time budget.",
+  wrong = "Not quite. While larger models generally have higher capability ceilings, a 3B model guided by a good system prompt performs reliably on structured NLP tasks like classification, NER, and summarisation. For research at scale, model size is a trade-off: larger models are slower and require more hardware. The right model is the smallest one that meets your quality requirements for the specific task."
+)
+```
+
+---
+
+# Setup {#setup}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to install Ollama; how to pull (download) a model; how to install and load `ollamar`; how to test the connection; and what to do when things go wrong
+:::
+
+## Step 1 — Install Ollama {-}
+
+Download and install Ollama from [ollama.com](https://ollama.com). Installers are available for Windows, Mac, and Linux. After installation, Ollama runs as a background service and starts automatically when your computer boots.
+
+To verify Ollama is running, open a terminal and type:
+
+```bash
+ollama --version
+```
+
+You should see a version number. If you see "command not found", Ollama is not installed or not on your PATH.
+
+## Step 2 — Pull a Model {-}
+
+Download the llama3.2:3b model. This is a 2 GB download and only needs to be done once:
+
+```bash
+ollama pull llama3.2
+```
+
+To see all models you have downloaded:
+
+```bash
+ollama list
+```
+
+::: {.callout-tip}
+## Choosing a Model
+
+`llama3.2` defaults to the 3B parameter version, which runs on any laptop with 8 GB RAM and no GPU. If you have more resources available, `llama3.1:8b` (requires 8 GB RAM) produces noticeably better output for complex tasks. Pull it with `ollama pull llama3.1`. Throughout this tutorial we use `llama3.2` for accessibility, with notes where a larger model would improve results.
+:::
+
+## Step 3 — Install ollamar {-}
+
+```{r install_ollamar, eval=FALSE, message=FALSE, warning=FALSE}
+# Stable version from CRAN
+install.packages("ollamar")
+
+# Development version with latest features (optional)
+# install.packages("remotes")
+# remotes::install_github("hauselin/ollamar")
+
+# Additional packages used in this tutorial
+install.packages(c(
+  "dplyr", "purrr", "tibble", "stringr",
+  "ggplot2", "flextable", "httr2", "checkdown"
+))
+```
+
+## Step 4 — Load Packages {-}
+
+```{r load_pkgs, eval=TRUE, message=FALSE, warning=FALSE}
+library(ollamar)
+library(dplyr)
+library(purrr)
+library(tibble)
+library(stringr)
+library(ggplot2)
+library(flextable)
+library(httr2)
+library(checkdown)
+```
+
+## Step 5 — Test the Connection {-}
+
+```{r test_conn, eval=TRUE, message=FALSE, warning=FALSE}
+# Check that Ollama is running and R can reach it
+ollamar::test_connection()
+```
+
+A successful connection prints a confirmation message. If you see `"Ollama local server not running or wrong server"`, check that the Ollama application is open and running in the background.
+
+```{r list_models, eval=TRUE, message=FALSE, warning=FALSE}
+# See which models you have downloaded
+ollamar::list_models()
+```
+
+Expected output:
+
+```
+         name    size parameter_size quantization_level            modified
+1  llama3.2:latest  2.0 GB            3.2B               Q4_K_M  2025-01-15
+```
+
+::: {.callout-warning}
+## Ollama Must Be Running Before Any ollamar Call
+
+`ollamar` communicates with Ollama via HTTP. If Ollama is not running when you call `generate()`, `chat()`, or `embed()`, you will get a connection error. Always check `test_connection()` at the start of your session if you are unsure.
+:::
+
+::: {.callout-tip}
+## Exercises: Setup
+:::
+
+**Q3. You run `test_connection()` and see `"Ollama local server not running or wrong server"`. You are sure Ollama is installed. What should you check first?**
+
+```{r}
+#| echo: false
+#| label: "setup_q1"
+check_question(
+  "Whether the Ollama application is open and running — Ollama must be actively running as a background service for ollamar to connect to it. On Windows, check the system tray; on Mac, check the menu bar; on Linux, check with 'systemctl status ollama'.",
+  options = c(
+    "Whether ollamar is installed correctly — reinstall it with install.packages('ollamar')",
+    "Whether the Ollama application is open and running — Ollama must be actively running as a background service for ollamar to connect to it. On Windows, check the system tray; on Mac, check the menu bar; on Linux, check with 'systemctl status ollama'.",
+    "Whether your internet connection is working — ollamar needs the internet to connect to Ollama",
+    "Whether you have pulled a model — no models means no connection"
+  ),
+  type = "radio",
+  q_id = "setup_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Ollama server must be actively running for ollamar to connect. Installing Ollama does not automatically start it — you need to open the application (or start the service). On Windows it appears in the system tray; on Mac in the menu bar; on Linux it can be managed as a systemd service. Internet connection is not needed after the initial model download; Ollama runs entirely locally.",
+  wrong = "Not quite. The most common cause of this error is that the Ollama application is installed but not currently running. ollamar connects to Ollama via a local HTTP server on port 11434 — if Ollama is not running, that server does not exist and no connection can be made. Check that the Ollama application is open. Internet is not required after initial download."
+)
+```
+
+---
+
+**Q4. You run `list_models()` and see an empty data frame. What does this mean and what should you do?**
+
+```{r}
+#| echo: false
+#| label: "setup_q2"
+check_question(
+  "You have not yet pulled any models — run pull('llama3.2') to download the llama3.2 3B model (approximately 2 GB). Ollama separates installation of the server application from downloading model weights.",
+  options = c(
+    "Ollama is not installed correctly — reinstall it from ollama.com",
+    "You have not yet pulled any models — run pull('llama3.2') to download the llama3.2 3B model (approximately 2 GB). Ollama separates installation of the server application from downloading model weights.",
+    "The list_models() function is broken — use show() instead",
+    "Your internet connection is too slow to list models"
+  ),
+  type = "radio",
+  q_id = "setup_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Ollama separates the server application (which you install once) from model weights (which you download separately for each model you want to use). An empty list_models() output simply means no models have been pulled yet. Run pull('llama3.2') to download the 3B model used in this tutorial. The download is approximately 2 GB and only needs to be done once per model.",
+  wrong = "Not quite. An empty list_models() output is not an error — it simply means no model weights have been downloaded yet. Ollama's server application and its model weights are separate: you install the server once, then pull each model you want. Run pull('llama3.2') to download the model used in this tutorial."
+)
+```
+
+---
+
+# Basic Text Generation {#generate}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How `generate()` works; the `output` parameter and its five format options; how to write effective prompts; and how to inspect and process the response object
+:::
+
+## The generate() Function {-}
+
+`generate()` is the simplest way to get a response from a model. It takes a model name and a prompt and returns a response in the format you specify:
+
+```{r generate_basic, eval=TRUE, message=FALSE, warning=FALSE}
+library(ollamar)
+
+# Generate a response — returns httr2_response object by default
+resp <- ollamar::generate("llama3.2", "What is corpus linguistics?")
+
+# Inspect the raw response object
+resp
+# <httr2_response>
+# POST http://127.0.0.1:11434/api/generate
+# Status: 200 OK
+
+# Extract just the text
+ollamar::resp_process(resp, "text")
+
+# Or get a tidy tibble with metadata
+ollamar::resp_process(resp, "df")
+```
+
+## Output Formats {-}
+
+The `output` parameter saves you from calling `resp_process()` separately:
+
+```{r generate_outputs, eval=TRUE, message=FALSE, warning=FALSE}
+# Text string — most convenient for single outputs
+txt <- ollamar::generate("llama3.2",
+                         "Define collocations in corpus linguistics.",
+                         output = "text")
+cat(txt)
+
+# Tibble — useful for storing results alongside metadata
+df <- ollamar::generate("llama3.2",
+                        "Name three open-source corpora of English.",
+                        output = "df")
+glimpse(df)
+# Columns: model, response, done, total_duration, ...
+
+# JSON list — useful for programmatic parsing
+jl <- ollamar::generate("llama3.2",
+                        "What is TF-IDF?",
+                        output = "jsonlist")
+```
+
+| `output` value | Returns | Best for |
+|---|---|---|
+| `"resp"` (default) | httr2 response object | Checking status codes; low-level access |
+| `"text"` | Character string | Simple single-call workflows |
+| `"df"` | Tibble with metadata | Storing results with timing and model info |
+| `"jsonlist"` | Named R list | Programmatic access to all response fields |
+| `"raw"` | Raw bytes | Advanced / debugging |
+
+## Writing Effective Prompts {-}
+
+The quality of the output depends heavily on how the prompt is written. Three principles are especially important:
+
+**Be specific about the task.** A vague prompt produces a vague response. "Tell me about this text" is far less effective than "In one sentence, identify the main topic of the following text."
+
+**Specify the output format.** If you need structured output, say so explicitly: "Respond with only a single word: positive, negative, or neutral." Without this, the model may explain its reasoning at length, which complicates downstream processing.
+
+**Provide context.** The model knows nothing about your research project. Brief framing — "You are a corpus linguistics researcher analysing parliamentary debate transcripts" — shapes the register and vocabulary of the response.
+
+```{r generate_prompt, eval=TRUE, message=FALSE, warning=FALSE}
+# Vague prompt — produces a generic, hard-to-process response
+ollamar::generate("llama3.2",
+                  "What do you think about this sentence: 'The bill was passed.'",
+                  output = "text")
+
+# Specific prompt — produces a precise, processable response
+ollamar::generate("llama3.2",
+  paste(
+    "You are a computational linguist.",
+    "Identify the grammatical voice (active or passive) of the following sentence.",
+    "Respond with exactly one word: active or passive.",
+    "Sentence: 'The bill was passed.'"
+  ),
+  output = "text"
+)
+# Expected: "passive"
+```
+
+::: {.callout-tip}
+## Exercises: Basic Text Generation
+:::
+
+**Q5. You call `generate("llama3.2", "Summarise this corpus.", output = "text")` and receive a lengthy explanation of what corpus summarisation is rather than a summary of your corpus. What is the most likely cause and how should you fix it?**
+
+```{r}
+#| echo: false
+#| label: "gen_q1"
+check_question(
+  "The prompt is ambiguous — the model does not know what 'this corpus' refers to because no text was included in the prompt. Fix by including the text to be summarised and specifying the expected output format: 'Summarise the following text in three sentences: [text here]'.",
+  options = c(
+    "The llama3.2 model is too small to summarise a corpus — use a larger model",
+    "The prompt is ambiguous — the model does not know what 'this corpus' refers to because no text was included in the prompt. Fix by including the text to be summarised and specifying the expected output format: 'Summarise the following text in three sentences: [text here]'.",
+    "The output = 'text' parameter is causing the model to respond in plain text instead of JSON",
+    "You need to use chat() instead of generate() for summarisation tasks"
+  ),
+  type = "radio",
+  q_id = "gen_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The model has no access to external files or previous context — everything it needs must be in the prompt itself. 'This corpus' is a reference the model cannot resolve. The fix is to include the text directly in the prompt string (using paste() or glue() to concatenate it), and to specify the desired output format explicitly: 'In exactly three sentences, summarise the following text: [pasted text]'. The output = 'text' parameter is working correctly — it just controls the R return format, not the model's response style.",
+  wrong = "Not quite. The output = 'text' parameter only affects how R receives the response — it does not influence the model's behaviour. The problem is that the prompt contains 'this corpus' which refers to content the model has no access to. LLMs have no access to your file system, previous sessions, or external context — everything must be in the current prompt. Paste the text into the prompt string and specify the expected format."
+)
+```
+
+---
+
+**Q6. You want to generate responses for 100 different prompts using `generate()` in a loop. A colleague suggests using `output = "df"` rather than `output = "text"`. What advantage does the `"df"` format offer for a batch workflow?**
+
+```{r}
+#| echo: false
+#| label: "gen_q2"
+check_question(
+  "output = 'df' returns a tibble that includes the response text alongside metadata columns such as model name, total_duration, and eval_count (tokens generated) — this makes it easy to bind_rows() across 100 calls and retain timing and provenance information alongside each response.",
+  options = c(
+    "output = 'df' is faster than output = 'text' because it skips the text parsing step",
+    "output = 'df' returns a tibble that includes the response text alongside metadata columns such as model name, total_duration, and eval_count (tokens generated) — this makes it easy to bind_rows() across 100 calls and retain timing and provenance information alongside each response.",
+    "output = 'df' allows the model to return multiple responses per prompt",
+    "There is no difference — both formats return the same information"
+  ),
+  type = "radio",
+  q_id = "gen_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The tibble returned by output = 'df' includes not just the response text but also metadata: the model name used, the generation duration, the number of tokens evaluated, and other Ollama API fields. For a batch workflow processing 100 texts, binding these tibbles with bind_rows() gives you a single clean data frame with both results and provenance metadata — which model produced each response, how long it took, and how many tokens were generated. This is far more useful for analysis than a plain character vector from output = 'text'.",
+  wrong = "Not quite. Both formats return the same response text, but output = 'df' wraps it in a tibble with additional metadata columns (model, duration, token counts). For a batch workflow, this means you can use bind_rows() to collect 100 responses into a single data frame that retains timing and provenance information alongside each result — valuable for quality checking and reporting."
+)
+```
+
+---
+
+# Multi-Turn Chat {#chat}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The difference between `generate()` and `chat()`; how conversation history is structured as a list of messages; how to use `create_message()`, `append_message()`, and related helpers; how system prompts shape model behaviour; and how to build a reusable chat loop
+:::
+
+## generate() vs chat() {-}
+
+`generate()` is stateless — each call is independent and the model has no memory of previous calls. `chat()` maintains conversation context by accepting a **message history**: a list of all previous turns (both user messages and assistant responses). This allows follow-up questions, iterative refinement, and role-playing scenarios where the model maintains a consistent persona across turns.
+
+The message history is a list of named lists, each with two elements: `role` (one of `"system"`, `"user"`, or `"assistant"`) and `content` (the message text):
+
+```r
+list(
+  list(role = "system",    content = "You are a helpful linguist."),
+  list(role = "user",      content = "What is a hapax legomenon?"),
+  list(role = "assistant", content = "A hapax legomenon is a word that occurs only once..."),
+  list(role = "user",      content = "Can you give me an example from Shakespeare?")
+)
+```
+
+## Creating and Managing Message History {-}
+
+`ollamar` provides helper functions so you never need to construct these lists manually:
+
+```{r chat_helpers, eval=TRUE, message=FALSE, warning=FALSE}
+# create_message() — start a history with one message
+# The second argument is the role; default is "user"
+messages <- ollamar::create_message(
+  "You are a corpus linguistics expert. Give concise, precise answers.",
+  "system"
+)
+
+# append_message() — add a user turn
+messages <- ollamar::append_message(
+  "What is the difference between type frequency and token frequency?",
+  "user",
+  messages
+)
+
+# Send to the model and get a response
+resp <- ollamar::chat("llama3.2", messages, output = "df")
+
+# The model's reply
+cat(resp$content)
+```
+
+To continue the conversation, append the assistant's reply and a new user message:
+
+```{r chat_continue, eval=TRUE, message=FALSE, warning=FALSE}
+# Append the model's reply to maintain context
+messages <- ollamar::append_message(resp$content, "assistant", messages)
+
+# Add the next user question
+messages <- ollamar::append_message(
+  "How would I calculate type-token ratio in R?",
+  "user",
+  messages
+)
+
+# Continue the conversation
+resp2 <- ollamar::chat("llama3.2", messages, output = "df")
+cat(resp2$content)
+```
+
+## System Prompts {-}
+
+A system prompt is a message with `role = "system"` placed at the start of the history. It sets the model's persona, constraints, and output format for the entire conversation. System prompts are one of the most powerful tools for producing consistent, well-formatted output:
+
+```{r system_prompt, eval=TRUE, message=FALSE, warning=FALSE}
+# System prompt for a structured linguistic analysis assistant
+sys_prompt <- paste(
+  "You are a linguistic analysis assistant specialising in corpus linguistics.",
+  "You always respond in plain text, without markdown formatting.",
+  "Your answers are concise and technically precise.",
+  "When asked to classify text, you respond with only the label — no explanation."
+)
+
+messages <- ollamar::create_message(sys_prompt, "system")
+messages <- ollamar::append_message(
+  "Classify the register of this text: 'Pursuant to the provisions of section 42...'",
+  "user",
+  messages
+)
+
+ollamar::chat("llama3.2", messages, output = "text")
+# Expected: "legal/formal"
+```
+
+## A Reusable Chat Loop {-}
+
+For interactive use, you can build a simple loop that manages the conversation history automatically:
+
+```{r chat_loop, eval=FALSE, message=FALSE, warning=FALSE}
+# Initialise with a system prompt
+messages <- ollamar::create_message(
+  "You are a helpful R programming assistant for linguists.",
+  "system"
+)
+
+# Simple interactive chat loop — run in RStudio console, not knitted document
+chat_with_model <- function(model = "llama3.2") {
+  msgs <- ollamar::create_message(
+    "You are a helpful R programming and corpus linguistics assistant.",
+    "system"
+  )
+  cat("Chat started. Type 'quit' to exit.\n\n")
+  repeat {
+    user_input <- readline("You: ")
+    if (trimws(user_input) == "quit") { cat("Goodbye!\n"); break }
+    msgs  <- ollamar::append_message(user_input, "user", msgs)
+    resp  <- ollamar::chat(model, msgs, output = "df")
+    reply <- resp$content
+    msgs  <- ollamar::append_message(reply, "assistant", msgs)
+    cat("Model:", reply, "\n\n")
+  }
+}
+
+chat_with_model()
+```
+
+::: {.callout-note}
+## Other Message Management Functions
+
+`ollamar` provides a full set of message manipulation helpers:
+
+- `prepend_message()` — add a message to the beginning of the history
+- `insert_message()` — insert at a specific position (positive or negative index)
+- `delete_message()` — remove a message at a specific position
+- `create_messages()` — create a history with multiple messages at once
+
+These are particularly useful when building complex multi-turn workflows where the conversation history needs to be edited programmatically.
+:::
+
+::: {.callout-tip}
+## Exercises: Multi-Turn Chat
+:::
+
+**Q7. You are building a chat workflow for annotating linguistic data. After 10 turns, you notice the model has started ignoring your system prompt instructions. What is the most likely cause?**
+
+```{r}
+#| echo: false
+#| label: "chat_q1"
+check_question(
+  "LLMs have a finite context window — as the conversation history grows, older messages (including the system prompt at position 1) receive less attention. Remedies include periodically reinserting the system prompt, keeping responses concise to preserve window space, or deleting irrelevant older turns with delete_message().",
+  options = c(
+    "The system prompt was overwritten by one of the user messages",
+    "LLMs have a finite context window — as the conversation history grows, older messages (including the system prompt at position 1) receive less attention. Remedies include periodically reinserting the system prompt, keeping responses concise to preserve window space, or deleting irrelevant older turns with delete_message().",
+    "chat() does not support system prompts — use generate() with a system prompt prefix instead",
+    "The model needs to be restarted after 10 turns to clear its memory"
+  ),
+  type = "radio",
+  q_id = "chat_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LLMs process the entire message history on each call, but they have a maximum context window (measured in tokens). As the history grows, the effective attention given to early messages — including the system prompt — diminishes. This is sometimes called 'context drift'. Practical remedies: (1) periodically use prepend_message() or insert_message() to reinsert the system prompt; (2) use delete_message() to remove long earlier exchanges that are no longer relevant; (3) keep model responses concise by including 'Be brief' in the system prompt.",
+  wrong = "Not quite. The system prompt is not overwritten — it remains in the message list. The issue is that LLMs process everything in the context window simultaneously, and their attention to specific messages diminishes as the total context grows. This is a known limitation sometimes called 'context drift'. The remedies involve managing the history length: deleting old turns, periodically reinserting the system prompt, or requesting concise responses."
+)
+```
+
+---
+
+**Q8. What is the key practical difference between using `generate()` and `chat()` for a sequence of related prompts about the same document?**
+
+```{r}
+#| echo: false
+#| label: "chat_q2"
+check_question(
+  "generate() is stateless — each call is independent with no memory of previous calls. chat() maintains a message history that is passed on every call, allowing follow-up questions that build on previous answers. For a sequence of related questions about the same document, chat() avoids repeating the document in every prompt.",
+  options = c(
+    "generate() is faster than chat() because it does not maintain history",
+    "generate() is stateless — each call is independent with no memory of previous calls. chat() maintains a message history that is passed on every call, allowing follow-up questions that build on previous answers. For a sequence of related questions about the same document, chat() avoids repeating the document in every prompt.",
+    "chat() supports larger models than generate()",
+    "There is no difference — both functions process each prompt independently"
+  ),
+  type = "radio",
+  q_id = "chat_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! generate() has no memory between calls — every prompt must be fully self-contained. chat() passes the entire message history to the model on every call, so follow-up questions can reference previous answers without repeating the full context. For multi-step annotation of a document (e.g., 'what is the topic?' → 'what is the sentiment?' → 'who are the named entities?'), chat() lets you include the document once in the opening message and ask follow-ups without re-pasting it each time.",
+  wrong = "Not quite. Both functions call the same underlying model, so neither is inherently faster for a single call. The key difference is memory: generate() is stateless (each call is independent), while chat() maintains a message history across turns. For related questions about the same document, chat() is more efficient because you include the document once and ask follow-ups without repeating it."
+)
+```
+
+---
+
+# Sentiment Analysis and Text Classification {#sentiment}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to use prompt engineering to turn a general-purpose LLM into a text classifier; how to enforce structured output; how to process a vector of texts and collect results; and how to evaluate classification output
+:::
+
+## Prompt-Based Classification {-}
+
+Rather than fine-tuning a model, LLMs can be directed to perform classification tasks through careful prompt design. The key principle is to ask for a **constrained response** — a single label from a defined set — rather than an open-ended answer.
+
+```{r sentiment_single, eval=TRUE, message=FALSE, warning=FALSE}
+classify_sentiment <- function(text, model = "llama3.2") {
+  prompt <- paste(
+    "Classify the sentiment of the following text.",
+    "Respond with exactly one word: positive, negative, or neutral.",
+    "Do not explain your answer.",
+    paste0("Text: '", text, "'")
+  )
+  ollamar::generate(model, prompt, output = "text") |>
+    trimws() |>
+    tolower()
+}
+
+# Test on a single sentence
+classify_sentiment("The results were surprisingly strong and exceeded all expectations.")
+# Expected: "positive"
+
+classify_sentiment("The methodology is flawed and the conclusions are unwarranted.")
+# Expected: "negative"
+```
+
+## Batch Classification {-}
+
+Apply the classifier to a vector of texts using `purrr::map_chr()`:
+
+```{r sentiment_batch, eval=TRUE, message=FALSE, warning=FALSE}
+reviews <- tibble::tibble(
+  id = 1:6,
+  text = c(
+    "An outstanding contribution to the field — clear, rigorous, and insightful.",
+    "The paper is poorly structured and the argument is difficult to follow.",
+    "The study replicates previous findings without offering new theoretical insights.",
+    "A welcome addition to the literature on discourse coherence.",
+    "The sample size is too small to support the generalisations made.",
+    "The cross-linguistic comparison is both ambitious and well executed."
+  )
+)
+
+reviews <- reviews |>
+  dplyr::mutate(
+    sentiment = purrr::map_chr(text, classify_sentiment)
+  )
+
+reviews |>
+  dplyr::select(id, sentiment, text) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Sentiment classification of academic review sentences using llama3.2.") |>
+  flextable::border_outer()
+```
+
+## Multi-Class Topic Classification {-}
+
+The same pattern extends to any classification scheme. Here we classify academic sentences by rhetorical function:
+
+```{r topic_classify, eval=TRUE, message=FALSE, warning=FALSE}
+classify_rhetorical <- function(text, model = "llama3.2") {
+  prompt <- paste(
+    "Classify the rhetorical function of the following academic sentence.",
+    "Choose exactly one label from: background, method, result, conclusion.",
+    "Respond with that single word only.",
+    paste0("Sentence: '", text, "'")
+  )
+  ollamar::generate(model, prompt, output = "text") |>
+    trimws() |>
+    tolower()
+}
+
+sentences <- c(
+  "Previous research has established a strong link between frequency and acceptability.",
+  "We collected data from 120 native speakers using an online survey platform.",
+  "The analysis revealed a significant effect of register on hedging frequency (p < .001).",
+  "These findings suggest that usage-based accounts require revision."
+)
+
+purrr::map_chr(sentences, classify_rhetorical)
+# Expected: c("background", "method", "result", "conclusion")
+```
+
+::: {.callout-tip}
+## Exercises: Sentiment Analysis and Classification
+:::
+
+**Q9. You run batch sentiment classification on 200 texts and find that about 15% of results contain extra words like "The sentiment is positive" instead of just "positive". What prompt change would most reliably fix this?**
+
+```{r}
+#| echo: false
+#| label: "sent_q1"
+check_question(
+  "Add an explicit negative instruction: 'Do not include any other words, punctuation, or explanation — output only the single label.' LLMs sometimes ignore positive instructions but respond well to explicit constraints. Post-processing with str_extract() to pull out the label word is also a good defensive measure.",
+  options = c(
+    "Switch to a larger model — smaller models cannot follow format instructions reliably",
+    "Add an explicit negative instruction: 'Do not include any other words, punctuation, or explanation — output only the single label.' LLMs sometimes ignore positive instructions but respond well to explicit constraints. Post-processing with str_extract() to pull out the label word is also a good defensive measure.",
+    "Use output = 'jsonlist' instead of output = 'text' — JSON forces structured responses",
+    "Use chat() instead of generate() — chat() follows format instructions more reliably"
+  ),
+  type = "radio",
+  q_id = "sent_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LLMs are trained to be helpful and conversational, which can work against you when you need a single-word response. Adding 'Do not include any other words, punctuation, or explanation' is often more effective than a positive instruction alone. As a defensive second measure, always post-process with str_extract(result, 'positive|negative|neutral') to extract the label even if extra words are present — this makes your pipeline robust to occasional non-compliance.",
+  wrong = "Not quite. Model size and the choice of generate() vs chat() have little effect on format compliance for simple classification prompts. The most reliable fix is to add an explicit negative constraint: 'Do not include any other words, punctuation, or explanation — output only the single label.' You should also add str_extract() post-processing as a safety net, since no prompt change guarantees 100% format compliance."
+)
+```
+
+---
+
+**Q10. You want to classify 1,000 newspaper headlines by topic (politics, economics, sport, culture, science) using a local LLM. A colleague suggests evaluating the classifier on 50 manually labelled headlines before using it on the full corpus. Why is this a good practice?**
+
+```{r}
+#| echo: false
+#| label: "sent_q2"
+check_question(
+  "LLM classifiers are not guaranteed to perform well on any given task or domain — their accuracy depends on model size, prompt design, and how well the label scheme maps onto the model's implicit categorisation. Evaluating on a gold-standard sample reveals accuracy, common errors, and label confusion before committing to processing 1,000 headlines.",
+  options = c(
+    "It is not necessary — LLMs always achieve near-human performance on topic classification",
+    "LLM classifiers are not guaranteed to perform well on any given task or domain — their accuracy depends on model size, prompt design, and how well the label scheme maps onto the model's implicit categorisation. Evaluating on a gold-standard sample reveals accuracy, common errors, and label confusion before committing to processing 1,000 headlines.",
+    "Evaluation is only needed when using commercial APIs, not local models",
+    "The evaluation sample must be at least 500 headlines to be statistically meaningful"
+  ),
+  type = "radio",
+  q_id = "sent_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! No LLM classifier should be deployed on a full corpus without first evaluating its accuracy on a gold standard. LLMs may perform excellently on some category distinctions and poorly on others — for example, distinguishing 'economics' from 'politics' may be ambiguous for many headlines. A 50-item evaluation reveals accuracy, identifies which categories are confused, and allows prompt refinement before processing the full corpus. This is standard practice in computational linguistics regardless of the classifier type.",
+  wrong = "Not quite. LLMs do not guarantee high performance on any given task — their accuracy depends on model quality, prompt design, and task difficulty. Evaluating on a manually labelled sample before full deployment is essential to discover the classifier's accuracy and failure modes. This is not specific to commercial APIs — it is good practice for any automated annotation method, including local LLMs."
+)
+```
+
+---
+
+# Named Entity Recognition {#ner}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to prompt a local LLM to identify and classify named entities; how to request structured JSON output for easier parsing; how to parse and process entity output in R; and the trade-offs between LLM-based NER and dedicated NER models
+:::
+
+## Prompting for NER {-}
+
+Named entity recognition asks the model to identify spans of text that refer to real-world objects and classify them by type (person, organisation, location, etc.). Requesting JSON output makes the response much easier to parse programmatically:
+
+```{r ner_single, eval=TRUE, message=FALSE, warning=FALSE}
+extract_entities <- function(text, model = "llama3.2") {
+  prompt <- paste(
+    "Extract all named entities from the following text.",
+    "Return a JSON array where each element has two fields:",
+    "'entity' (the text span) and 'type' (one of: PERSON, ORG, LOC, DATE, MISC).",
+    "Return only the JSON array — no explanation, no markdown, no code block.",
+    paste0("Text: '", text, "'")
+  )
+
+  raw <- ollamar::generate(model, prompt, output = "text") |> trimws()
+
+  # Try to isolate just the JSON array in case the model added surrounding text
+  json_str <- stringr::str_extract(raw, "\\[.*\\]")
+  if (is.na(json_str)) json_str <- raw
+
+  result <- tryCatch(
+    jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE),
+    error = function(e) {
+      warning("JSON parsing failed. Raw output was: ", raw)
+      NULL
+    }
+  )
+
+  # Validate that we got a proper data frame with the right columns
+  if (is.null(result) ||
+      !is.data.frame(result) ||
+      !all(c("entity", "type") %in% names(result))) {
+    return(tibble::tibble(entity = NA_character_, type = NA_character_))
+  }
+
+  tibble::as_tibble(result)
+}
+
+# Test on a news sentence
+result <- extract_entities(
+  "Christine Lagarde met Rishi Sunak in London last Tuesday to discuss IMF reform."
+)
+result
+#        entity    type
+# 1  Christine Lagarde  PERSON
+# 2       Rishi Sunak  PERSON
+# 3            London     LOC
+# 4       last Tuesday    DATE
+# 5               IMF     ORG
+```
+
+## Corpus-Scale NER {-}
+
+Apply the extractor across a corpus and bind the results into a single data frame:
+
+```{r ner_corpus, eval=TRUE, message=FALSE, warning=FALSE}
+news_corpus <- tibble::tibble(
+  doc_id = paste0("doc", 1:4),
+  text = c(
+    "The European Central Bank announced rate rises in Frankfurt, affecting markets across Germany and France.",
+    "Ursula von der Leyen met Joe Biden at the G7 summit in Hiroshima to discuss trade policy.",
+    "Oxford University published a landmark study on language acquisition in the journal Nature.",
+    "Amazon opened a new fulfilment centre near Manchester, creating 1,500 jobs in the region."
+  )
+)
+
+ner_results <- purrr::pmap_dfr(news_corpus, function(doc_id, text) {
+  ents <- extract_entities(text)
+  if (nrow(ents) > 0 && !is.na(ents$entity[1])) {
+    dplyr::mutate(ents, doc_id = doc_id)
+  } else {
+    tibble::tibble(entity = NA, type = NA, doc_id = doc_id)
+  }
+})
+
+ner_results
+```
+
+## LLM-Based NER vs Dedicated Models {-}
+
+LLM-based NER via prompting has different trade-offs compared to dedicated NER models (such as those available through `udpipe` or the BERT-based models in the BERT/RoBERTa tutorial):
+
+| Property | LLM (Ollama) | Dedicated NER model |
+|---|---|---|
+| Setup complexity | Low — no fine-tuning | Low — pre-trained weights |
+| Speed | Slow (seconds per text) | Fast (milliseconds per text) |
+| Customisability | High — change entity types in prompt | Low — fixed to training categories |
+| Output consistency | Variable — JSON parsing can fail | Consistent structured output |
+| Domain adaptation | Easy — describe domain in prompt | Requires fine-tuning |
+| Best for | Flexible exploration, novel entity types | Production pipelines, large corpora |
+
+For corpora of thousands of documents, dedicated models are far more practical. LLM-based NER is most useful when you need non-standard entity types, when the domain is unusual, or when you are exploring a new task before committing to a heavier infrastructure.
+
+::: {.callout-tip}
+## Exercises: Named Entity Recognition
+:::
+
+**Q11. You run the `extract_entities()` function on 50 texts and find that about 10% return a JSON parsing error. What are two good defensive coding strategies to handle this?**
+
+```{r}
+#| echo: false
+#| label: "ner_q1"
+check_question(
+  "Wrap the JSON parsing in tryCatch() to catch failures gracefully and return a default empty data frame (already shown above), and add str_extract() pre-processing to extract just the JSON array portion before parsing — the model sometimes adds explanation text before or after the JSON despite being asked not to.",
+  options = c(
+    "Switch to a larger model — smaller models cannot produce valid JSON",
+    "Wrap the JSON parsing in tryCatch() to catch failures gracefully and return a default empty data frame (already shown above), and add str_extract() pre-processing to extract just the JSON array portion before parsing — the model sometimes adds explanation text before or after the JSON despite being asked not to.",
+    "Use output = 'jsonlist' in generate() — this forces the model to return valid JSON",
+    "Post-process with gsub() to remove all text and keep only the JSON"
+  ),
+  type = "radio",
+  q_id = "ner_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Two complementary strategies: (1) tryCatch() around fromJSON() so that parsing failures produce a default NA row rather than crashing the pipeline — this is already shown in the extract_entities() function above; (2) str_extract(raw, '\\\\[.*\\\\]') to pull out just the JSON array portion before parsing, since models often prepend explanation text ('Here are the entities:') or wrap the JSON in markdown code fences despite being instructed not to. Using both strategies together makes the pipeline robust to occasional non-compliance.",
+  wrong = "Not quite. output = 'jsonlist' formats the R return value of the API response — it does not force the model to respond with JSON content. The model's response text is still whatever it decides to generate. The two reliable strategies are: tryCatch() around the JSON parser, and str_extract() to isolate the JSON portion before parsing."
+)
+```
+
+---
+
+# Text Summarisation {#summarisation}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to prompt for extractive and abstractive summaries; how to control summary length and format; how to apply summarisation at corpus scale; and how to compare model output across different prompt formulations
+:::
+
+## Single-Document Summarisation {-}
+
+Summarisation is one of the tasks where local LLMs perform most reliably. The key prompt design decisions are specifying the desired length, the target audience, and whether the summary should be extractive (drawn verbatim from the source) or abstractive (paraphrased in the model's own words):
+
+```{r summarise_single, eval=TRUE, message=FALSE, warning=FALSE}
+summarise_text <- function(text,
+                           n_sentences = 3,
+                           model       = "llama3.2") {
+  prompt <- paste(
+    paste0("Summarise the following text in exactly ", n_sentences, " sentences."),
+    "Write in plain academic prose. Do not use bullet points.",
+    "Do not include any preamble — begin immediately with the summary.",
+    paste0("\n\nText:\n", text)
+  )
+  ollamar::generate(model, prompt, output = "text") |> trimws()
+}
+
+# Darwin abstract (illustrative)
+darwin_passage <- paste(
+  "The struggle for existence amongst all organic beings throughout the world,",
+  "which inevitably follows from their high geometrical powers of increase,",
+  "will be treated of. This is the doctrine of Malthus, applied to the whole",
+  "animal and vegetable kingdoms. As many more individuals of each species are",
+  "born than can possibly survive, and as, consequently, there is a frequently",
+  "recurring struggle for existence, it follows that any being, if it vary",
+  "however slightly in any manner profitable to itself, will have a better",
+  "chance of surviving and thus be naturally selected."
+)
+
+cat(summarise_text(darwin_passage, n_sentences = 2))
+```
+
+## Varying Summary Length {-}
+
+```{r summarise_lengths, eval=TRUE, message=FALSE, warning=FALSE}
+# Compare summaries at different lengths
+lengths <- c(1, 2, 3)
+summaries <- purrr::map_chr(
+  lengths,
+  ~ summarise_text(darwin_passage, n_sentences = .x)
+)
+
+# Display side by side
+tibble::tibble(
+  n_sentences = lengths,
+  summary     = summaries
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Same passage summarised at 1, 2, and 3 sentences.") |>
+  flextable::border_outer()
+```
+
+## Corpus-Scale Summarisation {-}
+
+For a corpus of documents, apply the function across rows and store results:
+
+```{r summarise_corpus, eval=TRUE, message=FALSE, warning=FALSE}
+# Illustrative corpus of five abstracts
+abstracts <- tibble::tibble(
+  paper_id = paste0("P", 1:5),
+  abstract = c(
+    "This study investigates the frequency distribution of hedging devices in spoken and written academic English using a corpus of 500,000 words drawn from lectures and journal articles...",
+    "We present a computational model of lexical alignment in dialogue, trained on the British National Corpus...",
+    "The paper examines the development of grammaticalisation in Old English modal verbs using diachronic corpus data spanning the 7th to 12th centuries...",
+    "Using eye-tracking methodology, we investigate how readers process garden-path sentences in English and German...",
+    "This paper reports on a large-scale survey of attitudes towards language change among speakers of Irish English in three urban centres..."
+  )
+)
+
+abstracts_summarised <- abstracts |>
+  dplyr::mutate(
+    summary = purrr::map_chr(
+      abstract,
+      ~ summarise_text(.x, n_sentences = 1)
+    )
+  )
+
+abstracts_summarised |>
+  dplyr::select(paper_id, summary) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "One-sentence summaries generated by llama3.2.") |>
+  flextable::border_outer()
+```
+
+::: {.callout-tip}
+## Exercises: Text Summarisation
+:::
+
+**Q12. You summarise 200 abstracts and find that about 20% of summaries begin with "Here is a one-sentence summary:" despite your prompt saying "Do not include any preamble." What is the most robust fix?**
+
+```{r}
+#| echo: false
+#| label: "sum_q1"
+check_question(
+  "Add post-processing to remove common preamble patterns with str_remove(), and strengthen the prompt with an example of the desired format: 'Example output: This study investigates...'. Showing the model what the output should look like (few-shot prompting) is more reliable than negative instructions alone.",
+  options = c(
+    "Use a larger model — 3B models cannot follow formatting instructions",
+    "Add post-processing to remove common preamble patterns with str_remove(), and strengthen the prompt with an example of the desired format: 'Example output: This study investigates...'. Showing the model what the output should look like (few-shot prompting) is more reliable than negative instructions alone.",
+    "Use chat() instead of generate() — it follows formatting instructions more reliably",
+    "Switch output = 'text' to output = 'df' — this strips preamble automatically"
+  ),
+  type = "radio",
+  q_id = "sum_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Two complementary strategies work best together: (1) Post-processing with str_remove(result, '^[^:]+:\\s*') to strip text up to and including the first colon, which removes patterns like 'Here is a summary:'; and (2) few-shot prompting — adding an example of the desired output directly to the prompt. Showing the model 'Example: This study investigates...' is often more effective than negative instructions. Neither function choice (generate vs chat) nor output format affects whether preamble appears.",
+  wrong = "Not quite. Model size and function choice are not the primary factors — preamble addition is a general LLM behaviour that also affects larger models. The two most reliable fixes are: (1) post-process with str_remove() to strip the preamble; (2) add a positive example to the prompt (few-shot prompting) showing what the output should look like without a preamble."
+)
+```
+
+---
+
+# Generating Embeddings {#embeddings}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What `embed()` does and when to use it; how to extract numeric embedding vectors; how to compute cosine similarity between embeddings; and how to apply embeddings to semantic grouping and nearest-neighbour search
+:::
+
+## What Are Embeddings? {-}
+
+The `embed()` function sends text to the model and returns a numeric vector (the embedding) rather than generated text. An embedding is a fixed-length representation of meaning in a high-dimensional space: texts with similar meaning produce vectors that are close together (high cosine similarity); texts with unrelated meaning produce vectors that are far apart.
+
+Ollama can produce embeddings using models specifically optimised for the task. `nomic-embed-text` is a widely used embedding model that is fast, small (~270 MB), and produces high-quality 768-dimensional embeddings:
+
+```{r embed_setup, eval=FALSE, message=FALSE, warning=FALSE}
+# Pull the embedding model (one-time download, ~270 MB)
+ollamar::pull("nomic-embed-text")
+
+# Generate an embedding for a single sentence
+emb <- ollamar::embed("nomic-embed-text", "Corpus linguistics studies language in use.")
+length(emb$embeddings[[1]])   # 768 dimensions
+```
+
+::: {.callout-note}
+## Embedding Models vs Generation Models
+
+Not all Ollama models support embeddings. Use `nomic-embed-text` or `mxbai-embed-large` for embedding tasks — do not use generation models like `llama3.2` for embeddings, as their output will be of lower quality. Conversely, embedding models cannot generate text. Pull the right model for the right task.
+:::
+
+## Cosine Similarity {-}
+
+```{r embed_cosine, eval=TRUE, message=FALSE, warning=FALSE}
+# Cosine similarity function
+cosine_sim <- function(a, b) {
+  sum(a * b) / (sqrt(sum(a^2)) * sqrt(sum(b^2)))
+}
+
+sentences <- c(
+  "Frequency effects are central to usage-based theories of grammar.",
+  "Usage-based linguistics emphasises the role of input frequency in acquisition.",
+  "The morphosyntax of Swahili noun class agreement has been extensively studied.",
+  "Corpus data reveal robust collocational preferences in academic writing.",
+  "Token frequency shapes the entrenchment of linguistic constructions."
+)
+
+embeddings <- purrr::map(
+  sentences,
+  ~ ollamar::embed("nomic-embed-text", .x)[, 1]
+)
+
+# Compute pairwise cosine similarity matrix
+n   <- length(embeddings)
+sim <- matrix(0, n, n, dimnames = list(paste0("S", 1:n), paste0("S", 1:n)))
+for (i in seq_len(n)) for (j in seq_len(n)) {
+  sim[i, j] <- cosine_sim(embeddings[[i]], embeddings[[j]])
+}
+round(sim, 3)
+```
+
+Expected: S1, S2, and S5 (all about frequency/usage-based linguistics) should cluster together with high mutual similarity (~0.85+). S4 (collocations) should be moderately similar to them. S3 (Swahili morphosyntax) should be dissimilar to all others.
+
+## Nearest-Neighbour Search {-}
+
+Embeddings support semantic search: given a query, find the most similar texts in a corpus:
+
+```{r embed_search, eval=TRUE, message=FALSE, warning=FALSE}
+# Simple nearest-neighbour search
+semantic_search <- function(query, corpus_texts, corpus_embeddings, top_n = 3) {
+  query_emb <- ollamar::embed("nomic-embed-text", query)[, 1]
+
+  sims <- purrr::map_dbl(
+    corpus_embeddings,
+    ~ cosine_sim(query_emb, .x)
+  )
+
+  tibble::tibble(
+    text       = corpus_texts,
+    similarity = sims
+  ) |>
+    dplyr::arrange(dplyr::desc(similarity)) |>
+    head(top_n)
+}
+
+# Find the sentences most similar to a query
+semantic_search(
+  query             = "How does experience shape language knowledge?",
+  corpus_texts      = sentences,
+  corpus_embeddings = embeddings,
+  top_n             = 3
+)
+```
+
+::: {.callout-tip}
+## Exercises: Embeddings
+:::
+
+**Q13. You use `embed()` with `llama3.2` (a generation model) instead of `nomic-embed-text` and find the similarity scores are much lower and less meaningful. Why?**
+
+```{r}
+#| echo: false
+#| label: "emb_q1"
+check_question(
+  "Generation models are not trained to produce semantically comparable embedding vectors — their internal representations are optimised for next-token prediction, not for placing similar texts close together in embedding space. Dedicated embedding models are trained with a contrastive objective specifically designed to make cosine similarity a reliable measure of semantic proximity.",
+  options = c(
+    "llama3.2 produces shorter embeddings than nomic-embed-text, which reduces similarity scores",
+    "Generation models are not trained to produce semantically comparable embedding vectors — their internal representations are optimised for next-token prediction, not for placing similar texts close together in embedding space. Dedicated embedding models are trained with a contrastive objective specifically designed to make cosine similarity a reliable measure of semantic proximity.",
+    "embed() does not work with llama3.2 — it returns random vectors",
+    "The similarity scores are lower because llama3.2 uses a different similarity metric internally"
+  ),
+  type = "radio",
+  q_id = "emb_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! This is the same issue that affects vanilla BERT embeddings compared to sentence-transformers models (covered in the BERT/RoBERTa tutorial). Generation models are trained to predict the next token, which produces good contextualised representations for generation but does not guarantee that semantically similar texts are close together in the resulting embedding space. Dedicated embedding models are trained with a contrastive loss that explicitly pulls semantically similar texts together and pushes dissimilar ones apart, making cosine similarity a reliable semantic measure.",
+  wrong = "Not quite. The issue is not embedding dimension or similarity metric — it is training objective. Generation models like llama3.2 are trained to predict the next token; their internal representations are not calibrated for cosine similarity-based semantic search. Dedicated embedding models like nomic-embed-text are trained specifically to produce embedding spaces where cosine similarity reliably reflects semantic proximity."
+)
+```
+
+---
+
+# Corpus-Scale Batch Processing {#batching}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why LLM inference is slow and what determines speed; how to process a corpus sequentially with progress tracking; how to use `httr2`'s parallel request functionality for speedup; and practical strategies for managing large-scale processing jobs
+:::
+
+## Why Batch Processing Requires Care {-}
+
+Unlike fast string-processing functions, each `generate()` or `chat()` call involves running a neural network — a process that takes seconds per text even on modern hardware. A corpus of 1,000 texts at 3 seconds each takes roughly 50 minutes sequentially. Three strategies reduce this:
+
+**Parallelisation** — `ollamar` integrates with `httr2`'s `req_perform_parallel()` to issue multiple requests simultaneously, reducing total time proportionally to the degree of parallelism.
+
+**Batching** — grouping short texts together in a single prompt reduces the number of API calls.
+
+**Model selection** — smaller, faster models (3B) are appropriate for simple tasks; reserve larger models for tasks where quality is critical.
+
+## Sequential Processing with Progress {-}
+
+For modest corpora (up to a few hundred texts), sequential processing with a progress indicator is the simplest approach:
+
+```{r batch_sequential, eval=TRUE, message=FALSE, warning=FALSE}
+classify_batch_sequential <- function(texts, model = "llama3.2") {
+  n <- length(texts)
+  results <- character(n)
+
+  for (i in seq_along(texts)) {
+    cat(sprintf("Processing %d of %d...\r", i, n))
+    results[i] <- classify_sentiment(texts[i], model)
+    Sys.sleep(0.1)   # small pause to avoid overwhelming the local server
+  }
+  cat("\nDone.\n")
+  results
+}
+```
+
+## Parallel Processing with httr2 {-}
+
+For larger corpora, `ollamar` supports parallelisation by building request objects first (`output = "req"`) and then executing them all simultaneously with `httr2::req_perform_parallel()`:
+
+```{r batch_parallel, eval=TRUE, message=FALSE, warning=FALSE}
+library(httr2)
+
+texts_to_classify <- c(
+  "The results confirm the central hypothesis and extend previous findings.",
+  "The methodology contains several unacknowledged limitations.",
+  "No significant difference was found between the two groups.",
+  "This work represents a major advance in our understanding of acquisition.",
+  "The conclusions are not supported by the data presented."
+)
+
+# Step 1: Build a system prompt (shared across all requests)
+sys_msg <- ollamar::create_message(
+  paste(
+    "You classify academic sentences by sentiment.",
+    "Respond with exactly one word: positive, negative, or neutral."
+  ),
+  "system"
+)
+
+# Step 2: Create a list of httr2_request objects — one per text
+reqs <- lapply(texts_to_classify, function(txt) {
+  msgs <- ollamar::append_message(txt, "user", sys_msg)
+  ollamar::chat("llama3.2", msgs, output = "req")
+})
+
+# Step 3: Execute all requests in parallel
+resps <- httr2::req_perform_parallel(reqs)
+
+# Step 4: Extract results
+results <- dplyr::bind_rows(
+  lapply(resps, ollamar::resp_process, "df")
+)
+
+tibble::tibble(
+  text      = texts_to_classify,
+  sentiment = trimws(tolower(results$content))
+)
+```
+
+::: {.callout-warning}
+## Parallelism Limits
+
+Ollama processes requests on your local hardware. Issuing 50 simultaneous requests does not make your laptop 50× faster — it will saturate your CPU or GPU and may actually slow down individual responses or cause timeouts. In practice, 2–4 parallel requests is a sensible limit for a laptop CPU. Experiment to find the sweet spot for your hardware.
+:::
+
+## Saving and Resuming Large Jobs {-}
+
+For very large corpora, saving results incrementally prevents losing progress if the session is interrupted:
+
+```{r batch_save, eval=TRUE, message=FALSE, warning=FALSE}
+process_corpus_with_checkpointing <- function(texts, ids,
+                                              output_file = "results.rds",
+                                              model = "llama3.2") {
+  # Load existing results if a checkpoint exists
+  if (file.exists(output_file)) {
+    existing <- readRDS(output_file)
+    done_ids <- existing$id
+    cat("Resuming from checkpoint:", nrow(existing), "texts already processed.\n")
+  } else {
+    existing <- tibble::tibble(id = character(), text = character(), result = character())
+    done_ids <- character()
+  }
+
+  # Process only texts not yet done
+  todo_idx <- which(!ids %in% done_ids)
+  cat("Remaining:", length(todo_idx), "texts.\n")
+
+  for (i in todo_idx) {
+    result <- classify_sentiment(texts[i], model)
+    new_row <- tibble::tibble(id = ids[i], text = texts[i], result = result)
+    existing <- dplyr::bind_rows(existing, new_row)
+
+    # Save checkpoint every 10 texts
+    if (i %% 10 == 0) saveRDS(existing, output_file)
+  }
+
+  saveRDS(existing, output_file)
+  existing
+}
+```
+
+::: {.callout-tip}
+## Exercises: Batch Processing
+:::
+
+**Q14. You are processing 500 newspaper articles with a local LLM and want to use parallel requests. You try 20 parallel requests at once and find the total processing time is actually *longer* than sequential processing. What is the most likely explanation?**
+
+```{r}
+#| echo: false
+#| label: "batch_q1"
+check_question(
+  "20 simultaneous requests saturate the local CPU/GPU — all 20 inference processes compete for the same hardware resources, causing each to run slower than it would alone. The total throughput is lower than with 2–4 parallel requests because the hardware is overloaded rather than being efficiently utilised.",
+  options = c(
+    "Parallel processing does not work with Ollama — use sequential processing instead",
+    "20 simultaneous requests saturate the local CPU/GPU — all 20 inference processes compete for the same hardware resources, causing each to run slower than it would alone. The total throughput is lower than with 2–4 parallel requests because the hardware is overloaded rather than being efficiently utilised.",
+    "The httr2 library has a maximum of 5 parallel connections for HTTP requests",
+    "Ollama automatically throttles parallel requests to prevent server overload"
+  ),
+  type = "radio",
+  q_id = "batch_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Parallelism only helps when the hardware has spare capacity. Each LLM inference call uses substantial CPU (or GPU) resources. With 20 simultaneous requests on a laptop CPU, all 20 compete for the same cores, causing each to run much slower than it would alone. The optimal degree of parallelism depends on your hardware — typically 2–4 concurrent requests on a laptop CPU. The best approach is to benchmark: try 1, 2, 4, and 8 parallel requests and measure total throughput.",
+  wrong = "Not quite. Parallel processing does work with Ollama via httr2, and there is no fixed connection limit. The issue is hardware saturation: LLM inference is computationally intensive, and 20 simultaneous inference processes on a laptop CPU compete for the same limited resources, making each individual request slower. The sweet spot is typically 2–4 concurrent requests on a laptop."
+)
+```
+
+---
+
+# Using a Local LLM to Help Write R Code {#coding}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to prompt a local LLM to generate R code; how to ask for code explanations and debugging help; how to use the model as a programming assistant within an R workflow; and the limitations and best practices for LLM-assisted coding
+:::
+
+## Why a Local LLM for R Help? {-}
+
+Commercial AI coding assistants (GitHub Copilot, ChatGPT) are excellent but require internet access and send your code to external servers. A local LLM provides a privacy-preserving coding assistant that works offline and never transmits your proprietary scripts or data descriptions to third parties.
+
+For R-specific tasks, a well-prompted model can:
+
+- **Generate boilerplate code** — read a CSV, reshape a data frame, run a t-test
+- **Explain unfamiliar functions** — "What does `purrr::reduce()` do?"
+- **Debug error messages** — paste the error and the code that produced it
+- **Suggest improvements** — "How can I make this loop more idiomatic in R?"
+- **Write `dplyr` or `ggplot2` pipelines** — describe what you need, get working code
+
+## Setting Up an R Coding Assistant {-}
+
+```{r coding_setup, eval=TRUE, message=FALSE, warning=FALSE}
+# System prompt for an R coding assistant
+r_assistant_sys <- paste(
+  "You are an expert R programmer specialising in data science, corpus linguistics,",
+  "and natural language processing. You write clean, idiomatic R code using the",
+  "tidyverse (dplyr, purrr, ggplot2, stringr) and base R where appropriate.",
+  "When asked to write code: provide only the R code, no prose explanation unless asked.",
+  "When asked to explain code: be concise and precise.",
+  "When debugging: identify the error cause first, then provide the fixed code."
+)
+
+# Helper function for one-off coding questions
+ask_r <- function(question, model = "llama3.2") {
+  msgs <- ollamar::create_message(r_assistant_sys, "system")
+  msgs <- ollamar::append_message(question, "user", msgs)
+  ollamar::chat(model, msgs, output = "text") |> trimws()
+}
+```
+
+## Code Generation Examples {-}
+
+```{r coding_examples, eval=TRUE, message=FALSE, warning=FALSE}
+# Generate a ggplot2 visualisation
+ask_r("Write R code to create a bar chart showing word frequency from a character vector called 'words', using ggplot2. Show the top 20 words, with bars sorted by frequency.")
+
+# Explain an unfamiliar function
+ask_r("Explain what purrr::accumulate() does and give a simple example relevant to text processing.")
+
+# Debug an error
+error_context <- paste(
+  "I get this error:",
+  "Error in UseMethod('select'): no applicable method for 'select' applied to 'character'",
+  "From this code:",
+  "result <- my_text |> select(word)"
+)
+ask_r(error_context)
+# Expected response: explains that select() is a dplyr function for data frames,
+# not for character vectors; suggests str_extract() or other string functions instead.
+
+# Get a complete data processing pipeline
+ask_r(paste(
+  "Write a complete R pipeline that:",
+  "1. Reads a CSV file called 'corpus.csv' with columns 'doc_id' and 'text'",
+  "2. Tokenises the text column into words using tidytext::unnest_tokens()",
+  "3. Removes stop words using tidytext's stop_words data",
+  "4. Counts word frequency per document",
+  "5. Returns a tibble sorted by frequency descending"
+))
+```
+
+## Stateful Coding Session {-}
+
+For a sustained coding session where you want the model to remember earlier code and context:
+
+```{r coding_session, eval=TRUE, message=FALSE, warning=FALSE}
+# Start a persistent coding session
+msgs <- ollamar::create_message(r_assistant_sys, "system")
+
+# Turn 1: Ask for initial code
+msgs <- ollamar::append_message(
+  "Write a function called read_corpus() that reads all .txt files from a folder and returns a tibble with columns doc_id and text.",
+  "user", msgs
+)
+resp1 <- ollamar::chat("llama3.2", msgs, output = "df")
+msgs  <- ollamar::append_message(resp1$content, "assistant", msgs)
+cat(resp1$content)
+
+# Turn 2: Ask for an improvement — model remembers the function
+msgs <- ollamar::append_message(
+  "Now add error handling: if the folder does not exist, print a clear message and return NULL.",
+  "user", msgs
+)
+resp2 <- ollamar::chat("llama3.2", msgs, output = "df")
+cat(resp2$content)
+```
+
+::: {.callout-warning}
+## Always Test LLM-Generated Code
+
+A local LLM will sometimes produce R code that looks plausible but contains errors — deprecated function names, incorrect argument names, or logic that does not match the stated intent. Always run generated code in a test environment and verify the output before using it in a real analysis. The model is a first-draft assistant, not an infallible oracle.
+:::
+
+::: {.callout-tip}
+## Exercises: Using LLMs for R Coding Help
+:::
+
+**Q15. You ask the model to write a function that reads a corpus and the code it produces uses `read.csv()` with `stringsAsFactors = TRUE` (the old R 3.x default). What does this tell you about LLM-generated code, and what should you do?**
+
+```{r}
+#| echo: false
+#| label: "code_q1"
+check_question(
+  "LLMs are trained on text from across the internet, including older Stack Overflow answers and tutorials written before R 4.0 (which changed the default to FALSE). Generated code may reflect outdated idioms. Always review generated code critically, check function argument defaults against current documentation, and test on a small sample before deploying.",
+  options = c(
+    "The model is wrong — stringsAsFactors was never a valid argument in read.csv()",
+    "LLMs are trained on text from across the internet, including older Stack Overflow answers and tutorials written before R 4.0 (which changed the default to FALSE). Generated code may reflect outdated idioms. Always review generated code critically, check function argument defaults against current documentation, and test on a small sample before deploying.",
+    "This is a hallucination — the model invented a non-existent argument",
+    "The code is fine — stringsAsFactors = TRUE is still the correct default in current R"
+  ),
+  type = "radio",
+  q_id = "code_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LLM training data includes millions of Stack Overflow answers, blog posts, and tutorials written across many years. Code written before R 4.0 (released in 2020) often includes stringsAsFactors = TRUE because that was the old default. The model learned from this historical code and may reproduce outdated patterns. This is not a hallucination — stringsAsFactors is a real and valid argument — but its recommended value has changed. Always check generated code against current R documentation and test it before use.",
+  wrong = "Not quite. stringsAsFactors is a real and valid argument in read.csv() — it was introduced in early R and was the default (TRUE) until R 4.0 changed the default to FALSE in 2020. The model is reproducing a valid but outdated idiom from older tutorials. This is a common pattern with LLM-generated code: training data spans many years, so generated code may reflect older conventions. Always review and test generated code."
+)
+```
+
+---
+
+**Q16. You are using the local LLM to help debug a complex `purrr::map()` pipeline that processes proprietary survey data. A colleague suggests you use ChatGPT instead because it is a better model. What is the strongest argument for continuing to use the local model?**
+
+```{r}
+#| echo: false
+#| label: "code_q2"
+check_question(
+  "Sending proprietary or sensitive survey data to a commercial API may violate your institution's data governance policy or participants' privacy expectations — the data never leaves your machine with a local model, regardless of whether it is pasted into a prompt as an example.",
+  options = c(
+    "The local model is always better at R code generation than ChatGPT",
+    "Sending proprietary or sensitive survey data to a commercial API may violate your institution's data governance policy or participants' privacy expectations — the data never leaves your machine with a local model, regardless of whether it is pasted into a prompt as an example.",
+    "ChatGPT does not support R code debugging",
+    "Local models produce more reproducible code than commercial APIs"
+  ),
+  type = "radio",
+  q_id = "code_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! When debugging code that processes sensitive or proprietary data, the prompt will often include example data or descriptions of the data structure. Sending this to a commercial API means it leaves your institution's network and is processed on external servers — which may violate ethics approvals, data sharing agreements, or participant privacy expectations. A local model processes everything on your own machine. This privacy guarantee is the strongest argument for the local model, regardless of relative code quality.",
+  wrong = "Not quite. Commercial models are often superior to small local models for code generation quality. The decisive argument is privacy: debugging with example proprietary survey data means that data would be sent to an external server with a commercial API. A local model keeps all data on your machine. This is frequently the determining factor in institutional research environments."
+)
+```
+
+---
+
+# Model Management {#models}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to pull, list, copy, and delete models; how to inspect model metadata; how to choose the right model for a task; and an overview of the model ecosystem available through Ollama
+:::
+
+## Core Model Management Functions {-}
+
+```{r model_mgmt, eval=FALSE, message=FALSE, warning=FALSE}
+# List downloaded models
+ollamar::list_models()
+
+# Pull a new model (downloads from Ollama library)
+ollamar::pull("llama3.2")                  # 3B generation model, ~2 GB
+ollamar::pull("nomic-embed-text")          # embedding model, ~270 MB
+ollamar::pull("llama3.1")                  # 8B model, ~4.7 GB (optional)
+
+# Show detailed information about a model
+ollamar::show("llama3.2")
+# Returns: model parameters, context length, quantisation, architecture
+
+# Copy a model under a new name (useful for creating custom variants)
+ollamar::copy("llama3.2", "llama3.2-linguistics")
+
+# List models currently loaded in memory
+ollamar::ps()
+
+# Delete a model (frees disk space)
+ollamar::delete("llama3.2-linguistics")
+```
+
+## Recommended Models by Task {-}
+
+```{r model_table, echo=FALSE, message=FALSE, warning=FALSE}
+tibble::tibble(
+  Task = c(
+    "Quick generation / prototyping",
+    "Production classification / NER",
+    "High-quality summarisation",
+    "Sentence embeddings",
+    "Multilingual tasks",
+    "Code generation"
+  ),
+  Recommended_model = c(
+    "llama3.2 (3B)",
+    "llama3.2 (3B) or llama3.1 (8B)",
+    "llama3.1 (8B)",
+    "nomic-embed-text",
+    "llama3.1 or aya:8b",
+    "codellama or llama3.2"
+  ),
+  RAM_required = c(
+    "4–8 GB",
+    "4–16 GB",
+    "8–16 GB",
+    "4 GB",
+    "8 GB",
+    "4–8 GB"
+  ),
+  Notes = c(
+    "Fast; good for teaching and exploration",
+    "Test on labelled sample before full deployment",
+    "Significantly better output than 3B for long texts",
+    "Do not use generation models for embeddings",
+    "Cohere's model; strong cross-lingual performance",
+    "Specialised for code; better than general models"
+  )
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 9) |>
+  flextable::set_caption(caption = "Recommended Ollama models by task. Model sizes and availability may change — check ollama.com/library for the current model catalogue.") |>
+  flextable::border_outer()
+```
+
+---
+
+# Summary and Further Reading {#summary}
+
+This tutorial has introduced Ollama and the `ollamar` R package as a tool for running large language models locally, covering eight practical NLP workflows for corpus linguistics and language research.
+
+**Section 1** established the case for local LLMs: privacy for sensitive data, cost predictability for large corpora, and reproducibility from fixed model weights. It introduced the Ollama architecture (a local REST server at `127.0.0.1:11434`) and the `ollamar` package as its R interface.
+
+**Section 2** covered setup: installing Ollama, pulling models, installing `ollamar`, and verifying the connection with `test_connection()` and `list_models()`.
+
+**Section 3** introduced `generate()` for single-prompt text generation, the five output formats (`"resp"`, `"text"`, `"df"`, `"jsonlist"`, `"raw"`), and the principles of effective prompt engineering: specificity, constrained output format, and contextual framing.
+
+**Section 4** covered multi-turn conversation with `chat()` and the message history system. It introduced `create_message()`, `append_message()`, system prompts, and the full set of message management helpers (`prepend_message()`, `insert_message()`, `delete_message()`).
+
+**Section 5** demonstrated prompt-based text classification for sentiment analysis and rhetorical function labelling, with a wrapper function, batch processing via `purrr::map_chr()`, and the importance of evaluating classifiers on a gold standard before deploying on the full corpus.
+
+**Section 6** showed named entity recognition by prompting for JSON output, parsing with `jsonlite::fromJSON()`, and processing a corpus. It compared LLM-based NER with dedicated models for different use cases.
+
+**Section 7** covered text summarisation with length control and corpus-scale application. It discussed post-processing and few-shot prompting as remedies for common formatting failures.
+
+**Section 8** introduced `embed()` for generating sentence embeddings with `nomic-embed-text`, cosine similarity computation, and nearest-neighbour semantic search.
+
+**Section 9** addressed corpus-scale batch processing: sequential processing with progress tracking, parallel processing with `httr2::req_perform_parallel()`, hardware saturation limits, and checkpoint-based resumption of large jobs.
+
+**Section 10** demonstrated using a local LLM as a privacy-preserving R coding assistant for code generation, explanation, debugging, and sustained coding sessions with conversation history.
+
+**Section 11** surveyed model management functions and provided a task-by-model recommendation table.
+
+**Further reading:** The `ollamar` package is documented at [hauselin.github.io/ollama-r](https://hauselin.github.io/ollama-r/). The Ollama model library is at [ollama.com/library](https://ollama.com/library). @lin2024ollamar is the primary package citation. For prompt engineering principles see @white2023prompt. For the broader landscape of open-source LLMs see @touvron2023llama and @touvron2023llama2.
+
+---
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2026. *Local Large Language Models in R with Ollama*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/ollama/ollama.html (Version 2026.05.01).
+
+```
+@manual{schweinberger2026ollama,
+  author       = {Schweinberger, Martin},
+  title        = {Local Large Language Models in R with Ollama},
+  note         = {tutorials/ollama/ollama.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to draft and structure the entire tutorial, including all R code, conceptual explanations, and exercises. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
