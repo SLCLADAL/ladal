@@ -1,0 +1,582 @@
+```{r start, include=FALSE}
+library(knitr)      # knitr is loaded automatically
+library(bookdown)   # load bookdown to enable html_document2 / numbering
+```
+
+---
+title: "Conceptual Maps"
+author: "Gerold Schneider"
+date: "2026-01-03"
+output: 
+  bookdown::html_document2:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+#When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# Introduction
+
+Conceptual Maps are a distributional semantics method that give one an overview of a large dataset, as if in a bird's eye view.
+In this tutorial, we will first load all the necessary libraries.
+Secondly, we will explore distributional semantics with word2vec, and third we will build conceptual maps based on them.
+
+
+```{r seePaths}
+getwd()
+list.files()
+```
+
+```{r loadLibraries}
+# setwd("/Volumes/SSD1000/Lehre/Corpus/Brisbane/") ### adapt!
+
+library(ForceAtlas2)
+library(igraph)
+library(tidyverse)
+library(tidytext)
+library(stringr)
+library(ggplot2)
+library(reshape2)
+library(Rtsne)
+library(tsne)
+library(plotly)
+library(htmlwidgets)
+library(scales)
+library(ggrepel)
+library(wordVectors) ## install from github, see https://benschmidt.org/UNC/installation.html
+library(uwot)
+```
+
+# Conceptual Map COOEE (Australian letters) for LADAL
+
+# Create semantic space of the corpus
+
+The following creates a semantic representation of the COOEE corpus, from a version in which period information was added.
+
+Period 1 is from 1788 to 1825. The period is marked as "periodone" in the texts.
+
+Period 2 is from 1826 to 1850. The period is marked as "periodtwo" in the texts.
+
+Period 3 is from 1851 to 1875. The period is marked as "periodthree" in the texts.
+
+Period 4 is from 1875 to 1900. The period is marked as "periodfour" in the texts.
+
+You can inspect the file "ALL_byperiod_nomarkup.txt" with a text editor, or from the shell. Be aware that the file is over 10MB in size, so Excel or Word may not manage to open it, also depending on the memory of your computer.
+
+The first part of our tutorial trains the semantic representation, using Word2Vec. Retraining takes time. Uncomment the line with the window size that you want to test. Larger window sizes tend to produce deeper semantics.
+
+The lines further down loads an already existing semantic representation, for instance one that you have built already in a previous run.
+
+```{r trainSemSpacePrep}
+prep_word2vec("ALL_byperiod_nomarkup.txt", "ALL_byperiod_nomarkup_out.txt", lowercase=T)
+```
+Choose your window size in the lines below.
+
+```{r trainSemSpace}
+## window 10, takes 4 mins, use this as default
+# training <- train_word2vec("ALL_byperiod_nomarkup_out.txt", "ALL_byperiod_nomarkup_out.txt_w10.bin", threads=4,vectors=200, window=10, force=T)
+## window 20, takes 10 mins # initial default
+# training <- train_word2vec("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_nomarkup_out.txt", "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_nomarkup_out.txt.bin", threads=4,vectors=200, window=20)
+## window 50, takes 20 mins
+#training <- train_word2vec("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_nomarkup_out.txt", "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_nomarkup_out.txt_w50.bin", threads=4,vectors=200, window=50,force=T)
+## window 100
+#training <- train_word2vec("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt", "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w100.bin", threads=4,vectors=200, window=100)
+## window 200
+#training <- train_word2vec("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt", "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w200.bin", threads=4,vectors=200, window=200)
+## window 500
+#training <- train_word2vec("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt", "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w500.bin", threads=4,vectors=200, window=500)
+```
+
+```{r loadSemSpace}
+## read in once trained
+training <- read.binary.vectors("ALL_byperiod_nomarkup_out.txt_w10.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+# training <- read.binary.vectors("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+#training <- read.binary.vectors("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w50.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+#training <- read.binary.vectors("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w100.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+#training <- read.binary.vectors("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w200.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+#training <- read.binary.vectors("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out.txt_w500.bin", nrows = Inf, cols = "All",rowname_list = NULL, rowname_regexp = NULL)
+```
+
+After training or loading, let's test the semantic space, to see whch terms are closely related. The original intention of distributional sematnics was to automatically detect synonyms, but one needs extremely large corpora to do so. Slightly small corpora, such as COOEE rather deliver associations and related terms. In order ot explore changes across history, that actually works fairly well.
+
+The examlpes given here come from a run with window size 10. If you re-run this code, you may get different results.
+
+```{r testSemSpaceconvict}
+closest_to(training,"convict",30)
+```
+
+The first settlers were convicts. A mutiny during the transport was the biggest danger for the captain and teh midshipman, Needless to say that surgeons were challenged.
+
+The word "female" is more surprising, they are often mentioned especially and given different treatment. It is partly even an effect of the small window size: frequent phrases like "male and female convicts" have the effect thgat "female" is closer to "convict than "male".
+
+```{r testSemSpaceletter}
+closest_to(training,"letter",30)
+```
+
+As COOEE is a corpus of letters, this command checks what "letter" is associated with. 
+
+```{r testSemSpacedear}
+closest_to(training,"dear",30)
+```
+
+The word "dear" is typically used to address the recipient, and to formally express affect. 
+
+```{r testSemSpaceEngland}
+closest_to(training,"england",30)
+```
+
+The associations of "england" include expected realtives such as "scotland", but also "colony", to which teh ships have "sailed".
+
+In the following, you can see a further example to be tried -- the floor is yours, you can ask whatevery you like.
+
+```{r testSemSpaceAustralia}
+closest_to(training,"australia",30)
+```
+
+```{r testSemSpacegovernment}
+closest_to(training,"government",30)
+```
+
+One interesting question is how the letters have developed over time, and if they reflect the Australian history. We test associations of the four periods.
+
+```{r testSemSpacePeriodOne}
+closest_to(training,"periodone",30)
+```
+
+Period one, from 1788 to 1825, marked as "periodone" in the texts, has several of the years falling into the period as closest associations, but also some persons that were important in the period. For example, "Frederick Garling (17 February 1775 – 2 May 1848) was an English attorney and solicitor, and was one of the first solicitors admitted in Australia", according to Wikipedia. (https://en.wikipedia.org/wiki/Frederick_Garling)
+
+```{r testSemSpacePeriodTwo}
+closest_to(training,"periodtwo",30)
+```
+
+Period 2 is from 1826 to 1850. Again, we find years and personal names. 
+
+```{r testSemSpacePeriodThree}
+closest_to(training,"periodthree",30)
+```
+
+Period 3 is from 1851 to 1875. We see person names mainly. We will probably need to dig deeper if we want to see what is different in this, and in any of the periods when compared to the others.
+
+```{r testSemSpacePeriodFour}
+closest_to(training,"periodfour",30)
+```
+
+Period 4 is from 1875 to 1900. We again manly get names. That we find "federal", "parliament", "speaker" and "senator" marks an important difference. Australia's political system is maturing. The Australian parliament was founded in 1901, and this historic event os foreshadowed.
+
+## A first overview plot with t-SNE
+
+How should we dig deeper? One obvious disadvantage of our method is that one can only look at one term. Can we get an overview?
+Yes, we can plot the complete semantic space in a simple way by using the R plot command. It uses the t-SNE algorithm to create a two-dimensional view of the space.
+
+A term-term or document.term matrix, to be used as a vector for tasks such as document classification (SEE the LADAL TUTORIAL at https://ladal.edu.au/tutorials/atap_docclass/atap_docclass.html)
+has as many dimensions as terms. In order to be able to display something meaningful, we first need to create a two- or three-dimensional representation. The term that is typically used to describe the mapping of a high-dimensional space to one with very few dimensions is called dimensionality reduction.
+
+This can for instance be done with PCA (principal component analysis) which use the most discriminant perspectives and then a projection. We all know that world maps are created by choosing a perspective on the globe and then a projection.
+
+The t-SNE algorithm (t-distributed stochastic neighbor embedding) is more complex. It is a non-linear mapping, whcih means that it captures more differences than a single perspective can. While we do not have the space to give an introduction to t-SNE, its Wikipedia page is useful (https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding), and it also gives further links. A detailed explanation can also be found at https://medium.com/data-science/t-sne-clearly-explained-d84c537f53a.
+
+```{r viewSemSpace}
+### the complete semantic map
+plot(training)
+```
+
+It is hard to change the defaults in the above command. Here's a more flexible method.
+
+It needs a number of libraries, which we have loaded at the beginning. They are:
+
+- library(dplyr) # for mutate function
+
+- library(Rtsne)
+
+- library(tsne)
+
+- library(ggplot2)
+
+- library(ggrepel)
+
+The following code sets the number of terms, here the most frequent 1000. the "Rtsne" function applies the dimensiinality reduction an returns a variable called "mytsne". The "mutate" function is a typical dplyr pipeline way to do things in R. "mytsne" contains jsut the values, but not yet the labels or rownames, i.e. th words, which are added in this step. In classical R lingo, the column "$word" is added to "mytsne".
+
+Finally, a ggplot obejct is created, with "word" as labels for eaach data point.
+
+```{r viewCustomSemSpace}
+termsize=1000 ### how many terms in the map?
+mytsne <- Rtsne(training[1:termsize,])
+tsne_plot <- mytsne$Y %>% as.data.frame() %>% 
+  mutate(word = row.names(training)[1:termsize]) %>% 
+  ggplot(aes(x=V1,y=V2, label=word)) + geom_text(size=2)
+
+plot(tsne_plot)
+```
+
+The graph is hard to read on most screens, as it contains too many nodes. If you press the button "Show in New Window" on the top right of the graph, a larger version pops up.
+
+You may want to be able to zoom in better to see more details. This is possible, for instance, if you use plotly. You may have to load (and possibly install) the libraries
+plotly and htmlwidgets
+
+```{r viewCustomSemSpaceHTML}
+# library(plotly)
+# library(htmlwidgets)
+ggplotly(tsne_plot) # displays, with zoom option
+myplot <- ggplotly(tsne_plot) # puts it into a variable
+saveWidget(widget = myplot, file = "ggplotly.html")
+```
+
+You can then open the HTML file in your favourite browser, zoom in and even search.
+
+The graphs shows us many trivial findings, for instance that "officers" and "officer", or "mile" and "miles" are near-synonyms, or "labour" and "working hard". 
+Thematically very close concepts, such as "husband", "wife" and "married" almost overlap, or "weather", "warm", "hot" and "wind" -- we already learn sowemthing about the weather conditions that the settlers met.
+
+Quite obvious clusters are also formed
+with "justice", "judgement", "jurisdiction", and "case". Quite close to this cluster, we find "orders", the modal verb "shall" from lawgving, "duties" and "law" are also close.
+Interestingly, "periodfour" is also closer than the other periods, we see that building up a new justice system was important in this period.
+
+In the vicinity of "periodone" we find "king", but also "settled" (the new settlers). The majority of the early settlers were convicts, we ths find "prisoner", "charged", committed" and "murder" relatively close, on the edges.
+
+The new settlers first need "food" ("bread", "tea", "drink"), then accomodation and a community, so "hut", "fire", "house", "garden", "home", "farm", "school" and "church" are close.
+
+The fact that "natives" and "blacks" overlap indicates that these two words are often used as synonyms. Life is tough and dangreous, "killed", "shot", "died" are close, and that they are so close to "natives" and "native" also shows us, sadly, who the victims were in many cases -- besides hunting for food, which is less well visible.
+
+There are also hopeful notes and admiration, such as "fresh fish", "rich soil" and "beautiful open plain"
+
+## Overview plot with igraph
+
+# Convert to an igraph graph
+
+R has a library that allows one to do many things with graphs, it is called "igraph". We first need to convert our space into an igraph object.
+
+The first command creates a word-word similarity matrix from the most frequent 1000 terms, based on the the semantic space cereated with word2vec.
+
+```{r CreateWordList}
+word_list <- rownames(training)[1:1000] #### experiment: 500-1000 is about the default
+```
+
+You can also also use you own customised wordlist. Then, you would have to make sure that all the words in your list actually appear your semantic space. The folllowing code is not needed in our setting
+
+```{r CheckWordList}
+# Make sure all words are in the model, probably not needed
+# word_list <- word_list[word_list %in% rownames(training)]
+```
+
+In the next step, we take only the part of the model that contains the words that we want to include in our graph(s)
+
+```{r SubsetModel}
+# Subset the model
+sub_model <- training[word_list, ]
+```
+
+Then, we calculate the complete term-term matrix, which involves creating the Cosinr similarity of every term compared to every other. To illustrate the outcome,
+the left edge of the table is printed, which allows us to sanity-check if we are on the right page.
+
+```{r ComputeSimilarityMatrix}
+# Compute cosine similarity
+similarity_matrix <- cosineSimilarity(sub_model, sub_model)
+
+# Inspect top-left corner
+similarity_matrix[1:20, 1:20]
+```
+
+In order not to lose our work, or to jump in a this point in the calculations, it is probably a good idea to save this table as an intermediate result. Of course, you will use your own path.
+```{r SaveSimilarityMatrix}
+# Save to CSV
+write.csv(as.data.frame(similarity_matrix), "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_word_similarity_matrix_top1000_w5.csv")
+```
+
+Many tools expect a word-word similarity list rather than a two-dimensional table. Every cell is thus converted to a form in which the coordinates are the two first columns, and the third column is the value of the field. In database termininology, this is called the "long form".
+
+```{r ConvertLongForm}
+# Convert to long form
+similarity_df <- as.data.frame(as.table(similarity_matrix))
+colnames(similarity_df) <- c("word1", "word2", "similarity")
+head(similarity_df)
+```
+
+In the following steps, all wrapped int o a single code böock, we remove stopwords, filter very short words, and get rid of word-word pairs that have very low similarity.
+You can also play with these parameters, within limits. If you set the similarity threshold above 0.5 the graphs based on them probably split into several subspaces drifting away from each other.
+
+The last line of the code block shows the top 50 most similar words, according to the semantic space. We can expect these to appear very close to each other in the conceptual map.
+
+```{r FilterMatrix}
+# Filter stopwords (stop_words from tidytext)
+similarity_df <- similarity_df %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word)
+
+# Filter short words
+similarity_df <- similarity_df %>% filter(nchar(as.character(word1)) > 3, nchar(as.character(word2)) > 3)
+
+# Filter for strong similarities
+similarity_df <- subset(similarity_df, similarity > 0.25 & word1 != word2) ## similarity > 0.3 is default
+
+# Inspect top-left corner and top 50 similarities
+similarity_df %>% head(50)
+similarity_df %>% arrange(desc(similarity)) %>% head(50)
+```
+
+Now, we are ready to build and the view our semantic space with igraph. The following code creates the graph, but it does not place the nodes anywhere yet. Each nodes is given a unique id, and a label, i.e. the word. The edges are the connection between the words.
+
+In order to be compatible with graphs viewers such as gephi or graphia we add an attribute called "label" and give it the same value as "name", which is the igraph default for the node name. In order to ensure that the edge weights are actually used in these tools, we add the attribute "weight", which is e.g. the default in gephi.
+
+We keep a copy of the origirnal graph, though, in the variable "g2".
+
+Finally, we print the first 10 edges and nodes (aka vertices) as sanity check.
+
+```{r BuildIGraph}
+# Build graph object
+g <- graph_from_data_frame(similarity_df, directed = FALSE)
+g2 <- g ## keep a copy of the original
+
+# Add the "label" attribute so that gephi, graphia or other viewers display it. igraph default is "name"
+head(V(g)$name)
+V(g)$label <- V(g)$name
+
+# Add the "weight" attribute so that gephi, graphia or other viewers use it when arranging the layout 
+head(E(g)$similarity)
+E(g)$weight <- E(g)$similarity
+
+# Display first 10 edges and nodes (aka vertices)
+head(E(g))
+head(V(g))
+```
+At this point, it is a good idea to export the igraph object in a standard format, we use GraphML (which has the file ending ".gml") here. On the one hand, this allows you to import it again later, on the other hand, you can also load the .gml file into other graph viewers such as graphia and gephi. They often offer a larger range, and superior implementations of some of the layout algorithms that we will see in igraph nad related libraries.
+
+```{r ExportIGraph}
+# Export as GML
+write_graph(g, "/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_out_w10_simgt0,25.gml", format = "gml")
+```
+
+We are at a cross-roads in both direction here. Alternatively to contiuning in a graph viewer, you can also load a .gml object into R here.
+For example, Winiger et al. (2024, https://brill.com/view/journals/rmdc/14/1/article-p1_001.xml) use tweets to plot and compare the association of religion and spirituality, wnhich may seem synonyms at first sight. They highlight the very positive image that spirituality has, while religion is also strongly associated to politics, discrimination, and hate.
+
+The following command loads a .gml file that has been created with the textplot tool on COOEE. We will look at it at the end of our tutorial, do not load it yet.
+
+As usual, adapt the path. The .gml file was produced with
+the library "textplot" (McClure 2015, https://github.com/davidmcclure/textplot).
+
+
+```{r ImportIGraph}
+# Alternative: import a given .gml
+# g <- read_graph("/Volumes/SSD1000/Lehre/Corpus/Brisbane/8set_ALL.name_text_source_ASCII_cleaned_w_sentiment_t200_skim5_bw20k.gml",format="gml")
+```
+
+# Visualize in the graph with default algorithm (with Fruchterman-Reingold layout)
+
+```{r PlotIGraph}
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+plot.igraph( ## you can also use "plot" as shorthand
+  g, vertex.size = 0, vertex.label.cex = 0.5,
+  weights = E(g)$similarity,
+  edge.width = E(g)$similarity/5, main = "Word Similarity Network"
+)
+```
+
+The graph is probably too small to read. The following code exports the graph to a PDF, using a 15 x 15 inch canvas, adapt to what you need.
+
+The code also makes sure that the weights are actually considered for creating the map. This is not necessarily the case in default setting.
+
+```{r PlotIGraphToPDF}
+pdf("semantic_network_igraph_Fruchterman-Reingold.pdf", width = 15, height = 15)  # canvas of 15 x 15 inches
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+plot.igraph( ## you can also use "plot" as shorthand
+  g, 
+  layout = layout_with_fr(g, weights = E(g)$weight),
+  vertex.size = 0, vertex.label.cex = 0.7,
+  edge.width = E(g)$similarity/10, main = "Word Similarity Network with Fruchterman-Reingold and weights"
+)
+dev.off() # to close he PDF
+```
+
+<iframe src="semantic_network_igraph_Fruchterman-Reingold.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
+
+Let's briefly interpret the map: the periods now appear in distinct corners of the map. Period One is a bit more central, "king" and "murder" and "prisoner" are still close, the period is dominated by the arrival of the convicts. Period Two is dominated by family stories, the new Astralains write home and receive letters about "mother", "bother", "sister", "husband" and "child". The very frequent names "John", "Mary" and "George" also appear in this cluster.
+
+Perio Three has more mentions of months, weekdays, weather and travelling. The Australians are exploring their new country, there ae many logbook-like accounts. They also increasinlgy meet "natives", often  leading to bloodshed ("killed", "shot").
+
+The current weights are between zero and one, directly from the semantic space. The range of the weights has a strong influence on the layout. In the following,
+we rescale to the range of between 1 and 100, increasing the value by about 100.
+
+```{r PlotIGraphDiffweights}
+# library(scales)
+pdf("semantic_network_igraph_Fruchterman-Reingoldrescale.pdf", width = 15, height = 15)  # canvas of 15 x 15 inches
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+E(g)$w_scaled <- scales::rescale(E(g)$weight, to = c(1, 100))
+head(E(g)$similarity)
+head(E(g)$w_scaled)
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustnesss
+plot.igraph( ## you can also use "plot" as shorthand
+  g, 
+  layout = layout_with_fr(g, weights = E(g)$w_scaled, niter = 2000),
+  vertex.size = 0, vertex.label.cex = 0.7,
+  edge.width = E(g)$similarity/5, main = "Word Similarity Network with Fruchterman-Reingold rescaled weights"
+)
+dev.off() # to close he PDF
+```
+<iframe src="semantic_network_igraph_Fruchterman-Reingoldrescale.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
+
+```{r PlotIGraphDRL}
+# library(scales)
+
+E(g)$w_scaled <- rescale(E(g)$weight, to = c(1, 10000))
+
+pdf("semantic_network_igraph_DRL_rescaled10000.pdf", width = 20, height = 20)  # canvas of 20 x 20 inches
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+plot.igraph( ## you can also use "plot" as shorthand
+  g, 
+  layout = layout_with_drl(g,weights = E(g)$w_scaled),
+  vertex.size = 0, vertex.label.cex = 0.7,
+  edge.width = E(g)$similarity/20, main = "Word Similarity Network with DRL, weights rescaled to between 1 and 10000"
+)
+
+dev.off() # to close he PDF
+```
+
+The list of available layouts is quite long, but many of them make little sense, for example circle or random.
+
+#### FOUR Now use ForceAtlas2 instead
+
+We have added several attributes and re-scaled some value, so that the variable "g" now throws an error when applying forceatlas. Fortunately, we have a copy of the original graph, "g2".
+
+layout <- layout.forceatlas2(g2, iterations=4000, plotstep=1000, directed=FALSE) ## initial settings
+
+```{r ForceAtlasFirst}
+layout <- layout.forceatlas2(g2, iterations=4000, plotstep=1000, directed=FALSE) ## initial settings
+```
+## see ALL_byperiod_out_w5_simgt0,25_forceatlas_Rplot.pdf
+
+<iframe src="ALL_byperiod_out_w5_simgt0,25_forceatlas_Rplot.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
+
+We see clear global trends in this graph: Period One is close to "king", "ship", "prisoner".
+
+Period Two is close to "home", "school", "death" and "married". The new Austrakains are coping with theri new home and write back to England, anxiouzs to hear and write about their family.
+
+Period Three lists expeditions in the new wilderness, "journey", months and log books.
+
+Period Four show increasing "political" awarewness, the "constitution", "law" and "federal" "matters" are increasingly important.
+
+While we see clear trends now, such maps are of course gross simplifications, extreme versions of distant reading if you like.
+
+## FIVE Use UMAP, via word-word
+
+# install.packages("uwot")
+# library(uwot)
+
+```{r UMAP}
+umap_result <- umap(
+  sub_model,
+  n_neighbors = 500,  # local (small number)  vs global (higher number) structure, at least 20, better 50, 100 or 500
+  min_dist = 0.2,    # cluster tightness, default is 0.1
+  n_components = 2,  # usually 2
+  metric = "euclidean"
+)
+
+plot(
+  umap_result[,1],
+  umap_result[,2],
+  pch = 1, col="white",
+  xlab = "UMAP 1",
+  ylab = "UMAP 2",
+  main = "UMAP projection"
+)
+text(umap_result[,1], umap_result[,2], labels = rownames(sub_model), cex = 0.7)
+```
+
+```{r UMAPtpPDF}
+pdf("semantic_network_igraph_UMAP.pdf", width = 15, height = 15)  # canvas of 15 x 15 inches
+umap_result <- umap(
+  sub_model,
+  n_neighbors = 500,  # local (small number)  vs global (higher number) structure, at least 20, better 50, 100 or 500
+  min_dist = 0.2,    # cluster tightness, default is 0.1
+  n_components = 2,  # usually 2
+  metric = "euclidean"
+)
+
+plot(
+  umap_result[,1],
+  umap_result[,2],
+  pch = 1, col="white",
+  xlab = "UMAP 1",
+  ylab = "UMAP 2",
+  main = "UMAP projection"
+)
+text(umap_result[,1], umap_result[,2], labels = rownames(sub_model), cex = 0.7)
+
+dev.off() # to close he PDF
+```
+
+<iframe src="semantic_network_igraph_UMAP.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
+
+The UMAP graph is very accurate in details, for example person names, months, numbers, are close to each other, but the placement of the period terms looks almost arbitrary. UMAP is known for eing superior in local detail, but it cannot meaningfully map global connections.
+
+### SIX load the .gml created via textplot
+
+As we hve seen, there are many combinations, and many sligthly different results, depending on both the algorithm and the pre-processing.
+I often get the best resutls by creating the weighted word-word matrix with textplot, and creating the layout in gephi.
+
+INTEGRATE PIX HERE
+
+We have generated the textplot graph with the following settings from the command line
+
+textplot generate --term_depth 400 --skim_depth 10 ----bandwidth 30000 ALL_byperiod_nomarkup.txt ALL_byperiod_momarkup3_t400-s10.gml
+
+```{r LoadGraphFromTextplot}
+g <- read_graph("/Volumes/SSD1000/Lehre/Corpus/Brisbane/00_corpusForGerold/COOEE/ALL_byperiod_momarkup3_t400-s10.gml", format="gml")
+```
+
+```{r PlotIGraphFROMgephi}
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+plot.igraph( ## you can also use "plot" as shorthand
+  g, 
+  layout = layout_with_fr(g, weights = E(g)$weight),
+  vertex.size = 0, vertex.label.cex = 0.8,
+  edge.width = E(g)$similarity/5, main = "Word Similarity Network with Fruchterman-Reingold and weights"
+)
+```
+
+In the following, we plot this graph to a PDF, so that it can be viewed and searched.
+
+```{r PlotIGraphFROMgephiToPDF}
+pdf("semantic_network_igraph_FROMtextplot_Fruchterman-Reingold.pdf", width = 15, height = 15)  # canvas of 15 x 15 inches
+set.seed(1) # this ensures that the graph will always be the same. remove if you want to test robustness
+plot.igraph( ## you can also use "plot" as shorthand
+  g, 
+  layout = layout_with_fr(g, weights = E(g)$weight),
+  vertex.size = 0, vertex.label.cex = 0.7,
+  edge.width = E(g)$similarity/10, main = "Word Similarity Network via textplot with Fruchterman-Reingold and weights"
+)
+dev.off() # to close the pdf
+```
+
+<iframe src="semantic_network_igraph_FROMtextplot_Fruchterman-Reingold.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
+
+Let's briefly interpret the graph: we can see a legal cluster at the top, with "court", "defendant", "judge", and "periodone" with "captain", "boat", "ship", "convicts" is also close.
+
+Period 2, 3, and 4 are all quite close to each other, close to family relations, like "sister", "father", "brother" and affection ("love").
+
+In gephi, the Force Atlas algorithm delivered the most convincing results. We can of course also run the Force Atlas layout algorithm on this graph. However, we need to make sure that the attribute of the node is called "name" and not "label".
+
+```{r}
+# knitr::knit_exit()
+```
+
+```{r ForceAtlasToTextplot}
+V(g)$name <- V(g)$label
+set.seed(1)
+layout <- layout.forceatlas2(g, iterations=5000, plotstep=500, directed=FALSE, gravity=0.8, k=10000, ks=5, delta=1)
+```
+
+You can also save this figure as PDF, as we have done above.
+
+Finally, as the forceatlas2 algorithm is designed to show a graph that constantly updates itself while it takes shape, it is worth executing it outside the Rstudio codeblock, where a sequence of plots is displayed.
+
+V(g)$name <- V(g)$label
+set.seed(1); layout <- layout.forceatlas2(g, iterations=5000, plotstep=100, directed=FALSE, gravity=0.8, k=10000, ks=5, delta=1)
+
+One can then zoom the plot in the "plots" tab, and export it it from there to a PDF.
+
+Here, we embed the crated PDF, adapt the path to your settings.
+
+<iframe src="semantic_network_FROMtextplot_forceatlas3_Rplot.pdf" width="100%" height="900px" type="application/pdf"> </iframe>
