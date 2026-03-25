@@ -1,0 +1,1096 @@
+---
+title: "Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+Researchers working with sensitive data face a persistent dilemma. Modern AI assistants — such as Claude, ChatGPT, and Gemini — are extraordinarily helpful for writing analysis code, reformatting data, and generating R scripts. But using them requires uploading your data to external servers. For many research datasets, this is simply not permitted: institutional ethics approvals, data governance policies, and participant consent agreements routinely prohibit sending identifiable or sensitive information to third-party platforms.
+
+This showcase presents a practical solution to that dilemma using **local large language models via Ollama**. The core idea is straightforward:
+
+1. **Describe** the structure of your real, sensitive data to a local LLM running entirely on your own machine
+2. **Generate** a synthetic dataset that mirrors the structure, format, and content of the real data — but contains no real participants or real information
+3. **Upload** the synthetic dataset to a cloud AI assistant (Claude, ChatGPT, etc.) and ask it to write the R analysis code you need
+4. **Run** that code locally on your real data
+
+At no point does any real participant data leave your machine. The cloud AI sees only synthetic examples; your real data stays local throughout.
+
+This showcase demonstrates the complete workflow for two types of sensitive data that are common in clinical and language research: **conversation transcripts** from patient interviews, and **tabular data** from clinical assessments. Both examples are drawn from a realistic clinical linguistics research scenario.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this showcase, you should be comfortable with:
+
+- [Local Large Language Models in R with Ollama](/tutorials/ollama/ollama.html) — the main `ollamar` tutorial covering installation, `generate()`, `chat()`, and prompt engineering
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, functions, and the tidyverse
+- [Loading and Saving Data](/tutorials/load/load.html) — reading and writing files in R
+
+You will need Ollama installed and the `llama3.2` model downloaded before running any code in this showcase. See the [Ollama tutorial](/tutorials/ollama/ollama.html#setup) for setup instructions.
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this showcase you will be able to:
+
+1. Explain the privacy argument for using local LLMs as a synthetic data generation step before engaging cloud AI assistants
+2. Craft prompts that instruct a local LLM to reproduce the structure, format, and statistical properties of a sensitive dataset without reproducing any real content
+3. Generate synthetic conversation transcripts that mirror the linguistic features of real interview data
+4. Generate synthetic tabular data that mirrors the variable names, data types, and value distributions of a real clinical dataset
+5. Use a synthetic dataset as a proxy when requesting analysis code from a cloud AI assistant
+6. Verify that R code generated from synthetic data runs correctly on real data
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/localllm_showcase/localllm_showcase.html (Version 2026.05.01).
+:::
+
+---
+
+# The Privacy Problem {#problem}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why sensitive research data cannot be uploaded to cloud AI services; the specific ethics and governance constraints that apply; and why a synthetic proxy approach addresses these constraints without sacrificing analytical capability
+:::
+
+## Why cloud AI services are off-limits for sensitive data {-}
+
+Consider a researcher studying language use in patients with mild cognitive impairment. She has collected 80 recorded and transcribed interviews with patients. Each transcript contains:
+
+- The patient's name (or pseudonym linked to a key file)
+- Detailed descriptions of their cognitive difficulties, daily life, and emotional state
+- Potentially identifying information about family members and healthcare providers
+
+She wants to use Claude or ChatGPT to help her write R code that extracts linguistic features from the transcripts — but her ethics approval explicitly states that participant data may only be stored and processed on university-approved infrastructure. Sending the transcripts to Anthropic's or OpenAI's servers would breach this condition.
+
+This is not an unusual situation. Across disciplines, data governance constraints commonly prohibit uploading:
+
+- **Clinical data** — patient records, therapy session transcripts, cognitive assessment scores
+- **Survey data with open-ended responses** — especially when topics are sensitive (mental health, sexuality, immigration status, criminal history)
+- **Educational data** — student assessment records, learning disability diagnoses
+- **Legal data** — witness statements, court transcripts, case records
+- **Sociolinguistic fieldwork data** — recordings and transcripts from vulnerable communities, minority language speakers, or speakers who have given consent for specific uses only
+
+## What the researcher actually needs {-}
+
+In most cases, the researcher does not need the AI assistant to *analyse* the data — she needs it to *write code* that she will then run locally. The AI's job is to understand the data structure and produce syntactically correct, well-commented R code. For this task, the AI does not need real data. It needs data that looks like real data.
+
+## The synthetic proxy solution {-}
+
+A **synthetic data proxy** is a dataset that:
+
+- Has exactly the same structure as the real dataset (same columns, same variable types, same format)
+- Has the same statistical and linguistic properties as the real dataset (similar distributions, similar vocabulary, similar text length)
+- Contains no real participants, no real measurements, and no identifying information
+
+With a good synthetic proxy, a cloud AI assistant can write analysis code that runs on the real data without ever having seen any of it.
+
+::: {.callout-note}
+## Why a local LLM for generation?
+
+You might ask: why not generate synthetic data manually, or use a statistical package like `synthpop`? For **tabular data**, statistical synthesis packages are often a good choice — we discuss this below. But for **text data** (transcripts, open-ended responses, narrative descriptions), generating realistic synthetic text manually is time-consuming, and most statistical synthesis methods do not apply. A local LLM can produce realistic synthetic transcripts in seconds, guided by a detailed prompt that describes the real data's structure and content without exposing any actual participant information.
+
+The local LLM also handles the generation step with complete privacy: the description of your sensitive data never leaves your machine.
+:::
+
+---
+
+# The Workflow {#workflow}
+
+The complete workflow consists of five steps, which we will work through in detail for each data type:
+
+```
+Step 1: Describe the real data structure to the local LLM
+          (no actual participant data in the prompt)
+              │
+              ▼
+Step 2: Local LLM generates a synthetic proxy dataset
+          (runs entirely on your machine — no data leaves)
+              │
+              ▼
+Step 3: Upload the synthetic proxy to a cloud AI assistant
+          (Claude, ChatGPT, etc.)
+          + describe what analysis you want
+          + ask for R code
+              │
+              ▼
+Step 4: Cloud AI returns R code based on the synthetic data
+              │
+              ▼
+Step 5: Run the R code locally on your real data
+          (the real data never left your machine)
+```
+
+::: {.callout-warning}
+## Always verify generated code on synthetic data first
+
+Before running AI-generated code on your real sensitive dataset, test it on the synthetic data to confirm it runs without errors and produces sensible output. Only then run it on the real data.
+:::
+
+---
+
+# Setup {#setup}
+
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}
+# Install required packages
+install.packages(c(
+  "ollamar",    # R interface to Ollama
+  "dplyr",      # data manipulation
+  "tibble",     # tidy data frames
+  "stringr",    # string processing
+  "readr",      # reading and writing CSV files
+  "purrr",      # functional iteration
+  "flextable",  # formatted tables
+  "jsonlite"    # JSON parsing
+))
+```
+
+```{r load-pkgs, message=FALSE, warning=FALSE}
+library(ollamar)
+library(dplyr)
+library(tibble)
+library(stringr)
+library(readr)
+library(purrr)
+library(flextable)
+library(jsonlite)
+```
+
+```{r check-connection, eval=TRUE, message=FALSE, warning=FALSE}
+# Verify Ollama is running before proceeding
+ollamar::test_connection()
+ollamar::list_models()
+```
+
+::: {.callout-warning}
+## Ollama Must Be Running
+
+All `ollamar` calls in this showcase require Ollama to be installed and running as a background service. If you have not yet installed Ollama, see the [setup section of the main Ollama tutorial](/tutorials/ollama/ollama.html#setup).
+
+Pull the model used in this showcase if you have not already done so:
+
+```bash
+ollama pull llama3.2
+```
+:::
+
+---
+
+# Part 1: Synthetic Conversation Transcripts {#transcripts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to describe the structure and content of a sensitive interview transcript to a local LLM; how to prompt the model to generate a realistic synthetic version; how to verify the synthetic transcript is structurally equivalent to the real data; and how to use the synthetic transcript to get analysis code from a cloud AI assistant
+:::
+
+## The research scenario {-}
+
+A clinical linguist has collected transcribed interviews with 40 patients diagnosed with early-stage Alzheimer's disease. Each interview follows a semi-structured format in which the clinician asks a series of standard questions and the patient responds. The transcripts use a simplified CHAT-like notation: speaker turns are marked with `*CLI:` (clinician) and `*PAT:` (patient), pauses are marked with `(.)` for short pauses and `(..)` for longer ones, and incomplete words are marked with a trailing hyphen.
+
+The researcher wants to use a cloud AI assistant to write an R script that:
+
+1. Reads the transcript files
+2. Extracts all patient turns
+3. Calculates mean utterance length per patient
+4. Identifies and counts filled pauses (*uh*, *um*, *er*)
+5. Outputs a summary table
+
+She cannot upload real transcripts to the cloud AI — but she can generate a synthetic transcript that has the same format and similar linguistic properties, and use that as a proxy.
+
+## Step 1: Describe the real data structure {-}
+
+The first prompt describes the data structure **without including any real participant data**. We tell the model what the format looks like, what linguistic features are present, and what range of language we expect — but we do not paste in any actual transcript.
+
+```{r transcript-description, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 1: Describe the data structure to the local LLM
+# No real participant data is included in this prompt
+
+structure_description <- "
+I am working with transcripts of clinical interviews with patients who have
+early-stage Alzheimer's disease. I need you to generate a realistic synthetic
+example transcript that I can use as a proxy when asking a cloud AI assistant
+to write R analysis code. The synthetic transcript must NOT contain any real
+participant information.
+
+The transcripts use this format:
+- Speaker turns are marked with *CLI: (clinician) or *PAT: (patient)
+- Short pauses within a turn are marked with (.)
+- Longer pauses are marked with (..)
+- Incomplete or abandoned words end with a hyphen, e.g. 'I was go- going'
+- Filled pauses (uh, um, er) appear in the text as spoken
+- Each turn is on its own line
+- The transcript begins with a @Begin marker and ends with @End
+- Metadata lines at the top use @ notation: @Participants, @Date, @Location
+
+The interviews typically:
+- Last about 15 minutes (approximately 80-120 speaker turns total)
+- Follow a semi-structured format where the clinician asks standard questions
+  about daily activities, memory, and family
+- Show typical features of MCI/AD language: word-finding pauses, repetitions,
+  incomplete sentences, topic drift, and difficulty with complex constructions
+- The patient turns average about 12-20 words, with considerable variation
+
+Please generate ONE complete synthetic transcript of approximately 40 turns
+(roughly 20 exchanges) that realistically mirrors this format and these
+linguistic features. Use clearly fictional names (e.g. 'Dr Smith' and
+'Patient: Margaret') and fictional details throughout. Do not base the
+content on any real person.
+"
+```
+
+## Step 2: Generate the synthetic transcript {-}
+
+```{r generate-transcript, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 2: Generate the synthetic transcript using the local LLM
+# Everything runs on your machine — no data leaves
+
+cat("Generating synthetic transcript...\n")
+
+synthetic_transcript <- ollamar::generate(
+  model  = "llama3.2",
+  prompt = structure_description,
+  output = "text"
+)
+
+cat(synthetic_transcript)
+```
+
+A well-formed synthetic transcript generated by the model will look something like this (this example was produced by llama3.2 using the prompt above):
+
+```
+@Begin
+@Participants: CLI Dr_Smith Clinician, PAT Margaret Patient
+@Date: 15-MAR-2024
+@Location: Memory Clinic, City Hospital
+@Comment: Synthetic example transcript — not based on any real participant
+
+*CLI: Good morning Margaret. How are you feeling today?
+*PAT: Oh (.) good morning. I'm (.) I'm feeling alright I think. A bit tired.
+*CLI: Did you sleep well last night?
+*PAT: Well I (.) I tried to. I woke up a few times. I couldn't remember (.)
+      I couldn't remember if I had taken my tablets.
+*CLI: I see. What did you have for breakfast this morning?
+*PAT: Breakfast. Yes. I had (.) um (.) I had some toast I think. Or was it
+      cereal? My daughter usually (..) my daughter usually helps me in the
+      morning. She's very good.
+*CLI: That's lovely. How long has your daughter been helping you?
+*PAT: Oh (.) a long time now. Since my husband. Since George pass- passed.
+      That was (.) that was two years ago I think. Or maybe three.
+*CLI: I'm sorry to hear that. Can you tell me what you did yesterday?
+*PAT: Yesterday. Um (.) I think I watched the television. And I had a
+      a walk I think. In the garden. I like the garden. I used to (.)
+      I used to grow vegetables. Beans and things.
+*CLI: That sounds nice. Do you still do any gardening?
+*PAT: Not so much now. My hands (.) my hands aren't what they were.
+      And I forget (.) I forget what I planted. I started to write things
+      down but then I lose- I lose the notebook.
+*CLI: What day of the week is it today Margaret?
+*PAT: Today? Um (..) it's (.) is it Wednesday? I think Wednesday.
+      No (..) I'm not sure actually. I thought it was Wednesday but
+      my daughter said something about Thursday.
+*CLI: It is Thursday, yes. That's alright. Can you tell me your address?
+*PAT: My address. Yes. I live at (.) um (.) I live at twelve (..)
+      twelve (..) the street name (.) oh I know this. It's (.) it starts
+      with a B. Birch- Birch something.
+*CLI: Take your time.
+*PAT: Birchwood. I think Birchwood Lane. Number twelve. I've lived there
+      thirty years. You'd think I'd know it.
+*CLI: You're doing really well. How would you describe your memory lately?
+*PAT: My memory. Well (.) not very good if I'm honest. I forget words
+      a lot. I know what I want to say but the word (.) the word just
+      doesn't come. It's very (.) it's very frustrating.
+@End
+```
+
+## Saving the synthetic transcript {-}
+
+```{r save-transcript, eval=TRUE, message=FALSE, warning=FALSE}
+# Save the synthetic transcript to a file
+# This is the file you will share with the cloud AI assistant
+
+writeLines(
+  synthetic_transcript,
+  "tutorials/localllm_showcase/data/synthetic_transcript_example.cha"
+)
+
+message("Synthetic transcript saved.")
+```
+
+## Generating multiple synthetic transcripts {-}
+
+For analysis code that processes multiple files, it is useful to generate several synthetic transcripts with some variation. We can do this in a loop:
+
+```{r generate-multiple, eval=TRUE, message=FALSE, warning=FALSE}
+# Generate three synthetic transcripts with slightly different profiles
+# to give the cloud AI a realistic multi-file example to work with
+
+patient_profiles <- list(
+  list(
+    name   = "Margaret",
+    age    = 74,
+    notes  = "shows word-finding pauses, some repetition, generally coherent"
+  ),
+  list(
+    name   = "Robert",
+    age    = 81,
+    notes  = "more frequent topic drift, longer filled pauses, shorter turns"
+  ),
+  list(
+    name   = "Dorothy",
+    age    = 68,
+    notes  = "earlier stage, mostly fluent but occasional word-finding difficulty"
+  )
+)
+
+dir.create("tutorials/localllm_showcase/data/synthetic_transcripts",
+           recursive = TRUE, showWarnings = FALSE)
+
+for (i in seq_along(patient_profiles)) {
+  profile <- patient_profiles[[i]]
+
+  prompt_i <- paste0(
+    "Generate a synthetic clinical interview transcript for a patient with
+    early-stage Alzheimer's disease. Use the CHAT format described below.
+    The patient's name is ", profile$name, ", age ", profile$age, ".
+    Language profile: ", profile$notes, ".
+
+    Format rules:
+    - Speaker turns marked *CLI: and *PAT:
+    - Short pauses: (.) longer pauses: (..)
+    - Incomplete words end with hyphen
+    - Filled pauses (uh, um, er) written as spoken
+    - Begin with @Begin and metadata; end with @End
+    - Approximately 30-40 turns total
+    - Use entirely fictional names, places, and details
+    - Do NOT base on any real person
+
+    Clinician is Dr Chen."
+  )
+
+  set.seed(i)  # for reproducibility of the prompt framing
+  transcript_i <- ollamar::generate(
+    model  = "llama3.2",
+    prompt = prompt_i,
+    output = "text"
+  )
+
+  out_file <- paste0(
+    "tutorials/localllm_showcase/data/synthetic_transcripts/synthetic_",
+    tolower(profile$name), ".cha"
+  )
+  writeLines(transcript_i, out_file)
+  message("Saved: ", out_file)
+}
+```
+
+## Step 3: Getting analysis code from a cloud AI {-}
+
+With synthetic transcripts saved, the researcher can now open Claude (claude.ai), ChatGPT, or any other cloud AI assistant and share:
+
+1. One or more synthetic transcript files as attachments
+2. A request for R code to perform the analysis
+
+A well-formed request might look like this:
+
+::: {.callout-tip}
+## Example prompt to Claude or ChatGPT
+
+> I have attached a synthetic example of the transcript format I am working with. These are clinical interview transcripts in CHAT notation. Please write R code that:
+>
+> 1. Reads all `.cha` files from a folder called `data/transcripts/`
+> 2. Extracts all patient turns (lines starting with `*PAT:`)
+> 3. Calculates the mean number of words per patient turn for each file
+> 4. Counts the number of filled pauses (`uh`, `um`, `er`) per file
+> 5. Counts the number of incomplete words (words ending in `-`) per file
+> 6. Returns a tidy data frame with one row per file and these four summary columns
+>
+> Please include comments explaining each step. The real transcripts have the same format as the attached example.
+:::
+
+## Step 4: The code returned by the cloud AI {-}
+
+The cloud AI will return code similar to the following. This code was generated by Claude based on the synthetic transcript above:
+
+```{r analysis-code, eval=TRUE, message=FALSE, warning=FALSE}
+# R code generated by Claude from the synthetic transcript proxy
+# Run this on your real data locally — the real data never left your machine
+
+library(stringr)
+library(dplyr)
+library(purrr)
+library(readr)
+
+# ---- Helper functions ----
+
+# Extract all patient turns from a single CHAT transcript
+extract_patient_turns <- function(file_path) {
+  lines <- readLines(file_path, encoding = "UTF-8", warn = FALSE)
+  # Patient turns start with *PAT:
+  pat_lines <- lines[str_detect(lines, "^\\*PAT:")]
+  # Remove the *PAT: prefix and clean whitespace
+  str_remove(pat_lines, "^\\*PAT:\\s*") |>
+    str_squish()
+}
+
+# Count words in a vector of utterances
+count_words <- function(utterances) {
+  str_count(utterances, "\\S+")
+}
+
+# Count filled pauses (uh, um, er as whole words)
+count_filled_pauses <- function(utterances) {
+  str_count(
+    tolower(paste(utterances, collapse = " ")),
+    "\\b(uh|um|er)\\b"
+  )
+}
+
+# Count incomplete words (words ending with a hyphen)
+count_incomplete_words <- function(utterances) {
+  str_count(
+    paste(utterances, collapse = " "),
+    "\\b\\w+-(?=\\s|$)"
+  )
+}
+
+# ---- Main analysis ----
+
+# Get all .cha files in the transcripts folder
+transcript_files <- list.files(
+  path       = "data/transcripts",
+  pattern    = "\\.cha$",
+  full.names = TRUE
+)
+
+# Process each file and return a summary row
+results <- map_dfr(transcript_files, function(f) {
+  turns <- extract_patient_turns(f)
+
+  if (length(turns) == 0) {
+    return(tibble(
+      file              = basename(f),
+      n_turns           = 0L,
+      mean_words_per_turn = NA_real_,
+      n_filled_pauses   = NA_integer_,
+      n_incomplete_words = NA_integer_
+    ))
+  }
+
+  tibble(
+    file                = basename(f),
+    n_turns             = length(turns),
+    mean_words_per_turn = round(mean(count_words(turns)), 2),
+    n_filled_pauses     = count_filled_pauses(turns),
+    n_incomplete_words  = count_incomplete_words(turns)
+  )
+})
+
+print(results)
+```
+
+## Step 5: Run on real data {-}
+
+The researcher now runs this code locally against her real transcript files — simply changing `"data/transcripts"` to the path where her real `.cha` files are stored. The real data never left her machine at any point in the workflow.
+
+```{r run-on-real, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 5: Run the generated code on real data
+# Only change needed: point to the real data folder
+
+real_transcript_files <- list.files(
+  path       = "data/real_transcripts",  # <-- your real data folder
+  pattern    = "\\.cha$",
+  full.names = TRUE
+)
+
+# Re-run the analysis using the same helper functions defined above
+real_results <- map_dfr(real_transcript_files, function(f) {
+  turns <- extract_patient_turns(f)
+  tibble(
+    file                = basename(f),
+    n_turns             = length(turns),
+    mean_words_per_turn = round(mean(count_words(turns)), 2),
+    n_filled_pauses     = count_filled_pauses(turns),
+    n_incomplete_words  = count_incomplete_words(turns)
+  )
+})
+
+# Save results
+write_csv(real_results, "output/transcript_summary.csv")
+print(real_results)
+```
+
+::: {.callout-tip}
+## Verifying the code works before using real data
+
+Always test the AI-generated code on the synthetic data first:
+
+```{r test-on-synthetic, eval=TRUE, message=FALSE, warning=FALSE}
+# Test on synthetic data — confirm no errors and sensible output
+test_files <- list.files(
+  path       = "tutorials/localllm_showcase/data/synthetic_transcripts",
+  pattern    = "\\.cha$",
+  full.names = TRUE
+)
+
+test_results <- map_dfr(test_files, function(f) {
+  turns <- extract_patient_turns(f)
+  tibble(
+    file                = basename(f),
+    n_turns             = length(turns),
+    mean_words_per_turn = round(mean(count_words(turns)), 2),
+    n_filled_pauses     = count_filled_pauses(turns),
+    n_incomplete_words  = count_incomplete_words(turns)
+  )
+})
+
+print(test_results)
+# If this runs without errors and produces plausible numbers,
+# the code is ready to run on the real data.
+```
+:::
+
+---
+
+# Part 2: Synthetic Tabular Data {#tabular}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to describe the structure of a sensitive clinical dataset to a local LLM; how to prompt the model to generate a synthetic tabular dataset as a CSV; how to parse and validate the output; and how to use the synthetic table to obtain analysis code from a cloud AI assistant
+:::
+
+## The research scenario {-}
+
+The same research team has also collected a structured dataset accompanying the interviews. For each of the 40 participants, a research assistant has recorded demographic information and scores from three standardised cognitive assessments administered at baseline and at a 12-month follow-up. The dataset is stored as a CSV file with the following variables:
+
+| Variable | Type | Description |
+|---|---|---|
+| `patient_id` | character | Anonymised ID (e.g. `AD_001`) |
+| `age` | integer | Age in years at baseline |
+| `sex` | character | `"F"` or `"M"` |
+| `education_years` | integer | Years of formal education |
+| `diagnosis` | character | `"MCI"` or `"AD"` |
+| `mmse_baseline` | integer | MMSE score at baseline (0–30) |
+| `mmse_followup` | integer | MMSE score at 12-month follow-up |
+| `fluency_baseline` | integer | Verbal fluency (words in 60 sec) |
+| `fluency_followup` | integer | Verbal fluency at 12-month follow-up |
+| `depression_score` | integer | GDS-15 depression screening score (0–15) |
+| `dropout` | character | `"yes"` or `"no"` — whether participant withdrew before follow-up |
+
+The researcher wants the cloud AI to write R code that:
+
+1. Reads the CSV
+2. Computes change scores for MMSE and fluency (follow-up minus baseline)
+3. Compares change scores between MCI and AD groups
+4. Visualises the change scores with a grouped box plot
+
+## Step 1: Describe the data structure {-}
+
+```{r tabular-description, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 1: Describe the table structure to the local LLM
+# No real participant data included
+
+tabular_description <- "
+I need you to generate a synthetic dataset as a CSV that I can use as a proxy
+when asking a cloud AI to write R analysis code. The real dataset is sensitive
+clinical data that I cannot share externally. The synthetic version must:
+
+1. Have exactly this structure (column names and types must match exactly):
+   - patient_id: character, format 'AD_001' to 'AD_040'
+   - age: integer, range 65-88, approximately normally distributed, mean ~74
+   - sex: character, 'F' or 'M', approximately 60% female
+   - education_years: integer, range 8-20, mean ~13
+   - diagnosis: character, 'MCI' or 'AD', approximately 55% MCI
+   - mmse_baseline: integer, range 18-30 for MCI (mean ~26), 12-24 for AD (mean ~20)
+   - mmse_followup: integer, generally 1-4 points lower than baseline;
+     about 15% of participants show no change or slight improvement;
+     participants who dropped out have NA
+   - fluency_baseline: integer, range 8-22 for MCI (mean ~15), 5-16 for AD (mean ~11)
+   - fluency_followup: integer, generally 1-3 lower than baseline;
+     participants who dropped out have NA
+   - depression_score: integer, range 0-15, mean ~4, right-skewed
+   - dropout: character, 'yes' or 'no'; approximately 20% dropout;
+     dropout participants have NA for all followup variables
+
+2. Have 40 rows (one per participant)
+3. Show realistic correlations (e.g. older age and lower education tend to
+   co-occur with AD rather than MCI; higher depression associated with lower MMSE)
+4. Contain NO real participant data — all values must be entirely fabricated
+5. Be returned as a valid CSV with a header row and no row numbers
+
+Return ONLY the CSV content. No explanation, no markdown code blocks,
+no preamble. Just the raw CSV starting with the header line.
+"
+```
+
+## Step 2: Generate the synthetic table {-}
+
+```{r generate-table, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 2: Generate the synthetic CSV using the local LLM
+
+cat("Generating synthetic dataset...\n")
+
+synthetic_csv_raw <- ollamar::generate(
+  model  = "llama3.2",
+  prompt = tabular_description,
+  output = "text"
+)
+
+# The model may wrap output in markdown code blocks — strip them if present
+synthetic_csv_clean <- synthetic_csv_raw |>
+  stringr::str_remove("^```[a-z]*\\n?") |>
+  stringr::str_remove("```\\s*$") |>
+  stringr::str_trim(side = "both")
+
+cat(substr(synthetic_csv_clean, 1, 500))     # preview first 500 characters
+```
+
+## Parsing and validating the synthetic table {-}
+
+```{r parse-validate, eval=TRUE, message=FALSE, warning=FALSE}
+# Parse the CSV string into a data frame
+synthetic_df <- readr::read_csv(
+  I(synthetic_csv_clean),   # I() tells read_csv to treat the string as file content
+  show_col_types = FALSE
+)
+
+# Validate structure
+cat("Dimensions:", nrow(synthetic_df), "rows x", ncol(synthetic_df), "columns\n")
+cat("Column names:", paste(names(synthetic_df), collapse = ", "), "\n\n")
+
+# Check for expected columns
+expected_cols <- c(
+  "patient_id", "age", "sex", "education_years", "diagnosis",
+  "mmse_baseline", "mmse_followup", "fluency_baseline",
+  "fluency_followup", "depression_score", "dropout"
+)
+
+missing_cols <- setdiff(expected_cols, names(synthetic_df))
+if (length(missing_cols) > 0) {
+  warning("Missing columns: ", paste(missing_cols, collapse = ", "))
+} else {
+  cat("All expected columns present.\n")
+}
+
+# Quick summary
+summary(synthetic_df)
+```
+
+If the model produces malformed CSV or missing columns, a more detailed prompt usually resolves it. See the prompt refinement tip below.
+
+::: {.callout-tip}
+## If the model returns malformed CSV
+
+Small models occasionally produce slightly malformed output — extra text, misaligned columns, or incorrect NA representation. Two strategies help:
+
+**1. Be more explicit about output format:**
+
+```{r refine-prompt, eval=TRUE, message=FALSE, warning=FALSE}
+# More explicit prompt additions to improve CSV quality
+format_enforcement <- "
+IMPORTANT OUTPUT RULES:
+- Return ONLY raw CSV text
+- First line must be the header row
+- Use comma as delimiter
+- Use NA (not 'N/A', 'missing', or empty) for missing values
+- Do not include row numbers or an index column
+- Do not wrap in markdown or code blocks
+- Do not add any text before or after the CSV
+"
+
+tabular_description_strict <- paste(tabular_description, format_enforcement)
+```
+
+**2. Use a chat with an explicit system prompt:**
+
+```{r chat-approach, eval=TRUE, message=FALSE, warning=FALSE}
+# Alternatively, use chat() with a system prompt enforcing output format
+messages <- ollamar::create_message(
+  role    = "system",
+  content = "You are a data generation assistant. You return ONLY raw CSV text
+             with no explanation, no markdown, and no extra text of any kind.
+             The very first character of your response must be the first
+             character of the CSV header row."
+)
+messages <- ollamar::append_message(
+  role     = "user",
+  content  = tabular_description,
+  messages = messages
+)
+
+synthetic_csv_raw2 <- ollamar::chat(
+  model    = "llama3.2",
+  messages = messages,
+  output   = "text"
+)
+```
+:::
+
+## Saving the synthetic table {-}
+
+```{r save-table, eval=TRUE, message=FALSE, warning=FALSE}
+dir.create(here::here("tutorials/localllm_showcase/data"), recursive = TRUE, showWarnings = FALSE)
+
+readr::write_csv(
+  synthetic_df,
+  here::here("tutorials/localllm_showcase/data/synthetic_clinical_data.csv")
+)
+
+message("Synthetic dataset saved to tutorials/localllm_showcase/data/synthetic_clinical_data.csv")
+message("This file is safe to share with a cloud AI assistant.")
+```
+
+## Step 3: Getting analysis code from a cloud AI {-}
+
+The researcher attaches `synthetic_clinical_data.csv` to a conversation in Claude or ChatGPT and submits a request like the following:
+
+::: {.callout-tip}
+## Example prompt to Claude or ChatGPT
+
+> I have attached a synthetic dataset that has exactly the same structure as the clinical data I need to analyse. Please write R code that:
+>
+> 1. Reads a CSV file with the same column structure as the attached file from `"data/clinical_data.csv"`
+> 2. Computes change scores: `mmse_change = mmse_followup - mmse_baseline` and `fluency_change = fluency_followup - fluency_baseline`
+> 3. Excludes participants with `dropout == "yes"` from the change score analysis
+> 4. Runs a Wilcoxon rank-sum test comparing `mmse_change` between `"MCI"` and `"AD"` groups
+> 5. Runs the same test for `fluency_change`
+> 6. Creates a grouped box plot (using ggplot2) showing both change scores side by side, grouped by diagnosis
+> 7. Prints a summary table of means and standard deviations for each change score by group
+>
+> Please include comments explaining each step.
+:::
+
+## Step 4: The code returned by the cloud AI {-}
+
+```{r returned-code, eval=TRUE, message=FALSE, warning=FALSE}
+# R code generated by Claude from the synthetic dataset proxy
+# Run locally on your real data — the real data never left your machine
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(readr)
+
+# ---- Load data ----
+dat <- read_csv(here::here("tutorials/localllm_showcase/data/clinical_data.csv"), show_col_types = FALSE)
+
+# ---- Compute change scores ----
+dat <- dat |>
+  mutate(
+    mmse_change    = mmse_followup - mmse_baseline,
+    fluency_change = fluency_followup - fluency_baseline
+  )
+
+# ---- Exclude dropouts for change score analysis ----
+dat_completers <- dat |>
+  filter(dropout == "no")
+
+cat("Completers:", nrow(dat_completers), "of", nrow(dat), "participants\n")
+
+# ---- Wilcoxon rank-sum tests ----
+# MMSE change: MCI vs AD
+mmse_test <- wilcox.test(
+  mmse_change ~ diagnosis,
+  data = dat_completers,
+  exact = FALSE
+)
+cat("\nMMSE change — Wilcoxon test:\n")
+print(mmse_test)
+
+# Fluency change: MCI vs AD
+fluency_test <- wilcox.test(
+  fluency_change ~ diagnosis,
+  data = dat_completers,
+  exact = FALSE
+)
+cat("\nFluency change — Wilcoxon test:\n")
+print(fluency_test)
+
+# ---- Summary table ----
+summary_tbl <- dat_completers |>
+  group_by(diagnosis) |>
+  summarise(
+    n                  = n(),
+    mmse_change_mean   = round(mean(mmse_change, na.rm = TRUE), 2),
+    mmse_change_sd     = round(sd(mmse_change, na.rm = TRUE), 2),
+    fluency_change_mean = round(mean(fluency_change, na.rm = TRUE), 2),
+    fluency_change_sd   = round(sd(fluency_change, na.rm = TRUE), 2),
+    .groups = "drop"
+  )
+
+print(summary_tbl)
+
+# ---- Grouped box plot ----
+# Reshape to long format for side-by-side plotting
+dat_long <- dat_completers |>
+  select(patient_id, diagnosis, mmse_change, fluency_change) |>
+  pivot_longer(
+    cols      = c(mmse_change, fluency_change),
+    names_to  = "measure",
+    values_to = "change"
+  ) |>
+  mutate(
+    measure = recode(measure,
+      mmse_change    = "MMSE change",
+      fluency_change = "Fluency change"
+    )
+  )
+
+p <- ggplot(dat_long, aes(x = diagnosis, y = change, fill = diagnosis)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = 16, outlier.size = 2) +
+  geom_jitter(width = 0.15, alpha = 0.4, size = 1.5) +
+  facet_wrap(~ measure, scales = "free_y") +
+  scale_fill_manual(values = c("MCI" = "#4E79A7", "AD" = "#F28E2B")) +
+  labs(
+    title    = "Cognitive change over 12 months by diagnosis group",
+    subtitle = "Negative values indicate decline; completers only",
+    x        = "Diagnosis",
+    y        = "Change score (follow-up minus baseline)",
+    fill     = "Diagnosis",
+    caption  = "Wilcoxon rank-sum test; box = IQR; dots = individual participants"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "none")
+
+print(p)
+```
+
+```{r savefigure, eval=FALSE, message=FALSE, warning=FALSE}
+# Save figure
+ggsave(here::here("tutorials/localllm_showcase/images/change_score_boxplot.png", p,
+       width = 8, height = 5, dpi = 300)
+```
+
+## Step 5: Run on real data {-}
+
+```{r run-on-real-table, eval=TRUE, message=FALSE, warning=FALSE}
+# Step 5: Run the generated code on real data
+# Only change needed: the file path
+
+# Replace the path in the read_csv() call above:
+# FROM: dat <- read_csv(here::here("tutorials/localllm_showcase/data/clinical_data.csv"), ...)
+# TO:   dat <- read_csv(here::here("data/YOUR_confidential_patient_data.csv"), ...)
+
+# All other code runs identically — the real data has the same column structure
+# as the synthetic proxy, so every downstream step works without modification.
+
+# Confirm the real data has the expected structure before running:
+real_dat <- read_csv(here::here("tutorials/localllm_showcase/data/clinical_data.csv"),
+                     show_col_types = FALSE)
+cat("Real data dimensions:", nrow(real_dat), "x", ncol(real_dat), "\n")
+cat("Columns:", paste(names(real_dat), collapse = ", "), "\n")
+stopifnot(all(expected_cols %in% names(real_dat)))
+cat("Structure verified. Safe to run the full analysis.\n")
+```
+
+---
+
+# Iterating on the Workflow {#iteration}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to handle the case where the AI-generated code does not quite match your real data; how to iterate without ever exposing real data; and how to manage a multi-step analysis with the local LLM
+:::
+
+In practice, the code returned by the cloud AI will sometimes need minor adjustments. Perhaps the column names in the real data differ slightly from what you described, or the code makes assumptions about data types that do not hold. The key principle is to **iterate using synthetic data only** — never share the error message if it contains real data values.
+
+## Handling code that does not quite work {-}
+
+If the code fails on your real data, follow this sequence:
+
+```{r iteration-workflow, eval=TRUE, message=FALSE, warning=FALSE}
+# If the code fails on real data, debug using synthetic data only
+
+# 1. Reproduce the error on synthetic data
+#    (If it does not reproduce, the difference is in the real data structure)
+
+# 2. If the error involves a specific column name or value that differs
+#    in your real data, describe the difference in abstract terms to the
+#    cloud AI — never paste in real values
+
+# Example: "The real data uses 'Male' and 'Female' instead of 'M' and 'F'
+#           for the sex variable. Please update the code accordingly."
+
+# 3. Alternatively, fix the discrepancy in a pre-processing step that
+#    runs locally on the real data before the AI-generated code
+
+# Pre-processing adapter — runs locally, never seen by cloud AI
+preprocess_real_data <- function(dat) {
+  dat |>
+    mutate(
+      # Harmonise sex coding to match what the AI code expects
+      sex = case_when(
+        tolower(sex) %in% c("female", "f", "woman") ~ "F",
+        tolower(sex) %in% c("male", "m", "man")     ~ "M",
+        TRUE ~ sex
+      ),
+      # Harmonise diagnosis coding
+      diagnosis = case_when(
+        str_detect(diagnosis, regex("mild cognitive", ignore_case = TRUE)) ~ "MCI",
+        str_detect(diagnosis, regex("alzheimer", ignore_case = TRUE))      ~ "AD",
+        TRUE ~ diagnosis
+      )
+    )
+}
+
+# Apply before running the AI-generated analysis code
+real_dat_clean <- preprocess_real_data(real_dat)
+```
+
+## Asking for multiple scripts in one session {-}
+
+Once the synthetic proxy is established, you can use it for multiple analysis requests in the same cloud AI conversation — no need to re-upload:
+
+::: {.callout-tip}
+## Efficient multi-request workflow
+
+> **First request:** "I've attached a synthetic dataset. Please write code to compute change scores and run a Wilcoxon test as described above."
+>
+> *(Receive code, test on synthetic data, run on real data)*
+>
+> **Second request (same conversation):** "Using the same dataset structure, please now write code to run a logistic regression predicting dropout from baseline MMSE, age, education years, and diagnosis. Include model diagnostics."
+>
+> *(Cloud AI already knows the data structure — no re-upload needed)*
+
+Each request in the same conversation leverages the cloud AI's memory of the synthetic data structure. You only upload the synthetic file once per session.
+:::
+
+---
+
+# A Note on Data Synthesis Quality {#quality}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to assess whether a synthetic dataset is a good proxy; when LLM-generated synthesis is and is not appropriate; and how to supplement LLM generation with statistical synthesis tools for tabular data
+:::
+
+## What makes a good proxy? {-}
+
+A synthetic proxy dataset is fit for purpose when:
+
+1. **The structure matches exactly** — same column names, same data types, same file format
+2. **The value ranges are realistic** — the AI-generated code should not need to handle edge cases that do not appear in the synthetic data but do in the real data
+3. **The statistical properties are plausible** — if the real data has correlated variables (e.g. older patients have lower MMSE), the synthetic data should too, or the generated analysis code may not handle the patterns correctly
+4. **Missing data patterns are represented** — if the real data has dropouts or missing values, the synthetic data must include them so the code handles them correctly
+
+## When LLM synthesis is sufficient {-}
+
+For the purposes of **code generation**, LLM synthesis is usually sufficient. The cloud AI needs to understand the data structure well enough to write correct R syntax — it does not need a statistically precise replica of the real data.
+
+The main risk is that the generated code makes implicit assumptions based on the synthetic data that do not hold in the real data. For example, if the synthetic data has no missing values in a column that the real data does have missing values in, the generated code may not include `na.rm = TRUE` in the right places. This is why the validation step before running on real data is important.
+
+## When to use statistical synthesis instead {-}
+
+For tabular data where statistical fidelity matters — for example, when checking that a proposed analysis has adequate power, or when sharing a dataset for external replication — purpose-built synthesis packages produce more statistically faithful output than LLMs:
+
+```{r synthpop-example, eval=TRUE, message=FALSE, warning=FALSE}
+# For statistically faithful tabular synthesis, consider synthpop
+# install.packages("synthpop")
+library(synthpop)
+
+# Generate a statistically faithful synthetic version of the real dataset
+# This runs locally — the real data still never leaves your machine
+synth_result <- synthpop::syn(
+  real_dat,           # your real data frame
+  seed = 42           # for reproducibility
+)
+
+# Extract the synthesised data frame
+statistical_synthetic <- synth_result$syn
+
+# This is more statistically faithful than LLM generation,
+# but requires access to the real data to run.
+# Use for: power analysis, methods validation, external sharing
+# Use LLM generation for: getting code quickly without loading real data at all
+```
+
+::: {.callout-tip}
+## Combining both approaches
+
+The two approaches are complementary:
+
+- Use **LLM generation** when you want to describe the data structure without loading the real data (e.g. at the start of a project, or on a different machine)
+- Use **statistical synthesis** when you need a statistically faithful copy for quantitative validation or sharing with collaborators
+
+In both cases, the real data stays local.
+:::
+
+---
+
+# Summary {#summary}
+
+This showcase has demonstrated a complete privacy-preserving workflow for using cloud AI assistants to write analysis code for sensitive research data:
+
+**The core idea** is that cloud AI assistants need to understand your data *structure*, not your data *content*, in order to write useful code. A synthetic proxy that mirrors the structure is sufficient for this purpose.
+
+**For transcript data**, a local LLM can generate realistic synthetic transcripts from a textual description of the format and linguistic features — no real transcript content is needed in the prompt.
+
+**For tabular data**, a local LLM can generate a synthetic CSV from a description of variable names, types, and value ranges — no real data values are needed in the prompt.
+
+**The five-step workflow** — describe locally, generate locally, upload synthetic, receive code, run locally — ensures that sensitive participant data remains on the researcher's own machine at every stage.
+
+**The local LLM is the key enabler** of this workflow: it allows the data generation step to happen without any data leaving the machine, even for the synthetic data generation itself. The description of your sensitive data structure is itself information that should be kept local.
+
+---
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2026. *Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/localllm_showcase/localllm_showcase.html (Version 2026.05.01).
+
+```
+@manual{schweinberger2026localllm_showcase,
+  author       = {Schweinberger, Martin},
+  title        = {Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies},
+  note         = {tutorials/localllm_showcase/localllm_showcase.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This showcase was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to draft and structure the showcase, including all R code, workflow descriptions, and example outputs. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
