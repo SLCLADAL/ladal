@@ -1,1890 +1,1198 @@
----  
-title: "Word Embeddings and Vector Semantics"  
-author: "Martin Schweinberger"  
-format:  
-  html:  
-    toc: true  
-    toc-depth: 4  
-    code-fold: show  
-    code-tools: true  
-    theme: cosmo  
----  
-  
-![](/images/uq1.jpg){ width=100% }  
-  
-# Welcome to Word Embeddings! {.unnumbered}  
-  
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
-  
-::: {.callout-tip}  
-## What You'll Learn  
-  
-By the end of this tutorial, you will be able to:  
-  
-- Understand what word embeddings are and why they revolutionized NLP  
-- Grasp the distributional hypothesis: "You shall know a word by the company it keeps"  
-- Train your own word2vec models from text data  
-- Use pre-trained embeddings (GloVe, fastText, BERT)  
-- Find similar words using vector mathematics  
-- Perform word analogies (king - man + woman = queen)  
-- Visualize embeddings in 2D space  
-- Apply embeddings to real research questions  
-- Understand when to use which embedding method  
-:::  
-  
-## What Are Word Embeddings?  
-  
-**Word embeddings** are dense vector representations of words that capture semantic meaning. Instead of representing words as arbitrary symbols, embeddings place semantically similar words near each other in a multi-dimensional space.  
-  
-### The Problem with Traditional Approaches  
-  
-**One-hot encoding** (traditional approach):  
-```  
-cat  = [1, 0, 0, 0, 0, ..., 0]  (10,000 dimensions)  
-dog  = [0, 1, 0, 0, 0, ..., 0]  
-car  = [0, 0, 1, 0, 0, ..., 0]  
-```  
-  
-**Problems:**  
-- No semantic relationship captured  
-- "cat" is as different from "dog" as from "car"  
-- Extremely sparse (mostly zeros)  
-- Vocabulary size = dimensions  
-- No generalization  
-  
-**Word embeddings** (modern approach):  
-```  
-cat  = [0.2, -0.4, 0.7, ..., 0.1]  (300 dimensions)  
-dog  = [0.3, -0.5, 0.8, ..., 0.2]  (similar to cat!)  
-car  = [-0.1, 0.6, -0.3, ..., 0.4] (different from cat/dog)  
-```  
-  
-**Advantages:**  
-- ✅ Semantic similarity captured  
-- ✅ Dense, efficient representation  
-- ✅ Fixed dimensions (typically 50-300)  
-- ✅ Enables generalization  
-- ✅ Mathematical operations meaningful  
-  
-### The Distributional Hypothesis  
-  
-> "You shall know a word by the company it keeps" — J.R. Firth (1957)  
-  
-**Core idea:** Words appearing in similar contexts have similar meanings.  
-  
-**Example:**  
-- "The **cat** sat on the mat"  
-- "The **dog** sat on the mat"  
-- "The **car** drove down the street"  
-  
-Words like "cat" and "dog" appear in similar contexts (sat, mat) → should have similar embeddings.  
-  
-## Why Word Embeddings Matter  
-  
-### Revolution in NLP  
-  
-**Before embeddings (pre-2013):**  
-- Manual feature engineering  
-- Bag-of-words models  
-- No semantic understanding  
-- Poor generalization  
-  
-**After embeddings (2013+):**  
-- Automatic feature learning  
-- Rich semantic representations  
-- Captures analogies and relationships  
-- Transfer learning possible  
-  
-### Real-World Applications  
-  
-| Application | How Embeddings Help |  
-|------------|---------------------|  
-| **Search engines** | Find semantically similar documents |  
-| **Machine translation** | Map words across languages |  
-| **Sentiment analysis** | Understand emotional content |  
-| **Question answering** | Match questions to answers semantically |  
-| **Text classification** | Better features for ML models |  
-| **Information retrieval** | Go beyond keyword matching |  
-| **Recommendation systems** | Find similar items/content |  
-| **Named entity recognition** | Recognize entities in context |  
-  
-### Linguistic Research Applications  
-  
-**Semantic change detection:**  
-- Track meaning shifts over time  
-- Compare embeddings from different decades  
-- Study language evolution  
-  
-**Bias detection:**  
-- Uncover implicit associations  
-- Gender bias (doctor → male, nurse → female)  
-- Racial bias in language models  
-  
-**Metaphor analysis:**  
-- Identify non-literal meanings  
-- Cross-domain mappings  
-- Conceptual structures  
-  
-**Dialect/register variation:**  
-- Compare vocabulary usage  
-- Identify characteristic terms  
-- Study sociolinguistic patterns  
-  
-::: {.callout-note}  
-## Tutorial Citation  
-  
-Schweinberger, Martin. 2026. *Word Embeddings and Vector Semantics*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/embeddings.html (Version 2026.02.08).  
-:::  
-  
-## Prerequisites  
-  
-<div class="warning" style='padding:0.5em; background-color:rgba(215,209,204,.3); color:#51247a'>  
-<span>  
-<p style='margin-top:1em; text-align:center'>  
-**Before starting, familiarize yourself with:**<br>  
-</p>  
-<p style='margin-top:1em; text-align:left'>  
-<ul>  
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>  
-  <li>[Text processing in R](/tutorials/string/string.html) </li>  
-  <li>[Basic statistics](/tutorials/statistics/statistics.html) </li>  
-  <li>Basic understanding of vectors and matrices</li>  
-</ul>  
-</p>  
-</span>  
-</div>  
-  
----  
-  
-# Part 1: Understanding Embeddings {#part1}  
-  
-## Vector Space Models  
-  
-### The Core Concept  
-  
-Embeddings represent words as **vectors** in high-dimensional space where:  
-- Each dimension captures some aspect of meaning  
-- Similar words cluster together  
-- Relationships are preserved geometrically  
-  
-**Simplified 2D example:**  
-  
-```  
-         happy •  
-               |  
-    joyful •   |   • excited  
-               |  
-    -----------+----------- (dimension 1)  
-               |  
-         sad • |  
-               |  
-               (dimension 2)  
-```  
-  
-In reality: 50-300 dimensions, not 2!  
-  
-### Mathematical Properties  
-  
-**Distance measures similarity:**  
-```r  
-# Cosine similarity (most common)  
-similarity = (A · B) / (||A|| × ||B||)  
-  
-# Range: -1 (opposite) to +1 (identical)  
-```  
-  
-**Vector arithmetic works:**  
-```r  
-king - man + woman ≈ queen  
-Paris - France + Germany ≈ Berlin  
-```  
-  
-This is **remarkable** — mathematical operations on word vectors produce meaningful semantic results!  
-  
-## Types of Word Embeddings  
-  
-### 1. Count-Based Methods (Classical)  
-  
-**Co-occurrence matrix:**  
-- Count how often words appear together  
-- Apply dimensionality reduction (SVD)  
-- Examples: LSA, HAL  
-  
-**Advantages:**  
-- Straightforward to understand  
-- Interpretable dimensions  
-- Good for small datasets  
-  
-**Disadvantages:**  
-- Computationally expensive for large vocabularies  
-- Sparse matrices  
-- Less effective than modern methods  
-  
-### 2. Prediction-Based Methods (Modern)  
-  
-**Neural network models:**  
-- Predict context from word or word from context  
-- Learn embeddings as model weights  
-- Examples: word2vec, GloVe, fastText  
-  
-**Two main architectures:**  
-  
-**CBOW (Continuous Bag of Words):**  
-- Input: Context words  
-- Output: Target word  
-- Fast training  
-- Better for frequent words  
-  
-**Skip-gram:**  
-- Input: Target word  
-- Output: Context words  
-- Slower training  
-- Better for rare words and small datasets  
-  
-**Advantages:**  
-- Capture nuanced semantics  
-- Efficient for large datasets  
-- State-of-the-art performance  
-  
-### 3. Contextualized Embeddings (Cutting-Edge)  
-  
-**Context-dependent representations:**  
-- Same word, different embeddings in different contexts  
-- Examples: ELMo, BERT, GPT  
-  
-**Example:**  
-```  
-"Bank" in "river bank" ≠ "Bank" in "savings bank"  
-```  
-  
-Traditional embeddings: one vector for "bank"  
-Contextualized: different vectors based on context  
-  
-**We'll focus primarily on word2vec and GloVe** (most widely used for linguistic research), with guidance on when to use contextualized models.  
-  
-## The word2vec Algorithm  
-  
-### How It Works  
-  
-**Training objective:** Given a word, predict its context (or vice versa)  
-  
-**Skip-gram example:**  
-  
-**Sentence:** "The quick brown fox jumps"    
-**Target word:** "brown"    
-**Window size:** 2  
-  
-**Training pairs:**  
-- (brown, the)  
-- (brown, quick)  
-- (brown, fox)  
-- (brown, jumps)  
-  
-The neural network learns to predict these context words from "brown", adjusting the embedding to maximize prediction accuracy.  
-  
-### Training Process  
-  
-1. **Initialize** random vectors for all words  
-2. **For each word** in corpus:  
-   - Get context words (within window)  
-   - Predict context using current embeddings  
-   - Calculate prediction error  
-   - **Update embeddings** to reduce error  
-3. **Repeat** until convergence  
-  
-**Result:** Words with similar contexts end up with similar vectors!  
-  
-### Key Hyperparameters  
-  
-| Parameter | What It Controls | Typical Values | Effect |  
-|-----------|------------------|----------------|--------|  
-| **vector_size** | Embedding dimensions | 50-300 | Higher = more nuance, slower |  
-| **window** | Context size | 5-10 | Larger = broader semantics |  
-| **min_count** | Min word frequency | 5-10 | Filters rare words |  
-| **sg** | Skip-gram (1) or CBOW (0) | 0 or 1 | Skip-gram better for small data |  
-| **negative** | Negative samples | 5-20 | Optimization technique |  
-| **epochs** | Training iterations | 5-50 | More = better learning (to a point) |  
-  
-::: {.callout-warning}  
-## Training Trade-offs  
-  
-**Bigger isn't always better:**  
-- More dimensions: captures subtleties but risks overfitting  
-- Larger window: broader semantic relationships but less specific  
-- More epochs: better learning but diminishing returns  
-  
-**Best practice:** Start with defaults, then experiment systematically.  
-:::  
-  
----  
-  
-# Part 2: Setup and Installation {#part2}  
-  
-## Required Packages  
-  
-```{r setup-install, eval=FALSE}  
-# Core embedding packages  
-install.packages("word2vec")      # Train word2vec models  
-install.packages("text2vec")      # Alternative implementation  
-install.packages("wordVectors")   # Load/manipulate embeddings  
-  
-# Pre-trained embeddings  
-install.packages("textdata")      # Download GloVe  
-  
-# Manipulation and analysis  
-install.packages("dplyr")         # Data wrangling  
-install.packages("stringr")       # String processing  
-install.packages("tidyr")         # Data reshaping  
-install.packages("purrr")         # Functional programming  
-  
-# Visualization  
-install.packages("ggplot2")       # Plotting  
-install.packages("ggrepel")       # Better text labels  
-install.packages("Rtsne")         # Dimensionality reduction  
-install.packages("umap")          # Alternative to t-SNE  
-  
-# Utilities  
-install.packages("here")          # File paths  
-install.packages("flextable")     # Tables  
-```  
-  
-## Loading Packages  
-  
-```{r setup-load, message=FALSE, warning=FALSE}  
-# Load packages  
-library(word2vec)  
-library(text2vec)  
-library(dplyr)  
-library(stringr)  
-library(tidyr)  
-library(purrr)  
-library(ggplot2)  
-library(ggrepel)  
-library(Rtsne)  
-library(here)  
-library(flextable)  
-```  
-  
-::: {.callout-tip}  
-## Package Ecosystem  
-  
-- **word2vec**: Easiest for beginners, good documentation  
-- **text2vec**: More advanced, faster for large datasets  
-- **wordVectors**: Excellent for loading pre-trained models  
-- **textdata**: Easy access to GloVe embeddings  
-  
-We'll primarily use **word2vec** for training and **textdata** for pre-trained models.  
-:::  
-  
----  
-  
-# Part 3: Training Your First Model {#part3}  
-  
-## Loading Example Data  
-  
-We'll use a collection of texts to train our embedding model. For this tutorial, we'll use literary texts that provide rich semantic content.  
-  
-```{r load-data, message=FALSE, warning=FALSE}  
-# Load example texts (Alice's Adventures in Wonderland, Moby Dick, Pride and Prejudice)  
-# In practice, you'd load your own corpus  
-alice <- readLines(here::here("tutorials/embeddings/data", "alice.txt"))  
-moby <- readLines(here::here("tutorials/embeddings/data", "moby.txt"))
+---
+title: "Word Embeddings and Vector Semantics"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options(scipen = 999)
+library(checkdown)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **word embeddings** — dense vector representations of words that capture semantic meaning — and demonstrates how to train, explore, visualise, and apply them in R. Word embeddings are one of the most influential ideas in modern computational linguistics and natural language processing. They underpin everything from search engines and machine translation to sentiment analysis and the large language models that have become central to research workflows.
+
+The tutorial covers the theoretical foundations of vector semantics, the mechanics of the word2vec algorithm, hands-on training of embedding models from raw text, finding semantically similar words, performing word analogies, visualising embedding spaces with t-SNE, using pre-trained embeddings such as GloVe and fastText, and applying embeddings to research questions in linguistics including semantic change, bias detection, and metaphor analysis.
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain the distributional hypothesis and its role as the theoretical foundation of word embeddings
+2. Distinguish between count-based, prediction-based, and contextualised embedding approaches
+3. Describe how the word2vec skip-gram algorithm learns word vectors from text
+4. Train a word2vec model in R using the `word2vec` package
+5. Find semantically similar words using cosine similarity
+6. Perform word analogies via vector arithmetic and interpret the results
+7. Visualise high-dimensional embeddings in 2D using t-SNE
+8. Load and query pre-trained GloVe embeddings
+9. Apply embeddings to linguistic research questions including semantic change and bias detection
+10. Choose between training custom embeddings and using pre-trained models for a given task
+:::
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, you should be comfortable with the content of:
+
+- [Getting Started with R](/tutorials/intror/intror.html)
+- [String Processing in R](/tutorials/string/string.html)
+- [Basic Statistics in R](/tutorials/basicstatz/basicstatz.html)
+- [Working with Computers](/tutorials/comp/comp.html)
+
+A basic understanding of what vectors and matrices are is helpful, but no advanced linear algebra is required.
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Word Embeddings and Vector Semantics*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/embeddings/embeddings.html (Version 2026.05.01).
+:::
+
+---
+
+# Part 1: The Theory of Word Embeddings {#part1}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The distributional hypothesis; why traditional word representations fail; the geometry of semantic space; and the three main families of word embeddings
+:::
+
+## The distributional hypothesis {-}
+
+The theoretical foundation of word embeddings is a deceptively simple idea known as the **distributional hypothesis**, articulated most memorably by the British linguist J. R. Firth:
+
+> "You shall know a word by the company it keeps" [@firth1957synopsis, p. 11]
+
+The core claim is that words appearing in similar contexts have similar meanings. Consider three sentences: "The **cat** sat on the mat," "The **dog** sat on the mat," and "The **car** drove down the street." Because *cat* and *dog* share context words (sat, mat) while *car* does not, the distributional hypothesis predicts that *cat* and *dog* should be semantically closer to each other than either is to *car*. Word embeddings operationalise this prediction by assigning each word a position in a multidimensional space such that distributional similarity translates into geometric proximity.
+
+This is a linguistically rich idea with deep roots. The distributional hypothesis connects to structuralist notions of paradigmatic and syntagmatic relations, to corpus-based approaches to lexical meaning, and to usage-based theories that treat meaning as emerging from patterns of use in context [@jurafsky2024speech, ch. 6]. The fact that meaning can be approximated from co-occurrence statistics alone — without any hand-crafted semantic knowledge — has proven to be one of the most powerful ideas in computational linguistics.
+
+## The problem with traditional representations {-}
+
+Before embeddings became widespread, words were typically represented as **one-hot vectors**: binary vectors with a 1 in the position corresponding to that word and 0 everywhere else.
+
+```
+cat  = [1, 0, 0, 0, 0, ..., 0]   (10,000 dimensions)
+dog  = [0, 1, 0, 0, 0, ..., 0]
+car  = [0, 0, 1, 0, 0, ..., 0]
+```
+
+This representation has several fatal problems for semantic tasks. First, there is no way to measure similarity: *cat* and *dog* are as different from each other (cosine similarity = 0) as *cat* and *car*. Second, the representations are extremely sparse — almost entirely zeros — which is computationally wasteful. Third, the dimensionality grows with vocabulary size, reaching tens or hundreds of thousands of dimensions for any realistic corpus.
+
+**Word embeddings** solve all of these problems:
+
+```
+cat  = [0.2, -0.4,  0.7, ...,  0.1]   (100–300 dimensions)
+dog  = [0.3, -0.5,  0.8, ...,  0.2]   (similar to cat)
+car  = [-0.1, 0.6, -0.3, ...,  0.4]   (different from cat/dog)
+```
+
+The representations are dense (most values non-zero), low-dimensional (typically 50–300), and semantically structured: similar words cluster together and the geometric relationships between vectors encode meaningful semantic relationships.
+
+## Vector space geometry {-}
+
+In an embedding space, **similarity is measured by cosine similarity** — the cosine of the angle between two vectors:
+
+$$\text{similarity}(A, B) = \frac{A \cdot B}{\|A\| \times \|B\|}$$
+
+Cosine similarity ranges from –1 (opposite directions) to +1 (identical direction). For word embeddings, values between 0.3 and 0.9 are typical for semantically related words.
+
+One of the most striking properties of well-trained embeddings is that **vector arithmetic preserves semantic relationships**. The famous example [@mikolov2013efficient]:
+
+$$\text{embedding}(\textit{king}) - \text{embedding}(\textit{man}) + \text{embedding}(\textit{woman}) \approx \text{embedding}(\textit{queen})$$
+
+Geometrically, this says that the direction from *man* to *king* (representing something like "royalty" or "leadership relative to gender") is roughly the same as the direction from *woman* to *queen*. This parallelism reflects the genuine regularity of the relationship in the training data.
+
+## Types of word embeddings {-}
+
+Three broad approaches to learning word embeddings have been developed [@almeida2019word]:
+
+**Count-based methods (classical)** — build a co-occurrence matrix counting how often each pair of words appears within a context window, then apply dimensionality reduction (typically Singular Value Decomposition) to obtain dense vectors. Examples include Latent Semantic Analysis (LSA) and Hyperspace Analogue to Language (HAL). These methods are transparent and interpretable, but less effective than prediction-based methods for most tasks.
+
+**Prediction-based methods (modern)** — train a neural network to predict context words from a target word (skip-gram) or a target word from its context words (CBOW). The embedding vectors are the learned weights of this network. Examples include word2vec [@mikolov2013efficient], GloVe [@pennington2014glove], and fastText [@bojanowski2017enriching]. These are the most widely used methods in linguistic research.
+
+**Contextualised embeddings (current frontier)** — produce different vectors for the same word depending on its context, capturing polysemy and disambiguation. Examples include ELMo, BERT, and GPT. The same word *bank* gets a different vector in "river bank" than in "savings bank." These models are state-of-the-art for most NLP tasks but require substantially more computational resources.
+
+This tutorial focuses on word2vec and GloVe, which remain the methods of choice for most linguistic research applications.
+
+## The word2vec algorithm {-}
+
+Word2vec [@mikolov2013efficient] introduced two architectures for learning embeddings:
+
+**Skip-gram** — given a target word, predict the surrounding context words. The network learns to associate each target word with the types of contexts it appears in.
+
+**CBOW (Continuous Bag of Words)** — given the surrounding context words, predict the target word. Generally faster to train and works better for frequent words; skip-gram works better for rare words and smaller datasets.
+
+The **skip-gram training process** works as follows. For the sentence "The quick brown fox jumps," with target word *brown* and a window of 2:
+
+Training pairs generated: (*brown*, *the*), (*brown*, *quick*), (*brown*, *fox*), (*brown*, *jumps*)
+
+The neural network learns to maximise the probability of predicting these context words from the target word, adjusting the embedding vectors at each step to reduce prediction error. After training on many such pairs across the corpus, words that frequently share contexts end up with similar vectors.
+
+Key hyperparameters are summarised below:
+
+| Parameter | What it controls | Typical values |
+|---|---|---|
+| `dim` | Embedding dimensions | 50–300 |
+| `window` | Context window size | 5–10 |
+| `min_count` | Minimum word frequency | 5–10 |
+| `type` | Architecture | `"skip-gram"` or `"cbow"` |
+| `iter` | Training iterations | 10–50 |
+
+::: {.callout-warning}
+## Hyperparameter trade-offs
+
+More dimensions capture more nuance but risk overfitting and slow training. A larger window captures broader topical relationships; a smaller window captures tighter syntactic relationships. More iterations improve learning but with diminishing returns. A good starting point is `dim = 100`, `window = 5`, `iter = 20`, then experiment based on results.
+:::
+
+::: {.callout-tip}
+## Exercises: Theory
+:::
+
+**Q1. The word2vec model is trained on a corpus where the word "awful" appears frequently in contexts alongside words like "terrible," "dreadful," and "horrible." The word "awesome" appears frequently alongside "amazing," "incredible," and "brilliant." Based on the distributional hypothesis, what would you predict about the cosine similarity between the embeddings of "awful" and "awesome"? What does this tell us about the relationship between distributional similarity and semantic similarity?**
+
+```{r}
+#| echo: false
+#| label: "theory_q1"
+check_question(
+  "The cosine similarity between 'awful' and 'awesome' will likely be low-to-moderate, because their context words are very different — 'awful' co-occurs with negative evaluative adjectives, 'awesome' with positive ones. This illustrates an important limitation of the distributional hypothesis: it captures distributional similarity (similar contexts), which often tracks semantic similarity (synonyms, related concepts), but can miss antonyms. Antonyms like 'awful' and 'awesome' often appear in quite different contexts despite being from the same semantic domain (evaluation). Count-based embeddings tend to place antonyms further apart, though prediction-based models vary.",
+  options = c(
+    "The cosine similarity will be very high (close to 1.0), because both words are adjectives that evaluate things",
+    "The cosine similarity between 'awful' and 'awesome' will likely be low-to-moderate, because their context words are very different — 'awful' co-occurs with negative evaluative adjectives, 'awesome' with positive ones. This illustrates an important limitation of the distributional hypothesis: it captures distributional similarity (similar contexts), which often tracks semantic similarity (synonyms, related concepts), but can miss antonyms. Antonyms like 'awful' and 'awesome' often appear in quite different contexts despite being from the same semantic domain (evaluation). Count-based embeddings tend to place antonyms further apart, though prediction-based models vary.",
+    "The cosine similarity will be exactly 0, because the two words have opposite meanings",
+    "It is impossible to predict the similarity without running the model"
+  ),
+  type = "radio",
+  q_id = "theory_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The distributional hypothesis predicts similarity based on context patterns, not semantic category membership. 'Awful' and 'awesome' appear in systematically different contexts — one with negative evaluative vocabulary, one with positive — so their embeddings will likely be dissimilar. This is actually a well-known limitation: embeddings trained purely on co-occurrence statistics often fail to reliably distinguish synonyms from antonyms, because antonyms sometimes appear in similar syntactic frames (e.g., 'the movie was awful/awesome'). Supervised methods or additional training objectives are needed to capture this distinction reliably.",
+  wrong = "Not quite. The distributional hypothesis is about context patterns, not part-of-speech or semantic domain. 'Awful' and 'awesome' appear in systematically different contexts — negative versus positive evaluative vocabulary — so their embeddings will be dissimilar. The hypothesis does not guarantee that antonyms will be similar just because they belong to the same broad category. In fact, a known limitation of distributional embeddings is that they can struggle to reliably separate antonyms from synonyms."
+)
+```
+
+---
+
+# Part 2: Setup and Data {#part2}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Which R packages are needed; how to install them; and how to load and preprocess text for embedding training
+:::
+
+## Installing packages {-}
+
+```{r install, eval=FALSE}
+install.packages("word2vec")      # word2vec training
+install.packages("text2vec")      # alternative, faster for large corpora
+install.packages("textdata")      # download pre-trained GloVe
+install.packages("dplyr")
+install.packages("stringr")
+install.packages("tidyr")
+install.packages("purrr")
+install.packages("ggplot2")
+install.packages("ggrepel")
+install.packages("Rtsne")         # t-SNE dimensionality reduction
+install.packages("here")
+install.packages("flextable")
+install.packages("checkdown")
+```
+
+## Loading packages {-}
+
+```{r load-packages, message=FALSE, warning=FALSE}
+library(word2vec)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+library(ggrepel)
+library(Rtsne)
+library(here)
+library(flextable)
+```
+
+::: {.callout-note}
+## Package overview
+
+- `word2vec` — trains word2vec models; the easiest entry point for beginners
+- `text2vec` — faster and more memory-efficient for large corpora
+- `textdata` — provides convenient access to pre-trained GloVe embeddings
+- `Rtsne` — implements t-SNE for 2D visualisation of high-dimensional embedding spaces
+:::
+
+## Loading example data {-}
+
+We use three public-domain literary texts — *Alice's Adventures in Wonderland*, *Moby Dick*, and *Pride and Prejudice* — as our training corpus. These texts provide sufficient vocabulary diversity for demonstration purposes, though for serious research applications you would want a domain-specific corpus of at least 10 million words.
+
+```{r load-data, message=FALSE, warning=FALSE}
+alice <- readLines(here::here("tutorials/embeddings/data", "alice.txt"))
+moby  <- readLines(here::here("tutorials/embeddings/data", "moby.txt"))
 pride <- readLines(here::here("tutorials/embeddings/data", "pride.txt"))
 
-# Combine into single corpus  
+# Combine into a single corpus string
 corpus <- paste(c(alice, moby, pride), collapse = " ")
-  
-# Basic preprocessing  
-corpus_clean <- corpus |>  
-  tolower() |>                              # lowercase  
-  str_replace_all("\\s+", " ") |>           # normalize whitespace  
-  str_trim()                                 # trim edges  
-  
-# Inspect  
-cat("Corpus size:", str_count(corpus_clean, "\\S+"), "words\n")  
-cat("First 200 characters:\n")  
-cat(substr(corpus_clean, 1, 200), "...\n")  
-```  
-  
-::: {.callout-note}  
-## Preprocessing Considerations  
-  
-**For embeddings, you might want to:**  
-- Keep punctuation if studying syntax  
-- Preserve case for named entities  
-- Remove or keep numbers (depends on task)  
-- Handle contractions consistently  
-  
-**Our simple approach:** Lowercase, remove punctuation, normalize spaces. Adjust based on your research questions!  
-:::  
-  
-## Training a word2vec Model  
-  
-### Basic Training  
-  
-::: {.callout-important}  
-## Critical: Text Format for word2vec  
-  
-The `word2vec` function requires **tokenized text** - either:  
-1. A character vector where each element is a sentence  
-2. A data frame with sentences in rows  
-  
-It does NOT work with a single long string!  
-:::  
-  
-```{r train-basic, message=FALSE, warning=FALSE}  
-# IMPORTANT: Split into sentences for word2vec  
-# The function needs sentences as separate elements  
-corpus_sentences <- corpus_clean |>  
-  # Split into sentences (simple approach using periods)  
-  str_split("\\.\\s+") |>  
-  unlist() |>  
-  # Remove empty sentences  
-  discard(~ nchar(.x) == 0)  
-  
-# Train model  
-model <- word2vec(  
-  x = corpus_sentences,      # Tokenized as sentences!  
-  type = "skip-gram",        # Skip-gram architecture  
-  dim = 100,                 # 100-dimensional vectors  
-  window = 5,                # 5-word context window  
-  iter = 20,                 # 20 training iterations  
-  min_count = 5,             # Ignore words appearing < 5 times  
-  threads = 2                # Use 2 CPU threads  
-)  
-  
-# Inspect model  
-summary(model)[1:50]        # show first 50 terms
-```  
-  
-**What just happened:**  
-1. Text split into words  
-2. Neural network initialized  
-3. For each word, model learns to predict context  
-4. Embeddings adjusted over 20 iterations  
-5. Final word vectors saved in model  
-  
-### Exploring the Model  
-  
-```{r explore-model, message=FALSE, warning=FALSE}  
-# Get vocabulary  
-vocabulary <- summary(model$vocabulary)  
-  
-# Inspect vocabulary size  
-cat("Vocabulary size:", length(vocabulary), "words\n")  
-  
-# Most common words  
-head(vocabulary[order(-vocabulary)], 20)  
-```  
-  
-### Extracting Embeddings  
-  
-```{r extract-embeddings, message=FALSE, warning=FALSE}  
-# Get embedding matrix  
-embedding_matrix <- as.matrix(model)  
-  
-# Inspect dimensions  
-cat("Embedding matrix:", nrow(embedding_matrix), "words ×",   
-    ncol(embedding_matrix), "dimensions\n")  
-  
-# Look at a specific word  
-word_example <- "alice"  
-if (word_example %in% rownames(embedding_matrix)) {  
-  cat("\nEmbedding for '", word_example, "':\n", sep = "")  
-  cat(embedding_matrix[word_example, 1:10], "...\n")  
-}  
-```  
-  
-**Interpretation:**  
-- Each row = one word  
-- Each column = one dimension of meaning  
-- Values are learned weights  
-- Similar words have similar patterns  
-  
----  
-  
-# Part 4: Finding Similar Words {#part4}  
-  
-## Semantic Similarity  
-  
-The most immediate use of embeddings: finding words with similar meanings.  
-  
-### Most Similar Words  
-  
-```{r similar-basic, message=FALSE, warning=FALSE}  
-# Find words similar to "queen"  
-similar_to_queen <- predict(  
-  model,   
-  newdata = c("queen"),   
-  type = "nearest",  
-  top_n = 10  
-)  
-  
-# Display results  
-similar_to_queen |>  
-  as.data.frame() |>  
-  flextable() |>  
-  set_table_properties(width = .5, layout = "autofit") |>  
-  theme_zebra() |>  
-  set_caption("Top 10 words most similar to 'queen'") |>  
-  border_outer()  
-```  
-  
-**How similarity is calculated:**  
-```r  
-cosine_similarity = (A · B) / (||A|| × ||B||)  
-```  
-  
-Where:  
-- A, B are word vectors  
-- · is dot product  
-- || || is vector magnitude  
-- Result ranges from -1 (opposite) to 1 (identical)  
-  
-### Exploring Different Words  
-  
-```{r similar-exploration, message=FALSE, warning=FALSE}  
-# Try multiple words  
-test_words <- c("love", "king", "ocean", "thought")  
-  
-for (word in test_words) {  
-  if (word %in% rownames(embedding_matrix)) {  
-    similar <- predict(model, newdata = word, type = "nearest", top_n = 5)  
-    cat("\nMost similar to '", word, "':\n", sep = "")  
-    print(as.data.frame(similar)[1:5,2])  
-  }  
-}  
-```  
-  
-::: {.callout-tip}  
-## Interpreting Similarity Results  
-  
-**What makes words similar:**  
-- Semantic relatedness (synonyms, related concepts)  
-- Grammatical function (both nouns, both verbs)  
-- Topical association (co-occur in same contexts)  
-  
-**Not just synonyms!**  
-- "king" and "queen" are similar (related roles)  
-- "ocean" and "sea" are similar (synonyms)  
-- "love" and "hate" might be similar (both emotions, appear in similar contexts)  
-:::  
-  
-## Similarity Scores  
-  
-```{r similarity-scores, message=FALSE, warning=FALSE}  
-# Get similarity with scores  
-similar_with_scores <- predict(  
-  model,  
-  newdata = c("ship"),  
-  type = "nearest",  
-  top_n = 15  
-)  
-  
-# Visualize  
-similar_with_scores |>  
-  as.data.frame() |>  
-  head(10) |>  
+
+# Preprocessing: lowercase and normalise whitespace
+corpus_clean <- corpus |>
+  tolower() |>
+  str_replace_all("\\s+", " ") |>
+  str_trim()
+
+cat("Corpus size:", str_count(corpus_clean, "\\S+"), "words\n")
+cat("First 200 characters:\n")
+cat(substr(corpus_clean, 1, 200), "...\n")
+```
+
+::: {.callout-note}
+## Preprocessing decisions
+
+For this tutorial we apply minimal preprocessing: lowercasing and whitespace normalisation. Your own research may require different choices:
+
+- **Keep case** if named entities or proper nouns are important to your research questions
+- **Keep punctuation** if syntactic context is relevant (some embeddings benefit from sentence boundary information)
+- **Remove or tag numbers** depending on whether numeric values carry semantic content in your domain
+- **Handle contractions** consistently (e.g., expand *don't* to *do not*, or keep as is)
+
+There is no universal answer — the right preprocessing depends on your research question and corpus.
+:::
+
+---
+
+# Part 3: Training a Word2Vec Model {#part3}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to format text for word2vec; how to train a model; and how to extract and inspect the embedding matrix
+:::
+
+## Formatting text for word2vec {-}
+
+::: {.callout-important}
+## word2vec requires a vector of sentences, not a single string
+
+The `word2vec()` function processes text sentence by sentence. It must receive a character vector where each element is a sentence (or document). A single long string will cause a training error.
+:::
+
+```{r prepare-sentences, message=FALSE, warning=FALSE}
+# Split corpus into sentences
+corpus_sentences <- corpus_clean |>
+  str_split("\\.\\s+") |>
+  unlist() |>
+  discard(~ nchar(.x) == 0)
+
+cat("Number of sentences:", length(corpus_sentences), "\n")
+cat("Example sentence:", corpus_sentences[[5]], "\n")
+```
+
+## Training the model {-}
+
+```{r train-model, message=FALSE, warning=FALSE}
+set.seed(42)
+
+model <- word2vec(
+  x         = corpus_sentences,
+  type      = "skip-gram",
+  dim       = 100,
+  window    = 5,
+  iter      = 20,
+  min_count = 5,
+  threads   = 2
+)
+
+# Inspect: show first 50 words in vocabulary
+summary(model)[1:50]
+```
+
+**What happened during training:**
+
+1. The text was tokenised into words
+2. Random initial vectors were assigned to all vocabulary words
+3. For each target word, the model predicted context words within a window of 5
+4. Prediction errors were used to update the embedding vectors
+5. This process was repeated 20 times (iterations) across the entire corpus
+6. Words that frequently shared contexts ended up with similar vectors
+
+## Extracting the embedding matrix {-}
+
+```{r extract-embeddings, message=FALSE, warning=FALSE}
+embedding_matrix <- as.matrix(model)
+
+cat("Embedding matrix:", nrow(embedding_matrix), "words x",
+    ncol(embedding_matrix), "dimensions\n")
+
+# Look at a specific word's embedding
+word_example <- "alice"
+if (word_example %in% rownames(embedding_matrix)) {
+  cat("\nFirst 10 dimensions of embedding for '", word_example, "':\n", sep = "")
+  cat(round(embedding_matrix[word_example, 1:10], 4), "...\n")
+}
+```
+
+Each row of the embedding matrix represents one word as a 100-dimensional vector. The individual dimension values have no direct linguistic interpretation — what matters is the *pattern* of values across dimensions, and specifically how similar two patterns are to each other.
+
+---
+
+# Part 4: Semantic Similarity {#part4}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to find the nearest neighbours of a word in embedding space; how to interpret cosine similarity scores; and how similarity in embedding space relates to (and differs from) lexical semantic similarity
+:::
+
+## Finding similar words {-}
+
+```{r similar-words, message=FALSE, warning=FALSE}
+# Find the 10 words most similar to "queen"
+similar_to_queen <- predict(
+  model,
+  newdata = "queen",
+  type    = "nearest",
+  top_n   = 10
+)
+
+similar_to_queen |>
+  as.data.frame() |>
+  flextable() |>
+  set_table_properties(width = 0.6, layout = "autofit") |>
+  theme_zebra() |>
+  set_caption("Top 10 words most similar to 'queen'") |>
+  border_outer()
+```
+
+## Visualising similarity scores {-}
+
+```{r similarity-plot, message=FALSE, warning=FALSE}
+similar_ship <- predict(model, newdata = "ship", type = "nearest", top_n = 12)
+
+similar_ship |>
+  as.data.frame() |>
+  head(10) |>
   ggplot(aes(x = reorder(ship.term2, ship.similarity), y = ship.similarity)) +
-  geom_bar(stat = "identity", fill = "steelblue") +  
-  coord_flip() +  
-  labs(  
-    title = "Words Similar to 'ship'",  
-    x = "Word",  
-    y = "Cosine Similarity"  
-  ) +  
-  theme_minimal()  
-```  
-  
-**Reading the plot:**  
-- Higher bars = more similar  
-- Similarity typically 0.3-0.9 for related words  
-- Top words share contexts with target word  
-  
----  
-  
-  
-# Part 5: Word Analogies {#part5}  
-  
-## Vector Arithmetic  
-  
-One of the most fascinating properties: **algebraic operations on word vectors preserve semantic relationships**.  
-  
-### The Classic Example  
-  
-**king - man + woman ≈ queen**  
-  
-Since the `word2vec` package doesn't have built-in analogy functionality, we'll compute it manually using vector arithmetic.  
-  
-```{r analogy-setup, message=FALSE, warning=FALSE}  
-# Helper function to compute word analogies  
-# Computes: a is to b as c is to ?  
-# Mathematically: result ≈ b - a + c  
-word_analogy <- function(model, a, b, c, top_n = 5) {  
-  # Get embedding matrix  
-  embeddings <- as.matrix(model)  
-    
-  # Check all words exist  
-  if (!all(c(a, b, c) %in% rownames(embeddings))) {  
-    missing <- c(a, b, c)[!c(a, b, c) %in% rownames(embeddings)]  
-    stop(paste("Words not in vocabulary:", paste(missing, collapse = ", ")))  
-  }  
-    
-  # Get word vectors  
-  vec_a <- embeddings[a, ]  
-  vec_b <- embeddings[b, ]  
-  vec_c <- embeddings[c, ]  
-    
-  # Compute target vector: b - a + c  
-  target_vector <- vec_b - vec_a + vec_c  
-    
-  # Calculate cosine similarity with all words  
-  similarities <- apply(embeddings, 1, function(word_vec) {  
-    # Cosine similarity  
-    sum(word_vec * target_vector) /   
-      (sqrt(sum(word_vec^2)) * sqrt(sum(target_vector^2)))  
-  })  
-    
-  # Remove the input words from results  
-  similarities <- similarities[!names(similarities) %in% c(a, b, c)]  
-    
-  # Get top N most similar  
-  top_words <- sort(similarities, decreasing = TRUE)[1:top_n]  
-    
-  # Return as dataframe  
-  result <- data.frame(  
-    word = names(top_words),  
-    similarity = as.numeric(top_words),  
-    row.names = NULL  
-  )  
-    
-  return(result)  
-}  
-```  
-  
-```{r analogy-classic, message=FALSE, warning=FALSE}  
-# Perform word analogy: man is to king as woman is to ?  
-# Mathematically: king - man + woman  
-analogy_result <- word_analogy(  
-  model,  
-  a = "man",  
-  b = "king",   
-  c = "woman",  
-  top_n = 5  
-)  
-  
-# Display  
-analogy_result |>  
-  flextable() |>  
-  set_table_properties(width = .5, layout = "autofit") |>  
-  theme_zebra() |>  
-  set_caption("king - man + woman = ?") |>  
-  border_outer()  
-```  
-  
-**Expected result:** "queen" should be top or near top (depending on corpus quality).  
-  
-### How It Works  
-  
-**Mathematical operation:**  
-```r  
-target_vector = embedding("king") - embedding("man") + embedding("woman")  
-result = find_nearest(target_vector)  
-```  
-  
-**Geometric interpretation:**  
-1. Vector from "man" to "king" represents royalty/leadership  
-2. Apply same transformation to "woman"  
-3. Result should be female royalty  
-  
-**Step-by-step:**  
-```r  
-# 1. Get the "royalty" direction  
-royalty_vector = king - man  
-  
-# 2. Apply to "woman"  
-target = woman + royalty_vector  
-  
-# 3. Which equals  
-target = woman + (king - man) = king - man + woman  
-```  
-  
-### More Analogies  
-  
-```{r more-analogies, message=FALSE, warning=FALSE}  
-# Try different analogies if words exist in vocabulary  
-  
-# Test if words exist first  
-vocab <- rownames(as.matrix(model))  
-  
-# Example 1: Tense (if available)  
-if (all(c("walking", "walk", "running") %in% vocab)) {  
-  cat("walking : walk :: running : ?\n")  
-  result <- word_analogy(model, "walk", "walking", "running", top_n = 3)  
-  print(result$word[1:3])  
-  cat("\n")  
-}  
-  
-# Example 2: Comparative/superlative (if available)    
-if (all(c("good", "better", "bad") %in% vocab)) {  
-  cat("good : better :: bad : ?\n")  
-  result <- word_analogy(model, "good", "better", "bad", top_n = 3)  
-  print(result$word[1:3])  
-  cat("\n")  
-}  
-  
-# Example 3: Same relationship in different domain  
-if (all(c("alice", "wonderland", "dorothy") %in% vocab)) {  
-  cat("alice : wonderland :: dorothy : ?\n")  
-  result <- word_analogy(model, "alice", "wonderland", "dorothy", top_n = 3)  
-  print(result$word[1:3])  
-  cat("\n")  
-}  
-```  
-  
-::: {.callout-warning}  
-## Analogy Limitations  
-  
-**Analogies work best when:**  
-- Relationship is consistent in training data  
-- All words appear frequently enough  
-- Relationship is "regular" (not idiomatic)  
-- Corpus is large (10M+ words)  
-  
-**Common failures:**  
-- Small corpus (like our Alice example)  
-- Idioms and irregular forms  
-- Cultural-specific knowledge  
-- Subtle semantic distinctions  
-  
-**Not magic!** Analogies reflect patterns in your training data, including biases and inconsistencies. With Alice in Wonderland alone, we won't get perfect analogies - you'd need much larger, more diverse text.  
-:::  
-  
-### Custom Analogies  
-  
-```{r custom-analogies, message=FALSE, warning=FALSE}  
-# Function to test analogies with better error handling  
-test_analogy <- function(model, a, b, c, label = NULL) {  
-  if (is.null(label)) {  
-    label <- paste(a, ":", b, "::", c, ": ?")  
-  }  
-    
-  vocab <- rownames(as.matrix(model))  
-    
-  # Check if all words in vocabulary  
-  if (!all(c(a, b, c) %in% vocab)) {  
-    missing <- c(a, b, c)[!c(a, b, c) %in% vocab]  
-    cat(label, "\n")  
-    cat("ERROR: Words not in vocabulary:", paste(missing, collapse = ", "), "\n\n")  
-    return(NULL)  
-  }  
-    
-  result <- word_analogy(model, a, b, c, top_n = 5)  
-    
-  cat(label, "\n")  
-  cat("Top results:", paste(result$word[1:5], collapse = ", "), "\n")  
-  cat("Similarities:", paste(round(result$similarity[1:5], 3), collapse = ", "), "\n\n")  
-    
-  return(result)  
-}  
-  
-# Try several (may fail with small corpus)  
-test_analogy(model, "queen", "woman", "man", "queen : woman :: man : ?")  
-test_analogy(model, "alice", "girl", "boy", "alice : girl :: boy : ?")  
-  
-# You can add your own  
-# test_analogy(model, "word1", "word2", "word3")  
-```  
-  
-::: {.callout-tip}  
-## Getting Better Analogies  
-  
-For impressive analogy results, you need:  
-  
-**1. Large, diverse corpus** (100M+ words ideal)  
-- Use pre-trained embeddings (GloVe, fastText)  
-- Or train on Wikipedia, news corpora, books corpus  
-  
-**2. Higher-frequency words**  
-- Words appearing 1000+ times work best  
-- Rare words have noisier embeddings  
-  
-**3. Consistent relationships**  
-- "Gender" works well (man/woman, king/queen)  
-- "Geography" works well (capital cities)  
-- Grammatical relationships work well (tense, number)  
-  
-**Try with pre-trained embeddings:**  
-```r  
-# Using pre-trained GloVe (see Part 7)  
-# You'll get much better analogy results!  
-```  
-:::  
-  
-### Visualizing Vector Arithmetic  
-  
-Let's visualize what's happening geometrically:  
-  
-```{r analogy-viz, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}  
-# Only run if we have the key words  
-vocab <- rownames(as.matrix(model))  
-  
-if (all(c("man", "woman", "king", "queen") %in% vocab)) {  
-  # Get embeddings  
-  embeddings <- as.matrix(model)  
-    
-  # Get specific words  
-  words_of_interest <- c("man", "woman", "king", "queen")  
-  word_embeddings <- embeddings[words_of_interest, ]  
-    
-  # Reduce to 2D with PCA for visualization  
-  pca_result <- prcomp(word_embeddings, center = TRUE, scale. = FALSE)  
-    
-  # Create dataframe  
-  viz_data <- data.frame(  
-    word = words_of_interest,  
-    x = pca_result$x[, 1],  
-    y = pca_result$x[, 2]  
-  )  
-    
-  # Plot  
-  ggplot(viz_data, aes(x = x, y = y, label = word)) +  
-    geom_point(size = 4, color = "steelblue") +  
-    geom_text_repel(size = 5, fontface = "bold") +  
-    geom_segment(aes(x = x[1], y = y[1], xend = x[3], yend = y[3]),  
-                 arrow = arrow(length = unit(0.3, "cm")),   
-                 color = "red", linewidth = 1,  
-                 data = viz_data[viz_data$word %in% c("man", "king"), ]) +  
-    geom_segment(aes(x = x[2], y = y[2], xend = x[4], yend = y[4]),  
-                 arrow = arrow(length = unit(0.3, "cm")),   
-                 color = "blue", linewidth = 1,  
-                 data = viz_data[viz_data$word %in% c("woman", "queen"), ]) +  
-    theme_minimal() +  
-    labs(  
-      title = "Vector Arithmetic: Parallel Relationships",  
-      subtitle = "Red arrow (man→king) should parallel blue arrow (woman→queen)",  
-      x = "First Principal Component",  
-      y = "Second Principal Component"  
-    ) +  
-    theme(  
-      plot.title = element_text(size = 14, face = "bold"),  
-      axis.text = element_blank(),  
-      panel.grid = element_blank()  
-    )  
-} else {  
-  cat("Not all words (man, woman, king, queen) in vocabulary.\n")  
-  cat("This visualization requires those specific words.\n")  
-}  
-```  
-  
-**What you should see:**  
-- Arrow from "man" to "king" (gender → royalty transformation)  
-- Arrow from "woman" to "queen" (same transformation)  
-- Arrows should be roughly parallel and equal length  
-- This parallelism is what makes analogies work!  
-  
----  
-  
-# Part 6: Visualizing Embeddings {#part6}  
-  
-## The Dimensionality Challenge  
-  
-**Problem:** Embeddings have 50-300 dimensions. Humans visualize 2-3 dimensions.  
-  
-**Solution:** Dimensionality reduction  
-  
-- **t-SNE** (t-Distributed Stochastic Neighbor Embedding)  
-- **UMAP** (Uniform Manifold Approximation and Projection)  
-- **PCA** (Principal Component Analysis)  
-  
-We'll focus on **t-SNE** (most popular for embeddings).  
-  
-## t-SNE Visualization  
-  
-### Preparing Data  
-  
-```{r tsne-prep, message=FALSE, warning=FALSE}  
-# Select interesting words to visualize  
-words_to_plot <- c(  
-  # Characters  
-  "alice", "queen", "king", "hatter", "rabbit",  
-  # Emotions  
-  "happy", "sad", "angry", "joy", "fear",  
-  # Actions    
-  "walk", "run", "jump", "sit", "stand",  
-  # Places  
-  "house", "garden", "forest", "city", "ocean",  
-  # Abstract  
-  "love", "hate", "hope", "dream", "thought"  
-)  
-  
-# Filter to words in vocabulary  
-words_to_plot <- words_to_plot[words_to_plot %in% rownames(embedding_matrix)]  
-  
-# Get embeddings for these words  
-plot_embeddings <- embedding_matrix[words_to_plot, ]  
-```  
-  
-### Running t-SNE  
-  
-```{r tsne-run, message=FALSE, warning=FALSE}  
-# Set seed for reproducibility  
-set.seed(42)  
-  
-# Run t-SNE  
-tsne_result <- Rtsne(  
-  plot_embeddings,  
-  dims = 2,              # Reduce to 2 dimensions  
-  perplexity = min(10, (nrow(plot_embeddings) - 1) / 3),  # Perplexity parameter  
-  theta = 0.0,           # Exact t-SNE (slower but more accurate)  
-  max_iter = 1000        # Iterations  
-)  
-  
-# Create dataframe for plotting  
-tsne_data <- data.frame(  
-  word = words_to_plot,  
-  x = tsne_result$Y[, 1],  
-  y = tsne_result$Y[, 2],  
-  # Add categories for coloring  
-  category = case_when(  
-    word %in% c("alice", "queen", "king", "hatter", "rabbit") ~ "Characters",  
-    word %in% c("happy", "sad", "angry", "joy", "fear") ~ "Emotions",  
-    word %in% c("walk", "run", "jump", "sit", "stand") ~ "Actions",  
-    word %in% c("house", "garden", "forest", "city", "ocean") ~ "Places",  
-    TRUE ~ "Abstract"  
-  )  
-)  
-```  
-  
-### Creating the Visualization  
-  
-```{r tsne-plot, message=FALSE, warning=FALSE, fig.width=10, fig.height=8}  
-ggplot(tsne_data, aes(x = x, y = y, color = category, label = word)) +  
-  geom_point(size = 3, alpha = 0.7) +  
-  geom_text_repel(  
-    size = 4,  
-    max.overlaps = 20,  
-    box.padding = 0.5  
-  ) +  
-  scale_color_brewer(palette = "Set2") +  
-  theme_minimal() +  
-  theme(  
-    legend.position = "bottom",  
-    plot.title = element_text(size = 16, face = "bold"),  
-    axis.text = element_blank(),  
-    axis.ticks = element_blank(),  
-    panel.grid = element_blank()  
-  ) +  
-  labs(  
-    title = "Word Embeddings Visualization (t-SNE)",  
-    subtitle = "Semantically similar words cluster together",  
-    x = NULL,  
-    y = NULL,  
-    color = "Category"  
-  )  
-```  
-  
-**Interpretation:**  
-- **Proximity = similarity**: Words close together have similar meanings  
-- **Clusters**: Semantic categories group together  
-- **Relative positions matter**: Absolute coordinates are arbitrary  
-  
-::: {.callout-note}  
-## t-SNE Parameters  
-  
-**perplexity**: Roughly how many neighbors to consider  
-- Too low: local structure overemphasized  
-- Too high: global structure lost  
-- Rule of thumb: 5-50, typically 30  
-  
-**iterations**: How long to optimize  
-- More = better convergence  
-- 1000 often sufficient  
-- Watch for convergence in console output  
-  
-**theta**: Speed/accuracy trade-off  
-- 0.0 = exact (slow, accurate)  
-- 0.5 = approximation (fast, good enough for large datasets)  
-:::  
-  
----  
-  
-# Part 7: Using Pre-Trained Embeddings {#part7}  
-  
-## Why Use Pre-Trained Models?  
-  
-**Advantages:**  
-- ✅ Trained on massive datasets (billions of words)  
-- ✅ Better coverage of rare words  
-- ✅ No training time needed  
-- ✅ Validated quality  
-- ✅ Reproducible across studies  
-  
-**When to train your own:**  
-- Specialized domain (medical, legal, historical)  
-- Unique vocabulary  
-- Limited pre-trained options for your language  
-- Research question requires custom training  
-  
-## GloVe Embeddings  
-  
-**GloVe** (Global Vectors for Word Representation) is one of the most popular pre-trained embedding sets.  
-  
-### Downloading GloVe  
-  
-```{r glove-download, eval=FALSE, message=FALSE, warning=FALSE}  
-# Download GloVe embeddings (one-time)  
-library(textdata)  
-  
-# Download 100-dimensional GloVe vectors  
-# Trained on 6 billion tokens from Wikipedia + Gigaword  
-glove <- embedding_glove6b(dimensions = 100)  
-```  
-  
-```{r glove-load, message=FALSE, warning=FALSE}  
-# In practice, load pre-downloaded version  
-# glove <- read.csv("path/to/glove.6B.100d.txt",   
-#                   sep = " ", header = FALSE, quote = "")  
-  
-# For this tutorial, we'll simulate with our trained model  
-# In your own work, use actual GloVe!  
-```  
-  
-### Working with Pre-Trained Embeddings  
-  
-```{r glove-use, eval=FALSE, message=FALSE, warning=FALSE}  
-# Structure: word in column 1, dimensions in remaining columns  
-colnames(glove)[1] <- "word"  
-colnames(glove)[2:ncol(glove)] <- paste0("dim_", 1:100)  
-  
-# Convert to matrix format for operations  
-glove_matrix <- as.matrix(glove[, -1])  
-rownames(glove_matrix) <- glove$word  
-  
-# Find similar words  
-target_word <- "king"  
-target_vector <- glove_matrix[target_word, ]  
-  
-# Calculate cosines with all words  
-similarities <- apply(glove_matrix, 1, function(x) {  
-  sum(x * target_vector) / (sqrt(sum(x^2)) * sqrt(sum(target_vector^2)))  
-})  
-  
-# Top similar words  
-head(sort(similarities, decreasing = TRUE), 10)  
-```  
-  
-## Available Pre-Trained Models  
-  
-| Model | Size | Vocabulary | Dimensions | Use Case |  
-|-------|------|------------|------------|----------|  
-| **GloVe** | 6B tokens | 400K words | 50-300 | General purpose |  
-| **fastText** | 600B tokens | 2M words | 300 | Handles rare words, morphology |  
-| **Word2Vec Google News** | 100B tokens | 3M words | 300 | News domain |  
-| **BERT** | 3.3B tokens | Contextual | 768 | Context-dependent tasks |  
-  
-### Loading Different Models  
-  
-```{r pretrained-examples, eval=FALSE}  
-# fastText (handles out-of-vocabulary words)  
-library(fastrtext)  
-model_ft <- load_model("path/to/fasttext/model.bin")  
-  
-# Word2Vec Google News  
-library(wordVectors)  
-model_gn <- read.vectors("GoogleNews-vectors-negative300.bin")  
-  
-# For transformers (BERT, RoBERTa, etc.)  
-library(text)  # R interface to transformers  
-# More complex setup - see dedicated transformer tutorials  
-```  
-  
-::: {.callout-tip}  
-## Choosing a Pre-Trained Model  
-  
-**GloVe:**  
-- Simple, well-documented  
-- Good for general English  
-- Fast to load and use  
-  
-**fastText:**  
-- Better for morphologically rich languages  
-- Handles misspellings and rare words  
-- Larger file sizes  
-  
-**BERT/Transformers:**  
-- Context-dependent (different senses)  
-- State-of-the-art performance  
-- Requires more computational resources  
-- Use when context disambiguation critical  
-:::  
-  
----  
-  
-# Part 8: Research Applications {#part8}  
-  
-## Semantic Change Detection  
-  
-Track how word meanings shift over time.  
-  
-### Comparing Embeddings Across Time  
-  
-```{r semantic-change, eval=FALSE, message=FALSE, warning=FALSE}  
-# Train separate models on different time periods  
-corpus_1800s <- load_historical_corpus("1800-1850")  
-corpus_1900s <- load_historical_corpus("1900-1950")  
-corpus_2000s <- load_historical_corpus("2000-2020")  
-  
-model_1800s <- word2vec(corpus_1800s, dim = 100)  
-model_1900s <- word2vec(corpus_1900s, dim = 100)  
-model_2000s <- word2vec(corpus_2000s, dim = 100)  
-  
-# Compare word neighborhoods over time  
-target_word <- "gay"  
-  
-# Get top neighbors in each period  
-neighbors_1800s <- predict(model_1800s, target_word, type = "nearest")  
-neighbors_1900s <- predict(model_1900s, target_word, type = "nearest")  
-neighbors_2000s <- predict(model_2000s, target_word, type = "nearest")  
-  
-# Analyze shifting meanings  
-# "gay" in 1800s: cheerful, happy  
-# "gay" in 2000s: homosexual  
-```  
-  
-**Research questions:**  
-- When did semantic shift occur?  
-- What drove the change?  
-- Were there competing meanings?  
-  
-## Bias Detection  
-  
-Uncover implicit associations in language.  
-  
-### Gender Bias Example  
-  
-```{r bias-detection, eval=FALSE, message=FALSE, warning=FALSE}  
-# Define gender direction  
-man_vec <- embedding_matrix["man", ]  
-woman_vec <- embedding_matrix["woman", ]  
-gender_direction <- woman_vec - man_vec  
-  
-# Test occupations for gender bias  
-occupations <- c("doctor", "nurse", "engineer", "teacher",   
-                 "programmer", "secretary")  
-  
-occupation_bias <- sapply(occupations, function(occ) {  
-  if (occ %in% rownames(embedding_matrix)) {  
-    occ_vec <- embedding_matrix[occ, ]  
-    # Project onto gender direction  
-    sum(occ_vec * gender_direction) /   
-      (sqrt(sum(occ_vec^2)) * sqrt(sum(gender_direction^2)))  
-  } else {  
-    NA  
-  }  
-})  
-  
-# Positive = more female-associated  
-# Negative = more male-associated  
-sort(occupation_bias)  
-```  
-  
-**Findings from research:**  
-- "Doctor", "engineer" closer to "man"  
-- "Nurse", "secretary" closer to "woman"  
-- Reflects societal biases in training data  
-  
-::: {.callout-warning}  
-## Ethical Considerations  
-  
-**Embeddings encode biases from training data:**  
-- Gender stereotypes  
-- Racial biases  
-- Cultural assumptions  
-  
-**Important for researchers:**  
-- Acknowledge limitations  
-- Don't amplify biases in applications  
-- Consider debiasing techniques  
-- Use diverse training data  
-  
-**Further reading:**  
-- Bolukbasi et al. (2016). "Man is to Computer Programmer as Woman is to Homemaker?"  
-- Caliskan et al. (2017). "Semantics derived automatically from language corpora contain human-like biases"  
-:::  
-  
-## Metaphor Analysis  
-  
-Identify metaphorical mappings between domains.  
-  
-### Cross-Domain Associations  
-  
-```{r metaphor-analysis, eval=FALSE, message=FALSE, warning=FALSE}  
-# Define source and target domains  
-source_domain <- c("light", "bright", "illuminate", "shine", "glow")  
-target_domain <- c("idea", "thought", "insight", "knowledge", "understanding")  
-  
-# Calculate cross-domain similarities  
-metaphor_matrix <- matrix(0,   
-                          nrow = length(source_domain),  
-                          ncol = length(target_domain))  
-  
-rownames(metaphor_matrix) <- source_domain  
-colnames(metaphor_matrix) <- target_domain  
-  
-for (i in 1:length(source_domain)) {  
-  for (j in 1:length(target_domain)) {  
-    s_word <- source_domain[i]  
-    t_word <- target_domain[j]  
-      
-    if (s_word %in% rownames(embedding_matrix) &&   
-        t_word %in% rownames(embedding_matrix)) {  
-      # Cosine similarity  
-      metaphor_matrix[i, j] <- sum(embedding_matrix[s_word,] *   
-                                    embedding_matrix[t_word,]) /  
-        (sqrt(sum(embedding_matrix[s_word,]^2)) *   
-         sqrt(sum(embedding_matrix[t_word,]^2)))  
-    }  
-  }  
-}  
-  
-# Visualize metaphorical connections  
-library(pheatmap)  
-pheatmap(metaphor_matrix,   
-         main = "IDEAS ARE LIGHT metaphor",  
-         display_numbers = TRUE)  
-```  
-  
-**Research applications:**  
-- Identify conventional metaphors  
-- Compare across languages  
-- Track metaphor evolution  
-- Study creative vs. conventional usage  
-  
-## Document Similarity  
-  
-Average word embeddings to represent documents.  
-  
-### Document Vectors  
-  
-```{r doc-similarity, eval=FALSE, message=FALSE, warning=FALSE}  
-# Function to create document embedding  
-doc_to_vector <- function(doc_text, embedding_matrix) {  
-  # Tokenize  
-  words <- tolower(unlist(strsplit(doc_text, "\\s+")))  
-    
-  # Filter to vocabulary  
-  words <- words[words %in% rownames(embedding_matrix)]  
-    
-  if (length(words) == 0) return(NULL)  
-    
-  # Average word vectors  
-  doc_vec <- colMeans(embedding_matrix[words, ])  
-  return(doc_vec)  
-}  
-  
-# Apply to documents  
-doc1_vec <- doc_to_vector(document1, embedding_matrix)  
-doc2_vec <- doc_to_vector(document2, embedding_matrix)  
-  
-# Calculate similarity  
-doc_similarity <- sum(doc1_vec * doc2_vec) /  
-  (sqrt(sum(doc1_vec^2)) * sqrt(sum(doc2_vec^2)))  
-  
-cat("Document similarity:", doc_similarity)  
-```  
-  
-**Applications:**  
-- Find similar documents  
-- Cluster documents by topic  
-- Information retrieval  
-- Plagiarism detection  
-  
----  
-  
-# Part 9: Advanced Topics {#part9}  
-  
-## Training Tips and Troubleshooting  
-  
-### Getting Better Embeddings  
-  
-**Data quality matters:**  
-```r  
-# More data is better (aim for 10M+ words for good results)  
-# Clean data:  
-corpus_clean <- corpus |>  
-  # Lowercase (usually)  
-  tolower() |>  
-  # Fix encoding issues  
-  iconv(to = "UTF-8") |>  
-  # Normalize whitespace  
-  str_replace_all("\\s+", " ") |>  
-  # Handle URLs (remove or tag)  
-  str_replace_all("http\\S+", "<URL>") |>  
-  # Handle numbers (remove, tag, or keep)  
-  str_replace_all("\\d+", "<NUM>")  
-```  
-  
-**Hyperparameter tuning:**  
-```r  
-# Experiment systematically  
-params_grid <- expand.grid(  
-  dim = c(50, 100, 200),  
-  window = c(5, 10, 15),  
-  min_count = c(5, 10, 20)  
-)  
-  
-# Train multiple models  
-# Evaluate on analogy task or downstream application  
-# Select best performing  
-```  
-  
-### Common Problems and Solutions  
-  
-**Problem: "Training failed" error**  
-```  
-Error: Training failed: fileMapper: [long text string]  
-```  
-- ✓ **Most common cause**: Text not properly tokenized  
-- ✓ **Solution**: Split text into sentences/documents first  
-- ✓ **Check**: `class(corpus)` should be character vector, not single string  
-- ✓ **Fix**: Use `str_split()` or `tokenize_sentences()`  
-  
-**Example fix:**  
-```r  
-# WRONG: Single long string  
-corpus <- paste(texts, collapse = " ")  
-model <- word2vec(corpus)  # Will fail!  
-  
-# RIGHT: Vector of sentences  
-corpus <- texts |>  
-  paste(collapse = " ") |>  
-  str_split("\\.\\s+") |>  
-  unlist()  
-model <- word2vec(corpus)  # Works!  
-```  
-  
-**Problem: Poor quality results**  
-- ✓ Increase corpus size (aim for 10M+ words)  
-- ✓ Clean data more thoroughly  
-- ✓ Adjust min_count (too high filters useful words)  
-- ✓ More training iterations (try 50+ for small corpora)  
-- ✓ Try different architecture (CBOW vs Skip-gram)  
-  
-**Problem: Out-of-vocabulary words**  
-- ✓ Lower min_count  
-- ✓ Use fastText (handles subwords)  
-- ✓ Use pre-trained model with larger vocabulary  
-  
-**Problem: Slow training**  
-- ✓ Reduce dimensions  
-- ✓ Smaller window size  
-- ✓ Negative sampling (already default)  
-- ✓ Use more CPU threads  
-- ✓ Consider text2vec package (faster)  
-  
-**Problem: Results not making sense**  
-- ✓ Check data quality (garbage in = garbage out)  
-- ✓ Ensure corpus is large enough (minimum 1M words)  
-- ✓ Verify preprocessing didn't remove too much  
-- ✓ Try different random seed  
-- ✓ Compare to baseline (pre-trained model)  
-  
-## Evaluation Methods  
-  
-### Intrinsic Evaluation  
-  
-**Word similarity datasets:**  
-```r  
-# WordSim-353, SimLex-999, etc.  
-# Human-rated word pairs  
-# Calculate correlation with embedding similarities  
-  
-evaluate_similarity <- function(model, test_pairs) {  
-  model_scores <- sapply(1:nrow(test_pairs), function(i) {  
-    predict(model,   
-            newdata = c(test_pairs$word1[i], test_pairs$word2[i]),  
-            type = "similarity")  
-  })  
-    
-  cor(model_scores, test_pairs$human_score, method = "spearman")  
-}  
-```  
-  
-**Analogy datasets:**  
-```r  
-# Google analogy dataset  
-# BATS (Bigger Analogy Test Set)  
-# Measure accuracy: correct answer in top-n  
-  
-evaluate_analogies <- function(model, analogies) {  
-  correct <- 0  
-  total <- nrow(analogies)  
-    
-  for (i in 1:total) {  
-    result <- predict(model,  
-                     newdata = c(analogies$a[i], analogies$b[i], analogies$c[i]),  
-                     type = "analogy",  
-                     top_n = 5)  
-      
-    if (analogies$d[i] %in% result$term2) {  
-      correct <- correct + 1  
-    }  
-  }  
-    
-  accuracy <- correct / total  
-  return(accuracy)  
-}  
-```  
-  
-### Extrinsic Evaluation  
-  
-**Use in downstream tasks:**  
-- Text classification accuracy  
-- Named entity recognition F1  
-- Sentiment analysis performance  
-- Information retrieval metrics  
-  
-**Best practice:** Evaluate on your actual application!  
-  
-## Beyond Word2Vec  
-  
-### sentence2vec and doc2vec  
-  
-**Paragraph vectors:**  
-```r  
-library(doc2vec)  
-  
-# Train document embeddings  
-model_doc <- paragraph2vec(  
-  x = documents,  
-  type = "PV-DBOW",  # Or PV-DM  
-  dim = 100  
-)  
-  
-# Get document vector  
-doc_vec <- predict(model_doc, newdata = "new document text")  
-```  
-  
-**When to use:**  
-- Need document-level representations  
-- Variable-length inputs  
-- Document classification/clustering  
-  
-### Contextualized Embeddings (BERT, GPT)  
-  
-**The new frontier:**  
-```r  
-library(text)  
-  
-# BERT embeddings (context-dependent)  
-embeddings <- textEmbed(  
-  texts = c("The bank is near the river",  
-            "I need to visit the bank"),  
-  model = "bert-base-uncased"  
-)  
-  
-# "bank" has DIFFERENT embeddings in these sentences!  
-```  
-  
-**Advantages:**  
-- Handles polysemy (multiple meanings)  
-- State-of-the-art performance  
-- Pre-trained on massive data  
-  
-**Disadvantages:**  
-- Computationally expensive  
-- Requires GPU for speed  
-- More complex to work with  
-- Harder to interpret  
-  
-**Use contextualized when:**  
-- Working with modern NLP tasks  
-- Polysemy is critical  
-- You have computational resources  
-- You need state-of-the-art performance  
-  
----  
-  
-# Part 10: Practical Workflow {#part10}  
-  
-## Complete Analysis Pipeline  
-  
-### 1. Decide on Approach  
-  
-**Decision tree:**  
-```  
-Do you have domain-specific corpus?  
-├─ YES: Should you train your own?  
-│  ├─ Large corpus (10M+ words): Train custom  
-│  └─ Small corpus: Use pre-trained + fine-tuning  
-└─ NO: Use pre-trained embeddings  
-   ├─ General English: GloVe  
-   ├─ Rare words important: fastText  
-   └─ Context crucial: BERT  
-```  
-  
-### 2. Prepare Data  
-  
-```r  
-# Full preprocessing pipeline  
-preprocess_for_embeddings <- function(text,   
-                                      lowercase = TRUE,  
-                                      remove_punct = TRUE,  
-                                      remove_numbers = FALSE,  
-                                      min_word_length = 2) {  
-    
-  # Start with basic cleaning  
-  clean_text <- text |>  
-    # Fix encoding  
-    iconv(to = "UTF-8", sub = "") |>  
-    # Normalize whitespace  
-    str_replace_all("\\s+", " ") |>  
-    str_trim()  
-    
-  # Optional: lowercase  
-  if (lowercase) {  
-    clean_text <- tolower(clean_text)  
-  }  
-    
-  # Optional: remove punctuation  
-  if (remove_punct) {  
-    clean_text <- str_replace_all(clean_text, "[^[:alnum:][:space:]]", " ")  
-  }  
-    
-  # Optional: remove numbers  
-  if (remove_numbers) {  
-    clean_text <- str_replace_all(clean_text, "\\d+", "")  
-  }  
-    
-  # Remove short words  
-  if (min_word_length > 1) {  
-    words <- unlist(strsplit(clean_text, "\\s+"))  
-    words <- words[nchar(words) >= min_word_length]  
-    clean_text <- paste(words, collapse = " ")  
-  }  
-    
-  # Final normalization  
-  clean_text <- str_squish(clean_text)  
-    
-  return(clean_text)  
-}  
-```  
-  
-### 3. Train or Load Model  
-  
-```r  
-# Training workflow  
-if (train_custom) {  
-  # Prepare corpus  
-  corpus <- preprocess_for_embeddings(raw_texts)  
-    
-  # Train with optimal parameters  
-  model <- word2vec(  
-    x = corpus,  
-    type = "skip-gram",  
-    dim = 100,  
-    window = 5,  
-    iter = 20,  
-    min_count = 5,  
-    threads = 4  
-  )  
-    
-  # Save model  
-  write.word2vec(model, "my_embeddings.bin")  
-    
-} else {  
-  # Load pre-trained  
-  embeddings <- load_pretrained_glove()  
-}  
-```  
-  
-### 4. Apply to Research Question  
-  
-```r  
-# Example: Find specialized terminology  
-find_domain_terms <- function(model, seed_terms, top_n = 50) {  
-    
-  # Get vectors for seed terms  
-  seed_vectors <- embedding_matrix[seed_terms, ]  
-    
-  # Average to get domain centroid  
-  domain_centroid <- colMeans(seed_vectors)  
-    
-  # Find nearest words  
-  all_similarities <- apply(embedding_matrix, 1, function(x) {  
-    sum(x * domain_centroid) /   
-      (sqrt(sum(x^2)) * sqrt(sum(domain_centroid^2)))  
-  })  
-    
-  # Return top matches  
-  top_words <- names(sort(all_similarities, decreasing = TRUE)[1:top_n])  
-    
-  # Filter out seed terms  
-  top_words <- setdiff(top_words, seed_terms)  
-    
-  return(top_words)  
-}  
-  
-# Use it  
-medical_seeds <- c("doctor", "patient", "hospital", "medicine")  
-medical_terms <- find_domain_terms(model, medical_seeds)  
-```  
-  
-### 5. Validate and Interpret  
-  
-```r  
-# Validate results  
-# 1. Manual inspection  
-print(medical_terms[1:20])  # Do these make sense?  
-  
-# 2. Quantitative evaluation  
-similarity_scores <- predict(model,   
-                            newdata = medical_seeds,  
-                            type = "nearest",  
-                            top_n = 100)  
-  
-# 3. Visualize  
-# Create t-SNE plot of domain  
-# Compare to baseline/control words  
-  
-# 4. Statistical testing if applicable  
-# Are similarities significantly different from random?  
-```  
-  
-## Reproducibility Checklist  
-  
-```r  
-# Document everything  
-analysis_metadata <- list(  
-  date = Sys.Date(),  
-  corpus_size = count_words(corpus),  
-  preprocessing = list(  
-    lowercase = TRUE,  
-    remove_punct = TRUE,  
-    min_count = 5  
-  ),  
-  model_params = list(  
-    type = "skip-gram",  
-    dim = 100,  
-    window = 5,  
-    iter = 20  
-  ),  
-  random_seed = 42,  
-  package_versions = sessionInfo()  
-)  
-  
-# Save metadata with model  
-saveRDS(analysis_metadata, "model_metadata.rds")  
-  
-# Set seed for reproducibility  
-set.seed(42)  
-  
-# Version control your code  
-# git commit -m "Train embeddings with params X, Y, Z"  
-```  
-  
----  
-  
-# Quick Reference {.unnumbered}  
-  
-## Essential Functions  
-  
-```{r ref-functions, eval=FALSE}  
-# Training  
-model <- word2vec(x = text, type = "skip-gram", dim = 100, window = 5)  
-  
-# Finding similar words  
-similar <- predict(model, "king", type = "nearest", top_n = 10)  
-  
-# Word analogies  
-analogy <- predict(model, c("king", "man", "woman"), type = "analogy")  
-  
-# Get embedding matrix  
-embeddings <- as.matrix(model)  
-  
-# Save/load model  
-write.word2vec(model, "model.bin")  
-model <- read.word2vec("model.bin")  
-```  
-  
-## Common Workflows  
-  
-```{r ref-workflows, eval=FALSE}  
-# Basic similarity analysis  
-text |>  
-  preprocess() |>  
-  word2vec(dim = 100) -> model  
-  
-predict(model, "target_word", type = "nearest")  
-  
-# Visualization pipeline  
-embeddings <- as.matrix(model)  
-words_subset <- embeddings[selected_words, ]  
-tsne_result <- Rtsne(words_subset, dims = 2)  
-plot_tsne(tsne_result, labels = selected_words)  
-  
-# Custom research application  
-semantic_shift <- compare_models(  
-  model_period1,  
-  model_period2,  
-  target_words  
-)  
-```  
-  
----  
-  
-# Resources and Further Reading {.unnumbered}  
-  
-## Essential Papers  
-  
-**Foundational:**  
-- Mikolov et al. (2013). "Efficient Estimation of Word Representations in Vector Space" (word2vec)  
-- Pennington et al. (2014). "GloVe: Global Vectors for Word Representation"  
-- Bojanowski et al. (2017). "Enriching Word Vectors with Subword Information" (fastText)  
-  
-**Applications:**  
-- Hamilton et al. (2016). "Diachronic Word Embeddings Reveal Statistical Laws of Semantic Change"  
-- Bolukbasi et al. (2016). "Man is to Computer Programmer as Woman is to Homemaker?"  
-- Garg et al. (2018). "Word Embeddings Quantify 100 Years of Gender and Ethnic Stereotypes"  
-  
-**Reviews:**  
-- Almeida & Xexéo (2019). "Word Embeddings: A Survey"  
-  
-## Books  
-  
-- Jurafsky & Martin (2023). *Speech and Language Processing* (Chapter 6)  
-- Goldberg (2017). *Neural Network Methods for Natural Language Processing*  
-- Tunstall et al. (2022). *Natural Language Processing with Transformers*  
-  
-## Online Resources  
-  
-**Tutorials:**  
-- [Word2Vec Tutorial - The Skip-Gram Model](http://mccormickml.com/2016/04/19/word2vec-tutorial-the-skip-gram-model/)  
-- [Illustrated Word2vec](https://jalammar.github.io/illustrated-word2vec/)  
-- [GloVe: Global Vectors for Word Representation](https://nlp.stanford.edu/projects/glove/)  
-  
-**Interactive:**  
-- [TensorFlow Embedding Projector](https://projector.tensorflow.org/)  
-- [Word2Viz](https://lamyiowce.github.io/word2viz/)  
-  
-**Datasets:**  
-- [Google Analogy Dataset](https://github.com/nicholas-leonard/word2vec/blob/master/questions-words.txt)  
-- [WordSim-353](http://alfonseca.org/eng/research/wordsim353.html)  
-- [SimLex-999](https://fh295.github.io/simlex.html)  
-  
-## R Packages  
-  
-**Core:**  
-- `word2vec`: User-friendly word2vec implementation  
-- `text2vec`: Fast, memory-efficient text analysis  
-- `wordVectors`: Load and manipulate embedding models  
-  
-**Related:**  
-- `textdata`: Download pre-trained embeddings  
-- `text`: Interface to transformers (BERT, etc.)  
-- `Rtsne`: t-SNE dimensionality reduction  
-- `umap`: UMAP dimensionality reduction  
-  
----  
-  
-# Final Project Ideas {.unnumbered}  
-  
-::: {.callout-warning icon=false}  
-## Capstone Projects  
-  
-Apply what you've learned with these research projects:  
-  
-**1. Historical Semantic Change**  
-- Collect texts from different decades  
-- Train separate embedding models  
-- Track meaning shifts of key terms  
-- Visualize changes over time  
-  
-**2. Domain-Specific Terminology**  
-- Gather specialized corpus (medical, legal, technical)  
-- Train custom embeddings  
-- Extract domain vocabulary  
-- Compare to general English  
-  
-**3. Metaphor Mapping**  
-- Identify source and target domains  
-- Calculate cross-domain similarities  
-- Visualize metaphorical connections  
-- Compare across languages/cultures  
-  
-**4. Bias Audit**  
-- Load pre-trained embeddings  
-- Test for gender/racial biases  
-- Quantify stereotype associations  
-- Propose debiasing strategies  
-  
-**5. Document Clustering**  
-- Represent documents as embedding averages  
-- Perform clustering analysis  
-- Validate against known categories  
-- Visualize document space  
-  
-**Deliverables:**  
-- Documented R script  
-- Visualizations  
-- Brief report (1000 words)  
-- Interpretation of findings  
-:::  
-  
----  
-  
-# Citation & Session Info {.unnumbered}  
-  
-Schweinberger, Martin. 2026. *Word Embeddings and Vector Semantics*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/embeddings.html (Version 2026.02.08).  
-  
-```  
-@manual{schweinberger2026embeddings,  
-  author = {Schweinberger, Martin},  
-  title = {Word Embeddings and Vector Semantics},  
-  note = {https://ladal.edu.au/tutorials/embeddings.html},  
-  year = {2026},  
-  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},  
-  address = {Brisbane},  
-  edition = {2026.02.08}  
-}  
-```  
-  
-## Session Information  
-  
-```{r session-info}  
-sessionInfo()  
-```  
-  
----  
-  
-**[Back to top](#welcome-to-word-embeddings)**  
-  
-**[Back to HOME](https://ladal.edu.au/)**  
-  
----  
-  
-# References {.unnumbered}  
-  
-Almeida, F., & Xexéo, G. (2019). Word embeddings: A survey. *arXiv preprint arXiv:1901.09069*.  
-  
-Bojanowski, P., Grave, E., Joulin, A., & Mikolov, T. (2017). Enriching word vectors with subword information. *Transactions of the Association for Computational Linguistics, 5*, 135-146.  
-  
-Bolukbasi, T., Chang, K. W., Zou, J. Y., Saligrama, V., & Kalai, A. T. (2016). Man is to computer programmer as woman is to homemaker? Debiasing word embeddings. *Advances in Neural Information Processing Systems, 29*.  
-  
-Firth, J. R. (1957). A synopsis of linguistic theory, 1930-1955. *Studies in Linguistic Analysis*, 1-32.  
-  
-Garg, N., Schiebinger, L., Jurafsky, D., & Zou, J. (2018). Word embeddings quantify 100 years of gender and ethnic stereotypes. *Proceedings of the National Academy of Sciences, 115*(16), E3635-E3644.  
-  
-Goldberg, Y. (2017). *Neural network methods for natural language processing*. Morgan & Claypool Publishers.  
-  
-Hamilton, W. L., Leskovec, J., & Jurafsky, D. (2016). Diachronic word embeddings reveal statistical laws of semantic change. *Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics*, 1489-1501.  
-  
-Jurafsky, D., & Martin, J. H. (2023). *Speech and language processing* (3rd ed. draft). https://web.stanford.edu/~jurafsky/slp3/  
-  
-Mikolov, T., Chen, K., Corrado, G., & Dean, J. (2013). Efficient estimation of word representations in vector space. *arXiv preprint arXiv:1301.3781*.  
-  
-Pennington, J., Socher, R., & Manning, C. D. (2014). GloVe: Global vectors for word representation. *Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing*, 1532-1543.  
-  
-Tunstall, L., von Werra, L., & Wolf, T. (2022). *Natural language processing with transformers*. O'Reilly Media.  
-  
+  geom_bar(stat = "identity", fill = "gray50") +
+  coord_flip() +
+  labs(
+    title = "Words most similar to 'ship'",
+    x     = "Word",
+    y     = "Cosine similarity"
+  ) +
+  theme_bw()
+```
+
+## Exploring multiple words {-}
+
+```{r explore-words, message=FALSE, warning=FALSE}
+test_words <- c("love", "king", "ocean", "thought")
+
+for (word in test_words) {
+  if (word %in% rownames(embedding_matrix)) {
+    similar <- predict(model, newdata = word, type = "nearest", top_n = 5)
+    cat("\nMost similar to '", word, "':\n", sep = "")
+    print(as.data.frame(similar)[, 2])
+  }
+}
+```
+
+::: {.callout-note}
+## Interpreting similarity results
+
+Embedding similarity captures several different types of relationships simultaneously — synonymy, antonymy, topical association, and grammatical similarity can all contribute. Words that are similar in the embedding space share distributional contexts; this often correlates with semantic similarity but is not identical to it.
+
+Notably, antonyms like *love* and *hate* may appear relatively similar in embedding space because they occupy parallel syntactic positions in sentences about emotion. This is a known limitation of static word embeddings trained purely on co-occurrence: they encode distributional pattern similarity, which only approximates semantic similarity.
+:::
+
+::: {.callout-tip}
+## Exercises: Semantic similarity
+:::
+
+**Q2. A researcher trains a word2vec model on a corpus of 19th-century English novels and finds that the words most similar to "gay" are: cheerful, merry, lively, bright, animated. A colleague trains a model on a corpus of 21st-century web text and finds the most similar words to be: lesbian, bisexual, queer, transgender, pride. What does this difference illustrate, and why is it important for linguistic research using word embeddings?**
+
+```{r}
+#| echo: false
+#| label: "similarity_q2"
+check_question(
+  "This illustrates semantic change — the word 'gay' has shifted its primary meaning from 'cheerful, happy, lively' (its dominant sense in 19th-century usage) to referring to homosexuality (its dominant sense in contemporary usage). Because word embeddings capture distributional patterns from their training corpus, they effectively create a snapshot of word meaning as it exists in that corpus at that time. This makes embeddings powerful tools for studying diachronic semantic change: by training separate models on corpora from different time periods and comparing the nearest neighbours of the same word, researchers can quantify and document meaning shifts. This approach has been applied systematically in diachronic linguistics research.",
+  options = c(
+    "It illustrates that word2vec models are unreliable because they give different results for the same word",
+    "It illustrates that 19th-century corpora are too small to train reliable embeddings",
+    "This illustrates semantic change — the word 'gay' has shifted its primary meaning from 'cheerful, happy, lively' (its dominant sense in 19th-century usage) to referring to homosexuality (its dominant sense in contemporary usage). Because word embeddings capture distributional patterns from their training corpus, they effectively create a snapshot of word meaning as it exists in that corpus at that time. This makes embeddings powerful tools for studying diachronic semantic change: by training separate models on corpora from different time periods and comparing the nearest neighbours of the same word, researchers can quantify and document meaning shifts. This approach has been applied systematically in diachronic linguistics research.",
+    "It illustrates that the two models used different hyperparameters and are not comparable"
+  ),
+  type = "radio",
+  q_id = "similarity_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! This is exactly the kind of evidence for semantic change that diachronic embedding methods were designed to detect and quantify. Researchers such as Hamilton, Leskovec & Jurafsky have developed rigorous methods for comparing embeddings across time periods and documenting the statistical laws that govern semantic change. The key insight is that embeddings are not objective descriptions of word meaning — they are snapshots of distributional patterns in a particular corpus. Treating them as such makes them powerful instruments for historical semantics.",
+  wrong = "Not quite. The differences between the two models' outputs are not methodological artefacts — they are meaningful signals about how language use has changed. Word embeddings capture distributional patterns from their training data. When a word's distributional context changes systematically over time (because its meaning has shifted), embeddings trained on corpora from different periods will reflect that change. This is the basis of the entire field of diachronic word embedding research."
+)
+```
+
+---
+
+# Part 5: Word Analogies {#part5}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How vector arithmetic implements word analogies; how to compute analogies manually; the conditions under which analogies work well; and how to visualise the geometric parallelism that makes analogies possible
+:::
+
+## Vector arithmetic for analogies {-}
+
+One of the most celebrated properties of word embeddings is that vector arithmetic can solve analogy tasks [@mikolov2013efficient]. The analogy "man is to king as woman is to ?" is solved by:
+
+$$\text{target} = \text{embedding}(\textit{king}) - \text{embedding}(\textit{man}) + \text{embedding}(\textit{woman})$$
+
+The word whose embedding is closest to this target vector should be *queen*. Geometrically, the vector from *man* to *king* captures the "royalty" direction in embedding space, and applying the same displacement to *woman* points toward *queen*.
+
+```{r analogy-function, message=FALSE, warning=FALSE}
+# Helper function: a is to b as c is to ?
+# Mathematically: result = b - a + c
+word_analogy <- function(model, a, b, c, top_n = 5) {
+  embeddings <- as.matrix(model)
+
+  if (!all(c(a, b, c) %in% rownames(embeddings))) {
+    missing <- c(a, b, c)[!c(a, b, c) %in% rownames(embeddings)]
+    stop(paste("Words not in vocabulary:", paste(missing, collapse = ", ")))
+  }
+
+  vec_a <- embeddings[a, ]
+  vec_b <- embeddings[b, ]
+  vec_c <- embeddings[c, ]
+
+  # Compute the target vector
+  target_vector <- vec_b - vec_a + vec_c
+
+  # Cosine similarity with all vocabulary words
+  similarities <- apply(embeddings, 1, function(wv) {
+    sum(wv * target_vector) /
+      (sqrt(sum(wv^2)) * sqrt(sum(target_vector^2)))
+  })
+
+  # Remove the input words from results
+  similarities <- similarities[!names(similarities) %in% c(a, b, c)]
+
+  top_words <- sort(similarities, decreasing = TRUE)[1:top_n]
+
+  data.frame(
+    word       = names(top_words),
+    similarity = as.numeric(top_words),
+    row.names  = NULL
+  )
+}
+```
+
+```{r run-analogy, message=FALSE, warning=FALSE}
+# Classic analogy: man is to king as woman is to ?
+analogy_result <- word_analogy(model, a = "man", b = "king", c = "woman", top_n = 5)
+
+analogy_result |>
+  flextable() |>
+  set_table_properties(width = 0.5, layout = "autofit") |>
+  theme_zebra() |>
+  set_caption("king - man + woman = ?") |>
+  border_outer()
+```
+
+## More analogy examples {-}
+
+```{r more-analogies, message=FALSE, warning=FALSE}
+vocab <- rownames(as.matrix(model))
+
+test_analogy <- function(model, a, b, c) {
+  vocab <- rownames(as.matrix(model))
+  label <- paste(a, ":", b, "::", c, ": ?")
+
+  if (!all(c(a, b, c) %in% vocab)) {
+    missing <- c(a, b, c)[!c(a, b, c) %in% vocab]
+    cat(label, "\n  Words not in vocabulary:", paste(missing, collapse = ", "), "\n\n")
+    return(invisible(NULL))
+  }
+
+  result <- word_analogy(model, a, b, c, top_n = 5)
+  cat(label, "\n")
+  cat("  Top results:", paste(result$word[1:5], collapse = ", "), "\n")
+  cat("  Similarities:", paste(round(result$similarity[1:5], 3), collapse = ", "), "\n\n")
+  return(invisible(result))
+}
+
+test_analogy(model, "queen", "woman", "man")
+test_analogy(model, "alice", "girl", "boy")
+
+if (all(c("walking", "walk", "running") %in% vocab)) {
+  test_analogy(model, "walk", "walking", "running")
+}
+```
+
+::: {.callout-warning}
+## Why analogies sometimes fail
+
+Analogy results depend heavily on the size and diversity of the training corpus. Our literary corpus of approximately 500,000 words is far smaller than what is needed for robust analogy performance — serious analogy benchmarking requires 100 million words or more [@mikolov2013efficient]. Analogies work best when the relationship is represented consistently across many examples in the training data. The gender analogy (man/king/woman/queen) works well on large corpora because grammatical gender is pervasive; idiomatic or culture-specific relationships work much less reliably.
+:::
+
+## Visualising vector arithmetic {-}
+
+```{r analogy-viz, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+vocab <- rownames(as.matrix(model))
+
+if (all(c("man", "woman", "king", "queen") %in% vocab)) {
+  embeddings <- as.matrix(model)
+  words_of_interest <- c("man", "woman", "king", "queen")
+  word_embeddings <- embeddings[words_of_interest, ]
+
+  pca_result <- prcomp(word_embeddings, center = TRUE, scale. = FALSE)
+
+  viz_data <- data.frame(
+    word = words_of_interest,
+    x    = pca_result$x[, 1],
+    y    = pca_result$x[, 2]
+  )
+
+  ggplot(viz_data, aes(x = x, y = y, label = word)) +
+    geom_point(size = 4, color = "steelblue") +
+    geom_text_repel(size = 5, fontface = "bold") +
+    geom_segment(
+      data = viz_data[viz_data$word %in% c("man", "king"), ],
+      aes(x = x[1], y = y[1], xend = x[2], yend = y[2]),
+      arrow = arrow(length = unit(0.3, "cm")),
+      color = "firebrick", linewidth = 1
+    ) +
+    geom_segment(
+      data = viz_data[viz_data$word %in% c("woman", "queen"), ],
+      aes(x = x[1], y = y[1], xend = x[2], yend = y[2]),
+      arrow = arrow(length = unit(0.3, "cm")),
+      color = "steelblue", linewidth = 1
+    ) +
+    theme_minimal() +
+    labs(
+      title    = "Vector arithmetic: parallel relationships",
+      subtitle = "Red arrow (man to king) should parallel blue arrow (woman to queen)",
+      x        = "First principal component",
+      y        = "Second principal component"
+    ) +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      axis.text  = element_blank(),
+      panel.grid = element_blank()
+    )
+} else {
+  cat("Words man, woman, king, queen not all in vocabulary — skipping visualisation.\n")
+}
+```
+
+The two arrows should be roughly parallel and equal in length. This geometric parallelism is what makes vector-arithmetic analogies work: the transformation that turns *man* into *king* (in the embedding space) is approximately the same as the transformation that turns *woman* into *queen*.
+
+::: {.callout-tip}
+## Exercises: Word analogies
+:::
+
+**Q3. A researcher applies the analogy `walking : walk :: running : ?` to a word2vec model trained on a small corpus of 500,000 words and gets poor results (the top result is an unrelated word). She concludes that word2vec cannot capture morphological relationships. Is this conclusion justified? What are the actual reasons the analogy might fail, and what should she do instead?**
+
+```{r}
+#| echo: false
+#| label: "analogy_q3"
+check_question(
+  "The conclusion is not justified. The failure of a specific analogy task on a small corpus does not mean word2vec cannot in principle capture morphological relationships — it means the conditions for reliable analogy performance were not met. Word2vec analogies require (1) a large corpus (100M+ words is ideal; 500K is far too small), (2) all three words to appear frequently enough to have well-estimated embeddings, and (3) the relationship to be consistently represented across many examples in the training data. On small corpora, rare word pairs have noisy, poorly estimated vectors, making analogy arithmetic unreliable. The researcher should either train on a much larger corpus, use pre-trained embeddings (GloVe or fastText), or use a morphologically aware model like fastText that handles subword information explicitly.",
+  options = c(
+    "The conclusion is justified — word2vec is fundamentally unable to capture morphological relationships",
+    "The conclusion is not justified. The failure of a specific analogy task on a small corpus does not mean word2vec cannot in principle capture morphological relationships — it means the conditions for reliable analogy performance were not met. Word2vec analogies require (1) a large corpus (100M+ words is ideal; 500K is far too small), (2) all three words to appear frequently enough to have well-estimated embeddings, and (3) the relationship to be consistently represented across many examples in the training data. On small corpora, rare word pairs have noisy, poorly estimated vectors, making analogy arithmetic unreliable. The researcher should either train on a much larger corpus, use pre-trained embeddings (GloVe or fastText), or use a morphologically aware model like fastText that handles subword information explicitly.",
+    "The conclusion is justified because word2vec uses whole-word representations and cannot see morphological structure",
+    "The conclusion is not justified, but the solution is simply to run more training iterations on the same corpus"
+  ),
+  type = "radio",
+  q_id = "analogy_q3",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Corpus size is the single most important factor for analogy performance. With 500,000 words, most word pairs appear too infrequently for their embeddings to be well-estimated, making vector arithmetic noisy and unreliable. The classic Mikolov et al. (2013) results were obtained on a 100-billion-word Google News corpus. On smaller corpora, using pre-trained embeddings is almost always preferable. For morphological relationships specifically, fastText is the better choice because it represents words as bags of character n-grams and can compute reasonable embeddings for words it has never seen in full form.",
+  wrong = "Not quite. The issue is not a fundamental limitation of word2vec — it is a data size problem. Analogy tasks require words to be frequent enough that their embedding vectors are stable and well-estimated. With 500,000 words, even moderately common words have very few training examples, producing noisy vectors that make vector arithmetic unreliable. The original word2vec analogy results used 100 billion words. More training iterations on the same small corpus will not fix this — you need more data, not more passes over the same data."
+)
+```
+
+---
+
+# Part 6: Visualising Embeddings {#part6}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why embeddings need dimensionality reduction for visualisation; how t-SNE works conceptually; how to run t-SNE in R; and how to interpret the resulting plot
+:::
+
+## The dimensionality challenge {-}
+
+Embedding spaces have 50–300 dimensions. Human perception is limited to 2–3 dimensions. To visualise where words sit relative to each other, we need to project the high-dimensional space down to 2D while preserving the local neighbourhood structure as faithfully as possible.
+
+**t-SNE** (t-Distributed Stochastic Neighbor Embedding) is the most popular method for this purpose. It works by modelling the probability that two points are neighbours in the high-dimensional space, then finding a 2D configuration that matches those probabilities as closely as possible. Words that are close in 100D should be close in 2D; words that are far apart should remain far apart (approximately).
+
+## Preparing the data {-}
+
+```{r tsne-prep, message=FALSE, warning=FALSE}
+words_to_plot <- c(
+  # Characters
+  "alice", "queen", "king", "hatter", "rabbit",
+  # Emotions
+  "happy", "sad", "angry", "joy", "fear",
+  # Actions
+  "walk", "run", "jump", "sit", "stand",
+  # Places
+  "house", "garden", "forest", "city", "ocean",
+  # Abstract
+  "love", "hate", "hope", "dream", "thought"
+)
+
+# Keep only words in our vocabulary
+words_to_plot  <- words_to_plot[words_to_plot %in% rownames(embedding_matrix)]
+plot_embeddings <- embedding_matrix[words_to_plot, ]
+
+cat("Words available for t-SNE plot:", length(words_to_plot), "\n")
+```
+
+## Running t-SNE {-}
+
+```{r tsne-run, message=FALSE, warning=FALSE}
+set.seed(42)
+
+tsne_result <- Rtsne(
+  plot_embeddings,
+  dims       = 2,
+  perplexity = min(10, (nrow(plot_embeddings) - 1) / 3),
+  theta      = 0.0,
+  max_iter   = 1000
+)
+
+tsne_data <- data.frame(
+  word     = words_to_plot,
+  x        = tsne_result$Y[, 1],
+  y        = tsne_result$Y[, 2],
+  category = case_when(
+    words_to_plot %in% c("alice", "queen", "king", "hatter", "rabbit") ~ "Characters",
+    words_to_plot %in% c("happy", "sad", "angry", "joy", "fear")       ~ "Emotions",
+    words_to_plot %in% c("walk", "run", "jump", "sit", "stand")        ~ "Actions",
+    words_to_plot %in% c("house", "garden", "forest", "city", "ocean") ~ "Places",
+    TRUE ~ "Abstract"
+  )
+)
+```
+
+## Plotting the embedding space {-}
+
+```{r tsne-plot, message=FALSE, warning=FALSE, fig.width=10, fig.height=8}
+ggplot(tsne_data, aes(x = x, y = y, color = category, label = word)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_text_repel(size = 4, max.overlaps = 20, box.padding = 0.5) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title      = element_text(size = 16, face = "bold"),
+    axis.text       = element_blank(),
+    axis.ticks      = element_blank(),
+    panel.grid      = element_blank()
+  ) +
+  labs(
+    title    = "Word embeddings visualised with t-SNE",
+    subtitle = "Semantically similar words cluster together",
+    x        = NULL,
+    y        = NULL,
+    color    = "Category"
+  )
+```
+
+**Reading the plot:**
+
+- **Proximity indicates semantic similarity** — words that are close together in the plot have similar embedding vectors, meaning they tend to appear in similar contexts
+- **Clusters reflect shared distributional patterns** — words from the same semantic category often cluster together
+- **Absolute position is arbitrary** — the specific coordinates have no meaning; only relative distances matter
+- **t-SNE preserves local structure** — words that are neighbours in the high-dimensional space will be neighbours in 2D, but distances between distant clusters are not reliably preserved
+
+::: {.callout-note}
+## t-SNE parameter notes
+
+The **perplexity** parameter (roughly: how many neighbours to consider) has a large effect on the visual appearance. Too low a value overemphasises local structure; too high a value loses it. A value of 5–50 is typically appropriate, with 30 being the most common default.
+
+The **theta** parameter controls the speed-accuracy trade-off: 0.0 gives exact t-SNE (slow but accurate); 0.5 gives the Barnes-Hut approximation (much faster, good enough for large datasets).
+
+Importantly, t-SNE is stochastic — running it twice with different seeds gives different plots. Always set a seed for reproducibility.
+:::
+
+---
+
+# Part 7: Pre-Trained Embeddings {#part7}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** When to use pre-trained embeddings rather than training your own; how to download and use GloVe; and how to choose between GloVe, fastText, and BERT for your research question
+:::
+
+## When to use pre-trained embeddings {-}
+
+Pre-trained embeddings offer several advantages over training your own. They are trained on massive datasets — billions of words — giving much better coverage of rare words and more reliable semantic representations. They require no training time. And they have been validated on standard benchmarks and used in published research, making results easier to contextualise and compare.
+
+You should train your own embeddings when:
+
+- Your corpus is in a specialised domain with vocabulary not well represented in general corpora (e.g. historical texts, clinical notes, legal documents, a specific language or dialect)
+- Your research question concerns the distributional patterns in a particular corpus (e.g. comparing across time periods or registers)
+- Pre-trained embeddings for your language are not available
+
+## GloVe embeddings {-}
+
+GloVe (Global Vectors for Word Representation) [@pennington2014glove] is trained on aggregated global word-word co-occurrence statistics from a large corpus. Unlike word2vec, which uses a local context window, GloVe explicitly factorises the word-word co-occurrence matrix, combining the advantages of global matrix factorisation and local window-based methods. GloVe embeddings trained on Wikipedia and Gigaword (6 billion tokens, 400K vocabulary) are widely used as a general-purpose baseline.
+
+```{r glove-download, eval=FALSE}
+library(textdata)
+
+# Download 100-dimensional GloVe vectors (one-time, ~800 MB)
+glove <- embedding_glove6b(dimensions = 100)
+```
+
+```{r glove-use, eval=FALSE}
+# Rename columns for clarity
+colnames(glove)[1] <- "word"
+colnames(glove)[2:ncol(glove)] <- paste0("dim_", 1:100)
+
+# Convert to matrix
+glove_matrix <- as.matrix(glove[, -1])
+rownames(glove_matrix) <- glove$word
+
+# Find similar words
+target_word    <- "linguistics"
+target_vector  <- glove_matrix[target_word, ]
+
+similarities <- apply(glove_matrix, 1, function(x) {
+  sum(x * target_vector) /
+    (sqrt(sum(x^2)) * sqrt(sum(target_vector^2)))
+})
+
+head(sort(similarities, decreasing = TRUE), 10)
+```
+
+For comprehensive background on neural network approaches to NLP, including the theory behind word embeddings, see @goldberg2017neural. For an accessible introduction to transformer models and contextualised embeddings, see @tunstall2022nlp.
+
+## Choosing between pre-trained models {-}
+
+| Model | Trained on | Vocabulary | Dimensions | Best for |
+|---|---|---|---|---|
+| **GloVe** | Wikipedia + Gigaword (6B tokens) | 400K | 50–300 | General English, linguistics research |
+| **fastText** | Common Crawl (600B tokens) | 2M+ | 300 | Morphologically rich languages, rare words, misspellings |
+| **word2vec (Google News)** | Google News (100B tokens) | 3M | 300 | News domain |
+| **BERT** | Wikipedia + BookCorpus | Contextual | 768 | Context-dependent tasks, polysemy |
+
+::: {.callout-tip}
+## Choosing a model
+
+**GloVe** is usually the best starting point for general linguistic research: it is simple to use, well-documented, and widely cited.
+
+**fastText** [@bojanowski2017enriching] handles out-of-vocabulary words by representing them as the sum of their character n-gram vectors. This makes it superior for morphologically complex languages (German, Finnish, Turkish), historical texts with spelling variation, and social media text with neologisms and misspellings.
+
+**BERT and other transformer models** produce contextualised embeddings — the same word gets a different vector depending on its context. This is essential for tasks involving polysemy (word sense disambiguation), but adds substantial complexity and computational cost. See the LADAL [Text Classification with BERT](/tutorials/bert/bert.html) tutorial for an introduction.
+:::
+
+```{r load-pretrained, eval=FALSE}
+# fastText (requires fastrtext package)
+library(fastrtext)
+model_ft <- load_model("path/to/fasttext/model.bin")
+
+# For BERT and other transformers, use the `text` package
+library(text)
+embeddings_bert <- textEmbed(
+  texts = c("The bank is near the river", "I need to visit the bank"),
+  model = "bert-base-uncased"
+)
+# "bank" gets DIFFERENT vectors in these two sentences
+```
+
+---
+
+# Part 8: Research Applications {#part8}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply embeddings to three substantive linguistic research questions: diachronic semantic change detection, gender bias measurement, and metaphor analysis
+:::
+
+## Semantic change detection {-}
+
+Tracking how word meanings shift over time is one of the most compelling applications of word embeddings in linguistics. By training separate models on corpora from different historical periods and comparing the nearest neighbours of a target word, researchers can document, date, and quantify semantic change [@hamilton2016diachronic].
+
+Hamilton, Leskovec & Jurafsky proposed two statistical laws of semantic change: the **law of conformity** (high-frequency words change more slowly) and the **law of innovation** (words with more senses change faster). Both laws were discovered by analysing diachronic embeddings at scale across multiple languages and centuries.
+
+```{r semantic-change, eval=FALSE}
+# Conceptual example — requires historical corpora
+corpus_1800s <- load_corpus("1800-1850")
+corpus_2000s <- load_corpus("2000-2020")
+
+model_1800s  <- word2vec(corpus_1800s, dim = 100, iter = 20)
+model_2000s  <- word2vec(corpus_2000s, dim = 100, iter = 20)
+
+target_word <- "gay"
+
+# Neighbours in 1800s: cheerful, merry, lively, bright, festive
+neighbors_1800s <- predict(model_1800s, target_word, type = "nearest", top_n = 10)
+
+# Neighbours in 2000s: lesbian, queer, bisexual, pride, homosexual
+neighbors_2000s <- predict(model_2000s, target_word, type = "nearest", top_n = 10)
+
+# The shift in neighbourhood tells us when and how the meaning changed
+```
+
+## Bias detection {-}
+
+Embeddings trained on large text corpora absorb the statistical regularities of human language use — including its biases. Research has shown that standard English word embeddings associate occupational terms with genders in ways that mirror historical stereotypes: *doctor* and *engineer* are closer to the male pole of the gender axis; *nurse* and *secretary* are closer to the female pole [@bolukbasi2016man; @caliskan2017semantics; @garg2018word].
+
+```{r bias-detection, eval=FALSE}
+# Define a gender direction vector
+man_vec   <- embedding_matrix["man", ]
+woman_vec <- embedding_matrix["woman", ]
+gender_direction <- woman_vec - man_vec
+
+# Measure gender association of occupational terms
+occupations <- c("doctor", "nurse", "engineer", "teacher", "programmer", "secretary")
+
+occupation_bias <- sapply(occupations, function(occ) {
+  if (occ %in% rownames(embedding_matrix)) {
+    occ_vec <- embedding_matrix[occ, ]
+    # Project onto gender direction
+    sum(occ_vec * gender_direction) /
+      (sqrt(sum(occ_vec^2)) * sqrt(sum(gender_direction^2)))
+  } else NA
+})
+
+# Positive values = more female-associated; negative = more male-associated
+sort(occupation_bias)
+```
+
+::: {.callout-warning}
+## Ethical considerations when using embeddings
+
+Embeddings encode and reproduce the biases present in their training data. This has practical consequences: systems that use embeddings for hiring, lending, or content recommendation can perpetuate and amplify historical inequalities even without explicit discriminatory intent.
+
+For researchers, the key obligations are:
+
+- Acknowledge the limitations and potential biases of any embedding model used
+- Do not treat embedding-based associations as objective truths about the world — they reflect patterns in text, which reflect patterns of human behaviour and historical inequalities
+- When using embeddings in applied contexts, consider debiasing techniques [@bolukbasi2016man], though note that these techniques are themselves imperfect and contested
+- Use diverse, balanced training corpora where possible
+:::
+
+## Metaphor analysis {-}
+
+Word embeddings can quantify cross-domain semantic associations that underlie conceptual metaphors. The conceptual metaphor IDEAS ARE LIGHT predicts that words from the light/illumination domain should be semantically similar to words from the knowledge/understanding domain. We can test this by computing the similarity matrix between source and target domain words [@jurafsky2024speech].
+
+```{r metaphor-analysis, eval=FALSE}
+source_domain <- c("light", "bright", "illuminate", "shine", "glow")
+target_domain <- c("idea", "thought", "insight", "knowledge", "understanding")
+
+metaphor_matrix <- matrix(
+  0,
+  nrow     = length(source_domain),
+  ncol     = length(target_domain),
+  dimnames = list(source_domain, target_domain)
+)
+
+for (s in source_domain) {
+  for (t in target_domain) {
+    if (s %in% rownames(embedding_matrix) && t %in% rownames(embedding_matrix)) {
+      sv <- embedding_matrix[s, ]
+      tv <- embedding_matrix[t, ]
+      metaphor_matrix[s, t] <- sum(sv * tv) /
+        (sqrt(sum(sv^2)) * sqrt(sum(tv^2)))
+    }
+  }
+}
+
+# Visualise as a heatmap
+library(pheatmap)
+pheatmap(metaphor_matrix,
+         main            = "IDEAS ARE LIGHT metaphor: cross-domain similarities",
+         display_numbers = TRUE,
+         number_format   = "%.2f")
+```
+
+---
+
+# Part 9: Advanced Topics and Practical Workflow {#part9}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Tips for getting better embeddings; common training errors and their fixes; how to evaluate embedding quality; an overview of document and sentence embeddings; and a practical decision framework for real research projects
+:::
+
+## Getting better embeddings {-}
+
+**Data quality and quantity are the most important factors.** For word2vec, aim for at least 10 million words; 100 million is better. Clean your data carefully:
+
+```r
+corpus_clean <- raw_text |>
+  iconv(to = "UTF-8", sub = "") |>      # Fix encoding
+  tolower() |>
+  str_replace_all("http\\S+", " ") |>   # Remove URLs
+  str_replace_all("\\d+", " ") |>       # Handle numbers
+  str_replace_all("[^[:alnum:][:space:]]", " ") |>  # Remove punctuation
+  str_replace_all("\\s+", " ") |>
+  str_trim()
+```
+
+## Common problems and solutions {-}
+
+**"Training failed: fileMapper" error**
+
+The most common word2vec error. Cause: the text was passed as a single long string rather than a character vector of sentences. Fix: split into sentences first.
+
+```r
+# Wrong
+model <- word2vec(paste(texts, collapse = " "))
+
+# Correct
+sentences <- texts |> paste(collapse = " ") |> str_split("\\.\\s+") |> unlist()
+model <- word2vec(sentences)
+```
+
+**Poor quality results** — increase corpus size; check preprocessing did not remove too much content; try more iterations; experiment with CBOW vs skip-gram.
+
+**Out-of-vocabulary words** — lower `min_count`; use fastText (handles subwords); use a pre-trained model with larger vocabulary.
+
+**Slow training** — reduce dimensions; use smaller window size; increase number of threads; consider `text2vec` package which is faster for large corpora.
+
+## Evaluating embeddings {-}
+
+**Intrinsic evaluation** measures how well embeddings capture human semantic judgements:
+
+```r
+# Word similarity datasets: WordSim-353, SimLex-999
+evaluate_similarity <- function(model, test_pairs) {
+  model_scores <- sapply(1:nrow(test_pairs), function(i) {
+    predict(model,
+            newdata = c(test_pairs$word1[i], test_pairs$word2[i]),
+            type    = "similarity")
+  })
+  cor(model_scores, test_pairs$human_score, method = "spearman")
+}
+```
+
+**Extrinsic evaluation** measures performance on a downstream task (text classification, NER, sentiment analysis). This is generally more informative for applied research because it directly measures whether the embeddings are useful for your specific application.
+
+## Document embeddings {-}
+
+For document-level tasks (document similarity, clustering, classification), averaging word vectors is a simple and often effective approach. More principled alternatives include doc2vec (paragraph vectors) and sentence transformers.
+
+```r
+# Simple document embedding: average of word vectors
+doc_to_vector <- function(text, embedding_matrix) {
+  words <- tolower(unlist(strsplit(text, "\\s+")))
+  words <- words[words %in% rownames(embedding_matrix)]
+  if (length(words) == 0) return(NULL)
+  colMeans(embedding_matrix[words, , drop = FALSE])
+}
+
+# For higher-quality sentence embeddings, use the `text` package with BERT
+library(text)
+sentence_embeddings <- textEmbed(
+  texts = your_sentences,
+  model = "sentence-transformers/all-MiniLM-L6-v2"
+)
+```
+
+## Decision framework {-}
+
+```
+Do you have a domain-specific corpus that differs substantially from general English?
+  Yes: Should you train your own model?
+    Large corpus (10M+ words)  → Train custom embeddings
+    Small corpus               → Use pre-trained embeddings + fine-tuning if needed
+  No: Use pre-trained embeddings
+    General English tasks      → GloVe (simple, well-validated)
+    Morphologically rich / rare words → fastText
+    Context-dependent meaning  → BERT / sentence transformers
+
+Is your research question diachronic (meaning change over time)?
+  → Train separate models on period-specific corpora
+  → Use alignment methods (Procrustes) to make spaces comparable
+
+Is your research question about bias or social meaning?
+  → Pre-trained models on large general corpora (GloVe, word2vec Google News)
+  → These are better snapshots of general language use than small custom corpora
+```
+
+## Reproducibility checklist {-}
+
+```r
+# Document everything so results can be reproduced
+analysis_metadata <- list(
+  date          = Sys.Date(),
+  corpus        = "alice.txt + moby.txt + pride.txt",
+  corpus_words  = str_count(corpus_clean, "\\S+"),
+  preprocessing = list(lowercase = TRUE, remove_punct = FALSE, min_count = 5),
+  model_params  = list(type = "skip-gram", dim = 100, window = 5, iter = 20),
+  random_seed   = 42,
+  r_version     = paste(R.version$major, R.version$minor, sep = ".")
+)
+
+saveRDS(analysis_metadata, "model_metadata.rds")
+set.seed(42)  # Always set before training
+```
+
+::: {.callout-tip}
+## Exercises: Advanced topics
+:::
+
+**Q4. A researcher wants to compare word meanings across three registers: academic writing, newspaper text, and Twitter posts. She plans to train a single word2vec model on a combined corpus of all three. A colleague suggests training three separate models instead. Which approach is better, and why?**
+
+```{r}
+#| echo: false
+#| label: "advanced_q3"
+check_question(
+  "Training three separate models is better for this research question. A single combined model will produce average embeddings that blend the distributional patterns from all three registers, obscuring the register-specific differences the researcher wants to study. For example, 'sick' means something different in academic writing (illness) and Twitter (impressive/cool); averaging these distributions will produce a blurred representation that captures neither clearly. By training separate models and comparing the nearest neighbours of target words across the three models, the researcher can directly observe and quantify register-specific semantic differences. The challenge is that separate models have differently oriented vector spaces and cannot be directly compared — alignment methods such as Procrustes rotation are needed to map the spaces into a common coordinate system before comparison.",
+  options = c(
+    "Training a single combined model is better because it has more training data and will produce more reliable embeddings",
+    "Both approaches give identical results because word2vec is insensitive to the source of training data",
+    "Training three separate models is better for this research question. A single combined model will produce average embeddings that blend the distributional patterns from all three registers, obscuring the register-specific differences the researcher wants to study. For example, 'sick' means something different in academic writing (illness) and Twitter (impressive/cool); averaging these distributions will produce a blurred representation that captures neither clearly. By training separate models and comparing the nearest neighbours of target words across the three models, the researcher can directly observe and quantify register-specific semantic differences. The challenge is that separate models have differently oriented vector spaces and cannot be directly compared — alignment methods such as Procrustes rotation are needed to map the spaces into a common coordinate system before comparison.",
+    "Pre-trained GloVe embeddings should be used instead because they were trained on a broader corpus"
+  ),
+  type = "radio",
+  q_id = "advanced_q3",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The register comparison research question requires separate models precisely so that register-specific distributional patterns are not averaged away. The key methodological challenge is that separately trained models are not directly comparable because they are independently initialised and converge to differently oriented vector spaces. Procrustes alignment (orthogonal transformation of one model's space to best match the other's) is the standard solution for making separately trained embeddings comparable. The same technique is used in diachronic semantics research when comparing models trained on different time periods.",
+  wrong = "Not quite. The research question here is specifically about how word meaning differs across registers — and the answer requires observing those differences, not averaging them out. A single combined model will blend the register-specific patterns and make them harder to detect. Training three separate models and comparing their nearest-neighbour sets for target words is the methodologically appropriate approach, though it requires an alignment step to make the three vector spaces comparable."
+)
+```
+
+---
+
+# Quick Reference {.unnumbered}
+
+## Essential functions {-}
+
+```{r ref-functions, eval=FALSE}
+# Training
+model <- word2vec(x = sentence_vector, type = "skip-gram",
+                  dim = 100, window = 5, iter = 20, min_count = 5)
+
+# Finding similar words
+similar <- predict(model, "king", type = "nearest", top_n = 10)
+
+# Get embedding matrix
+embeddings <- as.matrix(model)
+
+# Cosine similarity between two words
+cosine_sim <- function(a, b, mat) {
+  sum(mat[a,] * mat[b,]) / (sqrt(sum(mat[a,]^2)) * sqrt(sum(mat[b,]^2)))
+}
+
+# Save and load model
+write.word2vec(model, "model.bin")
+model <- read.word2vec("model.bin")
+
+# t-SNE visualisation
+tsne_result <- Rtsne(word_subset_matrix, dims = 2, perplexity = 30,
+                     theta = 0.5, max_iter = 1000, set.seed(42))
+```
+
+## Common workflows {-}
+
+```r
+# Basic similarity analysis
+text |> preprocess() |>
+  word2vec(dim = 100) -> model
+
+predict(model, "target_word", type = "nearest", top_n = 10)
+
+# Visualisation pipeline
+embeddings <- as.matrix(model)
+words_subset <- embeddings[selected_words, ]
+set.seed(42)
+tsne_result <- Rtsne(words_subset, dims = 2, perplexity = 10)
+plot_data <- data.frame(word = selected_words,
+                         x = tsne_result$Y[,1], y = tsne_result$Y[,2])
+
+# Word analogy
+analogy_vector <- embeddings["king",] - embeddings["man",] + embeddings["woman",]
+# Find nearest neighbour to analogy_vector in embedding space
+```
+
+---
+
+# Final Project Ideas {.unnumbered}
+
+::: {.callout-note}
+## Capstone projects
+
+Apply what you have learned with these research projects:
+
+**1. Historical semantic change**
+Collect texts from different decades (e.g. from Project Gutenberg for historical periods; from newspaper archives for recent decades). Train separate embedding models. Track the nearest neighbours of target words over time. Visualise changes and identify the approximate date of semantic shifts.
+
+**2. Domain-specific terminology extraction**
+Gather a specialised corpus (medical, legal, technical, or a specific academic field). Train custom embeddings. Use the nearest neighbours of known domain terms as seeds to extract further domain-specific vocabulary. Compare to a general English model.
+
+**3. Register comparison**
+Compare embeddings trained on different registers (formal vs. informal, spoken vs. written, academic vs. popular). Use Procrustes alignment to make the models comparable. Identify words whose meanings are most register-specific.
+
+**4. Bias audit**
+Load pre-trained GloVe or word2vec embeddings. Define a gender or ethnicity direction vector. Project occupational terms onto this direction. Quantify associations and compare to historical data on occupational demographics. Replicate or extend the methodology of Garg et al. [-@garg2018word].
+
+**5. Metaphor mapping**
+Identify a conceptual metaphor (e.g. ARGUMENT IS WAR, TIME IS MONEY, LIFE IS A JOURNEY). Define source and target domain vocabulary. Compute the cross-domain similarity matrix using your embeddings. Compare across languages or registers.
+
+**Suggested deliverables:** A documented R script, at least two visualisations, and a brief report (1000–1500 words) interpreting and discussing your findings.
+:::
+
+---
+
+# Citation & Session Info {.unnumbered}
+
+Schweinberger, Martin. 2026. *Word Embeddings and Vector Semantics*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/embeddings/embeddings.html (Version 2026.05.01).
+
+```
+@manual{schweinberger2026embeddings,
+  author       = {Schweinberger, Martin},
+  title        = {Word Embeddings and Vector Semantics},
+  note         = {https://ladal.edu.au/tutorials/embeddings/embeddings.html},
+  year         = {2026},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL)},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to substantially revise and expand an earlier tutorial by Martin Schweinberger, replacing inline references with BibTeX citation keys, converting `<div>` blocks to Quarto callouts, adding learning objectives and prerequisite callouts, expanding the distributional hypothesis section, toning down emoji, adding check questions, merging the Advanced Topics and Practical Workflow sections, and generally aligning the style with other LADAL tutorials. All references were verified independently before BibTeX entries were generated. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {.unnumbered}
