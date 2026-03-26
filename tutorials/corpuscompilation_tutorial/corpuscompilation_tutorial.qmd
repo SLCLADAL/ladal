@@ -1,0 +1,2079 @@
+---
+title: "Compiling a Corpus: From Texts to Analysis-Ready Data"
+author: "Martin Schweinberger"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/hapcom.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces the principles and practical techniques for **compiling a corpus** — the process of collecting, cleaning, formatting, and organising textual data for linguistic analysis. Corpus compilation is often treated as a preliminary step before the "real" analysis begins, but experienced corpus linguists know that it is where the most consequential decisions in any research project get made. As the saying goes: **garbage in, garbage out**. No amount of sophisticated statistical analysis can compensate for poorly designed or inadequately prepared data.
+
+By the end of this tutorial you will have a clear, step-by-step framework for taking a corpus from an initial research idea through to a collection of clean, consistently formatted text files accompanied by a well-organised metadata spreadsheet. You will also have hands-on experience with the R tools most commonly used to automate and document this process.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, you should be comfortable with:
+
+- [Getting Started with R](/tutorials/intror/intror.html) — R objects, functions, and basic syntax
+- [Loading and Saving Data](/tutorials/load/load.html) — reading and writing files in R
+- [String Processing in R](/tutorials/string/string.html) — manipulating text with `stringr`
+- [Regular Expressions](/tutorials/regex/regex.html) — pattern matching in text
+
+This tutorial sits in the **Data Collection and Acquisition** section of LADAL. After completing it, you may want to continue with [Web Scraping with R](/tutorials/scrape/scrape.html) or [Downloading Texts from Project Gutenberg](/tutorials/gutenberg/gutenberg.html) for hands-on corpus collection practice.
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain why data collection and preparation are the foundation of corpus research and what "representativeness" means in practice
+2. Evaluate different strategies for selecting and collecting textual data — written, spoken, and existing corpora
+3. Identify and apply the five core principles of corpus data collection: purpose-driven collection, representativeness, comparability, ethical compliance, and documentation
+4. Choose an appropriate corpus size and sampling strategy for a given research question, including estimating needed corpus size based on phenomenon frequency
+5. Describe the specific compilation challenges and conventions for spoken, web/social media, learner, historical, specialised, and multilingual corpora
+6. Apply appropriate ethical frameworks (GDPR, Australian Privacy Act) to corpus data collection
+7. Convert PDFs and Word documents to plain text in R; detect and fix encoding problems
+8. Clean and format text files for corpus tools using R's `stringr` and `readr` packages
+9. Describe the main types of corpus annotation — POS tagging, lemmatisation, dependency parsing, NER — and decide when annotation is appropriate
+10. Organise a shareable corpus using the standard folder structure: corpus root, README, LICENSE, metadata file, and data folder
+11. Write a README and choose an appropriate LICENSE for a research corpus
+12. Recognise common corpus folder structure variations for annotated, multi-genre, and diachronic corpora
+13. Design and populate a metadata spreadsheet that links text files to their contextual information
+14. Validate that metadata and corpus files are consistent using R
+15. Apply quality control procedures including inter-rater agreement, spot-sampling, and consistency checks
+16. Describe major publicly available corpora and select the most appropriate existing corpus for a given research question
+17. Recognise and avoid the seven most common pitfalls in corpus compilation
+18. Plan a corpus-based research project from research question to analysis-ready data
+:::
+
+::: {.callout-note}
+## Citation
+
+Schweinberger, Martin. 2026. *Compiling a Corpus: From Texts to Analysis-Ready Data*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/corpuscompilation_tutorial/corpuscompilation_tutorial.html (Version 2026.05.01).
+:::
+
+---
+
+# Why Data Collection Matters {#foundations}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why corpus data collection is the foundation of corpus research; the "garbage in, garbage out" principle; how the research pipeline connects a question to a corpus to findings; and the core challenge of balancing ideal corpus design with practical constraints
+:::
+
+## Your corpus is your evidence {-}
+
+Everything you conclude in a corpus-based study rests on the foundation of your data. A well-designed corpus enables valid, reliable conclusions about language use. A poorly designed one — even if analysed with state-of-the-art methods — produces unreliable findings. This is the **garbage in, garbage out** principle, and it applies with particular force to corpus linguistics because the corpus *is* the evidence.
+
+Researchers sometimes rush through data collection and preparation, eager to get to what they think of as the "real" analysis. But experienced corpus linguists know that data collection and preparation *are* the real work. They are where the critical decisions get made that shape what you can and cannot discover.
+
+## The research pipeline {-}
+
+Corpus research is iterative, not linear. The typical pipeline looks like this:
+
+```
+Research question
+      │
+      ▼
+Data collection decisions
+      │
+      ▼
+Data preparation (cleaning, formatting, organising)
+      │
+      ▼
+Analysis
+      │
+      ▼
+Interpretation ──────────────────────────────────┐
+      │                                           │
+      └── New questions → back to the beginning  ┘
+```
+
+Notice that interpretation often raises new questions that send you back to the beginning — perhaps you need different data, or need to prepare existing data differently. This iterative nature is entirely normal and should be built into your project timeline.
+
+## Balancing ideal design with real constraints {-}
+
+In an ideal world, corpus researchers would have unlimited time, complete access to any data they wanted, and infinite resources. In reality, every project involves constraints: limited time, restricted data access, finite budgets, and varying technical skills. The art of corpus building is making the best possible corpus within these constraints while being transparent about the limitations [@biber1998corpus; @mcenery2012corpus].
+
+::: {.callout-tip}
+## Exercises: Why Data Collection Matters
+:::
+
+**Q1. A researcher collects 500 blog posts from a single popular blogging platform and uses them to make claims about "how English speakers write informally online." What is the main methodological problem with this approach?**
+
+```{r}
+#| echo: false
+#| label: "foundations_q1"
+check_question(
+  "The corpus is not representative of informal online English as a whole — it only represents one platform, which may have a distinctive user demographic, topic profile, and writing style. Claims based on this corpus can only legitimately be made about writing on that specific platform, not about informal online English more broadly.",
+  options = c(
+    "500 blog posts is too small a corpus for any kind of analysis",
+    "Blog posts are not suitable data for corpus linguistics",
+    "The corpus is not representative of informal online English as a whole — it only represents one platform, which may have a distinctive user demographic, topic profile, and writing style. Claims based on this corpus can only legitimately be made about writing on that specific platform, not about informal online English more broadly.",
+    "The researcher should have used a different annotation format"
+  ),
+  type = "radio",
+  q_id = "foundations_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Representativeness is one of the most important principles in corpus design. A corpus drawn from a single platform may systematically over-represent certain demographics (e.g. younger, more tech-savvy users), topics (e.g. lifestyle blogging), or writing styles. The researcher can legitimately make claims about that platform, but extrapolating to 'informal online English more broadly' goes beyond what the data supports. Always be explicit about what your corpus does and does not represent.",
+  wrong = "Not quite. The core problem is representativeness, not corpus size. Even a very large single-platform corpus would have the same problem: it could only support claims about language use on that platform, not about informal online English as a whole. Representativeness — whether your corpus actually reflects the language variety you claim to be investigating — is one of the most fundamental design principles in corpus linguistics."
+)
+```
+
+---
+
+# Principles of Data Collection {#principles}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The five core principles that should guide every corpus data collection decision — purpose-driven collection, representativeness, comparability, ethical and legal compliance, and documentation
+:::
+
+Five fundamental principles should guide your data collection decisions [@biber1998corpus; @atkins1992corpus]. They are not abstract ideals but practical guidelines that shape every decision from "where do I get my data?" to "what do I put in my metadata spreadsheet?"
+
+## 1. Purpose-driven collection {-}
+
+You must start with clear research questions, and your data collection must align with those goals. This seems obvious, but it is easy to lose sight of when confronted with large amounts of conveniently available data. If you are studying informal spoken English, do not collect formal written texts just because they are easier to access. Your data must match your research purpose.
+
+## 2. Representativeness {-}
+
+Your corpus should reflect the language variety you are investigating. You need to think carefully about:
+
+- **Genre** — which text types are included, and in what proportions?
+- **Speaker or writer demographics** — age, gender, first language, education level
+- **Time period** — synchronic (one time period) or diachronic (change over time)?
+- **Region** — British English? Australian English? International English?
+
+Crucially, you need to **acknowledge what your corpus does and does not represent** [@mcenery2012corpus; @sinclair1991corpus]. No corpus represents "all of English" or any entire language. If your corpus contains only written academic English from Australian universities in the 2020s, that is what you can make claims about. Do not extrapolate beyond what your data supports.
+
+## 3. Comparability {-}
+
+If you are comparing groups — for example, first language versus second language writers, or formal versus informal registers — you must ensure comparable data collection methods. Use the same genres, similar text lengths, and equivalent contexts across the groups. If you compare L1 and L2 academic essays but the L1 essays were written under exam conditions while the L2 essays were written as take-home assignments, any differences you find might reflect those different conditions rather than genuine L1/L2 differences.
+
+## 4. Ethical and legal compliance {-}
+
+This is non-negotiable. Before collecting any data:
+
+- **Obtain informed consent** from participants if the data involves human subjects
+- **Anonymise** identifying information — remove or pseudonymise names, locations, and other identifiers
+- **Check copyright** for published texts — being publicly available does not mean it is free to use for research
+- **Obtain ethics approval** from your institution when required — this is not a bureaucratic hurdle but a fundamental ethical responsibility
+- **Check terms of service** for online platforms — many social media platforms restrict research use of their data
+
+::: {.callout-warning}
+## Ethics First, Not Last
+
+Ethics approval and data permissions must be obtained *before* you collect data, not as an afterthought. Retroactively seeking approval for data you have already collected is much harder, and in some cases your findings may be unpublishable if ethical procedures were not followed from the start.
+:::
+
+## 5. Documentation {-}
+
+Record all collection procedures in detail. Note your inclusion and exclusion criteria explicitly. Maintain metadata throughout the process — not as an afterthought at the end. This documentation serves two purposes: it enables other researchers to replicate your work, and it enables you to understand your own data months or years later when memory has faded.
+
+::: {.callout-tip}
+## Exercises: Principles of Data Collection
+:::
+
+**Q2. A researcher is studying differences in how L1 and L2 English speakers use hedging language in academic writing. She collects 100 L1 essays from a first-year composition course and 100 L2 essays from an English for Academic Purposes course. What comparability problem does this design have?**
+
+```{r}
+#| echo: false
+#| label: "principles_q2"
+check_question(
+  "The two groups are not comparable because they come from different course contexts with potentially different assessment tasks, marking criteria, audience expectations, and writing prompts. Any observed hedging differences could reflect differences in the tasks, not in L1 vs. L2 language use. For a valid comparison, both groups should complete the same writing task under the same conditions.",
+  options = c(
+    "100 essays per group is not large enough for hedging analysis",
+    "Hedging cannot be studied in academic writing",
+    "The two groups are not comparable because they come from different course contexts with potentially different assessment tasks, marking criteria, audience expectations, and writing prompts. Any observed hedging differences could reflect differences in the tasks, not in L1 vs. L2 language use. For a valid comparison, both groups should complete the same writing task under the same conditions.",
+    "The researcher needs ethics approval before comparing L1 and L2 writers"
+  ),
+  type = "radio",
+  q_id = "principles_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Comparability is essential when the research design involves comparing groups. If the two groups complete different tasks in different course contexts, the observed differences in hedging could reflect task differences rather than genuine L1/L2 linguistic differences. The solution is to use the same essay prompt, the same word count requirement, and if possible the same institutional context — so that the only systematic difference between groups is L1/L2 status.",
+  wrong = "Not quite. The central problem here is comparability, not corpus size. Even with 500 essays per group, the same design flaw would remain: the two groups are writing in different course contexts with potentially different task demands. This means any observed differences in hedging could be due to the different writing contexts rather than L1/L2 status. The principle of comparability requires that everything be held constant across groups except the variable you are actually investigating."
+)
+```
+
+---
+
+# Types of Data Sources and Sampling {#sources}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The main categories of textual data sources (written, spoken, existing corpora); practical tools and considerations for each; key decisions about corpus size, sampling strategy, and the balance between representativeness and comparability
+:::
+
+## Written sources {-}
+
+**Published materials** include books, newspapers, magazines, and academic journals. **Online content** — blogs, websites, forums, and social media platforms like Reddit and Twitter/X — provides massive amounts of naturally occurring text but requires careful attention to copyright, terms of service, and representativeness.
+
+**Unpublished materials** such as student essays, emails, and organisational documents are often richer sources for specific research questions, but require consent from participants and may need anonymisation.
+
+## Spoken sources {-}
+
+**Recorded speech** — interviews, conversations, presentations, podcasts, lectures — offers access to naturally occurring spoken language. The key practical consideration is transcription: converting audio to text is time-consuming (typically 6–10 hours of transcription time per hour of recording) and expensive if outsourced. Factor this into your project timeline realistically.
+
+Interview types vary in structure: **structured** interviews use fixed questions for all participants; **semi-structured** interviews have a guide but allow flexibility; **unstructured** interviews are more conversational. The choice affects both data richness and comparability.
+
+## Existing corpora {-}
+
+Before building a new corpus, always ask whether an existing corpus already addresses your research question. Publicly available corpora have significant advantages: they save time, are standardised, have consistent formatting and annotation, and have been validated through published research. The limitation is that they may not exactly match your specific research needs.
+
+The table below lists the most widely used corpora in English and multilingual linguistics research:
+
+| Corpus | Language | Size | Content | Access |
+|---|---|---|---|---|
+| **BNC** (British National Corpus) | English (British) | 100M words | Mixed written + spoken, 1985–1993 | Free registration: natcorp.ox.ac.uk |
+| **BNC2014** | English (British) | 100M words | Updated spoken British English | Free: corpora.lancs.ac.uk/bnc2014 |
+| **COCA** (Corpus of Contemporary American English) | English (American) | 1B+ words | Balanced: spoken, fiction, magazine, newspaper, academic | Free limited / subscription: english-corpora.org |
+| **GloWbE** (Global Web-Based English) | English (20 countries) | 1.9B words | Web text from 20 English-using countries | Free limited / subscription: english-corpora.org |
+| **ICE** (International Corpus of English) | English (25 varieties) | ~1M words per variety | Spoken + written, 1990s–2000s | Varies by variety: ice-corpora.net |
+| **CHILDES** | Multiple | Large | Child language acquisition | Free: childes.talkbank.org [@macwhinney2000childes] |
+| **COCA-spoken** | English (American) | 130M+ words | Transcribed TV and radio | Part of COCA |
+| **CLMET** | English (historical) | 16M words | Diachronic written English 1150–1920 | Free: fedora.clarin.eu |
+| **MICASE** | English (academic spoken) | 1.8M words | University spoken interaction | Free: lsa.umich.edu/eli/micase |
+| **europarl** | 21 EU languages | Varies | European Parliament proceedings | Free: statmt.org/europarl [@koehn2005europarl] |
+| **OpenSubtitles** | 60+ languages | Billions | Film/TV subtitles | Free: opus.nlpl.eu |
+| **Leipzig Corpora** | 300+ languages | Varies | Web-crawled text | Free: corpora.uni-leipzig.de |
+
+For Australian and Pacific linguistics specifically:
+- **COOEE** (Corpus of Oz Early English) — Australian English 1788–1900
+- **ICE-AUS** — International Corpus of English: Australian component
+- **PARADISEC** — Pacific and regional archive with oral language materials
+
+::: {.callout-tip}
+## Check existing corpora before building your own
+
+A common mistake is building a new corpus when a suitable one already exists. Always search CLARIN (clarin.eu), the LDC (ldc.upenn.edu), ELRA (elra.info), and your institution's library catalogue before investing in compilation. Even if no corpus exactly matches your needs, an existing corpus may serve as a comparison baseline or supplementary resource [@hunston2002corpora].
+:::
+
+## Corpus size decisions {-}
+
+How much data do you need? The answer depends on what you are studying:
+
+| Research focus | Typical corpus size | Rationale |
+|---|---|---|
+| Lexical studies (individual words) | 1M+ words | Rare words need large corpora to appear frequently enough |
+| Syntactic patterns | 100K–1M words | Grammatical constructions are more frequent than rare words |
+| Discourse analysis | 10K–100K words | Intensive analysis of fewer texts |
+| Pilot study | 50–100 texts | Testing feasibility before full-scale collection |
+| MA thesis | 100K–500K words | Typical scope for a supervised project |
+| PhD dissertation | 500K–1M+ words | Larger scope required for claims of generalisability |
+
+These are guidelines, not rules. The right corpus size ultimately depends on how frequent the phenomenon you are studying is, and how much variation you need to capture.
+
+## Estimating corpus size from phenomenon frequency {-}
+
+A more principled approach is to estimate corpus size from the expected frequency of the phenomenon you are studying. The basic logic: if you want at least *n* examples of a feature for reliable analysis, and the feature occurs approximately *f* times per million words, you need at least *n/f* million words.
+
+For example, if you want to study the discourse marker *I mean* (frequency approximately 200 per million words in spoken English) and want at least 500 examples, you need approximately 2.5 million words of spoken data.
+
+A useful rule of thumb from @biber1998corpus: for any linguistic feature occurring fewer than 10 times per million words, you need at least 10 million words to observe it reliably. Features occurring more than 100 times per million words can be studied in corpora as small as 100,000 words.
+
+For comparative studies, this calculation applies to each subgroup separately. If you are comparing three regional varieties and need 200 examples of a construction per variety, you need sufficient data from each variety individually — not just in total.
+
+::: {.callout-tip}
+## Use keyword frequency as a proxy
+
+If you are unsure of your phenomenon's frequency, run a pilot search in an existing corpus such as COCA or the BNC. Note how often it occurs per million words, then calculate the corpus size you need. This 5-minute check can save weeks of over- or under-collection.
+:::
+
+## Sampling strategies {-}
+
+**Random sampling** — every text has an equal chance of being selected. Good for avoiding bias but may miss important variation if the population is heterogeneous.
+
+**Stratified sampling** — you divide the population into subgroups (strata) first, then sample proportionally from each. Ensures representation across categories that matter for your research (e.g. genres, time periods, demographic groups).
+
+**Purposive sampling** — deliberate selection based on specific criteria relevant to your research question. Common in qualitative and specialised corpus work.
+
+**Convenience sampling** — using what is accessible. Acceptable if you are transparent about its limitations and do not overclaim the generalisability of your findings.
+
+## Balanced versus representative corpora {-}
+
+A **balanced corpus** has equal amounts from each category — excellent for comparing those categories directly. A **representative corpus** has proportions that match real-world distribution — better for describing language as a whole. The choice depends on your research questions. If you want to compare spoken and written English, a balanced design (equal amounts of each) lets you make fair comparisons. If you want to describe the English that people typically encounter, a representative design (reflecting that most encountered English is in fact written) is more appropriate.
+
+::: {.callout-tip}
+## Exercises: Data Sources and Sampling
+:::
+
+**Q3. A researcher wants to study how hedging language is used across different academic disciplines. She has access to journal articles from five disciplines: biology, psychology, economics, history, and linguistics. She collects 40 articles from biology (because it is easy to access) and 10 each from the other four disciplines. What sampling problem does this create?**
+
+```{r}
+#| echo: false
+#| label: "sources_q3"
+check_question(
+  "The corpus is unbalanced in a way that is not justified by the research question. With 40 biology articles and only 10 from each other discipline, biology contributes disproportionately to any overall patterns, and comparisons across disciplines are based on unequal amounts of data. For cross-disciplinary comparison, a balanced design with equal numbers from each discipline (e.g. 20 articles per discipline) would be more appropriate.",
+  options = c(
+    "Journal articles are not suitable for studying hedging language",
+    "40 articles is too many from any single discipline",
+    "The corpus is unbalanced in a way that is not justified by the research question. With 40 biology articles and only 10 from each other discipline, biology contributes disproportionately to any overall patterns, and comparisons across disciplines are based on unequal amounts of data. For cross-disciplinary comparison, a balanced design with equal numbers from each discipline (e.g. 20 articles per discipline) would be more appropriate.",
+    "The researcher should use stratified random sampling across the entire journal database"
+  ),
+  type = "radio",
+  q_id = "sources_q3",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! When comparing across groups — here, academic disciplines — the design should be balanced, with equal representation from each group. The imbalance here is a consequence of convenience (biology was easier to access), not a principled design decision. With 40 biology articles and only 10 from each of the other disciplines, any cross-disciplinary comparison will be undermined, and overall frequency counts will be heavily influenced by the biology texts. The solution is to collect equal numbers from each discipline, or to normalise frequencies per discipline before comparing.",
+  wrong = "Not quite. The core problem is a sampling imbalance that is not justified by the research design. When the research question involves comparing groups (here, disciplines), the ideal design is balanced — equal amounts from each group. The over-representation of biology (due to convenience, not design) means that biology will dominate overall patterns, and comparisons across disciplines will be based on unequal data. The principle here is that sampling decisions should follow from research goals, not from convenience."
+)
+```
+
+---
+
+# Collecting Textual Data in Practice {#collecting}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Practical tools and strategies for collecting written text data — web scraping, social media APIs, manual collection, and elicitation; considerations specific to each approach; and how to use R to read a collection of text files into a usable format
+:::
+
+## Web scraping {-}
+
+Web scraping involves automatically extracting text from websites. Tools include Python libraries (`BeautifulSoup`, `Scrapy`), corpus-building tools like BootCaT, and R packages like `rvest`. See the [Web Scraping with R](/tutorials/scrape/scrape.html) tutorial for hands-on guidance.
+
+Key considerations:
+
+- **Respect `robots.txt`** — this file indicates which parts of a website should not be scraped
+- **Check terms of service** — many websites restrict automated data collection
+- **Use rate limiting** — do not overload servers with rapid-fire requests
+- **Dynamic content** — content generated by JavaScript may require browser automation tools
+
+## Social media collection {-}
+
+Social media platforms provide APIs (Application Programming Interfaces) for structured data access: the Twitter/X API, Reddit API (accessible via the Python package `PRAW`), and others. APIs provide well-structured data with rich metadata, but come with rate limits, changing access policies, and significant ethical questions. The fact that a post is publicly visible does not automatically mean the author consented to it being used in a research corpus.
+
+::: {.callout-warning}
+## Social media API instability
+
+Social media APIs change frequently and without warning. Twitter/X dramatically restricted API access in 2023, making large-scale corpus collection from that platform much harder overnight. Reddit similarly tightened API terms in 2023. **Never build a research project that depends entirely on continued access to a social media API.** Always have a backup data source, archive data as soon as it is collected, and check current API terms before committing to a collection strategy. The data you can access today may not be accessible next month.
+:::
+
+## Manual collection {-}
+
+Copying and pasting text from sources, or scanning physical documents and using OCR (optical character recognition), is time-intensive but gives you complete control over selection. Suitable for small, specialised corpora where careful selection is more important than scale.
+
+## Elicited data {-}
+
+Having participants produce language specifically for your research — essays, think-aloud protocols, writing tasks — ensures comparability across participants because everyone responds to the same prompt. The cost is that it requires participant recruitment, informed consent, and ethics approval.
+
+---
+
+## Specialised corpus types {-}
+
+Different research domains present specific compilation challenges that go beyond the general principles covered above. This section introduces six corpus types that require particular consideration.
+
+### Spoken corpora {-}
+
+Spoken corpus compilation begins with audio or video recording and ends with a transcription. Every step introduces decisions that affect what linguistic phenomena can be studied.
+
+**Recording:** Obtain written informed consent before recording. Record at the highest quality your equipment allows — poor audio quality makes transcription unreliable and may prevent analysis of prosodic features. For naturalistic data, be aware of the observer's paradox: speakers behave differently when they know they are being recorded. Techniques to minimise this include lengthy familiarisation sessions, remote recording by participants themselves, and using experienced fieldworkers.
+
+**Transcription conventions:** Choose a transcription system appropriate to your research goals before you begin:
+
+| System | Used for | Key features |
+|---|---|---|
+| **CHAT** (CHILDES/TalkBank) | Child language, conversation | Speaker turns, overlaps, non-verbal events, error coding [@macwhinney2000childes] |
+| **GAT2** | Conversation analysis | Prosody, timing, overlap, intonation |
+| **HIAT** | Spoken corpora (Deppermann) | Two-tier: verbal + non-verbal |
+| **Orthographic** | Large-scale corpora, ASR | Plain text, no prosodic detail |
+| **TEI** | Digital humanities, archives | XML-based, highly flexible |
+
+If you only need lexical and grammatical information, orthographic transcription is usually sufficient and much faster. If you are studying prosody, rhythm, or interactional features, you need a richer convention — but richer conventions are far more time-consuming.
+
+**Transcription time:** Budget 6–10 hours of transcription per hour of audio for a trained transcriber working with clear speech. Difficult audio, overlapping speech, or a complex transcription system can push this to 20+ hours per hour.
+
+**Tools:** ELAN (elan.mpi.nl) is the standard tool for time-aligned spoken corpus annotation. Transcriber and Praat are also widely used. For very large corpora, **forced alignment** tools (such as the Montreal Forced Aligner or WebMAUS) can automatically align an existing orthographic transcript to the audio, saving transcription time — but they require reasonably clean audio and work best with standard varieties.
+
+**Metadata for spoken corpora:** Record speaker demographics (age, gender, first language, education, regional background), relationship between interlocutors (strangers, friends, colleagues), setting (formal/informal), and recording quality rating for each recording.
+
+### Web and social media corpora {-}
+
+Web and social media data is abundant and readily available, but several issues require careful attention beyond those already mentioned:
+
+**Ethical considerations:** The Association of Internet Researchers (AoIR) guidelines distinguish between data that is genuinely public (e.g. press releases, public government documents) and data that is technically public but contextually private (e.g. a post in a support group, a tweet by a pseudonymous user). The legal ability to access data does not determine its ethical appropriateness for research. When in doubt, apply the question: *would the author reasonably expect this text to appear in a research publication?* If not, consider whether anonymisation, aggregation (reporting patterns without individual examples), or exclusion is appropriate.
+
+**Quality and representativeness:** Web data is biased towards English, towards younger and more educated users, and towards specific genres and topics. It is not a random sample of language use. Be explicit about what your web corpus does and does not represent.
+
+**Deduplication:** Web text is heavily duplicated — news articles are syndicated, forum posts are quoted in replies, and content aggregators republish material. Always check for and remove duplicate texts before analysis. Near-duplicate detection tools (e.g. the Python library `datasketch`) can identify texts that are very similar but not identical.
+
+**Temporal metadata:** Web text should always be archived with a collection timestamp. A web page may change or disappear after you collect it; without a timestamp, your corpus is not reproducible.
+
+### Learner corpora {-}
+
+A **learner corpus** is a collection of language produced by second language (L2) learners, typically for the purpose of studying interlanguage — the developing linguistic system of learners at different stages of acquisition.
+
+**Elicitation tasks:** The most common data sources are written essays (elicited via standardised prompts), oral production tasks (picture descriptions, narratives, role plays), and spontaneous speech. Standardised tasks enable comparability across learners; naturalistically collected data is less controlled but may be more ecologically valid.
+
+**Key metadata for learner corpora** typically includes:
+
+- L1 (first language) — essential for all learner corpus studies
+- Proficiency level — ideally assessed independently (e.g. CEFR level from an external test), not self-reported
+- Length of residence in an L2-speaking country
+- Age of onset of L2 learning
+- Primary learning context (formal instruction vs. immersion)
+- Task type and prompt (for written production)
+- Time on task (for timed writing)
+
+**Well-known learner corpus resources** [@flowerdew2012corpora]:
+
+- **ICLE** (International Corpus of Learner English) — written essays by university L2 English learners from 16 L1 backgrounds
+- **LINDSEI** (Louvain International Database of Spoken English Interlanguage) — spoken counterpart to ICLE
+- **EFCamDat** — 1.2M scripts from Cambridge English learners, graded by CEFR level
+- **PELIC** (Pittsburgh English Language Institute Corpus) — longitudinal learner writing data
+
+**Error annotation:** Many learner corpora include error annotation — marking and categorising grammatical, lexical, and orthographic errors. Error annotation schemes vary; the most widely used is the **UCLES/UAM** scheme. Error annotation is time-consuming and requires trained annotators and inter-rater reliability checks.
+
+### Historical and diachronic corpora {-}
+
+Historical corpus linguistics studies language change over time using texts from past periods. This presents unique compilation challenges.
+
+**Source materials:** Historical texts exist as manuscripts, early printed books, and digitised archives. Sources include:
+
+- **EEBO** (Early English Books Online) — English texts 1475–1700
+- **ECCO** (Eighteenth Century Collections Online) — texts 1701–1800
+- **Project Gutenberg** — public-domain literary texts
+- **Internet Archive** — digitised books, newspapers, and other materials
+- National archives, manuscript collections, church records
+
+**OCR and its problems:** Most historical corpus data reaches you via OCR (optical character recognition). OCR accuracy for modern printed text is typically 97–99%, but for historical texts with non-standard fonts (e.g. Fraktur, secretary hand, long-s), it can drop to 80–90% — meaning 1 in 10 characters may be wrong. Always inspect OCR output for common errors (long-s confused with f, period-space at line breaks creating artificial sentence boundaries, hyphenated words at line breaks split across lines).
+
+**Spelling normalisation:** Historical English spelling was not standardised until the 18th century. The word *the* appears as *þe*, *the*, *ye*, *ðe* and many other forms in medieval texts. For frequency studies, you must decide whether to normalise spelling to modern equivalents (enabling direct comparison) or to preserve original spelling (enabling phonological and orthographic analysis). Document your decision explicitly.
+
+**Periodisation:** Dividing a diachronic corpus into time periods is a theoretical decision, not merely a practical one. Period labels should be linguistically or historically motivated — not arbitrary. Common approaches include using major historical events as period boundaries, or using statistical change-point detection to identify periods of rapid linguistic change.
+
+**Metadata for historical corpora:** Text date (exact if known, estimated if not, with confidence interval), text type and genre, scribal or printing context, provenance, and digitisation source.
+
+### Specialised corpora: legal, medical, and parliamentary {-}
+
+Specialised corpora focus on language use within a specific institutional or professional domain. They are particularly valuable for terminology research, genre analysis, and training NLP tools for domain-specific applications.
+
+**Legal corpus compilation:** Published court judgements, legislation, and contracts are typically in the public domain or available under open government licences in most common law jurisdictions. However:
+
+- **Court decisions** vary: decisions of superior courts (Supreme Court, Court of Appeal) are usually published; lower court decisions may not be
+- **Legislation** is almost universally public; use official government sources (legislation.gov.au, legislation.gov.uk, law.cornell.edu) rather than third-party republications
+- **Legal contracts** are private documents; corporate legal corpora typically require negotiated data-sharing agreements
+
+**Medical corpus compilation:** Clinical data (patient records, consultation transcripts) is highly sensitive and subject to strict ethics requirements. Even de-identified clinical data typically requires ethics approval from both an institutional review board and a hospital ethics committee. Published medical literature (journal articles, clinical guidelines) is more accessible but subject to publisher copyright. **PubMed Central** provides open-access biomedical literature with permissive licences.
+
+**Parliamentary corpus compilation:** Parliamentary debates are almost universally in the public domain as official government records. Major resources include:
+
+- **Hansard corpora** — British, Australian, Canadian, and New Zealand parliamentary debates
+- **EuroParl** — European Parliament proceedings in 21 languages (parallel corpus)
+- **ParlSpeech** — speeches from 9 European parliaments
+
+Parliamentary corpora are valuable for studying political discourse, stance, and register variation across parties, time periods, and political systems. Metadata (speaker name, party affiliation, date, topic) is typically available in structured form.
+
+### Multilingual and parallel corpora {-}
+
+A **multilingual corpus** contains data from multiple languages compiled for comparable study. A **parallel corpus** contains translations of the same source texts — one source language aligned with one or more target languages.
+
+**Comparable vs. parallel:** In a comparable corpus, texts are matched on genre, time period, and register but are independently produced — not translations. Parallel corpora contain direct translations. For translation studies and computational NLP (training machine translation systems), parallel corpora are preferred. For cross-linguistic typological or sociolinguistic research, comparable corpora are usually more appropriate.
+
+**Alignment:** Parallel corpora require sentence-level or paragraph-level alignment — establishing which sentence in the translation corresponds to which sentence in the original. Alignment can be done automatically using tools like `bleualign` or `hunalign`, but results should always be spot-checked.
+
+**Key resources:**
+
+- **Europarl** — 21 EU languages, parliamentary proceedings, sentence-aligned [@koehn2005europarl]
+- **OpenSubtitles** (opus.nlpl.eu) — 60+ languages, film/TV subtitles, sentence-aligned
+- **WikiMatrix** — 85 languages, mined from Wikipedia, sentence-aligned
+- **CCAligned** — web-crawled parallel data for 100+ languages
+- **Universal Dependencies** — dependency-parsed treebanks for 100+ languages [@nivre2016universal]
+
+**Metadata for multilingual corpora:** Language, variety, country of origin, translation direction (if parallel), translator information (professional, crowdsourced), and date are all important. For spoken multilingual data, speaker language background and code-switching behaviour should be noted.
+
+---
+
+## Converting documents to plain text in R {-}
+
+Corpus texts often arrive as PDFs or Word documents rather than plain text. Converting them programmatically is much faster than manual copy-paste and produces consistent results.
+
+### Converting PDFs to plain text {-}
+
+```{r pdf-convert, eval=FALSE, message=FALSE, warning=FALSE}
+# install.packages("pdftools")
+library(pdftools)
+library(dplyr)
+library(readr)
+library(purrr)
+
+# Get all PDFs in a folder
+pdf_files <- list.files(
+  path       = "data/raw_pdfs",
+  pattern    = "\\.pdf$",
+  full.names = TRUE
+)
+
+# Convert each PDF to plain text
+pdf_to_txt <- function(pdf_path) {
+  # pdf_text() returns one string per page; collapse to single document
+  pages <- pdftools::pdf_text(pdf_path)
+  text  <- paste(pages, collapse = "\n\n")
+
+  # Write to a .txt file in the output folder
+  out_path <- file.path(
+    "data/raw",
+    paste0(tools::file_path_sans_ext(basename(pdf_path)), ".txt")
+  )
+  writeLines(text, out_path, useBytes = FALSE)
+  message("Converted: ", basename(pdf_path))
+  return(out_path)
+}
+
+dir.create("data/raw", recursive = TRUE, showWarnings = FALSE)
+converted <- map_chr(pdf_files, pdf_to_txt)
+message("Converted ", length(converted), " PDFs to plain text.")
+```
+
+::: {.callout-warning}
+## OCR vs. text-layer PDFs
+
+`pdftools::pdf_text()` extracts the text layer from a PDF — this works perfectly for digitally born PDFs (created by Word, LaTeX, or similar). For **scanned PDFs** (images of printed pages), there is no text layer, and `pdf_text()` will return an empty string. Scanned PDFs require OCR. In R, the `tesseract` package provides OCR capability:
+
+```r
+# install.packages("tesseract")
+library(tesseract)
+text <- ocr("scanned_document.pdf")
+```
+
+OCR accuracy depends heavily on scan quality, font, and language. Always inspect OCR output before proceeding.
+:::
+
+### Converting Word documents to plain text {-}
+
+```{r word-convert, eval=FALSE, message=FALSE, warning=FALSE}
+# install.packages("officer")
+library(officer)
+library(dplyr)
+library(purrr)
+
+# Convert a single .docx file to plain text
+docx_to_txt <- function(docx_path) {
+  doc    <- officer::read_docx(docx_path)
+  # Extract text content as a data frame, one paragraph per row
+  content <- officer::docx_summary(doc)
+  # Keep only paragraph text (not table cells, headers, etc. — adjust as needed)
+  text_content <- content |>
+    dplyr::filter(content_type == "paragraph") |>
+    dplyr::pull(text) |>
+    paste(collapse = "\n")
+
+  out_path <- file.path(
+    "data/raw",
+    paste0(tools::file_path_sans_ext(basename(docx_path)), ".txt")
+  )
+  writeLines(text_content, out_path)
+  message("Converted: ", basename(docx_path))
+  return(out_path)
+}
+
+docx_files <- list.files("data/raw_docx", pattern = "\\.docx$",
+                          full.names = TRUE)
+converted  <- map_chr(docx_files, docx_to_txt)
+```
+
+## Detecting and fixing encoding problems in R {-}
+
+Encoding errors — where characters appear as garbled symbols — are among the most common and most frustrating problems in corpus work. The root cause is almost always a mismatch between the encoding used to write the file and the encoding used to read it.
+
+```{r encoding-fix, eval=FALSE, message=FALSE, warning=FALSE}
+library(readr)
+library(stringr)
+
+# Step 1: Detect the encoding of a suspicious file
+suspect_file <- "data/raw/problem_text.txt"
+readr::guess_encoding(suspect_file)
+# Returns a tibble of likely encodings with confidence scores.
+# Common results: UTF-8, ISO-8859-1 (Latin-1), windows-1252
+
+# Step 2: Read with the detected encoding
+text_raw <- readr::read_file(
+  suspect_file,
+  locale = readr::locale(encoding = "windows-1252")
+)
+
+# Step 3: Re-save as UTF-8
+readr::write_file(text_raw, "data/raw/problem_text_utf8.txt")
+
+# Step 4: Batch-fix all files with a known wrong encoding
+fix_encoding <- function(file_path,
+                          from_encoding = "windows-1252",
+                          out_dir       = "data/raw") {
+  text_raw <- readr::read_file(
+    file_path,
+    locale = readr::locale(encoding = from_encoding)
+  )
+  out_path <- file.path(out_dir, basename(file_path))
+  readr::write_file(text_raw, out_path)
+  message("Re-encoded: ", basename(file_path))
+}
+
+# Apply to all files in a folder that you suspect have wrong encoding
+bad_files <- list.files("data/suspect", pattern = "\\.txt$", full.names = TRUE)
+walk(bad_files, fix_encoding, from_encoding = "ISO-8859-1")
+
+# Step 5: Quick visual check for common encoding artefacts
+# If your text contains strings like â€™ or Ã©, it is UTF-8 data
+# that was read as Windows-1252. Check with:
+text_sample <- readr::read_file("data/raw/text_001.txt")
+if (str_detect(text_sample, "â€|Ã")) {
+  warning("Possible encoding error detected in text_001.txt")
+}
+```
+
+## Splitting a large text file into individual documents {-}
+
+Some corpus sources deliver all texts in a single large file with document delimiters. This code splits such a file into individual per-document files:
+
+```{r split-corpus, eval=FALSE, message=FALSE, warning=FALSE}
+library(stringr)
+library(readr)
+library(purrr)
+
+# Example: a single file where each document starts with a marker like
+# <text id="001"> ... </text>
+# Adapt the pattern to match your actual delimiter
+
+combined_file <- "data/raw/all_texts.txt"
+raw_content   <- readr::read_file(combined_file)
+
+# Split on document start marker (adjust regex to match your delimiter)
+# This example assumes XML-style <text id="NNN"> markers
+docs <- str_split(raw_content, "(?=<text id=)")[[1]]
+docs <- docs[str_length(docs) > 10]  # discard empty splits
+
+# For each document, extract the ID and write to a separate file
+dir.create("data/raw/split", recursive = TRUE, showWarnings = FALSE)
+
+walk(docs, function(doc) {
+  # Extract document ID from the opening tag
+  doc_id <- str_extract(doc, '(?<=id=")[^"]+')
+  if (is.na(doc_id)) {
+    doc_id <- paste0("doc_", format(Sys.time(), "%H%M%S%OS3"))
+  }
+
+  # Remove the XML wrapper tags if not needed
+  text_only <- str_remove_all(doc, "</?text[^>]*>") |> str_trim()
+
+  out_path <- file.path("data/raw/split", paste0(doc_id, ".txt"))
+  writeLines(text_only, out_path)
+})
+
+message("Split into ", length(docs), " individual files.")
+```
+
+## Reading text files into R {-}
+
+Once you have collected your text files, the first practical step is reading them into R. The following code reads all `.txt` files from a corpus folder and stores them in a data frame:
+
+```{r read-files, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(purrr)
+library(stringr)
+
+# Path to your corpus folder
+corpus_dir <- "data/corpus_texts"
+
+# Get all .txt file paths
+txt_files <- list.files(
+  path       = corpus_dir,
+  pattern    = "\\.txt$",
+  full.names = TRUE
+)
+
+# Read each file and store as a data frame
+corpus_df <- map_dfr(txt_files, function(f) {
+  tibble(
+    filename = basename(f),
+    text     = read_file(f)   # read_file() reads the whole file as one string
+  )
+})
+
+# Inspect
+glimpse(corpus_df)
+cat("Texts loaded:", nrow(corpus_df), "\n")
+cat("Total characters:", sum(nchar(corpus_df$text)), "\n")
+```
+
+::: {.callout-tip}
+## Using readLines() vs read_file()
+
+`readr::read_file()` reads a whole file as a single character string — useful when you want to treat each file as one document. `readLines()` (base R) reads a file as a vector of lines — useful when you need line-by-line processing. For most corpus work, `read_file()` is more convenient.
+:::
+
+---
+
+# Text Cleaning {#cleaning}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why text cleaning is necessary; what to remove and what to preserve; manual, semi-automated, and automated cleaning approaches; file formatting requirements for corpus tools; and how to implement systematic cleaning in R using `stringr`
+:::
+
+## Why clean? {-}
+
+Corpus tools expect clean, consistent formatting. Extraneous material — page numbers, HTML tags, navigation menus, copyright notices — will appear in your frequency counts and concordance lines, distorting your results. Standardisation enables accurate frequency counts and pattern searches. And cleaning reduces "noise", making patterns clearer and analysis more efficient.
+
+## What to remove and what to preserve {-}
+
+**Remove or clean:**
+
+- Navigation elements from websites (menu text, breadcrumbs, sidebar content)
+- Boilerplate text (disclaimers, copyright notices, standard headers and footers)
+- Duplicate content (the same text appearing more than once)
+- Formatting codes (HTML tags, XML markup, PDF artefacts)
+- Encoding errors (garbled characters from wrong character encoding)
+
+**Preserve:**
+
+- The actual language data you are studying
+- Sentence boundaries (crucial for many types of analysis — do not remove full stops)
+- Paragraph structure (if relevant to your research)
+- Punctuation (unless you have a specific reason to remove it)
+- Discourse markers and hedging devices (if those are what you are studying!)
+
+## Cleaning approaches {-}
+
+**Manual cleaning** uses text editors (Notepad++, Sublime Text, VS Code) with find-and-replace. Suitable for small corpora of fewer than 50 files. Time-intensive but gives you complete control.
+
+**Semi-automated cleaning** uses regular expressions (regex) — powerful pattern-matching tools. For example:
+
+| Pattern | Removes |
+|---|---|
+| `<.*?>` | HTML tags |
+| `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z\|a-z]{2,}\b` | Email addresses |
+| `https?://\S+` | URLs |
+| `\s{2,}` | Multiple consecutive spaces |
+| `^\s*\n` | Blank lines |
+
+**Automated cleaning** uses pre-built libraries: `BeautifulSoup` in Python for HTML, `ftfy` for encoding repair, and in R the `stringr` package and the `tm` package for text mining tasks.
+
+::: {.callout-warning}
+## Always check automated cleaning results
+
+Automated cleaning can sometimes remove too much or miss problems. Always inspect a sample of cleaned texts by comparing them against the original. Look for both over-cleaning (important language data removed) and under-cleaning (problems that remain). Document your cleaning procedures so you can reproduce them and explain them to others.
+:::
+
+## Text cleaning in R {-}
+
+The `stringr` package provides a consistent, readable interface for string manipulation. Here is a systematic cleaning pipeline:
+
+```{r cleaning-pipeline, eval=FALSE, message=FALSE, warning=FALSE}
+library(stringr)
+library(dplyr)
+
+clean_text <- function(text) {
+  text |>
+    # Remove HTML tags
+    str_remove_all("<[^>]+>") |>
+    # Remove URLs
+    str_remove_all("https?://\\S+") |>
+    # Remove email addresses
+    str_remove_all("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b") |>
+    # Standardise line endings (Windows CRLF → Unix LF)
+    str_replace_all("\r\n", "\n") |>
+    # Remove excessive blank lines (3+ consecutive newlines → 2)
+    str_replace_all("\n{3,}", "\n\n") |>
+    # Collapse multiple spaces to one
+    str_replace_all("[ \t]{2,}", " ") |>
+    # Remove leading/trailing whitespace per line
+    str_replace_all("(?m)^[ \t]+|[ \t]+$", "") |>
+    # Final trim
+    str_trim()
+}
+
+# Apply to the corpus data frame
+corpus_df <- corpus_df |>
+  mutate(
+    text_raw     = text,           # keep original
+    text_cleaned = clean_text(text)
+  )
+
+# Sanity check: compare a sample
+cat("=== ORIGINAL (first 300 chars) ===\n")
+cat(substr(corpus_df$text_raw[1], 1, 300), "\n\n")
+cat("=== CLEANED (first 300 chars) ===\n")
+cat(substr(corpus_df$text_cleaned[1], 1, 300), "\n")
+```
+
+## File format requirements {-}
+
+Most corpus tools (AntConc, Sketch Engine, R corpus packages) expect:
+
+- **Plain text files** (`.txt`) — not Word documents or PDFs; convert those first
+- **UTF-8 encoding** — the universal standard, supporting all characters across all languages and scripts
+- **One text per file** (preferred) — or multiple texts with clear delimiters
+- **Consistent line endings** — Unix-style (LF), not Windows-style (CRLF)
+
+You can check and convert encoding in Notepad++ (via the Encoding menu) or with the command-line tool `iconv`.
+
+## File naming conventions {-}
+
+File names are more important than they might seem. A systematic naming convention encodes metadata directly in the filename, enabling sorting and filtering without even opening the files.
+
+A recommended format: `genre_year_speakerID_textID.txt`
+
+For example:
+- `blog_2023_F28_001.txt` — a blog post from 2023, female author aged 28, text number 001
+- `news_2024_NA_047.txt` — a newspaper article from 2024, author age not available, text 047
+- `essay_2022_M22_L2_003.txt` — an essay from 2022, male author aged 22, L2 writer, text 003
+
+::: {.callout-tip}
+## Exercises: Text Cleaning
+:::
+
+**Q4. A researcher is cleaning a corpus of forum posts downloaded as HTML. Her cleaning script removes all HTML tags using the regex pattern `<.*?>`. When she inspects a sample of cleaned texts, she finds that some forum posts now contain garbled runs of text like "amp; nbsp; gt;" scattered through them. What is the problem and how should she fix it?**
+
+```{r}
+#| echo: false
+#| label: "cleaning_q4"
+check_question(
+  "The HTML contains character entities like &amp; (for &), &nbsp; (for non-breaking space), and &gt; (for >) which are not wrapped in tags and are therefore not removed by the tag-stripping regex. The solution is to add a second cleaning step that converts HTML entities to their text equivalents (e.g. using rvest::html_text() before stripping tags, or replacing entities explicitly with str_replace_all()).",
+  options = c(
+    "The regex pattern <.*?> is wrong — she should use <.+?> instead",
+    "HTML files cannot be cleaned with regex; she must use a different tool",
+    "The HTML contains character entities like &amp; (for &), &nbsp; (for non-breaking space), and &gt; (for >) which are not wrapped in tags and are therefore not removed by the tag-stripping regex. The solution is to add a second cleaning step that converts HTML entities to their text equivalents (e.g. using rvest::html_text() before stripping tags, or replacing entities explicitly with str_replace_all()).",
+    "The problem is over-cleaning; her regex is removing content that should be kept"
+  ),
+  type = "radio",
+  q_id = "cleaning_q4",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! HTML uses character entities like &amp;, &nbsp;, &gt;, &lt;, and &#160; to represent special characters. These are not HTML tags, so a tag-stripping regex leaves them in the text. The best approach when working with HTML is to use a proper HTML parser (like rvest::html_text() in R, or BeautifulSoup in Python) rather than a raw regex — these tools handle both tag removal and entity decoding in one step. If you must use regex, add explicit str_replace_all() calls to convert common entities after stripping tags.",
+  wrong = "Not quite. The issue is not with the regex syntax (lazy matching with ? is correct for HTML tags) but with HTML character entities — special codes like &amp; and &nbsp; that represent characters without using angle brackets. Because they don't look like tags, they are not caught by a tag-stripping regex and remain in the cleaned text as literal strings. Always use a proper HTML parsing function rather than raw regex when cleaning HTML-sourced text."
+)
+```
+
+---
+
+# Corpus Folder Structure: The Standard Layout {#folder-structure}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why a consistent, documented folder structure matters for corpus sharing and reproducibility; the standard top-level components of a shareable corpus; and what each component should contain
+:::
+
+A corpus is not just a folder full of text files. When a corpus is made available to other researchers — whether through a repository, a university data archive, or a direct request — it needs to be organised and documented so that anyone receiving it can understand what it contains, how it was compiled, and how to use it without needing to contact the compiler. Even if you never intend to share your corpus publicly, organising it this way protects you: it means that six months from now, when you return to the data, everything you need is in one place and clearly labelled.
+
+## The standard corpus folder layout {-}
+
+A well-organised shareable corpus follows a predictable structure that researchers have converged on across the field. The folder is named after the corpus using a short, recognisable abbreviation (all capitals is conventional):
+
+```
+LADALC/                          ← corpus root folder, named after the corpus
+│
+├── README.md                    ← who compiled it, what it contains, how to use it
+├── LICENSE.txt                  ← usage rights and restrictions
+├── metadata.csv                 ← one row per file; links files to speaker/text information
+│
+└── data/                        ← all corpus text files
+    ├── text_001.txt
+    ├── text_002.txt
+    └── ...
+```
+
+This is the minimal structure. Every shareable corpus should have at least these four components. Here is what each one does:
+
+## The README file {-}
+
+The README is the first thing a new user reads. It should answer every question they might have before they open a single data file. A README written at the time of compilation is infinitely more accurate than one reconstructed from memory later.
+
+Keep it in plain text (`.txt`) or Markdown (`.md`) so it is readable without special software. A minimal README should cover:
+
+```
+# CORPUS NAME (ABBREVIATION)
+
+## Overview
+Brief description of the corpus: what language variety, genre(s), 
+time period, and purpose.
+
+## Compilers
+Name(s), affiliation(s), contact email, year of compilation.
+
+## Contents
+- Total number of files
+- Total word count (approximate)
+- File format (e.g. plain text UTF-8)
+- Languages included
+
+## Corpus Design
+How texts were selected; sampling strategy; inclusion/exclusion criteria.
+
+## Data Collection
+Sources; collection methods; date(s) of collection.
+
+## Annotation
+What annotation (if any) is present; tagset used; annotation software.
+If unannotated, state this explicitly.
+
+## Ethical and Legal Status
+Ethics approval reference (if applicable); consent procedures;
+anonymisation procedures; copyright status of source material.
+
+## How to Cite This Corpus
+Full citation in a standard format (APA, MLA, or a corpus-specific format).
+
+## Version History
+Version number; date; description of changes.
+```
+
+::: {.callout-tip}
+## Write the README as you compile, not after
+
+The README is most accurate — and easiest to write — while you are actively making the decisions it describes. A README written six months after compilation is almost always incomplete. Treat the README as a living document: start it on day one and update it every time you make a significant decision about corpus design or processing.
+:::
+
+## The LICENSE file {-}
+
+The LICENSE tells users what they are and are not allowed to do with the corpus. Without an explicit license, users cannot legally redistribute, modify, or even be certain they can use the corpus for their own research. Common choices for research corpora:
+
+| License | What it allows | Common use case |
+|---|---|---|
+| **CC BY 4.0** | Free use, distribution, and modification with attribution | Open research corpora with no restrictions on content |
+| **CC BY-NC 4.0** | Free use with attribution; no commercial use | Academic corpora you want to keep out of commercial products |
+| **CC BY-NC-ND 4.0** | Attribution required; no commercial use; no derivatives | Corpora where you need to control exactly how the data is used |
+| **Custom/restricted** | Defined by your institution or ethics approval | Corpora with sensitive data or third-party copyright material |
+
+If your corpus contains data from participants who gave consent for specific uses only, your license must be consistent with those consent conditions. If it contains published texts, copyright in those texts may restrict redistribution regardless of what license you apply to your own compilation work.
+
+## The metadata file {-}
+
+The metadata file (typically `metadata.csv`) contains one row per corpus file and one column per metadata variable, with the filename as the linking key. This is covered in detail in the [Organising Metadata](#metadata) section below.
+
+## The data folder {-}
+
+The `data/` folder contains all corpus text files, named according to a consistent convention (see [File naming conventions](#cleaning) above). For a simple, unannotated corpus, this is a flat folder of `.txt` files. For more complex corpora, the data folder may contain subfolders — see the next section.
+
+---
+
+# Corpus Folder Structure: Variations and Advanced Layouts {#folder-variations}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How corpus folder structures scale up as a corpus grows in complexity; layouts for corpora with multiple annotation layers, multiple genres, or multiple time periods; and when to use flat versus nested organisation
+:::
+
+## When you need subfolders in the data folder {-}
+
+A flat `data/` folder is appropriate for simple, single-layer corpora. As soon as a corpus has more than one version of the data — for example, raw text alongside POS-tagged text — or more than one clearly distinct subcorpus, subfolders are needed.
+
+## Layout: raw and annotated data {-}
+
+The most common reason for subfolders is having both unannotated raw text and one or more annotated versions:
+
+```
+LADALC/
+│
+├── README.md
+├── LICENSE.txt
+├── metadata.csv
+│
+└── data/
+    ├── raw/                     ← plain text files, no annotation
+    │   ├── text_001.txt
+    │   └── text_002.txt
+    │
+    └── annotated/               ← POS-tagged or otherwise annotated files
+        ├── text_001_tagged.txt
+        └── text_002_tagged.txt
+```
+
+The raw files are the source of truth; the annotated files are derived from them. This separation makes it easy to re-annotate if a better tagger becomes available, or to provide the corpus to users who only want the plain text.
+
+## Layout: multiple annotation layers {-}
+
+For corpora with multiple annotation types (POS tagging, dependency parsing, named entity recognition, sentiment scores), each annotation layer gets its own subfolder:
+
+```
+LADALC/
+│
+├── README.md
+├── LICENSE.txt
+├── metadata.csv
+│
+└── data/
+    ├── raw/
+    ├── pos_tagged/              ← part-of-speech tagged (e.g. CLAWS, TreeTagger)
+    ├── parsed/                  ← dependency-parsed (e.g. Stanford, spaCy)
+    └── ner/                     ← named-entity recognised
+```
+
+Each subfolder should be documented in the README: which tool was used, what tagset, what version of the software, and when annotation was performed [@garside1997corpus].
+
+## Layout: multiple subcorpora or genres {-}
+
+If a corpus contains clearly distinct sub-collections — different genres, different time periods, different speaker groups — these can be organised as subfolders within `data/`:
+
+```
+LADALC/
+│
+├── README.md
+├── LICENSE.txt
+├── metadata.csv                 ← single metadata file covering all subcorpora
+│
+└── data/
+    ├── blogs/
+    │   ├── blog_2022_F28_001.txt
+    │   └── ...
+    ├── newspapers/
+    │   ├── news_2022_001.txt
+    │   └── ...
+    └── academic/
+        ├── acad_2022_001.txt
+        └── ...
+```
+
+::: {.callout-warning}
+## Keep the metadata file unified
+
+Even when the data folder contains subfolders, the metadata spreadsheet should remain a single file at the corpus root level. A fragmented metadata system — one spreadsheet per subfolder — makes cross-subcorpus analysis much harder and introduces consistency risks. The `genre` column in the metadata identifies which subcorpus a file belongs to; no need to encode it structurally.
+:::
+
+## Layout: diachronic or versioned corpora {-}
+
+For corpora that are extended over time or released in successive versions, a time-period or version-based organisation is appropriate:
+
+```
+LADALC/
+│
+├── README.md
+├── LICENSE.txt
+├── metadata.csv
+│
+└── data/
+    ├── period1_1788-1825/
+    ├── period2_1826-1850/
+    ├── period3_1851-1875/
+    └── period4_1876-1900/
+```
+
+Or for versioned releases:
+
+```
+LADALC/
+├── README.md                    ← always describes the current version
+├── CHANGELOG.md                 ← version history with dates and changes
+├── LICENSE.txt
+├── metadata.csv
+└── data/
+```
+
+## Layout: corpora with accompanying scripts {-}
+
+If you are sharing not just the corpus but also the R or Python scripts used to compile and analyse it — which is excellent practice for reproducibility — add a `scripts/` folder alongside `data/`:
+
+```
+LADALC/
+│
+├── README.md
+├── LICENSE.txt
+├── metadata.csv
+│
+├── data/
+│   └── ...
+│
+└── scripts/
+    ├── 01_collect.R             ← data collection script
+    ├── 02_clean.R               ← text cleaning script
+    ├── 03_annotate.R            ← annotation script
+    └── 04_analyse.R             ← analysis script
+```
+
+Numbering the scripts (`01_`, `02_`, etc.) makes the intended execution order immediately clear. This layout, combined with a good README, gives other researchers everything they need to reproduce your entire workflow from raw data to published findings.
+
+---
+
+# Corpus Folder Structure: Best Practices {#folder-bestpractices}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Practical rules for keeping a corpus folder clean, consistent, and shareable; version control and backup strategies; and the most common organisational mistakes to avoid
+:::
+
+## Naming conventions for folders and files {-}
+
+The same principles that apply to file naming (see the [Text Cleaning](#cleaning) section) apply to folder names:
+
+- **Use lowercase and underscores** — `pos_tagged/` not `POS Tagged/` or `POS-Tagged`. Spaces in folder names cause problems in the command line and in R paths.
+- **Be descriptive but concise** — `raw/` and `annotated/` are better than `v1/` and `v2/` because they tell you what the contents *are*, not just when they were created.
+- **Never use special characters** — no `&`, `(`, `)`, `#`, or `%` in folder or file names. These cause problems in URLs, command-line tools, and many corpus software packages.
+- **Date-stamp output folders if you generate multiple versions** — `output_2026-03-15/` is much more informative than `output_new/` or `output_final/`.
+
+## Separate raw data from derived data {-}
+
+The most important structural principle is: **never overwrite or modify your raw data files**. Once a text has been collected and placed in `data/raw/`, it should never change. All cleaning, annotation, and processing creates new files in new folders. This means you can always return to the original source if you need to re-process with different settings.
+
+::: {.callout-warning}
+## Raw data is sacred
+
+If you overwrite your raw files during cleaning, you can never recover what the original data looked like. Always keep raw and processed data in separate folders. If storage space is a concern, compress the raw folder as a `.zip` archive, but never delete it.
+:::
+
+## Version control and backup {-}
+
+**Local backups:** Keep at least two copies of your corpus on separate physical devices. A backup on the same laptop as the original is not a backup — it disappears if the laptop is lost or stolen.
+
+**Cloud backup:** Use university-provided cloud storage (OneDrive, SharePoint, Google Drive via your institution) for automatic synchronisation. Be aware of data governance requirements: sensitive or ethics-approved data may not be permitted on commercial cloud services.
+
+**Version control with Git:** For corpora that change over time, Git (via GitHub or your institution's GitLab) provides a complete history of every change. This is particularly valuable for corpora compiled by a team. The `CHANGELOG.md` file in the corpus root should record major version changes even if you do not use Git.
+
+**Archive for long-term preservation:** For corpora you intend to publish, deposit them in a persistent repository such as CLARIN, Zenodo, PARADISEC (for Australian language data), or your institutional repository. These services provide a stable URL (DOI) you can cite in publications and guarantee long-term access.
+
+## Keep a research log {-}
+
+Alongside the corpus folder, maintain a **research log** — a dated plain-text or Markdown file recording every significant decision you make during compilation:
+
+```
+RESEARCH_LOG.md
+
+2026-03-01  Started collecting blog posts from [source].
+            Decided to include posts > 200 words only.
+            Reason: shorter posts insufficient context for collocation analysis.
+
+2026-03-08  Discovered encoding problem in 12 files from [source].
+            Fixed with iconv -f windows-1252 -t utf-8.
+            Affected files documented in metadata.csv, column 'encoding_notes'.
+
+2026-03-15  Removed 8 files: duplicates of texts already in corpus.
+            File IDs logged below.
+```
+
+This log is not the README (which describes the finished corpus) but a working document recording the messy reality of compilation. It is invaluable when you need to justify methodological decisions in a paper, respond to reviewer queries, or hand the project to a collaborator.
+
+## What to check before sharing a corpus {-}
+
+Before making a corpus available to others — whether by deposit in a repository, upload to a website, or transfer to a collaborator — work through this checklist:
+
+::: {.callout-tip}
+## Pre-sharing checklist
+
+- [ ] **README is complete and up to date** — describes the current version of the corpus accurately
+- [ ] **LICENSE is present** — users know what they can and cannot do with the data
+- [ ] **Metadata file is consistent** — no mixed codes, no missing required fields, column names match the README's codebook
+- [ ] **All filenames match metadata** — every filename in `metadata.csv` corresponds to an actual file; no orphan entries
+- [ ] **Anonymisation is complete** — if participants' data was collected under consent for anonymised use, verify that names and identifiers have been removed or pseudonymised throughout all data files
+- [ ] **Ethics approval documented** — reference number or documentation present in README
+- [ ] **Copyright status confirmed** — source material is either in the public domain, licensed for redistribution, or covered by your ethics approval
+- [ ] **Encoding is UTF-8** — verify with a hex editor or `file -i` (Unix) that all text files are UTF-8
+- [ ] **No hidden files or system artefacts** — remove `.DS_Store` (Mac), `Thumbs.db` (Windows), and `__MACOSX/` folders before zipping for distribution
+- [ ] **Folder structure matches README description** — what the README says is in the corpus is actually in the corpus
+:::
+
+::: {.callout-tip}
+## Exercises: Corpus Folder Structure
+:::
+
+**Q11. A researcher deposits her corpus in a university repository. Six months later, a colleague downloads it and finds three folders: `data_final/`, `data_final_v2/`, and `data_FINAL_USE_THIS/`. There is no README. What two fundamental best practices does this violate, and what should the corpus look like instead?**
+
+```{r}
+#| echo: false
+#| label: "structure_q11"
+check_question(
+  "This violates (1) the requirement for a README file that documents what the corpus contains and which data version is current, and (2) the naming convention principle that folder names should be descriptive and stable rather than ad-hoc versioning labels like 'final', 'v2', and 'FINAL_USE_THIS'. A well-organised corpus should have a single data/ folder (or clearly labelled subfolders like raw/ and annotated/), a README.md that specifies which version of the data is current and what each folder contains, and a CHANGELOG.md if multiple versions exist. The three confusingly named folders should be replaced with a single current data/ folder, with version history documented in the README or CHANGELOG.",
+  options = c(
+    "The corpus violates the rule that all files must be in UTF-8 encoding",
+    "This violates (1) the requirement for a README file that documents what the corpus contains and which data version is current, and (2) the naming convention principle that folder names should be descriptive and stable rather than ad-hoc versioning labels like 'final', 'v2', and 'FINAL_USE_THIS'. A well-organised corpus should have a single data/ folder (or clearly labelled subfolders like raw/ and annotated/), a README.md that specifies which version of the data is current and what each folder contains, and a CHANGELOG.md if multiple versions exist. The three confusingly named folders should be replaced with a single current data/ folder, with version history documented in the README or CHANGELOG.",
+    "The corpus violates the requirement to include a metadata CSV file",
+    "The problem is that the corpus was deposited in a repository instead of kept locally"
+  ),
+  type = "radio",
+  q_id = "structure_q11",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The two violations are (1) no README — the single most important documentation file, which should always be the first thing a new user sees — and (2) chaotic folder naming that makes it impossible to know which version of the data to use. Both violations are symptoms of the same underlying problem: the corpus was never designed for sharing, only for the original compiler's personal use. A corpus intended to be deposited or shared should be organised as if a stranger will need to use it without any help from the compiler. The standard structure (named root folder, README.md, LICENSE.txt, metadata.csv, data/) solves both problems.",
+  wrong = "Not quite. The core problems here are the missing README and the confusing folder naming. Without a README, a new user has no way to know what the corpus contains, what the three folders represent, or which one to use. The ad-hoc naming ('final', 'v2', 'FINAL_USE_THIS') is a classic sign of version management by folder renaming — an extremely fragile approach that quickly becomes confusing. The solution is a single, clearly named data/ folder containing the current version, with version history documented in the README or CHANGELOG."
+)
+```
+
+---
+
+# Organising Metadata {#metadata}
+
+::: {.callout-note}
+## Section Overview
+:::
+
+## What is metadata and why does it matter? {-}
+
+Metadata is information *about* each text in your corpus — not the language data itself, but contextual information that describes it. Metadata is essential for:
+
+- **Filtering** — creating subcorpora for specific analysis (e.g. "only blog posts from 2022")
+- **Comparing** — testing whether linguistic patterns differ across groups (e.g. by genre, author gender, or time period)
+- **Contextualising** — understanding what factors might be driving the patterns you observe
+- **Replicating** — enabling other researchers to understand exactly what your corpus contains
+
+Metadata is often treated as an afterthought, but this is a critical mistake. If you do not record metadata at the time of collection, much of it cannot be recovered later.
+
+## Types of metadata {-}
+
+**Bibliographic metadata** provides information about authorship and publication:
+
+- Author or speaker information: demographics (age, gender, first language, education level)
+- Title, publication date, source
+- Genre or text type classification
+- Geographic origin of the text or speaker
+
+**Technical metadata** documents the digital characteristics and processing history:
+
+- Filename and file size
+- Collection date and method
+- Word count and character count (essential for normalising frequency data)
+- Processing notes: has this text been cleaned? anonymised? converted from PDF?
+
+**Contextual metadata** (especially important for spoken or interactive data):
+
+- Setting: location, formality level
+- Participants: their relationships and roles in the interaction
+- Purpose or topic of the interaction
+- Recording quality (affects what phenomena can be reliably transcribed and analysed)
+
+## Structuring a metadata spreadsheet {-}
+
+The most practical format is a spreadsheet — Excel, Google Sheets, or CSV. The key structural rules are:
+
+- **One row per text**
+- **One column per metadata variable**
+- **First row contains column headers** with clear, consistent variable names
+- **One column must be a unique text ID** that links to the filenames
+
+Here is what a well-structured metadata spreadsheet looks like:
+
+| id | text_id | filename | genre | year | author_gender | author_age | word_count |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | blog_2023_F28_001.txt | blog | 2023 | F | 28 | 1250 |
+| 2 | 2 | blog_2023_M35_002.txt | blog | 2023 | M | 35 | 980 |
+| 3 | 3 | news_2023_001.txt | newspaper | 2023 | NA | NA | 2100 |
+
+## Metadata best practices {-}
+
+- **Use consistent codes throughout** — choose either `F`/`M` or `Female`/`Male` for gender, but do not mix the two in the same spreadsheet
+- **Avoid special characters in codes** — they can cause problems in statistical software
+- **Handle missing data consistently** — use `NA` or leave blank, but choose one convention and stick to it
+- **Create a codebook** — a separate document that explains every variable, its description, and its possible values
+- **Include version control information** — when was this spreadsheet created? what version is it?
+
+Example codebook entry:
+
+```
+Variable: author_gender
+Description: Self-reported gender of the text's author
+Values:
+  F  = female
+  M  = male
+  O  = other/non-binary
+  NA = not available or not applicable
+```
+
+## Building a metadata spreadsheet in R {-}
+
+```{r build-metadata, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(stringr)
+library(readr)
+
+# Assume corpus_df already contains filename and text_cleaned columns
+# Parse metadata from filenames (format: genre_year_authorID_textID.txt)
+
+metadata_df <- corpus_df |>
+  mutate(
+    # Remove file extension
+    name_noext = str_remove(filename, "\\.txt$"),
+    # Split filename into components
+    genre         = str_extract(name_noext, "^[^_]+"),
+    year          = as.integer(str_extract(name_noext, "(?<=_)\\d{4}(?=_)")),
+    author_id     = str_extract(name_noext, "(?<=\\d{4}_)[^_]+"),
+    text_id       = str_extract(name_noext, "[^_]+$"),
+    # Derive author gender and age from author_id (format: F28 or M35 or NA)
+    author_gender = str_extract(author_id, "^[FMO]"),
+    author_age    = as.integer(str_extract(author_id, "\\d+")),
+    # Compute word count from cleaned text
+    word_count    = str_count(text_cleaned, "\\S+")
+  ) |>
+  select(filename, genre, year, author_gender, author_age,
+         text_id, word_count)
+
+# Inspect
+glimpse(metadata_df)
+
+# Save metadata spreadsheet
+write_csv(metadata_df, "data/corpus_metadata.csv")
+message("Metadata saved to data/corpus_metadata.csv")
+```
+
+## Linking metadata to analysis results in R {-}
+
+The power of a well-structured metadata spreadsheet becomes clear when you combine it with analysis results. For example, after computing word frequencies in your corpus, you can merge those results with metadata to compare frequency patterns across groups:
+
+```{r merge-metadata, eval=FALSE, message=FALSE, warning=FALSE}
+# Example: load analysis results and merge with metadata
+analysis_results <- read_csv("data/frequency_results.csv")
+
+# Join by filename (the linking variable)
+results_with_metadata <- analysis_results |>
+  left_join(metadata_df, by = "filename")
+
+# Now you can filter by any metadata variable
+blog_results <- results_with_metadata |>
+  filter(genre == "blog")
+
+female_results <- results_with_metadata |>
+  filter(author_gender == "F")
+```
+
+## Validating metadata against corpus files {-}
+
+One of the most common and consequential errors in corpus work is a mismatch between the filenames listed in the metadata spreadsheet and the actual files in the corpus folder. This code performs the validation:
+
+```{r validate-metadata, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+
+# Load metadata
+metadata_df <- read_csv("data/corpus_metadata.csv", show_col_types = FALSE)
+
+# Get actual files in the corpus folder
+actual_files <- tibble(
+  filename = basename(list.files("data/raw", pattern = "\\.txt$",
+                                  full.names = TRUE))
+)
+
+# Files in metadata but NOT on disk (orphan metadata entries)
+orphan_metadata <- anti_join(metadata_df, actual_files, by = "filename")
+if (nrow(orphan_metadata) > 0) {
+  warning(nrow(orphan_metadata),
+          " files listed in metadata have no corresponding file on disk:")
+  print(orphan_metadata$filename)
+}
+
+# Files on disk but NOT in metadata (undocumented files)
+undocumented <- anti_join(actual_files, metadata_df, by = "filename")
+if (nrow(undocumented) > 0) {
+  warning(nrow(undocumented),
+          " files on disk have no metadata entry:")
+  print(undocumented$filename)
+}
+
+if (nrow(orphan_metadata) == 0 && nrow(undocumented) == 0) {
+  message("Validation passed: all files have metadata and all metadata has files.")
+}
+```
+
+Run this check every time you add files to the corpus or update the metadata spreadsheet. The `anti_join()` pattern — files in A but not B, then files in B but not A — catches both types of mismatch.
+
+::: {.callout-tip}
+## Exercises: Metadata
+:::
+
+**Q5. A researcher builds a corpus of 200 student essays and records metadata in a spreadsheet. Three months later, when she comes to analyse the data, she finds that the 'proficiency_level' column contains a mixture of codes: some cells say 'beginner', some say 'Beginner', some say 'beg', and some say '1'. What problem does this create, and what should she have done to prevent it?**
+
+```{r}
+#| echo: false
+#| label: "metadata_q5"
+check_question(
+  "The inconsistent coding means that the software will treat 'beginner', 'Beginner', 'beg', and '1' as four different categories rather than one. Filtering, grouping, and comparing by proficiency level will fail or produce incorrect results. The solution is to create a codebook at the start of data collection that defines all permitted values, and to enter metadata consistently (or validate entries automatically) as data is collected — not to leave standardisation as a post-collection task.",
+  options = c(
+    "This is not a problem — most statistical software can handle mixed coding automatically",
+    "The inconsistent coding means that the software will treat 'beginner', 'Beginner', 'beg', and '1' as four different categories rather than one. Filtering, grouping, and comparing by proficiency level will fail or produce incorrect results. The solution is to create a codebook at the start of data collection that defines all permitted values, and to enter metadata consistently (or validate entries automatically) as data is collected — not to leave standardisation as a post-collection task.",
+    "She should simply delete the proficiency_level column and re-enter it",
+    "The problem is too many proficiency levels — she should have used only two (beginner and advanced)"
+  ),
+  type = "radio",
+  q_id = "metadata_q5",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Inconsistent metadata coding is one of the most common and frustrating problems in corpus research. R and other statistical software treat 'beginner', 'Beginner', 'beg', and '1' as four distinct values, meaning that any analysis grouping by proficiency level will be wrong. The fix at the data entry stage is simple: create a codebook before you start collecting that specifies exactly which values are permitted for each variable, and enter data consistently. If multiple people are entering metadata, a shared codebook and validation rules are essential. After the fact, the values can be standardised with str_replace_all() or case_when() in R, but this should be documented as a data correction step.",
+  wrong = "Not quite. Software like R is case-sensitive and treats different spellings as different categories — so 'beginner', 'Beginner', 'beg', and '1' will be treated as four separate groups, not one. This means any analysis comparing proficiency levels will produce incorrect group assignments. The best prevention is to define permitted values in a codebook before data entry begins, so all entries use the same code from the start. This is much easier than cleaning up inconsistent metadata after the fact."
+)
+```
+
+---
+
+# Ethics and Legal Frameworks {#ethics}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The key ethical frameworks relevant to corpus linguistics — GDPR, the Australian Privacy Act, and institutional ethics requirements; what informed consent must cover for language research; anonymisation strategies; copyright and fair dealing; and practical steps for different types of corpus data
+:::
+
+Ethical and legal compliance is not a bureaucratic hurdle to clear before getting to the "real" research — it is a fundamental obligation to research participants, to the public, and to the integrity of the discipline. This section covers the main frameworks you are likely to encounter in Australia, the UK, and the EU, followed by practical guidance for common corpus scenarios.
+
+## Informed consent {-}
+
+When collecting data from human participants, informed consent is required. Consent must be:
+
+- **Informed** — participants understand what data is being collected, how it will be used, who will have access, and how long it will be retained
+- **Voluntary** — no coercion or undue pressure; participants can withdraw without penalty
+- **Specific** — consent for one purpose does not automatically cover other purposes
+- **Documented** — written consent forms should be stored securely
+
+For corpus linguistics specifically, consent forms should specify:
+
+- What language data will be collected (speech recordings? written texts? online posts?)
+- Whether it will be transcribed, and if so, by whom
+- Whether direct quotations from the data may appear in publications
+- Whether the data or corpus will be shared with other researchers
+- Anonymisation procedures: what will be removed or changed?
+- Data retention period: how long will recordings and transcripts be kept?
+
+::: {.callout-tip}
+## Consent for naturalistic data
+
+For naturalistic spoken data (e.g. workplace conversations), the standard approach is to brief all parties about the research before recording begins, allow a familiarisation period, and give participants the right to request deletion of specific recordings or segments after they have heard them back. This "post-hoc consent" model is ethically well-established for conversational data but must be approved by your ethics committee in advance.
+:::
+
+## Key regulatory frameworks {-}
+
+**In Australia**, research involving human participants is governed by the *National Statement on Ethical Conduct in Human Research* (NHMRC, 2007/2018). Institutional ethics approval is required for research involving human participants, with expedited or low-risk pathways available for research that poses minimal risk (e.g. analysis of publicly available texts). The *Privacy Act 1988* and the *Australian Privacy Principles* govern the collection, use, and storage of personal information. Research corpora containing identified or identifiable participant data must comply with these principles.
+
+**In the EU and UK**, the **General Data Protection Regulation (GDPR)** (or UK GDPR post-Brexit) governs any processing of personal data of EU/UK residents, regardless of where the researcher is located. Key points for corpus researchers:
+
+- Personal data includes anything that could identify a person — names, voices, writing styles, combinations of demographic characteristics
+- Language data from identified individuals is personal data
+- Processing personal data for research requires a legal basis — typically *scientific research* under Article 89, which allows broader use than commercial processing but still requires appropriate safeguards
+- You must conduct a Data Protection Impact Assessment (DPIA) for high-risk processing
+- Data minimisation: collect only what you need; anonymise as soon as possible
+- Data subjects have rights including access and erasure — think about how you will handle these requests
+
+**Anonymisation strategies** for corpus linguistics:
+
+| Strategy | What it involves | When to use |
+|---|---|---|
+| **Pseudonymisation** | Replace real names with codes (e.g. Speaker A, P1) | Most spoken and interview corpora |
+| **Removal** | Delete identifying information entirely | When even pseudonyms could reveal identity |
+| **Generalisation** | Replace specific details with ranges (e.g. "in her 30s" instead of "34") | Demographic details in metadata |
+| **Paraphrase** | Rewrite identifying content in indirect speech | When a direct quote would identify a participant |
+| **Aggregation** | Report patterns without individual examples | When any example could identify the source |
+
+::: {.callout-warning}
+## Voice recordings require extra care
+
+Even after pseudonymisation of names in a transcript, an audio recording can still identify a speaker. For corpora where the audio is distributed alongside transcripts, consider whether voice disguise (pitch shifting) is needed, or whether audio distribution is appropriate at all. Some sensitive corpora distribute only the transcript, not the audio.
+:::
+
+## Copyright and fair dealing {-}
+
+For **published texts**, copyright belongs to the author and/or publisher. Using published texts in a research corpus raises copyright issues that vary by jurisdiction:
+
+- **Australia**: The *Copyright Act 1968* includes research exceptions that permit reproduction of a "reasonable portion" for research or study. For corpus research, this typically covers building a corpus for your own analysis but not distributing the corpus to others.
+- **UK**: Fair dealing for research and private study permits use of a reasonable proportion. There is also a specific exception for text and data mining for non-commercial research.
+- **USA**: The fair use doctrine (17 U.S.C. § 107) has been interpreted by courts to permit corpus compilation for non-commercial research, including in the landmark Authors Guild v. Google HathiTrust cases — but legal advice is recommended for large-scale use.
+
+**For distribution**: If you want to distribute a corpus containing copyrighted texts, you generally need explicit permission from rights holders. This is why most large web corpora are distributed as frequency lists or concordances rather than raw texts.
+
+**For born-digital online text**: Creative Commons licences, open government licences, and explicit permissions in terms of service may allow broader use. Always check the specific licence of each source.
+
+::: {.callout-tip}
+## Exercises: Ethics
+:::
+
+**Q8. A researcher in Australia wants to compile a corpus of mental health support forum posts for a study on how people discuss depression online. The forum is publicly accessible without login. She plans to collect posts directly without notifying users. Is this approach ethically appropriate? What should she do instead?**
+
+```{r}
+#| echo: false
+#| label: "ethics_q8"
+check_question(
+  "This approach is ethically problematic even though the forum is publicly accessible. People posting in mental health support communities have a reasonable expectation of privacy — they share in a community context, not a research context. The researcher should: (1) obtain institutional ethics approval before collecting any data, (2) contact forum administrators for permission, (3) develop a data management plan covering anonymisation and secure storage, and (4) consider whether direct quotation in publications is appropriate, or whether paraphrase should be used to protect individual users' privacy.",
+  options = c(
+    "Yes, publicly accessible data is always ethical to use for research without notification",
+    "This approach is ethically problematic even though the forum is publicly accessible. People posting in mental health support communities have a reasonable expectation of privacy — they share in a community context, not a research context. The researcher should: (1) obtain institutional ethics approval before collecting any data, (2) contact forum administrators for permission, (3) develop a data management plan covering anonymisation and secure storage, and (4) consider whether direct quotation in publications is appropriate, or whether paraphrase should be used to protect individual users' privacy.",
+    "The approach is fine as long as all usernames are removed before analysis",
+    "The approach would be acceptable if she notifies users by posting in the forum after data collection is complete"
+  ),
+  type = "radio",
+  q_id = "ethics_q8",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The Association of Internet Researchers (AoIR) ethics guidelines distinguish between data that is genuinely public and data that is technically public but contextually private. A mental health support forum sits firmly in the latter category: users share there because they feel it is a safe community, not because they consent to research use. The standard ethical approach is to obtain institutional ethics approval, seek forum administrator permission, anonymise thoroughly, avoid quoting individuals directly in ways that could identify them, and consider the specific vulnerabilities of the participant population when making data handling decisions.",
+  wrong = "Not quite. Legal access does not equal ethical permission. The key ethical concept here is contextual integrity — data should only flow in ways that match the norms of the context in which it was shared. A mental health forum is shared in a community-support context, not a research context. Most institutional ethics committees would classify this as requiring full ethics review, not an expedited or exempt pathway, because the participant population (people experiencing mental health difficulties) is considered potentially vulnerable. The researcher should seek ethics approval and administrator permission before collecting any data."
+)
+```
+
+---
+
+# Corpus Annotation {#annotation}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What corpus annotation is and why it matters; the main types of annotation — POS tagging, lemmatisation, dependency parsing, named entity recognition, and semantic annotation; when to annotate and when plain text is sufficient; annotation formats; inter-rater reliability; and how to apply basic annotation in R
+:::
+
+## What is annotation and why does it matter? {-}
+
+**Corpus annotation** is the process of adding linguistic information to corpus texts — labelling words, phrases, or larger units with information that is not present in the raw text itself [@garside1997corpus; @mcenery2012corpus]. Annotation transforms a corpus from a collection of raw strings into a structured linguistic resource that enables more powerful and precise analysis.
+
+The key trade-off: annotation takes time and introduces potential errors (every automated tagger makes mistakes; every human annotator is inconsistent), but it unlocks analyses that are impossible or unreliable on raw text — for example, finding all instances of a word used as a *noun* (excluding its uses as a *verb*), or searching for all syntactic subjects of a particular verb.
+
+## Main annotation types {-}
+
+### Part-of-speech (POS) tagging {-}
+
+POS tagging assigns a grammatical category label to each token — noun, verb, adjective, adverb, preposition, and so on. It is the most widely used form of corpus annotation [@mcenery1996corpus; @hunston2002corpora].
+
+Most tagsets are based on either the **Penn Treebank tagset** (45 tags, widely used in English NLP) or the **Universal Dependencies (UD) tagset** (17 universal tags, designed for cross-linguistic use). CLAWS (used in the BNC) is a 61-tag set designed specifically for large corpora.
+
+Common POS taggers for English:
+- `udpipe` (R package, covered in the LADAL [Tagging and Parsing tutorial](/tutorials/postag/postag.html))
+- `spacyr` (R interface to spaCy — requires Python)
+- TreeTagger (command-line, widely used in European corpus linguistics)
+- Stanford POS Tagger (Java)
+
+Accuracy for English on standard newswire text is typically 97–98% for the best taggers. Accuracy drops on informal text (social media, speech transcripts), historical text, and non-standard varieties.
+
+### Lemmatisation {-}
+
+Lemmatisation maps each token to its dictionary headword (lemma): *running*, *ran*, *runs* all map to the lemma **run**. Lemmatisation is essential for frequency studies — without it, different forms of the same word are counted separately. Most POS taggers include lemmatisation as part of their output.
+
+### Dependency parsing {-}
+
+Dependency parsing identifies the syntactic structure of each sentence — specifically, the grammatical relationships between words (subject, object, modifier, etc.). A dependency parse represents the sentence as a directed graph where each word is connected to its syntactic head by a labelled arc.
+
+Dependency parsing enables searches like *"find all direct objects of the verb 'say'"* or *"find all nouns modified by 'important'"*. It is the basis of most modern syntactic corpus analysis. The Universal Dependencies project [@nivre2016universal] provides a cross-linguistically consistent annotation scheme.
+
+### Named entity recognition (NER) {-}
+
+NER identifies and classifies proper names in text — people, organisations, locations, dates, monetary values. It is particularly important for corpus compilation: if you want to remove identifying information from participant data, NER can flag proper names for review. NER is also central to many applications in computational social science, where tracking mentions of specific entities across a corpus is the research goal.
+
+### Semantic annotation {-}
+
+Beyond lexical categories, semantic annotation labels words or phrases with information about their meaning:
+
+- **Word sense disambiguation** — which sense of a polysemous word is intended? (e.g. *bank* as financial institution vs. riverbank)
+- **Semantic role labelling** — what role does each phrase play in the event described by the verb? (agent, patient, instrument, location, etc.)
+- **Sentiment annotation** — positive, negative, or neutral stance?
+- **Coreference** — which noun phrases refer to the same entity?
+
+Semantic annotation is labour-intensive when done manually and requires substantial expertise. It is typically applied to smaller, highly specialised corpora.
+
+## When to annotate {-}
+
+Not all corpora need annotation. Consider annotating when:
+
+- Your research question requires distinguishing different grammatical uses of the same form (e.g. noun vs. verb uses of *round*)
+- You want to search for abstract grammatical patterns (e.g. all passive constructions)
+- You need normalised frequency counts (per lemma rather than per wordform)
+- You are studying syntactic phenomena (clause structure, argument realisation)
+- You need to identify and remove proper names for anonymisation
+
+Consider staying with plain text when:
+
+- Your research question is about surface-level patterns (specific word sequences, character n-grams)
+- The annotation error rate is likely to be high for your text type (e.g. informal social media)
+- You are using the corpus as training data for machine learning (where annotation errors can be harmful)
+- Time and resources are limited and annotation is not essential
+
+## Annotation formats {-}
+
+**Vertical format** (one token per line with annotation columns) is the standard for most corpus tools [@mcenery1996corpus]:
+
+```
+Token     POS   Lemma
+The       DT    the
+students  NNS   student
+wrote     VBD   write
+essays    NNS   essay
+```
+
+**CoNLL-U format** (used by Universal Dependencies) extends vertical format with fields for ID, form, lemma, UPOS, XPOS, features, head, dependency relation, and miscellaneous information.
+
+**Inline XML/TEI format** embeds annotation in the text itself: `<w pos="NN" lemma="student">students</w>`.
+
+Most corpus tools (AntConc, Sketch Engine, CQPweb) expect vertical or inline annotation formats. The LADAL [Tagging and Parsing tutorial](/tutorials/postag/postag.html) shows how to produce POS-tagged output with `udpipe` in R.
+
+## Inter-rater reliability {-}
+
+Whenever annotation is performed by human annotators — or when you want to evaluate how well an automated tagger performs on your specific text type — you need to assess **inter-rater reliability (IRR)**: the degree of agreement between two or more annotators applying the same scheme to the same data.
+
+The most widely used measure for categorical annotation is **Cohen's kappa (κ)** [@cohen1960coefficient]:
+
+- κ = 1.0: perfect agreement
+- κ > 0.80: strong agreement (generally considered acceptable for publication)
+- 0.60 < κ ≤ 0.80: moderate agreement (may be acceptable depending on task complexity)
+- κ < 0.60: poor agreement (annotation scheme needs revision or annotators need more training)
+
+For sequence labelling tasks (like NER), the **F1 score** comparing annotator outputs is more commonly used.
+
+```{r iaa, eval=FALSE, message=FALSE, warning=FALSE}
+# install.packages("irr")
+library(irr)
+
+# Example: two annotators labelling 20 tokens as noun/verb/adj/other
+annotator_1 <- c("N","N","V","N","Adj","V","N","Other","N","V",
+                  "N","Adj","V","N","V","N","N","Other","V","N")
+annotator_2 <- c("N","N","V","N","Adj","V","N","N","N","V",
+                  "N","Adj","V","Adj","V","N","N","Other","V","N")
+
+# Cohen's kappa
+kappa_result <- irr::kappa2(cbind(annotator_1, annotator_2))
+print(kappa_result)
+
+# Percentage agreement (simpler but doesn't account for chance)
+pct_agree <- mean(annotator_1 == annotator_2)
+cat("Percentage agreement:", round(pct_agree * 100, 1), "%\n")
+```
+
+::: {.callout-tip}
+## Exercises: Annotation
+:::
+
+**Q9. A researcher wants to study passive constructions in a corpus of news articles. She finds 342 instances of "was/were + past participle" using a simple regex search. Her supervisor points out that this pattern also matches predicative adjectives (e.g. "The report was detailed") which are not passive constructions. What is the best solution to this problem?**
+
+```{r}
+#| echo: false
+#| label: "annotation_q9"
+check_question(
+  "POS tag and lemmatise the corpus with a dependency parser that distinguishes passive auxiliaries from copular uses. Dependency parsers assign different dependency labels to passives ('nsubjpass' or 'nsubj:pass' in UD notation) and predicative adjectives ('nsubj' with an adjectival predicate). This allows the researcher to search for the passive construction directly rather than relying on a surface form that conflates two different constructions.",
+  options = c(
+    "The regex pattern should be made more specific by requiring the past participle to end in '-ed'",
+    "POS tag and lemmatise the corpus with a dependency parser that distinguishes passive auxiliaries from copular uses. Dependency parsers assign different dependency labels to passives ('nsubjpass' or 'nsubj:pass' in UD notation) and predicative adjectives ('nsubj' with an adjectival predicate). This allows the researcher to search for the passive construction directly rather than relying on a surface form that conflates two different constructions.",
+    "The researcher should manually check all 342 instances and discard the false positives",
+    "There is no reliable way to distinguish passives from predicative adjectives automatically"
+  ),
+  type = "radio",
+  q_id = "annotation_q9",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! This is a classic example of why annotation matters. A surface-form search conflates structurally different constructions that happen to share the same form. Dependency parsing provides the structural information needed to distinguish them reliably. In Universal Dependencies notation, a true passive has a 'nsubj:pass' relation (the surface subject is the semantic patient), while a predicative adjective construction has 'nsubj' with an adjective as the predicate. POS tagging alone is insufficient — you need the syntactic structure. The udpipe and spacyr packages in R can provide dependency parses; see the LADAL Tagging and Parsing tutorial for details.",
+  wrong = "Not quite. Restricting to '-ed' endings would miss irregular past participles (written, taken, begun) that appear in passive constructions, while still including predicative adjectives that end in '-ed' (excited, bored, tired). Manual checking of 342 instances is possible but not scalable, and introduces its own reliability questions. The principled solution is dependency parsing, which provides the syntactic structural information needed to distinguish true passives from predicative adjective constructions based on the grammatical relations involved, not just the surface form."
+)
+```
+
+---
+
+# Quality Control {#quality}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why quality control is a necessary stage of corpus compilation, not an optional extra; spot-sampling procedures for checking cleaned texts; consistency checking for metadata; basic corpus statistics as quality indicators; and how to document quality control procedures
+:::
+
+## Why quality control matters {-}
+
+Even with systematic procedures, errors accumulate during corpus compilation. OCR produces incorrect characters. Cleaning scripts remove too much or too little. Metadata is entered inconsistently. Encoding conversions introduce garbled text. Files are duplicated. Without a dedicated quality control stage, these errors propagate into the analysis and may not be discovered until a reviewer or reader notices something odd — at which point, correcting them requires re-running the entire analysis.
+
+Quality control is not a single step but a mindset: every stage of corpus compilation should include a check of its outputs before proceeding to the next stage.
+
+## Spot-sampling {-}
+
+The most practical quality control method for large corpora is systematic spot-sampling: randomly selecting a sample of files and inspecting them manually against the expected output.
+
+A good spot-sampling procedure:
+
+1. After each major processing step (cleaning, encoding conversion, tokenisation), select a random sample of 5–10% of files
+2. For each sampled file, compare the processed version against the original
+3. Look for: missing content, garbled characters, over-cleaned text, under-cleaned text, incorrect file names
+4. Document any problems found, estimate their prevalence, and decide whether to fix them before proceeding
+
+```{r spot-sample, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+
+# Random spot-sample of 10 files for manual inspection
+set.seed(42)
+files_to_check <- corpus_df |>
+  slice_sample(n = 10) |>
+  pull(filename)
+
+cat("Files selected for spot-check:\n")
+cat(paste(files_to_check, collapse = "\n"), "\n\n")
+
+# Print first 200 characters of each for a quick visual check
+for (f in files_to_check) {
+  raw_path     <- file.path("data/raw",     f)
+  cleaned_path <- file.path("data/cleaned", f)
+
+  raw_text     <- readr::read_file(raw_path)
+  cleaned_text <- readr::read_file(cleaned_path)
+
+  cat("=== FILE:", f, "===\n")
+  cat("RAW (first 200 chars):\n",     substr(raw_text,     1, 200), "\n\n")
+  cat("CLEANED (first 200 chars):\n", substr(cleaned_text, 1, 200), "\n\n")
+  cat(rep("-", 60), "\n", sep = "")
+}
+```
+
+## Basic corpus statistics as quality indicators {-}
+
+Computing basic corpus statistics and checking them for anomalies is a fast and effective quality check:
+
+```{r corpus-stats, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+# Compute basic statistics for each file
+corpus_stats <- corpus_df |>
+  mutate(
+    n_chars  = nchar(text_cleaned),
+    n_words  = str_count(text_cleaned, "\\S+"),
+    n_sents  = str_count(text_cleaned, "[.!?]+\\s"),
+    avg_word_len = n_chars / pmax(n_words, 1)
+  )
+
+# Summary
+summary(corpus_stats[, c("n_chars", "n_words", "n_sents", "avg_word_len")])
+
+# Flag potential outliers: files with very few words (possibly over-cleaned)
+# or extremely long files (possibly two documents merged)
+outliers <- corpus_stats |>
+  filter(n_words < 50 | n_words > quantile(n_words, 0.99))
+
+if (nrow(outliers) > 0) {
+  cat("Potential outliers detected (", nrow(outliers), "files):\n")
+  print(outliers[, c("filename", "n_words", "n_chars")])
+}
+
+# Visualise word count distribution — anomalies show up clearly
+ggplot(corpus_stats, aes(x = n_words)) +
+  geom_histogram(bins = 50, fill = "#4E79A7", colour = "white") +
+  labs(title = "Distribution of word counts across corpus files",
+       x = "Words per file", y = "Number of files") +
+  theme_minimal()
+```
+
+A healthy corpus shows a roughly unimodal distribution of file lengths. Very short files (< 50 words) may be cleaning artefacts or empty files. Very long files may represent two documents accidentally merged during collection. Bimodal distributions may indicate that the corpus contains two fundamentally different text types that should be in separate subcorpora.
+
+## Duplicate detection {-}
+
+Near-duplicate texts inflate corpus frequencies and bias results. After cleaning, always check for duplicates:
+
+```{r dedup, eval=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(stringr)
+
+# Exact duplicates: same cleaned text
+corpus_df <- corpus_df |>
+  mutate(text_hash = digest::digest(text_cleaned, algo = "md5"))
+
+exact_dupes <- corpus_df |>
+  group_by(text_hash) |>
+  filter(n() > 1) |>
+  arrange(text_hash)
+
+if (nrow(exact_dupes) > 0) {
+  cat("Exact duplicates found:", nrow(exact_dupes), "files\n")
+  print(exact_dupes[, c("filename", "text_hash")])
+}
+
+# Near-duplicates: very high character overlap
+# A simple heuristic: files where the first 500 characters are identical
+corpus_df <- corpus_df |>
+  mutate(start_500 = substr(text_cleaned, 1, 500))
+
+near_dupes <- corpus_df |>
+  group_by(start_500) |>
+  filter(n() > 1 & nchar(start_500) > 100)
+
+if (nrow(near_dupes) > 0) {
+  cat("Possible near-duplicates found:", nrow(near_dupes), "files\n")
+  print(near_dupes[, c("filename")])
+}
+```
+
+## Documenting quality control {-}
+
+Every quality control step should be documented in your research log:
+
+- Date and version of the corpus checked
+- Sampling method (random, systematic, or census)
+- Sample size
+- Issues found and their estimated prevalence
+- Decisions made (fix before proceeding? accept known error rate? flag in README?)
+
+This documentation allows readers of your research to assess the reliability of your corpus independently.
+
+::: {.callout-tip}
+## Exercises: Quality Control
+:::
+
+**Q10. After cleaning a corpus of 500 web pages, a researcher computes the word count distribution and finds that 12 files have fewer than 20 words each, while the rest of the corpus averages 800 words per file. What are the two most likely explanations for these very short files, and what should the researcher do?**
+
+```{r}
+#| echo: false
+#| label: "quality_q10"
+check_question(
+  "The 12 short files were most likely either (1) pages that contained very little actual text content (e.g. error pages, redirect pages, image-only pages, or navigation pages misidentified as content pages) or (2) files that were over-cleaned and had most of their content inadvertently removed by the cleaning script. The researcher should inspect all 12 files manually — comparing the cleaned versions against the original downloaded HTML — and decide whether to discard them (if they are non-content pages), fix the cleaning script (if they are legitimate texts that were over-cleaned), or accept and document them as short texts (if they are genuine short content pages).",
+  options = c(
+    "The files are corrupted and should be deleted immediately",
+    "The 12 short files were most likely either (1) pages that contained very little actual text content (e.g. error pages, redirect pages, image-only pages, or navigation pages misidentified as content pages) or (2) files that were over-cleaned and had most of their content inadvertently removed by the cleaning script. The researcher should inspect all 12 files manually — comparing the cleaned versions against the original downloaded HTML — and decide whether to discard them (if they are non-content pages), fix the cleaning script (if they are legitimate texts that were over-cleaned), or accept and document them as short texts (if they are genuine short content pages).",
+    "Short files are always caused by encoding errors and should be re-encoded",
+    "The researcher should set a minimum word count threshold of 100 words and automatically discard all files below it"
+  ),
+  type = "radio",
+  q_id = "quality_q10",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Very short files in a corpus of otherwise similar-length texts are a quality control signal that requires investigation, not automatic deletion. The two most common causes are (a) scraping non-content pages that slipped through the collection filter, and (b) over-cleaning that removed too much content. Automatic exclusion based on a word count threshold without inspection would discard legitimate texts and silently hide a cleaning problem. The correct approach is manual inspection of the anomalous files, diagnosis of the cause, and a documented decision about how to handle them — including, if the cleaning script is the problem, re-running cleaning on the affected files after fixing the script.",
+  wrong = "Not quite. While automatic deletion of very short files might seem efficient, it would silently mask an important quality problem. If 12 files were over-cleaned, simply deleting them means you are unaware that your cleaning script has a bug that likely also partially affected other files. Manual inspection of anomalous cases is always the right first step — it tells you the cause, which determines the correct response. Investigate first, decide second."
+)
+```
+
+---
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** A six-step framework for planning a corpus-based research project from research question to analysis-ready data; corpus size guidance for different project types; the importance of pilot testing; and a realistic project timeline
+:::
+
+## Step 1: Define your research question {-}
+
+Everything else follows from a clear research question. Before collecting a single text, you should be able to answer:
+
+- What linguistic phenomenon am I investigating?
+- What population or language variety does it concern?
+- What claims do I want to test or explore?
+
+**Good corpus research questions** are specific, answerable with frequency or distributional data, and feasible within your time and resource constraints:
+
+> *"How do modal verbs differ in L1 versus L2 academic writing?"* ✓  
+> *"Do male and female bloggers differ in their use of intensifiers?"* ✓
+
+**Poor corpus research questions** are too broad, require methods other than corpus analysis, or are unanswerable with available data:
+
+> *"How do people use language?"* ✗ — far too broad  
+> *"What do speakers intend when using X?"* ✗ — requires interviews, not corpus analysis  
+
+## Step 2: Identify your data needs {-}
+
+Your research question determines what data you need:
+
+- What type of language data? (Written or spoken; which genres; which variety?)
+- What time period is relevant?
+- What speaker or writer characteristics matter? (Age, first language, education level?)
+- How much data? (Consider how frequent the phenomenon you are studying is likely to be)
+
+**Example:** Research question: *"Do male and female bloggers differ in their use of intensifiers?"*
+
+Data needs: blog posts; contemporary (recent years); gender-balanced sample; metadata on author gender; sufficient corpus size to capture intensifiers — probably several hundred posts.
+
+## Step 3: Determine corpus scope {-}
+
+| Project type | Recommended scope | Notes |
+|---|---|---|
+| Pilot study | 50–100 texts | Test feasibility before committing to full scale |
+| MA thesis | 200–500 texts or 100K–500K words | Varies by methodology and discipline |
+| PhD dissertation | 500+ texts or 1M+ words | Larger scope for stronger generalisability claims |
+
+If you will be comparing subgroups, decide whether you need equal amounts from each (balanced) or proportional amounts (representative). Consider whether you want depth (fewer texts analysed intensively) or breadth (more texts with less intensive analysis per text).
+
+## Step 4: Plan data collection {-}
+
+- Where will you get your data? Identify specific sources.
+- What permissions or ethics approvals do you need, and how long will they take?
+- Create a timeline — and be realistic. Data collection almost always takes longer than initially expected.
+- Have a backup plan in case your primary source becomes unavailable.
+
+## Step 5: Prepare for data processing {-}
+
+- What tools will you need? Text editors, Python, AntConc, R?
+- What skills do you need to develop, and how long will that take?
+- Where will the data be stored, and how will it be backed up?
+- How will you document your decisions throughout the process?
+
+## Step 6: Pilot test before full-scale collection {-}
+
+This step is the one most commonly skipped — and the one that saves the most pain. Before investing in full-scale data collection:
+
+1. Collect a small sample (10–20 texts)
+2. Apply your full cleaning and analysis workflow to the sample
+3. Check that the data actually answers your research questions — sometimes pilot testing reveals you need different data than you thought
+4. Revise your collection and processing plans based on what you find
+
+::: {.callout-warning}
+## Pilot testing is not optional
+
+Discovering a fundamental problem with your data collection strategy after you have already collected 500 texts is far more costly than discovering it after 10 texts. Even an experienced corpus linguist will pilot-test before committing to full-scale collection.
+:::
+
+## A realistic project timeline {-}
+
+Here is how time is typically distributed across a small corpus project (8 weeks):
+
+| Week | Phase | Activities |
+|---|---|---|
+| 1–2 | Planning | Define research question; identify sources; obtain ethics approval |
+| 3–4 | Collection | Gather texts; record initial metadata |
+| 5–6 | Preparation | Clean texts; format files; finalise metadata spreadsheet |
+| 7 | Analysis | Concordance searches, frequency analysis, statistical tests |
+| 8 | Write-up | Interpret results; draft report or paper |
+
+Notice that preparation (cleaning and formatting) takes two full weeks — as long as collection itself. Researchers routinely underestimate this phase. **Budget two to three times your initial estimate** for data cleaning and preparation.
+
+::: {.callout-tip}
+## Exercises: Planning
+:::
+
+**Q6. A PhD student tells her supervisor she expects to spend one week collecting data and one week cleaning it before beginning analysis in week three of a 12-week project. Her supervisor says this timeline is unrealistic. Why?**
+
+```{r}
+#| echo: false
+#| label: "planning_q6"
+check_question(
+  "Data cleaning and preparation almost always takes much longer than researchers initially estimate — typically two to three times longer. For a PhD-scale corpus project, the preparation phase alone can take several weeks or even months. The student is also not accounting for ethics approval (which can take weeks), the iterative nature of cleaning (where each pass reveals new problems), metadata completion, quality control, and pilot testing. A more realistic allocation would be weeks 1–2 for planning and ethics, weeks 3–5 for collection, weeks 6–9 for preparation, and weeks 10–12 for analysis and write-up.",
+  options = c(
+    "A PhD project should spend at least a month on data collection alone",
+    "Data cleaning and preparation almost always takes much longer than researchers initially estimate — typically two to three times longer. For a PhD-scale corpus project, the preparation phase alone can take several weeks or even months. The student is also not accounting for ethics approval (which can take weeks), the iterative nature of cleaning (where each pass reveals new problems), metadata completion, quality control, and pilot testing. A more realistic allocation would be weeks 1–2 for planning and ethics, weeks 3–5 for collection, weeks 6–9 for preparation, and weeks 10–12 for analysis and write-up.",
+    "The student should begin analysis while still collecting data to save time",
+    "The timeline is actually reasonable for a small corpus project"
+  ),
+  type = "radio",
+  q_id = "planning_q6",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Underestimating preparation time is one of the most common mistakes in corpus research. Data cleaning is rarely a single pass — each inspection reveals new problems that require another pass. Metadata may need to be verified or corrected. File format issues emerge. Ethics approval takes time. The practical rule of thumb is to budget two to three times your initial estimate for data preparation. For a 12-week project, weeks 5–8 or even weeks 4–9 being devoted to collection and preparation is entirely normal.",
+  wrong = "Not quite. The supervisor's concern is about time allocation for data preparation. Experienced corpus linguists know that cleaning and formatting text data almost always takes much longer than initially expected — often two to three times the initial estimate. For a PhD project at any scale, single-week allocations for collection and cleaning are almost never realistic. The student should also factor in ethics approval time and pilot testing before committing to a full-scale collection timeline."
+)
+```
+
+---
+
+# Common Pitfalls {#pitfalls}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The seven most common mistakes in corpus compilation and how to avoid each one
+:::
+
+| Pitfall | Problem | Solution |
+|---|---|---|
+| **1. Collecting first, planning later** | End up with unusable or inappropriate data | Define your research question and data needs *before* collecting a single text |
+| **2. Underestimating preparation time** | Spend 80% of project time cleaning when you expected it to be quick | Budget 2–3× your initial estimate for data preparation |
+| **3. Inconsistent metadata** | Cannot filter or compare subgroups | Create your metadata spreadsheet at the start; fill it in as you collect each text |
+| **4. Poor documentation** | Six months later, you cannot remember why you made certain decisions | Keep a research log; document everything as you go |
+| **5. No backup plan** | Lose access to data source, equipment fails, data gets corrupted | Maintain multiple backups; diversify sources if possible |
+| **6. Ignoring ethics and copyright** | Cannot use or publish findings | Address legal and ethical issues *before* collecting |
+| **7. Overly ambitious scope** | Project becomes unmanageable; you never finish | Start small; pilot-test to understand what is feasible; expand if needed |
+
+::: {.callout-tip}
+## Exercises: Pitfalls
+:::
+
+**Q7. A researcher has been collecting data for three months and has built a large corpus of newspaper articles. She now discovers that most of the articles she collected were from behind a paywall and she does not have permission to use them for research. Which pitfall does this illustrate, and what should she have done differently?**
+
+```{r}
+#| echo: false
+#| label: "pitfalls_q7"
+check_question(
+  "Pitfall 6: Ignoring ethics and copyright. The researcher should have checked copyright status and terms of access before collecting any data — not as an afterthought. For newspaper corpora specifically, most publishers restrict research use of their content. The solution is to always investigate legal and access permissions at the planning stage (Step 4 of the planning framework). If the required permissions cannot be obtained, the researcher needs to identify alternative sources before investing time in collection.",
+  options = c(
+    "Pitfall 1: Collecting first, planning later — she should have defined her research question more carefully",
+    "Pitfall 3: Inconsistent metadata — newspaper articles are hard to document systematically",
+    "Pitfall 6: Ignoring ethics and copyright. The researcher should have checked copyright status and terms of access before collecting any data — not as an afterthought. For newspaper corpora specifically, most publishers restrict research use of their content. The solution is to always investigate legal and access permissions at the planning stage (Step 4 of the planning framework). If the required permissions cannot be obtained, the researcher needs to identify alternative sources before investing time in collection.",
+    "Pitfall 7: Overly ambitious scope — she collected too many articles"
+  ),
+  type = "radio",
+  q_id = "pitfalls_q7",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! This is a classic example of Pitfall 6: ignoring ethics and copyright. Copyright and access permissions must be checked before data collection begins — not after months of work have already been invested. For newspaper and magazine content, most publishers have strict terms of use that restrict research purposes. Always check the copyright status, terms of service, and any licensing requirements of your data sources at the planning stage. If access cannot be secured, find alternative sources early, before investing significant time in collection.",
+  wrong = "Not quite. While this situation does involve insufficient planning, the specific problem is copyright and permissions — Pitfall 6. The researcher collected data from a paywalled source without first checking whether she had the right to use it for research. Checking copyright and data access permissions is a fundamental step in the planning phase (Step 4) that must happen before any data collection begins. Finding out three months later that the data cannot be used is exactly the costly consequence this principle is designed to prevent."
+)
+```
+
+---
+
+# Summary {#summary}
+
+This tutorial has walked through the complete workflow for compiling a corpus, from the initial research question to a collection of clean, formatted, annotated text files with a well-organised metadata spreadsheet and a shareable folder structure.
+
+**The foundations** — your corpus is your evidence. The quality of your findings directly depends on the quality of your data. Data preparation is research work, not just technical work.
+
+**The five principles** — purpose-driven collection, representativeness, comparability, ethical compliance, and documentation — should guide every decision from source selection to metadata coding.
+
+**Data sources and corpus size** — choose your sources based on your research question; estimate needed corpus size from phenomenon frequency rather than arbitrary word-count targets; consult the table of major public corpora before deciding to build your own; and distinguish balanced from representative designs.
+
+**Specialised corpus types** — spoken corpora require transcription conventions, time-budgeting for transcription, and rich contextual metadata; web/social media corpora demand attention to API instability and the ethics of contextually private public data; learner corpora need independent proficiency assessment and task standardisation; historical corpora must address OCR quality and spelling normalisation; legal, medical, and parliamentary corpora each have specific access and copyright frameworks; multilingual and parallel corpora require alignment and careful language-variety documentation.
+
+**Ethics and legal frameworks** — obtain informed consent before collecting participant data; understand the regulatory framework that applies to your jurisdiction (Privacy Act, GDPR); choose an appropriate Creative Commons licence for distribution; and address copyright before collection, not after.
+
+**Text cleaning** — remove noise while preserving what you are studying; use `stringr` for systematic, documented cleaning pipelines; convert PDFs with `pdftools` and Word documents with `officer`; detect and fix encoding errors with `readr::guess_encoding()`.
+
+**Corpus folder structure** — every shareable corpus should have a named root folder containing a README, a LICENSE, a metadata file, and a `data/` folder. Never overwrite raw data; keep a research log; back up to multiple locations; validate that filenames match metadata with `anti_join()` before analysis or sharing.
+
+**Annotation** — choose annotation types appropriate to your research question; POS tagging and lemmatisation are sufficient for most lexical and grammatical studies; dependency parsing is needed for syntactic research; always report inter-rater reliability when human annotation is involved.
+
+**Quality control** — spot-sample after every major processing step; compute basic corpus statistics and investigate outliers; check for duplicate texts; document every quality control decision in your research log.
+
+**Project planning** — start with clear research questions, pilot-test before full-scale collection, and budget realistically for data preparation.
+
+::: {.callout-note}
+## Where to go next
+
+- [Web Scraping with R](/tutorials/scrape/scrape.html) — practical guide to collecting online text data
+- [Downloading Texts from Project Gutenberg](/tutorials/gutenberg/gutenberg.html) — accessing public-domain literary corpora
+- [Tagging and Parsing](/tutorials/postag/postag.html) — POS tagging and dependency parsing with `udpipe`
+- [Finding Words in Text: Concordancing](/tutorials/concordancing/concordancing.html) — the first analytical step once your corpus is compiled
+- [Introduction to Text Analysis: Practical Overview](/tutorials/textanalysis/textanalysis.html) — an overview of the methods you can apply to your corpus
+- [Privacy-Preserving Analysis with Local LLMs](/tutorials/localllm_showcase/localllm_showcase.html) — how to use local LLMs to generate synthetic proxies for sensitive corpus data
+:::
+
+---
+
+# Citation & Session Info {-}
+
+Schweinberger, Martin. 2026. *Compiling a Corpus: From Texts to Analysis-Ready Data*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/corpuscompilation_tutorial/corpuscompilation_tutorial.html (Version 2026.05.01).
+
+```
+@manual{schweinberger2026corpus,
+  author       = {Schweinberger, Martin},
+  title        = {Compiling a Corpus: From Texts to Analysis-Ready Data},
+  note         = {tutorials/corpuscompilation_tutorial/corpuscompilation_tutorial.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. The conceptual content, structure, examples, and exercises are based on lecture materials and teaching notes by Martin Schweinberger (SLAT7829 Text Analysis and Corpus Linguistics, Week 4). Claude was used to draft and structure the tutorial text, R code, and exercises. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}

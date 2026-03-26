@@ -1,0 +1,900 @@
+---
+title: "Comparing Methods for Conceptual Maps"
+author: "Gerold Schneider"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+Conceptual maps are a distributional semantics method that gives a bird's-eye view of a large dataset. This showcase compares several different approaches to building and visualising conceptual maps from the same corpus, allowing us to assess what each method reveals — and what it obscures.
+
+In this tutorial, we will:
+
+1. Train a word2vec semantic space on the COOEE corpus (Australian historical letters)
+2. Test the semantic space with nearest-neighbour queries
+3. Build conceptual maps using six different layout methods:
+   - **t-SNE** — non-linear dimensionality reduction (interactive via plotly)
+   - **igraph with Fruchterman-Reingold** — force-directed graph layout
+   - **igraph with DRL** — a scalable force-directed algorithm
+   - **ForceAtlas2** — an animated force-directed algorithm popular in Gephi
+   - **UMAP** — non-linear dimensionality reduction with strong local structure
+   - **Textplot + GML** — a pre-computed graph imported from an external tool
+
+::: {.callout-note}
+## Related Tutorial
+
+This showcase is a companion to the main [Conceptual Maps tutorial](/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html), which introduces the core concepts. The focus here is on **comparing methods**: understanding what each layout algorithm reveals, and which works best for which purpose.
+:::
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, we recommend familiarity with:
+
+- [Getting Started with R](/tutorials/intror/intror.html) — R basics
+- [Word Embeddings and Vector Semantics](/tutorials/embeddings/embeddings.html) — how word2vec works
+- [Network Analysis](/tutorials/net/net.html) — igraph basics
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Train and load a word2vec model using `wordVectors`
+2. Query nearest neighbours in a semantic space
+3. Build a word–word cosine similarity matrix and convert it to an igraph object
+4. Visualise a semantic network with six different layout algorithms
+5. Critically compare the strengths and weaknesses of each layout method
+:::
+
+::: {.callout-note}
+## Citation
+
+Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html (Version 2026.05.01).
+:::
+
+---
+
+# The COOEE Corpus {#cooee}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What the COOEE corpus is; how to download it; and what the period labels embedded in the text mean
+:::
+
+The **COOEE corpus** (Corpus of Oz Early English) consists of Australian English letters written between 1788 and 1900. It is an ideal corpus for exploring distributional semantics across historical periods because:
+
+- It is large enough to train a meaningful word2vec model (~10 MB of text)
+- It contains temporal labels embedded directly in the text, allowing semantic queries about specific periods
+- The content reflects the dramatic social changes of colonial Australia
+
+The corpus has been prepared with period labels embedded in the running text as pseudo-words:
+
+| Label | Period |
+|---|---|
+| `periodone` | 1788–1825 |
+| `periodtwo` | 1826–1850 |
+| `periodthree` | 1851–1875 |
+| `periodfour` | 1875–1900 |
+
+This means we can query `closest_to(training, "periodone", 30)` and receive the words most strongly associated with that historical period.
+
+## Downloading the corpus {-}
+
+::: {.callout-warning}
+## Data File Required
+
+The COOEE corpus file (`ALL_byperiod_nomarkup.txt`) must be present in `tutorials/conceptualmaps_showcase/data/` before running any of the code in this tutorial. Download it using the code below on first use.
+:::
+
+```{r download-cooee, eval=FALSE, message=FALSE, warning=FALSE}
+# Create the data folder if it does not exist
+dir.create("tutorials/conceptualmaps_showcase/data", recursive = TRUE, showWarnings = FALSE)
+
+# Download the COOEE corpus (run once)
+download.file(
+  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt",
+  destfile = "tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt",
+  mode     = "wb"
+)
+```
+
+```{r set-data-path, eval = FALSE, message=FALSE, warning=FALSE}
+# Path to the corpus file — adjust if your project structure differs
+corpus_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt")
+```
+
+---
+
+# Setup {#setup}
+
+## Installing packages {-}
+
+::: {.callout-warning}
+## GitHub-only packages and igraph compatibility
+
+`wordVectors` and `ForceAtlas2` are not on CRAN — install both from GitHub using `remotes`.
+
+`ForceAtlas2` uses `igraph::get.adjacency()` internally, which was deprecated in igraph ≥ 1.3 (replaced by `as_adjacency_matrix()`). This may produce deprecation warnings on recent igraph versions but should still run. If you encounter errors in the ForceAtlas2 sections, check the [ForceAtlas2 GitHub issues](https://github.com/analyxcompany/ForceAtlas2/issues) for a patched version.
+:::
+
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}
+# CRAN packages
+install.packages(c(
+  "igraph",        # graph construction and layout algorithms
+  "tidyverse",     # data manipulation
+  "tidytext",      # stopword lists
+  "ggplot2",       # plotting
+  "ggrepel",       # non-overlapping text labels
+  "reshape2",      # data reshaping
+  "Rtsne",         # t-SNE dimensionality reduction
+  "plotly",        # interactive plots
+  "htmlwidgets",   # save interactive HTML widgets
+  "scales",        # rescaling values
+  "tsne",          # t-SNE dimensionality reduction
+  "uwot"           # UMAP dimensionality reduction
+))
+
+# GitHub-only packages
+remotes::install_github("bmschmidt/wordVectors")
+remotes::install_github("analyxcompany/ForceAtlas2")
+```
+
+## Loading packages {-}
+
+```{r load-pkgs, eval = FALSE, message=FALSE, warning=FALSE}
+library(igraph)
+library(tidyverse)
+library(tidytext)
+library(ggplot2)
+library(ggrepel)
+library(reshape2)
+library(Rtsne)
+library(plotly)
+library(htmlwidgets)
+library(scales)
+library(uwot)
+library(wordVectors)
+library(ForceAtlas2)
+```
+
+---
+
+# Training the Semantic Space {#train}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to use `wordVectors` to prepare and train a word2vec model; the effect of window size on the resulting semantic space; and how to load a pre-trained model to avoid re-training
+:::
+
+The word2vec algorithm learns a vector representation for every word in the corpus such that words appearing in similar contexts receive similar vectors. The key hyperparameter is the **window size**: how many words on either side of the target word are considered context. Larger windows capture deeper, more topical semantics; smaller windows capture more syntactic and collocational relationships.
+
+## Preparing the corpus {-}
+
+The `prep_word2vec()` function tokenises and lowercases the raw text, producing a cleaned version ready for training:
+
+```{r prep-corpus, eval=FALSE, message=FALSE, warning=FALSE}
+prep_word2vec(
+  origin      = corpus_file,
+  destination = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_out.txt"),
+  lowercase   = TRUE
+)
+```
+
+## Training (run once) {-}
+
+::: {.callout-warning}
+## Training Takes Time
+
+Training with window size 10 takes approximately 4 minutes. Run this block once and then load the saved `.bin` file instead. The `force = TRUE` argument overwrites any existing model.
+:::
+
+```{r train-word2vec, eval=FALSE, message=FALSE, warning=FALSE}
+# Window size 10 — recommended default (4 minutes)
+training <- train_word2vec(
+  train_file  = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_out.txt"),
+  output_file = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_w10.bin"),
+  threads     = 4,
+  vectors     = 200,
+  window      = 10,
+  force       = TRUE
+)
+
+# Uncomment to try larger windows (slower, deeper semantics):
+# window 20 (~10 min):
+# training <- train_word2vec(..., output_file = "...w20.bin", window = 20)
+# window 50 (~20 min):
+# training <- train_word2vec(..., output_file = "...w50.bin", window = 50)
+```
+
+## Loading the trained model {-}
+
+After training once, always load the saved `.bin` file directly:
+
+```{r load-model, eval = FALSE, message=FALSE, warning=FALSE}
+# Load pre-trained model (fast — no re-training)
+model_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_w10.bin")
+
+training <- read.binary.vectors(
+  filename      = model_file,
+  nrows         = Inf,
+  cols          = "All",
+  rowname_list  = NULL,
+  rowname_regexp = NULL
+)
+```
+
+---
+
+# Testing the Semantic Space {#test}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to query nearest neighbours in a word2vec model; and what the COOEE semantic space reveals about the vocabulary of early Australian English
+:::
+
+The `closest_to()` function returns the words most similar to a query term according to cosine similarity in the vector space. These results give us a way to sanity-check the model before building maps. The examples here come from a run with window size 10.
+
+## Content words {-}
+
+```{r test-convict, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "convict", 30)
+```
+
+The first settlers were convicts. A mutiny during transport was the greatest danger for the captain and the midshipman; surgeons were stretched. The word *female* is more surprising — it appears because frequent phrases like "male and female convicts" make *female* a near-neighbour of *convict*, even with a small window.
+
+```{r test-letter, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "letter", 30)
+```
+
+COOEE is a corpus of letters; this query shows what *letter* is associated with — delivery, postage, and the act of writing and receiving.
+
+```{r test-dear, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "dear", 30)
+```
+
+*Dear* is primarily used to address recipients and to formally express affection.
+
+```{r test-england, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "england", 30)
+```
+
+The associations of *england* include expected relatives such as *scotland*, but also *colony* and *sailed* — reflecting the long sea voyage that separated the colonists from home.
+
+```{r test-australia, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "australia", 30)
+```
+
+```{r test-government, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "government", 30)
+```
+
+## Period labels {-}
+
+One of the most interesting features of the COOEE corpus is its embedded period labels. Querying these pseudo-words reveals the dominant themes of each historical period.
+
+```{r test-period1, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "periodone", 30)
+```
+
+Period 1 (1788–1825) — the earliest settlement period — returns years falling within the period, and names of people prominent in those years. For example, Frederick Garling (1775–1848) was one of the first solicitors admitted in Australia ([Wikipedia](https://en.wikipedia.org/wiki/Frederick_Garling)).
+
+```{r test-period2, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "periodtwo", 30)
+```
+
+Period 2 (1826–1850) again returns years and personal names, reflecting the continued growth of the colony and its social structures.
+
+```{r test-period3, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "periodthree", 30)
+```
+
+Period 3 (1851–1875) — the gold rush era and expansion inland. Person names dominate; to see what is distinctive about this period compared to others, we would need to dig deeper.
+
+```{r test-period4, eval = FALSE, message=FALSE, warning=FALSE}
+closest_to(training, "periodfour", 30)
+```
+
+Period 4 (1875–1900) is foreshadowing Australia's federation. Among the top neighbours of *periodfour* we find *federal*, *parliament*, *speaker* and *senator* — the Australian Parliament was founded in 1901, and this historic event is already visible in the letters of the preceding decades.
+
+---
+
+# Building the Similarity Matrix and Graph {#matrix}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to construct a word–word cosine similarity matrix from a word2vec model; how to convert it to a long-form data frame; how to filter it; and how to build an igraph object that can be visualised with multiple layout algorithms
+:::
+
+## Selecting words {-}
+
+We take the 1,000 most frequent words in the model as our vocabulary for the maps. You can experiment with this number — 500 to 1,000 is a good range. More words make the graph richer but slower to compute and harder to read.
+
+```{r word-list, eval = FALSE, message=FALSE, warning=FALSE}
+word_list <- rownames(training)[1:1000]
+```
+
+## Subsetting the model {-}
+
+```{r subset-model, eval = FALSE, message=FALSE, warning=FALSE}
+sub_model <- training[word_list, ]
+```
+
+## Computing cosine similarities {-}
+
+We compute the full word–word cosine similarity matrix. This is a 1,000 × 1,000 matrix where every cell contains the cosine similarity between two words.
+
+```{r cosine-matrix, eval = FALSE, message=FALSE, warning=FALSE}
+similarity_matrix <- cosineSimilarity(sub_model, sub_model)
+
+# Inspect the top-left corner as a sanity check
+similarity_matrix[1:10, 1:10]
+```
+
+## Saving the matrix {-}
+
+It is good practice to save this intermediate result so you can reload it without recomputing:
+
+```{r save-matrix, eval=FALSE, message=FALSE, warning=FALSE}
+write.csv(
+  as.data.frame(similarity_matrix),
+  here::here("tutorials/conceptualmaps_showcase/data/word_similarity_matrix_top1000_w10.csv")
+)
+```
+
+## Converting to long form {-}
+
+Graph tools and `igraph` expect an edge list (long form) rather than a square matrix. We convert using `as.table()`:
+
+```{r long-form, eval = FALSE, message=FALSE, warning=FALSE}
+similarity_df <- as.data.frame(as.table(similarity_matrix))
+colnames(similarity_df) <- c("word1", "word2", "similarity")
+head(similarity_df)
+```
+
+## Filtering {-}
+
+We apply three filters:
+
+1. Remove stopwords (using the `tidytext` stopword list)
+2. Remove very short words (3 characters or fewer)
+3. Keep only pairs with cosine similarity above 0.25, excluding self-similarities
+
+```{r filter-matrix, eval = FALSE, message=FALSE, warning=FALSE}
+# Use quanteda's stopword list as a fallback — avoids tidytext data dependency
+eng_stopwords <- quanteda::stopwords("english")
+
+# Remove stopwords
+similarity_df <- similarity_df |>
+  filter(
+    !word1 %in% eng_stopwords,
+    !word2 %in% eng_stopwords
+  )
+
+# Remove short words
+similarity_df <- similarity_df |>
+  filter(
+    nchar(as.character(word1)) > 3,
+    nchar(as.character(word2)) > 3
+  )
+
+# Keep only strong similarities, exclude self-pairs
+similarity_df <- subset(
+  similarity_df,
+  similarity > 0.25 & word1 != word2
+)
+
+# Inspect top 50 most similar pairs
+similarity_df |> arrange(desc(similarity)) |> head(50)
+```
+
+::: {.callout-tip}
+## Similarity Threshold
+
+Setting the threshold above 0.5 will cause the graph to split into disconnected sub-graphs, losing the global structure that makes the maps interpretable. A threshold between 0.2 and 0.35 works well for COOEE with 1,000 words.
+:::
+
+## Building the igraph object {-}
+
+We now have everything we need to build an igraph object. We also add a `label` attribute (for compatibility with Gephi and Graphia) and a `weight` attribute (for layout algorithms that use it):
+
+```{r build-graph, eval = FALSE, message=FALSE, warning=FALSE}
+g  <- graph_from_data_frame(similarity_df, directed = FALSE)
+g2 <- g  # keep a copy of the original before we modify g
+
+# Add label attribute (igraph default node name is "name")
+V(g)$label  <- V(g)$name
+
+# Add weight attribute (expected by Gephi, Graphia, and some igraph layouts)
+E(g)$weight <- E(g)$similarity
+
+# Sanity check
+head(V(g))
+head(E(g))
+```
+
+## Exporting the graph {-}
+
+Exporting to GraphML/GML allows you to import the graph into Gephi or Graphia for further exploration:
+
+```{r export-graph, eval=FALSE, message=FALSE, warning=FALSE}
+write_graph(
+  g,
+  here::here("tutorials/conceptualmaps_showcase/data/COOEE_w10_simgt0.25.gml"),
+  format = "gml"
+)
+```
+
+---
+
+# Method ONE: t-SNE Overview {#tsne}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply t-SNE dimensionality reduction to the word2vec matrix; how to create an interactive plotly version; and what t-SNE reveals well (local cluster structure) and what it distorts (global distances)
+:::
+
+The **t-SNE** algorithm (t-distributed Stochastic Neighbour Embedding) maps the high-dimensional word vectors to two dimensions while trying to preserve local neighbourhood structure. It is a non-linear mapping, capturing more variation than a single PCA projection.
+
+A quick overview plot using the `wordVectors` built-in:
+
+```{r tsne-quick, eval = FALSE, message=FALSE, warning=FALSE}
+plot(training)
+```
+
+For a more flexible and readable version, we apply `Rtsne` directly and label the points with `ggplot2`:
+
+```{r tsne-ggplot, eval = FALSE, message=FALSE, warning=FALSE}
+termsize <- 1000  # number of terms to include
+
+mytsne <- Rtsne(training[1:termsize, ])
+
+tsne_plot <- mytsne$Y |>
+  as.data.frame() |>
+  mutate(word = rownames(training)[1:termsize]) |>
+  ggplot(aes(x = V1, y = V2, label = word)) +
+  geom_text(size = 2) +
+  labs(title = "t-SNE projection of COOEE word2vec (top 1,000 words)",
+       x = "t-SNE 1", y = "t-SNE 2") +
+  theme_minimal()
+
+plot(tsne_plot)
+```
+
+The static plot is dense. For better exploration, use the interactive plotly version where you can zoom and hover:
+
+```{r tsne-interactive, eval = FALSE, message=FALSE, warning=FALSE}
+# Build plotly directly — avoids the ggplotly conversion error
+tsne_df <- mytsne$Y |>
+  as.data.frame() |>
+  mutate(word = rownames(training)[1:termsize])
+
+plot_ly(
+  data   = tsne_df,
+  x      = ~V1,
+  y      = ~V2,
+  text   = ~word,
+  type   = "scatter",
+  mode   = "text",
+  textfont = list(size = 9)
+) |>
+  layout(
+    title  = "t-SNE projection of COOEE word2vec (top 1,000 words)",
+    xaxis  = list(title = "t-SNE 1"),
+    yaxis  = list(title = "t-SNE 2")
+  )
+```
+
+```{r tsne-save, eval=FALSE, message=FALSE, warning=FALSE}
+# Save as standalone HTML
+tsne_interactive <- plot_ly(
+  data     = tsne_df,
+  x        = ~V1,
+  y        = ~V2,
+  text     = ~word,
+  type     = "scatter",
+  mode     = "text",
+  textfont = list(size = 9)
+) |>
+  layout(
+    title = "t-SNE projection of COOEE word2vec (top 1,000 words)",
+    xaxis = list(title = "t-SNE 1"),
+    yaxis = list(title = "t-SNE 2")
+  )
+
+saveWidget(
+  widget = tsne_interactive,
+  file   = here::here("tutorials/conceptualmaps_showcase/data/tsne_cooee.html")
+)
+```
+
+::: {.callout-note}
+## Interpreting the t-SNE Map
+
+The t-SNE graph reveals many semantically tight clusters: *officers* and *officer*, *mile* and *miles*, *husband/wife/married*, *weather/warm/hot/wind*. Thematic clusters include law (*justice*, *judgement*, *jurisdiction*, *case*, *shall*, *duties*), early settlement (*periodone*, *king*, *settled*, *prisoner*, *charged*, *murder*), and daily life (*bread*, *tea*, *drink*, *hut*, *fire*, *house*, *garden*, *school*, *church*).
+
+Notably, *natives* and *blacks* overlap in the t-SNE space, indicating that these words were used as near-synonyms in the corpus — a finding with significant historical implications.
+
+**Limitation:** t-SNE excels at preserving local cluster structure but distorts global distances. The positions of *periodone*, *periodtwo*, etc. relative to each other in this map are **not** reliable indicators of their semantic relationship.
+:::
+
+---
+
+# Method TWO: igraph with Fruchterman-Reingold {#fr}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply the Fruchterman-Reingold force-directed layout to the similarity graph; the effect of edge weight rescaling on the layout; and how to export publication-quality PDFs
+:::
+
+The **Fruchterman-Reingold** algorithm is a force-directed layout that treats edges as springs and nodes as repelling charges. Strongly similar words (high-weight edges) are pulled together; all words push each other apart. This gives a physically intuitive layout.
+
+## Basic layout {-}
+
+```{r fr-basic, fig.dim=c(10, 10), message=FALSE, warning=FALSE}
+set.seed(1)
+plot.igraph(
+  g,
+  vertex.size      = 0,
+  vertex.label.cex = 0.5,
+  weights          = E(g)$similarity,
+  edge.width       = E(g)$similarity / 5,
+  main             = "Word Similarity Network — Fruchterman-Reingold"
+)
+```
+
+## With explicit weight parameter {-}
+
+Passing `weights` explicitly to `layout_with_fr()` ensures the edge weights actually influence the layout (this is not always the default):
+
+```{r fr-weighted, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+set.seed(1)
+plot.igraph(
+  g,
+  layout           = layout_with_fr(g, weights = E(g)$weight),
+  vertex.size      = 0,
+  vertex.label.cex = 0.7,
+  edge.width       = E(g)$similarity / 10,
+  main             = "Word Similarity Network — FR with weights"
+)
+```
+
+::: {.callout-note}
+## Interpreting the FR Map
+
+The period labels now appear in distinct regions of the map. *periodone* is more central and surrounded by *king*, *murder*, and *prisoner* — reflecting the convict-dominated early settlement. *periodtwo* is characterised by family themes: *mother*, *brother*, *sister*, *husband*, *child*, and common names like *John*, *Mary*, and *George*. *periodthree* has months, weekdays, weather, and travel words — the Australians are exploring their new country. *periodfour* begins to show political vocabulary.
+:::
+
+## Rescaled weights {-}
+
+The raw cosine similarities (0–1) produce a narrow weight range. Rescaling to a wider range (1–100 or 1–10,000) increases the contrast between strong and weak similarities, often producing a cleaner layout:
+
+```{r fr-rescaled, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+E(g)$w_scaled <- scales::rescale(E(g)$weight, to = c(1, 100))
+
+set.seed(1)
+plot.igraph(
+  g,
+  layout           = layout_with_fr(g, weights = E(g)$w_scaled, niter = 2000),
+  vertex.size      = 0,
+  vertex.label.cex = 0.7,
+  edge.width       = E(g)$similarity / 5,
+  main             = "Word Similarity Network — FR, weights rescaled to 1–100"
+)
+```
+
+---
+
+# Method THREE: igraph with DRL {#drl}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply the DrL (Distributed Recursive Layout) algorithm, which is designed for large graphs; and how rescaling weights to a very wide range (1–10,000) affects DRL results
+:::
+
+The **DrL** (Distributed Recursive Layout) algorithm [@martin2011openord] is designed for graphs with thousands or tens of thousands of nodes. It partitions the graph recursively and applies a force-directed algorithm at each level. It can handle larger graphs than Fruchterman-Reingold, but typically needs wider weight ranges to work well.
+
+```{r drl, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+E(g)$w_scaled_drl <- scales::rescale(E(g)$weight, to = c(1, 10000))
+
+set.seed(1)
+plot.igraph(
+  g,
+  layout           = layout_with_drl(g, weights = E(g)$w_scaled_drl),
+  vertex.size      = 0,
+  vertex.label.cex = 0.7,
+  edge.width       = E(g)$similarity / 20,
+  main             = "Word Similarity Network — DRL, weights rescaled to 1–10,000"
+)
+```
+
+
+::: {.callout-note}
+## FR vs DRL
+
+Fruchterman-Reingold tends to produce rounder, more balanced layouts. DRL tends to produce more elongated, clustered layouts that can reveal global separation between topic clusters more clearly. For COOEE at 1,000 words, both are viable — try both and compare.
+:::
+
+---
+
+# Method FOUR: ForceAtlas2 {#fa2}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply the ForceAtlas2 algorithm — the default layout in Gephi — in R; why we use the unmodified copy `g2` rather than the modified `g`; and what ForceAtlas2 reveals about the global structure of the COOEE semantic space
+:::
+
+**ForceAtlas2** is the default layout algorithm in Gephi. It is well suited for semantic networks because it is designed to produce layouts where global structure (inter-cluster distances) is meaningful. The `layout.forceatlas2()` function in the `ForceAtlas2` R package animates the layout as it evolves; use `plotstep` to control how often an intermediate plot is displayed.
+
+::: {.callout-warning}
+## Use the Unmodified Copy g2
+
+We have added scaled weight attributes to `g` in earlier sections. These can interfere with ForceAtlas2. We therefore use `g2`, the unmodified copy saved before any attribute additions.
+:::
+
+```{r fa2-layout, message=FALSE, warning=FALSE}
+set.seed(1)
+fa2_layout <- layout.forceatlas2(
+  g2,
+  iterations = 4000,
+  plotstep   = 1000,   # show a plot every 1000 iterations
+  directed   = FALSE
+)
+```
+
+```{r fa2-plot, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+set.seed(1)
+plot.igraph(
+  g2,
+  layout           = fa2_layout,
+  vertex.size      = 0,
+  vertex.label.cex = 0.6,
+  edge.width       = E(g2)$similarity / 10,
+  main             = "Word Similarity Network — ForceAtlas2"
+)
+```
+
+
+::: {.callout-note}
+## Interpreting the ForceAtlas2 Map
+
+ForceAtlas2 reveals clear global trends: *periodone* clusters near *king*, *ship*, and *prisoner*. *periodtwo* is close to *home*, *school*, *death*, and *married* — the new Australians are coping with their new home and writing anxiously about their family. *periodthree* features expeditions in the new wilderness: *journey*, months, and logbook-like vocabulary. *periodfour* shows increasing political awareness: *constitution*, *law*, *federal*, and *matters* become prominent.
+
+ForceAtlas2 is particularly good at showing this kind of global temporal structure — arguably better than FR or DRL for this corpus.
+:::
+
+::: {.callout-tip}
+## Running Outside RStudio
+
+ForceAtlas2 is designed to show the graph constantly updating as it takes shape. Running it outside a code block (directly in the R console) displays a sequence of plots that is much more informative than a single static output. You can then zoom the final plot in the Plots tab and export to PDF from there.
+:::
+
+---
+
+# Method FIVE: UMAP {#umap}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply UMAP (Uniform Manifold Approximation and Projection) to the word2vec matrix; how the `n_neighbors` parameter controls the balance between local and global structure; and why UMAP excels at local detail but cannot reliably map global distances
+:::
+
+**UMAP** [@mcinnes2018umap] is a non-linear dimensionality reduction method that has become very popular as a faster and often more flexible alternative to t-SNE. The key parameter is `n_neighbors`: smaller values preserve fine-grained local structure; larger values preserve more of the global topology.
+
+```{r umap-plot, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+set.seed(1)
+umap_result <- umap(
+  sub_model,
+  n_neighbors  = 500,   # large value → more global structure
+  min_dist     = 0.2,   # cluster tightness
+  n_components = 2,
+  metric       = "euclidean"
+)
+
+plot(
+  umap_result[, 1],
+  umap_result[, 2],
+  pch  = 1,
+  col  = "white",
+  xlab = "UMAP 1",
+  ylab = "UMAP 2",
+  main = "UMAP projection of COOEE word2vec (top 1,000 words)"
+)
+text(
+  umap_result[, 1],
+  umap_result[, 2],
+  labels = rownames(sub_model),
+  cex    = 0.7
+)
+```
+
+
+::: {.callout-note}
+## Interpreting the UMAP Map
+
+UMAP is very accurate in local detail: person names, months, numbers, and other semantically tight groups cluster together correctly. However, the placement of the period labels (*periodone*, *periodtwo*, etc.) relative to each other looks almost arbitrary. This reflects a well-known property of UMAP: it is superior for **local** neighbourhood structure but cannot reliably represent **global** distances between clusters. For questions about the relative positions of major thematic groups, ForceAtlas2 or Fruchterman-Reingold are more appropriate.
+:::
+
+---
+
+# Method SIX: Graph from Textplot (GML Import) {#textplot}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to import a pre-computed GML graph file into R; how to apply igraph and ForceAtlas2 layouts to an externally generated graph; and how the textplot tool differs from the word2vec approach used above
+:::
+
+::: {.callout-warning}
+## External Tool Required
+
+This section uses a `.gml` file generated by the `textplot` command-line tool (McClure 2015, [GitHub](https://github.com/davidmcclure/textplot)). The GML file for COOEE is available for download:
+
+```{r download-gml, eval=FALSE, message=FALSE, warning=FALSE}
+download.file(
+  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml",
+  destfile = "tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml",
+  mode     = "wb"
+)
+```
+
+The file was generated with the following command (for reference only):
+
+```
+textplot generate --term_depth 400 --skim_depth 10 --bandwidth 30000 \
+  ALL_byperiod_nomarkup.txt ALL_byperiod_momarkup3_t400-s10.gml
+```
+:::
+
+## Loading the GML file {-}
+
+```{r load-gml, eval = FALSE, message=FALSE, warning=FALSE}
+gml_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml")
+g_tp <- read_graph(gml_file, format = "gml")
+```
+
+## Visualising with Fruchterman-Reingold {-}
+
+```{r textplot-fr, eval = FALSE, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+set.seed(1)
+plot.igraph(
+  g_tp,
+  layout           = layout_with_fr(g_tp, weights = E(g_tp)$weight),
+  vertex.size      = 0,
+  vertex.label.cex = 0.8,
+  edge.width       = E(g_tp)$similarity / 5,
+  main             = "Textplot Graph — Fruchterman-Reingold"
+)
+```
+
+::: {.callout-note}
+## Interpreting the Textplot FR Map
+
+A legal cluster is visible at the top of the map, with *court*, *defendant*, and *judge*. *periodone* is near *captain*, *boat*, *ship*, and *convicts*. Periods 2, 3, and 4 are relatively close to each other, near family relations (*sister*, *father*, *brother*) and affection (*love*).
+:::
+
+## Visualising with ForceAtlas2 {-}
+
+When loading a `.gml` file from textplot, node names are stored in the `label` attribute rather than igraph's default `name`. We need to copy `label` to `name` before using ForceAtlas2:
+
+```{r textplot-fa2, eval = FALSE, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+V(g_tp)$name <- V(g_tp)$label
+
+set.seed(1)
+fa2_layout_tp <- layout.forceatlas2(
+  g_tp,
+  iterations = 5000,
+  plotstep   = 500,
+  directed   = FALSE,
+  gravity    = 0.8,
+  k          = 10000,
+  ks         = 5,
+  delta      = 1
+)
+
+plot.igraph(
+  g_tp,
+  layout           = fa2_layout_tp,
+  vertex.size      = 0,
+  vertex.label.cex = 0.6,
+  edge.width       = E(g_tp)$weight / 10,
+  main             = "Textplot Graph — ForceAtlas2"
+)
+```
+
+
+---
+
+# Comparing the Six Methods {#comparison}
+
+::: {.callout-note}
+## Summary
+
+We have now built conceptual maps of the COOEE corpus using six different methods. Here is a summary of their strengths and weaknesses for this type of task:
+
+| Method | Local detail | Global structure | Speed | Interactivity |
+|---|---|---|---|---|
+| t-SNE | ⭐⭐⭐ | ⭐ | Medium | ✓ via plotly |
+| igraph FR | ⭐⭐ | ⭐⭐ | Fast | — |
+| igraph DRL | ⭐⭐ | ⭐⭐ | Fast | — |
+| ForceAtlas2 | ⭐⭐ | ⭐⭐⭐ | Slow | Animated |
+| UMAP | ⭐⭐⭐ | ⭐ | Fast | — |
+| Textplot + FA2 | ⭐⭐ | ⭐⭐⭐ | Slow | — |
+
+**Key findings from comparing the methods:**
+
+- **t-SNE and UMAP** excel at revealing tight local clusters (synonyms, near-synonyms, semantic categories) but their global layouts are not reliable — do not read meaning into the distances between major clusters.
+- **Fruchterman-Reingold and DRL** provide a reasonable balance between local and global structure. Rescaling the edge weights (to 1–100 or 1–10,000) has a substantial effect on the layout quality.
+- **ForceAtlas2** produces the most interpretable global layout for this corpus, clearly separating the four historical periods and placing them near their most characteristic vocabulary.
+- **Textplot + ForceAtlas2** produces very similar results to the word2vec + ForceAtlas2 approach, suggesting that the layout algorithm matters more than the specific edge-weighting method, at least for this corpus.
+
+There is no single best method. The choice depends on the research question: use t-SNE or UMAP to explore fine-grained semantic categories; use ForceAtlas2 or Fruchterman-Reingold to understand global thematic organisation.
+:::
+
+---
+
+# Final Comments {#conclusion}
+
+As @tangherlini2013trawling argue in the context of topic modelling, computational methods offer a division of labour: the algorithm handles counting and similarity computation, while the researcher applies domain expertise to interpret the output. Conceptual maps are a particularly powerful illustration of this: they make the latent structure of a large corpus visible at a glance, but the interpretation of what the clusters mean — and what the distances between them imply — always requires human judgement.
+
+The comparison of methods presented here also reinforces a broader methodological lesson: the same underlying data can look very different depending on how it is projected into two dimensions. Before drawing conclusions from any conceptual map, it is worth asking: does this layout algorithm preserve local structure, global structure, or both? Is the placement of nodes determined by the data, or partly by the algorithm's own biases?
+
+---
+
+# Citation & Session Info {-}
+
+Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html (Version 2026.05.01).
+
+```
+@manual{schneider2026conceptualmaps_showcase,
+  author       = {Schneider, Gerold},
+  title        = {Comparing Methods for Conceptual Maps},
+  note         = {tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html},
+  year         = {2026},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address      = {Brisbane},
+  edition      = {2026.05.01}
+}
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was adapted for LADAL by Martin Schweinberger with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. The original tutorial was authored by Gerold Schneider (2026). The adaptation involved converting the document to Quarto format; fixing the YAML; replacing all hardcoded absolute paths with portable relative paths; removing all PDF-iframe embed patterns and replacing them with inline R plot output; adding LADAL-style section overviews, learning objectives, a prerequisite callout; consolidating duplicate UMAP plot blocks; adding `set.seed(1)` to the UMAP block for reproducibility; and adding the GML download block so the textplot section can be run without access to external tools. All scientific content, interpretation, and code logic are the work of the original author.
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+---
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
