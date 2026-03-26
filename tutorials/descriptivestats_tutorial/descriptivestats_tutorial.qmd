@@ -1,0 +1,3187 @@
+---  
+title: "Descriptive Statistics with R"  
+author: "Martin Schweinberger"  
+format:  
+  html:  
+    toc: true  
+    toc-depth: 4  
+    code-fold: show  
+    theme: cosmo  
+---  
+  
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
+library(checkdown)  
+library(dplyr)  
+library(ggplot2)  
+library(stringr)  
+library(boot)  
+library(DescTools)  
+library(ggpubr)  
+library(flextable)  
+library(psych)  
+library(Rmisc)  
+library(cowplot)  
+options(stringsAsFactors = FALSE)  
+options("scipen" = 100, "digits" = 12)  
+```  
+  
+![](/images/uq1.jpg){ width=100% }  
+  
+# Introduction {#intro}  
+  
+This tutorial introduces **descriptive statistics** — the methods we use to summarise, organise, and communicate what a dataset contains. Before we can test hypotheses or draw inferences about populations, we need to understand and describe what our data actually look like. Descriptive statistics provide the tools to do exactly that.  
+  
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
+  
+Descriptive statistics help us understand the main features of a dataset: its *central tendency* (where the data cluster), its *variability* (how spread out the values are), and its *distribution* (the shape of the data). These summaries offer valuable insights for analysing and interpreting quantitative data across all domains, including linguistics and the humanities [@bickel2012descriptive; @thompson2009descriptive].  
+  
+This tutorial is aimed at beginners and intermediate R users. The goal is not to provide a complete analysis but to showcase selected, practically useful methods for describing and summarising data, illustrated with real and realistic linguistic examples.  
+  
+::: {.callout-note}  
+## Prerequisite Tutorials  
+  
+Before working through this tutorial, we recommend familiarity with the following:  
+  
+- [Introduction to Quantitative Reasoning](/tutorials/introquant/introquant.html)  
+- [Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html)  
+- [Getting started with R](/tutorials/intror/intror.html)  
+- [Loading, saving, and generating data in R](/tutorials/load/load.html)  
+- [Handling Tables in R](/tutorials/table/table.html)  
+:::  
+  
+<br>  
+  
+## Why Descriptive Statistics?  
+  
+To see why data summaries are useful, consider the following scenario. You are teaching two different classes in the same school, at the same grade level. Both classes take the same exam. After grading, someone asks: "Which class performed better?" You *could* say: *"Class A had 5 Bs, 10 Cs, 12 Ds, and 2 Fs, while Class B had 2 As, 8 Bs, 10 Ds, and 4 Fs"* — but this answer is unsatisfying and hard to compare.  
+  
+Descriptive statistics allow you to summarise complex datasets in just a few numbers or words. This is the practical power of descriptive statistics: they compress data without losing its essential character.  
+  
+::: {.callout-tip}  
+## What This Tutorial Covers  
+  
+Statistics can be divided into two main branches:  
+  
+- **Descriptive statistics**: Describes and visualises data (this tutorial)  
+- **Inferential statistics**: Tests hypotheses and draws conclusions about populations from samples  
+  
+This tutorial covers:  
+  
+1. **Measures of central tendency** — mean, median, mode, geometric mean, harmonic mean  
+2. **Measures of variability** — range, IQR, variance, SD, SE  
+3. **Confidence intervals** — parametric, bootstrapped, nominal, multinomial  
+4. **Data distributions** — histograms, density plots, Q-Q plots, skewness, kurtosis  
+5. **Comprehensive summaries** — `summary()`, `psych::describe()`, publication-ready tables  
+6. **Frequency tables and cross-tabulations** — `table()`, `prop.table()`, grouped bar charts  
+7. **Data visualisation** — boxplots, violin plots, bar charts, scatterplots  
+8. **Correlation** — Pearson's *r*, Spearman's ρ, correlation matrices  
+9. **Outlier detection** — z-score method, IQR fences, visualisation  
+10. **Robust measures** — trimmed mean, Winsorisation, MAD  
+11. **Working with real data** — loading, inspecting, missing values, data quality  
+12. **Effect sizes** — Cohen's *d*, Pearson's *r*, eta-squared (η²)  
+13. **Reporting standards** — APA conventions, model paragraphs and tables  
+:::  
+  
+---  
+  
+## Preparation: Installing and Loading Packages {-}  
+  
+This tutorial requires several R packages. If you have not yet installed them, run the code below. This only needs to be done once.  
+  
+```{r prep1, eval = FALSE, message=FALSE, warning=FALSE}  
+# install required packages  
+install.packages("dplyr")  
+install.packages("ggplot2")  
+install.packages("stringr")  
+install.packages("boot")  
+install.packages("DescTools")  
+install.packages("ggpubr")  
+install.packages("flextable")  
+install.packages("psych")  
+install.packages("Rmisc")  
+install.packages("checkdown")  
+```  
+  
+Once installed, load the packages as shown below. We also set two global options that suppress scientific notation and prevent automatic factor conversion.  
+  
+```{r prep2, message=FALSE, warning=FALSE}  
+# set global options  
+options(stringsAsFactors = FALSE)         # no automatic data transformation  
+options("scipen" = 100, "digits" = 12)   # suppress scientific notation  
+  
+# load packages  
+library(boot)  
+library(DescTools)  
+library(dplyr)  
+library(stringr)  
+library(ggplot2)  
+library(flextable)  
+library(ggpubr)  
+library(psych)  
+library(Rmisc)  
+library(checkdown)  
+```  
+  
+---  
+  
+# Measures of Central Tendency {#centrality}  
+  
+A **measure of central tendency** is a single value that represents the "typical" or "central" value in a distribution. In linguistics and the language sciences, three measures are particularly important: the **mean**, the **median**, and the **mode** [@gaddis1990introduction].  
+  
+Two further measures — the geometric mean and the harmonic mean — are occasionally relevant for specific types of data and are briefly covered below.  
+  
+::: {.callout-note}  
+## Choosing the Right Measure  
+  
+The appropriate measure of central tendency depends on:  
+  
+1. The **type of variable** (nominal, ordinal, interval, ratio)  
+2. The **distribution** of the data (normal vs. skewed; presence of outliers)  
+3. The **purpose** of the summary  
+  
+The table below gives an overview.  
+:::  
+  
+```{r ds01, echo=FALSE, message=FALSE, warning=FALSE}  
+Means <- c(  
+  "(Arithmetic) mean",   
+  "Median",   
+  "Mode",   
+  "Geometric mean",   
+  "Harmonic mean"  
+)  
+WhenToUse <- c(  
+  "Numeric variables with approximately normal distributions; most common measure of central tendency",  
+  "Numeric or ordinal variables with non-normal distributions, skew, or influential outliers",  
+  "Nominal and categorical variables; also useful for any variable to identify the most frequent value",  
+  "Dynamic processes involving multiplicative change (e.g., growth rates, compound interest)",  
+  "Dynamic processes involving rates and velocities (e.g., average speed across equal distances)"  
+)  
+df_means <- data.frame(Means, WhenToUse)  
+colnames(df_means) <- c("Measure", "When to Use")  
+  
+df_means |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Measures of central tendency and their appropriate use cases.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+## The (Arithmetic) Mean {-}  
+  
+The **mean** is the most widely used measure of central tendency. It is appropriate when data are numeric and approximately normally distributed.  
+  
+The mean is calculated by summing all values and dividing by the number of values:  
+  
+$$\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i = \frac{x_1 + x_2 + \cdots + x_n}{n}$$  
+  
+```{r ds03, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  id = rep(1:4, 2),  
+  g = c(rep("x1", 4), rep("x2", 4)),  
+  freq = c(2, 8, 4, 6, 5, 5, 5, 5)  
+) |>  
+  ggplot(aes(x = id, y = freq, label = freq, fill = g)) +  
+  geom_bar(stat = "identity") +  
+  facet_grid(~g) +  
+  theme_void() +  
+  theme(  
+    legend.position = "none",  
+    strip.background = element_blank(),  
+    strip.text.x = element_blank()  
+  ) +  
+  ggtitle("The (Arithmetic) Mean: two distributions with the same mean (5)") +  
+  geom_text(vjust = -1.6, color = "black") +  
+  coord_cartesian(ylim = c(0, 9)) +  
+  scale_fill_manual(breaks = "g", values = c(x1 = "gray80", x2 = "red"))  
+```  
+  
+**Note**: Both distributions above have a mean of 5, but their shapes are very different. This illustrates that the mean alone does not fully describe a distribution — measures of variability are also essential.  
+  
+### A Worked Example: Sentence Length in *Moby Dick* {-}  
+  
+Suppose we want to calculate the mean sentence length (in words) in the opening paragraph of Herman Melville's *Moby Dick*. We first tabulate the sentences and their lengths:  
+  
+```{r ds04, echo=FALSE, message=FALSE, warning=FALSE}  
+Sentences <- c(  
+  "Call me Ishmael.",  
+  "Some years ago — never mind how long precisely — having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world.",  
+  "It is a way I have of driving off the spleen, and regulating the circulation.",  
+  "Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off — then, I account it high time to get to sea as soon as I can."  
+)  
+Words <- c(3, 40, 15, 87)  
+df_moby <- data.frame(Sentences, Words)  
+  
+df_moby |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .95, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Sentences from the opening paragraph of Melville's *Moby Dick* and their word counts.") |>  
+  flextable::border_outer()  
+```  
+  
+To calculate the mean, we divide the total word count by the number of sentences:  
+  
+$$\bar{x} = \frac{3 + 40 + 15 + 87}{4} = \frac{145}{4} = 36.25$$  
+  
+The mean sentence length is **36.25 words**. In R:  
+  
+```{r ds06, message=FALSE, warning=FALSE}  
+# create vector of word counts per sentence  
+sentence_lengths <- c(3, 40, 15, 87)  
+# calculate mean  
+mean(sentence_lengths)  
+```  
+  
+::: {.callout-warning}  
+## Limitation of the Mean: Sensitivity to Outliers  
+  
+The mean is strongly pulled towards extreme values. In our example, the 87-word sentence dramatically inflates the mean compared to the shorter sentences. When data contain outliers or are skewed, the **median** is often a more representative measure of central tendency.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: The Mean  
+:::  
+  
+**Q1. What is the arithmetic mean of: 1, 2, 3, 4, 5, 6?**  
+  
+```{r}  
+#| echo: false  
+#| label: "M_Q1"  
+check_question("3.5",  
+               options = c("3.5", "3", "4", "21"),  
+               type = "radio",  
+               q_id = "M_Q1",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! (1+2+3+4+5+6)/6 = 21/6 = 3.5. In R: mean(c(1,2,3,4,5,6))",  
+               wrong = "Sum all values and divide by the count. (1+2+3+4+5+6)/6 = ?")  
+```  
+  
+---  
+  
+**Q2. Which R function calculates the arithmetic mean of a numeric vector?**  
+  
+```{r}  
+#| echo: false  
+#| label: "M_Q2"  
+check_question("mean()",  
+               options = c("mean()", "median()", "average()", "sum()/n()"),  
+               type = "radio",  
+               q_id = "M_Q2",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! mean() is the base R function for the arithmetic mean. Example: mean(c(4,3,6,2,1,5,6,8)) returns 4.375.",  
+               wrong = "R has a dedicated base function for the mean. It shares its name with the statistical concept.")  
+```  
+  
+---  
+  
+**Q3. A corpus contains five texts with the following word counts: 200, 250, 210, 180, and 1500. Why might the mean NOT be the best summary of typical text length here?**  
+  
+```{r}  
+#| echo: false  
+#| label: "M_Q3"  
+check_question("The value 1500 is an outlier that inflates the mean far above the length of the other four texts",  
+               options = c(  
+                 "The value 1500 is an outlier that inflates the mean far above the length of the other four texts",  
+                 "There are too few texts to calculate a mean",  
+                 "The mean is only valid for ordinal data",  
+                 "The mean requires equal word counts across texts"  
+               ),  
+               type = "radio",  
+               q_id = "M_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The mean of these five values is (200+250+210+180+1500)/5 = 468 — far above the four 'typical' texts (180–250 words). The outlier at 1500 pulls the mean upward so it no longer represents the typical text. The median (210) is more representative here.",  
+               wrong = "Calculate the mean: (200+250+210+180+1500)/5 = 468. Does 468 represent a 'typical' text in this set?")  
+```  
+  
+---  
+  
+## The Median {-}  
+  
+The **median** is the middle value when data are arranged in ascending or descending order. Exactly 50% of values lie below the median and 50% lie above it. The median is more *robust* than the mean because it is not affected by extreme values.  
+  
+$$\text{median}(x) = \begin{cases} x_{\frac{n+1}{2}} & \text{if } n \text{ is odd} \\ \frac{1}{2}\left(x_{\frac{n}{2}} + x_{\frac{n}{2}+1}\right) & \text{if } n \text{ is even} \end{cases}$$  
+  
+```{r ds07, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  id = rep(1:9, 2),  
+  g = c(rep("Unsorted", 9), rep("Sorted", 9)),  
+  freq = c(5, 2, 9, 7, 1, 3, 8, 4, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9),  
+  clr = c(rep("g", 13), "r", rep("g", 4))  
+) |>  
+  dplyr::mutate(g = factor(g, levels = c("Unsorted", "Sorted"))) |>  
+  ggplot(aes(x = id, y = freq, label = freq, fill = clr)) +  
+  geom_bar(stat = "identity") +  
+  facet_grid(~g) +  
+  theme_void() +  
+  theme(  
+    legend.position = "none",  
+    strip.background = element_blank(),  
+    strip.text.x = element_blank()  
+  ) +  
+  ggtitle("Median: the middle value in a sorted sequence (highlighted in red)") +  
+  scale_fill_manual(breaks = "clr", values = c(g = "gray80", r = "red")) +  
+  geom_text(vjust = -1.6, color = "black") +  
+  coord_cartesian(ylim = c(0, 10))  
+```  
+  
+### A Linguistic Example: Speaker Age in the ICE-Ireland Corpus {-}  
+  
+Consider the age distribution of speakers in the private dialogue section of the Irish component of the *International Corpus of English* (ICE-Ireland):  
+  
+```{r ds08, echo=FALSE, message=FALSE, warning=FALSE}  
+Age <- c("0–18", "19–25", "26–33", "34–41", "42–49", "50+")  
+Counts <- c(9, 160, 70, 15, 9, 57)  
+df_age <- data.frame(Age, Counts)  
+  
+df_age |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .5, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Speaker counts by age group in ICE-Ireland private dialogues.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r ds09, echo=FALSE, message=FALSE, warning=FALSE}  
+df_age |>  
+  ggplot(aes(Age, Counts, label = Counts)) +  
+  geom_bar(stat = "identity", fill = "steelblue") +  
+  geom_text(vjust = -0.6, color = "black") +  
+  coord_cartesian(ylim = c(0, 200)) +  
+  theme_bw() +  
+  labs(x = "Age Group", y = "Number of Speakers",  
+       title = "Speaker age distribution in ICE-Ireland private dialogues") +  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())  
+```  
+  
+The age groups are **ordinal**: they have a natural order (young to old) but we cannot assume equal intervals between groups. The appropriate measure is the median, not the mean.  
+  
+To find the median, we create a vector where each speaker's age rank appears as many times as there are speakers in that group:  
+  
+```{r ds11, message=FALSE, warning=FALSE}  
+# create a ranked vector (1 = youngest group, 6 = oldest)  
+age_ranks <- c(rep(1, 9), rep(2, 160), rep(3, 70),  
+               rep(4, 15), rep(5, 9),  rep(6, 57))  
+# total speakers  
+length(age_ranks)  # 320 speakers  
+# find the median rank  
+median(age_ranks)  
+```  
+  
+The median rank is **2**, corresponding to the **19–25** age group. This tells us the median speaker in ICE-Ireland private dialogues is between 19 and 25 years old.  
+  
+::: {.callout-tip}  
+## Mean vs. Median: When Does It Matter?  
+  
+The mean and median agree when distributions are symmetric. They diverge when distributions are **skewed** or contain **outliers**:  
+  
+| Situation | Preferred measure |  
+|---|---|  
+| Normal distribution, no outliers | Mean |  
+| Skewed distribution (e.g., text lengths, corpus frequencies) | Median |  
+| Ordinal variables (e.g., Likert scales, age groups) | Median |  
+| Influential extreme values | Median |  
+  
+In corpus linguistics, frequency data is almost always right-skewed: a few very frequent items dominate. The median is therefore often more informative than the mean for frequency distributions.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: The Median  
+:::  
+  
+**Q1. What is the median of: 1, 2, 3, 4, 5, 6?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MED_Q1"  
+check_question("3.5",  
+               options = c("3", "3.5", "4", "3 or 4"),  
+               type = "radio",  
+               q_id = "MED_Q1",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! With an even number of elements (n=6), the median is the average of the two middle values: (3+4)/2 = 3.5. In R: median(c(1,2,3,4,5,6)) = 3.5",  
+               wrong = "With an even number of elements, the median is the average of the two central values. Which values are positions 3 and 4?")  
+```  
+  
+---  
+  
+**Q2. A researcher has reaction time data with several extremely slow responses (>2000ms). Which measure of central tendency should she report as the primary summary?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MED_Q2"  
+check_question("Median — it is robust to the extreme values (outliers) in the upper tail",  
+               options = c(  
+                 "Median — it is robust to the extreme values (outliers) in the upper tail",  
+                 "Mean — it uses all the data and is therefore more accurate",  
+                 "Mode — it is always the most appropriate for continuous data",  
+                 "Geometric mean — it is designed for rate data"  
+               ),  
+               type = "radio",  
+               q_id = "MED_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Reaction time data is typically right-skewed with occasional extreme slow responses (due to lapses in attention, etc.). The median is robust to these outliers and better represents the typical participant's response speed. In practice, RT researchers often report both median and mean, and trim or exclude extreme outliers.",  
+               wrong = "Think about how extreme slow responses (outliers) would affect the mean vs. the median.")  
+```  
+  
+---  
+  
+**Q3. When is the median equal to the mean?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MED_Q3"  
+check_question("When the distribution is perfectly symmetric (e.g., a normal distribution)",  
+               options = c(  
+                 "When the distribution is perfectly symmetric (e.g., a normal distribution)",  
+                 "When all values are equal",  
+                 "When the sample size is large enough",  
+                 "When the data are ordinal"  
+               ),  
+               type = "radio",  
+               q_id = "MED_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! In a perfectly symmetric distribution, the mean and median coincide. In practice, they are rarely identical — but when they are close, it is a useful indicator that the distribution is approximately symmetric. Note that 'all values equal' also satisfies this, but is a trivial special case.",  
+               wrong = "Think about what property of a distribution causes the mean and median to pull in different directions.")  
+```  
+  
+---  
+  
+## The Mode {-}  
+  
+The **mode** is the most frequently occurring value (or category) in a distribution. It is the only measure of central tendency that can be used with **nominal** (categorical) variables.  
+  
+```{r ds13, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  id = rep(1:9, 2),  
+  g = c(rep("Unsorted", 9), rep("Sorted", 9)),  
+  freq = c(5, 2, 9, 7, 1, 3, 8, 4, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9),  
+  clr = c(rep("g", 17), "r")  
+) |>  
+  dplyr::mutate(g = factor(g, levels = c("Unsorted", "Sorted"))) |>  
+  ggplot(aes(x = id, y = freq, label = freq, fill = clr)) +  
+  geom_bar(stat = "identity") +  
+  facet_grid(~g) +  
+  theme_void() +  
+  theme(  
+    legend.position = "none",  
+    strip.background = element_blank(),  
+    strip.text.x = element_blank()  
+  ) +  
+  ggtitle("Mode: the highest bar is the most frequent value (highlighted in red)") +  
+  scale_fill_manual(breaks = "clr", values = c(g = "gray80", r = "red")) +  
+  geom_text(vjust = -1.6, color = "black") +  
+  coord_cartesian(ylim = c(0, 10))  
+```  
+  
+### Example: Speaker Residence in ICE-Ireland {-}  
+  
+```{r ds14, echo=FALSE, message=FALSE, warning=FALSE}  
+CurrentResidence <- c("Belfast", "Down", "Dublin (city)", "Limerick", "Tipperary")  
+Speakers <- c(98, 20, 110, 13, 19)  
+df_res <- data.frame(CurrentResidence, Speakers)  
+  
+df_res |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .55, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Speaker counts by current residence in ICE-Ireland private dialogues.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r ds15, echo=FALSE, message=FALSE, warning=FALSE}  
+df_res |>  
+  ggplot(aes(CurrentResidence, Speakers, label = Speakers)) +  
+  geom_bar(stat = "identity", fill = "steelblue") +  
+  geom_text(vjust = -0.6, color = "black") +  
+  coord_cartesian(ylim = c(0, 150)) +  
+  theme_bw() +  
+  labs(x = "", y = "Number of Speakers",  
+       title = "Speaker residence distribution in ICE-Ireland private dialogues") +  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())  
+```  
+  
+The mode is **Dublin (city)**, with 110 speakers — the single largest group. In R:  
+  
+```{r ds16, message=FALSE, warning=FALSE}  
+# create a factor with current residences  
+residence <- c(  
+  rep("Belfast", 98),  
+  rep("Down", 20),  
+  rep("Dublin (city)", 110),  
+  rep("Limerick", 13),  
+  rep("Tipperary", 19)  
+)  
+# calculate mode: find which level occurs most frequently  
+names(which.max(table(residence)))  
+```  
+  
+::: {.callout-warning}  
+## R Has No Built-in `mode()` Function for Statistics  
+  
+R's built-in `mode()` function returns the *storage mode* of an object (e.g., "numeric", "character") — **not** the statistical mode. To find the most frequent value, use `names(which.max(table(x)))` as shown above.  
+  
+**Caution**: `which.max()` returns only the *first* maximum. If two categories have equal frequency (a bimodal distribution), only one is returned. Always inspect the full frequency table (`table(x)`) to detect ties.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: The Mode  
+:::  
+  
+**Q1. For which type of variable is the mode the ONLY appropriate measure of central tendency?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MO_Q1"  
+check_question("Nominal (categorical) variables",  
+               options = c(  
+                 "Nominal (categorical) variables",  
+                 "Ratio variables",  
+                 "Ordinal variables",  
+                 "Interval variables"  
+               ),  
+               type = "radio",  
+               q_id = "MO_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! For nominal variables (e.g., language of a speaker, word class, country of origin), there is no meaningful order or numeric distance, so neither the mean nor the median can be calculated. The mode — the most frequent category — is the only valid measure of central tendency.",  
+               wrong = "Which variable type has categories without order or numeric meaning?")  
+```  
+  
+---  
+  
+**Q2. A corpus linguist finds that 'the' appears 4000 times, 'a' appears 2500 times, and 'of' appears 1800 times in a sample. What is the mode of word frequency in this sample?**  
+  
+```{r}  
+#| echo: false  
+#| label: "MO_Q2"  
+check_question("'the' — it has the highest frequency (4000)",  
+               options = c(  
+                 "'the' — it has the highest frequency (4000)",  
+                 "2766.67 — the arithmetic mean of the three frequencies",  
+                 "2500 — the median frequency",  
+                 "There is no mode for frequency data"  
+               ),  
+               type = "radio",  
+               q_id = "MO_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The mode of a categorical distribution is the most frequent category. Here, 'the' occurs most often. Note that when we have word frequency data, the mode of the *words* (which word is most frequent) is different from the mode of the *frequency values* themselves. Context always determines which question you're answering.",  
+               wrong = "The mode is the value or category that occurs most often. Which word has the highest count?")  
+```  
+  
+---  
+  
+## When Measures of Centrality Diverge: A Cautionary Example {-}  
+  
+The following example illustrates why the choice of measure matters. Consider discourse particle use (per 1,000 words) across five speakers in two different corpora:  
+  
+```{r ds18, echo=FALSE, message=FALSE, warning=FALSE}  
+Corpus <- c(rep("C1", 5), rep("C2", 5))  
+Speaker <- rep(c("A", "B", "C", "D", "E"), 2)  
+Frequency <- c(11.4, 5.2, 27.1, 9.6, 13.7, 0.2, 0.0, 1.1, 65.3, 0.4)  
+particletable <- data.frame(Corpus, Speaker, Frequency)  
+  
+particletable |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .5, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Relative frequency of discourse particles (per 1,000 words) per speaker across two corpora.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r ds20a, echo=FALSE, message=FALSE, warning=FALSE}  
+particletable |>  
+  ggplot(aes(x = Speaker, y = Frequency, label = Frequency, fill = Corpus)) +  
+  geom_bar(stat = "identity", position = position_dodge()) +  
+  theme_bw() +  
+  labs(title = "Discourse particle use: same mean, very different distributions",  
+       y = "Relative Frequency (per 1,000 words)", x = "Speaker") +  
+  scale_fill_manual(values = c(C1 = "gray70", C2 = "steelblue")) +  
+  geom_text(aes(y = -4, label = Frequency), position = position_dodge(0.9), size = 3) +  
+  coord_cartesian(ylim = c(-8, 80)) +  
+  theme(legend.position = "top")  
+```  
+  
+Both corpora have a **mean** of 13.4 particles per 1,000 words — identical by the mean. But the **distributions** are entirely different:  
+  
+- **Corpus 1**: Values are fairly evenly distributed across speakers (range: 5.2–27.1)  
+- **Corpus 2**: Four speakers use almost no particles (0.0–1.1), but Speaker D uses them at an extremely high rate (65.3), inflating the mean  
+  
+The **median** reveals this difference clearly:  
+- Corpus 1 median: **11.4** (reflects the typical speaker)  
+- Corpus 2 median: **0.4** (reflects the typical speaker — very different from the mean of 13.4!)  
+  
+::: {.callout-important}  
+## Key Lesson  
+  
+Always report the **median alongside the mean**, especially when:  
+  
+- The distribution is known or suspected to be non-normal  
+- You are working with corpus frequency data (almost always right-skewed)  
+- Outliers may be present  
+- The variable is ordinal rather than truly numeric  
+  
+The mean and median together tell a richer story than either alone.  
+:::  
+  
+---  
+  
+## Geometric Mean {-}  
+  
+The **geometric mean** is used for dynamic processes where later values depend on earlier ones — particularly for **growth rates** and **multiplicative processes**.  
+  
+$$\bar{x}_{\text{geom}} = \sqrt[n]{x_1 \times x_2 \times \cdots \times x_n}$$  
+  
+**Example: Comparing two investment packages**  
+  
+```{r ds17, echo=FALSE, message=FALSE, warning=FALSE}  
+Year <- c("Year 1", "Year 2", "Year 3", "Year 4")  
+Package1 <- c("+5%", "−5%", "+5%", "−5%")  
+Package2 <- c("+20%", "−20%", "+20%", "−20%")  
+df_invest <- data.frame(Year, Package1, Package2)  
+  
+df_invest |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .6, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Annual returns for two investment packages.") |>  
+  flextable::border_outer()  
+```  
+  
+The arithmetic means of both packages are 0% — they appear identical. But the geometric means reveal the truth:  
+  
+- **Package 1**: $1.05 \times 0.95 \times 1.05 \times 0.95 = 0.995$ → 0.5% total loss → ~0.125% loss/year  
+- **Package 2**: $1.20 \times 0.80 \times 1.20 \times 0.80 = 0.922$ → 7.8% total loss → ~2% loss/year  
+  
+Package 2 performs **much worse** because percentage gains and losses are not symmetric: a 20% loss requires more than a 20% gain to recover.  
+  
+---  
+  
+## Harmonic Mean {-}  
+  
+The **harmonic mean** gives the average *rate* when each component contributes equally to a fixed total amount of *work* or *distance*.  
+  
+$$\bar{x}_{\text{harm}} = \frac{n}{\frac{1}{x_1} + \frac{1}{x_2} + \cdots + \frac{1}{x_n}}$$  
+  
+**Example**: You drive 60 km to work at 30 kph and return at 60 kph. The distance is equal in both directions. What is your average speed?  
+  
+$$\bar{x}_{\text{harm}} = \frac{2}{\frac{1}{30} + \frac{1}{60}} = \frac{2}{\frac{3}{60}} = 40 \text{ kph}$$  
+  
+At 40 kph both ways, the trip takes the same total time (3 hours) as the original unequal speeds. The arithmetic mean (45 kph) would give the wrong answer: at 45 kph both ways, the trip would only take 2h40min.  
+  
+---  
+  
+# Measures of Variability {#variability}  
+  
+Measures of variability describe how **spread out** or **dispersed** values are around the central tendency. Two datasets can have identical means but very different distributions — as the Moscow/Hamburg temperature example below illustrates.  
+  
+::: {.callout-note}  
+## Why Variability Matters  
+  
+Without variability measures, central tendency statistics alone are misleading. Two cities can have the same annual mean temperature but vastly different climates. Two speakers can have the same mean utterance length but very different speaking styles. Always report a measure of variability alongside any measure of central tendency.  
+:::  
+  
+```{r ds21, echo=FALSE, message=FALSE, warning=FALSE}  
+Month <- c("January", "February", "March", "April", "May", "June",  
+           "July", "August", "September", "October", "November", "December", "**Mean**")  
+Moscow <- c(-5, -12, 5, 12, 15, 18, 22, 23, 20, 16, 8, 1, 10.25)  
+Hamburg <- c(7, 7, 8, 9, 10, 13, 15, 15, 13, 11, 8, 7, 10.25)  
+df_temp <- data.frame(Month, Moscow, Hamburg)  
+  
+df_temp |>  
+  as.data.frame() |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .7, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Average monthly temperatures (°C) in Hamburg and Moscow. Both cities have the same annual mean (10.25°C) but very different variability.") |>  
+  flextable::border_outer()  
+```  
+  
+```{r ds22, echo=FALSE, message=FALSE, warning=FALSE}  
+Temperature <- c(  
+  -5, -12, 5, 12, 15, 18, 22, 23, 20, 16, 8, 1,  
+   7,   7, 8,  9, 10, 13, 15, 15, 13, 11, 8, 7  
+)  
+Month_rep <- rep(c("January","February","March","April","May","June",  
+                   "July","August","September","October","November","December"), 2)  
+City <- c(rep("Moscow", 12), rep("Hamburg", 12))  
+lineplotdata <- data.frame(City, Month = Month_rep, Temperature) |>  
+  dplyr::mutate(Month = factor(Month, levels = c(  
+    "January","February","March","April","May","June",  
+    "July","August","September","October","November","December")))  
+  
+lineplotdata |>  
+  ggplot(aes(x = Month, y = Temperature, group = City, color = City, linetype = City)) +  
+  geom_line(linewidth = 1) +  
+  theme_bw() +  
+  theme(legend.position = "top",  
+        panel.grid.major = element_blank(),  
+        panel.grid.minor = element_blank(),  
+        axis.text.x = element_text(angle = 45, hjust = 1)) +  
+  labs(x = "", y = "Temperature (°C)",  
+       title = "Same annual mean (10.25°C), very different variability") +  
+  scale_color_manual(values = c("Moscow" = "steelblue", "Hamburg" = "tomato")) +  
+  scale_linetype_manual(values = c("Moscow" = "dashed", "Hamburg" = "solid"))  
+```  
+  
+---  
+  
+## Range {-}  
+  
+The **range** is the simplest measure of variability: it reports the minimum and maximum values of a distribution.  
+  
+```{r ds24, message=FALSE, warning=FALSE}  
+Moscow <- c(-5, -12, 5, 12, 15, 18, 22, 23, 20, 16, 8, 1)  
+Hamburg <- c(7, 7, 8, 9, 10, 13, 15, 15, 13, 11, 8, 7)  
+  
+# range for Moscow  
+min(Moscow); max(Moscow)  
+  
+# range for Hamburg  
+min(Hamburg); max(Hamburg)  
+```  
+  
+Moscow ranges from **−12°C to 23°C** (a span of 35 degrees), while Hamburg ranges from **7°C to 15°C** (a span of only 8 degrees). The range confirms the stark climatic difference.  
+  
+**Limitation of the range**: The range only uses the two most extreme values and is therefore highly sensitive to outliers. A single extreme observation dramatically changes the range without representing the bulk of the data.  
+  
+---  
+  
+## Interquartile Range (IQR) {-}  
+  
+The **interquartile range (IQR)** is the range that encompasses the **central 50%** of data points. It is calculated as the difference between the third quartile (Q3, 75th percentile) and the first quartile (Q1, 25th percentile).  
+  
+$$\text{IQR} = Q_3 - Q_1$$  
+  
+Because the IQR excludes the top and bottom 25% of the data, it is **robust to outliers** and more informative than the range for skewed distributions.  
+  
+```{r ds25, message=FALSE, warning=FALSE}  
+# full summary including quartiles  
+summary(Moscow)  
+```  
+  
+```{r ds25b, message=FALSE, warning=FALSE}  
+# calculate IQR directly  
+IQR(Moscow)  
+IQR(Hamburg)  
+```  
+  
+For Moscow: Q1 = 1°C, Q3 = 18.5°C → IQR = **17.5°C**    
+For Hamburg: Q1 = 7.75°C, Q3 = 13°C → IQR = **5.25°C**  
+  
+The IQR confirms what the range suggested: Moscow has far greater seasonal temperature variability than Hamburg.  
+  
+::: {.callout-tip}  
+## Visualising Variability: The Boxplot  
+  
+The boxplot is the standard visualisation for the IQR. The box spans Q1 to Q3 (the IQR), the middle line marks the median, and the whiskers extend to the most extreme non-outlier values.  
+:::  
+  
+```{r boxplot, echo=FALSE, message=FALSE, warning=FALSE}  
+data.frame(  
+  City = c(rep("Moscow", 12), rep("Hamburg", 12)),  
+  Temp = c(Moscow, Hamburg)  
+) |>  
+  ggplot(aes(x = City, y = Temp, fill = City)) +  
+  geom_boxplot(alpha = 0.7) +  
+  theme_bw() +  
+  labs(y = "Temperature (°C)",  
+       title = "Temperature variability: Moscow vs Hamburg (boxplots)") +  
+  scale_fill_manual(values = c("Moscow" = "steelblue", "Hamburg" = "tomato")) +  
+  theme(legend.position = "none",  
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())  
+```  
+  
+---  
+  
+## Variance {-}  
+  
+The **variance** quantifies how much individual values deviate from the mean, on average. It is calculated as the average of the **squared deviations** from the mean:  
+  
+$$s^2 = \frac{1}{n-1} \sum_{i=1}^{n}(x_i - \bar{x})^2$$  
+  
+The reason we square the deviations is to avoid positive and negative deviations cancelling each other out. We divide by $n-1$ (rather than $n$) to obtain an unbiased estimate of the population variance.  
+  
+```{r ds26, message=FALSE, warning=FALSE}  
+# variance of Moscow temperatures  
+var(Moscow)  
+  
+# variance of Hamburg temperatures  
+var(Hamburg)  
+```  
+  
+The variance of Moscow temperatures (≈ 123.7) is roughly 13× larger than Hamburg's (≈ 9.5), reflecting the much greater seasonal fluctuation.  
+  
+**Limitation**: The variance is expressed in **squared units** (°C²), which makes it difficult to interpret directly. The standard deviation addresses this by taking the square root.  
+  
+---  
+  
+## Standard Deviation {-}  
+  
+The **standard deviation** (SD) is the square root of the variance. It is expressed in the **same units** as the original data and is by far the most commonly reported measure of variability.  
+  
+$$\sigma = \sqrt{s^2} = \sqrt{\frac{1}{n-1} \sum_{i=1}^{n}(x_i - \bar{x})^2}$$  
+  
+```{r ds28, message=FALSE, warning=FALSE}  
+# standard deviation of Moscow temperatures  
+sd(Moscow)  
+  
+# standard deviation of Hamburg temperatures  
+sd(Hamburg)  
+```  
+  
+Moscow: SD ≈ **11.12°C** — on average, monthly temperatures deviate 11 degrees from the annual mean.    
+Hamburg: SD ≈ **2.99°C** — temperatures stay within about 3 degrees of the mean throughout the year.  
+  
+::: {.callout-note}  
+## Interpreting the Standard Deviation  
+  
+For a **normally distributed** variable, approximately:  
+- **68%** of values fall within ±1 SD of the mean  
+- **95%** of values fall within ±2 SD of the mean  
+- **99.7%** of values fall within ±3 SD of the mean  
+  
+This is the *empirical rule* (or 68-95-99.7 rule). It provides a practical benchmark for assessing whether a particular value is typical or unusual.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Measures of Variability  
+:::  
+  
+**Q1. What does the IQR measure?**  
+  
+```{r}  
+#| echo: false  
+#| label: "VAR_Q1"  
+check_question("The range of the central 50% of data (Q3 minus Q1)",  
+               options = c(  
+                 "The range of the central 50% of data (Q3 minus Q1)",  
+                 "The average distance from the mean",  
+                 "The difference between the maximum and minimum values",  
+                 "The square root of the variance"  
+               ),  
+               type = "radio",  
+               q_id = "VAR_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The IQR = Q3 − Q1, covering the middle 50% of the distribution. It excludes the top and bottom 25%, making it robust to outliers. It is the basis of the boxplot.",  
+               wrong = "The IQR focuses on the *middle* of the distribution. Which statistic captures the spread of the central 50%?")  
+```  
+  
+---  
+  
+**Q2. Why is the standard deviation reported more often than the variance?**  
+  
+```{r}  
+#| echo: false  
+#| label: "VAR_Q2"  
+check_question("The standard deviation is in the same units as the original data, making it directly interpretable",  
+               options = c(  
+                 "The standard deviation is in the same units as the original data, making it directly interpretable",  
+                 "The standard deviation is always smaller than the variance",  
+                 "The variance cannot be calculated in R",  
+                 "The standard deviation is more accurate than the variance"  
+               ),  
+               type = "radio",  
+               q_id = "VAR_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The variance is in squared units (e.g., °C², ms²) which are not directly interpretable. The standard deviation — the square root of the variance — is back in the original units, so it can be meaningfully compared to the data values themselves.",  
+               wrong = "Think about the units. If temperature is measured in °C, what units is the variance in? What about the standard deviation?")  
+```  
+  
+---  
+  
+**Q3. Researcher A reports a mean corpus frequency of 50 per million words (SD = 2). Researcher B reports a mean of 50 per million words (SD = 40). What does the difference in SD tell us?**  
+  
+```{r}  
+#| echo: false  
+#| label: "VAR_Q3"  
+check_question("Researcher B's data are far more variable — the corpus frequencies spread widely around the mean of 50",  
+               options = c(  
+                 "Researcher B's data are far more variable — the corpus frequencies spread widely around the mean of 50",  
+                 "Researcher B made an error — the SD cannot be larger than the mean",  
+                 "Both datasets are equally reliable because they have the same mean",  
+                 "Researcher A's data are more skewed"  
+               ),  
+               type = "radio",  
+               q_id = "VAR_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A large SD relative to the mean indicates high variability. Researcher B's data have a SD of 40 around a mean of 50, suggesting many individual observations far from 50 (possibly some near 0, some near 100+). Researcher A's SD of 2 means nearly all observations cluster tightly around 50. Same mean, very different stories.",  
+               wrong = "The SD can be larger than the mean — for example, if values range from near 0 to very high numbers. What does a large SD tell us about how spread out the data are?")  
+```  
+  
+---  
+  
+**Q4. For the following two vectors, calculate mean, median, and standard deviation in R. Which vector has higher variability?**  
+  
+*A: 1, 3, 6, 2, 1, 1, 6, 8, 4, 2, 3, 5, 0, 0, 2, 1, 2, 1, 0*    
+*B: 3, 2, 5, 1, 1, 4, 0, 0, 2, 3, 0, 3, 0, 5, 4, 5, 3, 3, 4*  
+  
+```{r}  
+#| echo: false  
+#| label: "VAR_Q4"  
+check_question("Vector A has higher variability (larger standard deviation)",  
+               options = c(  
+                 "Vector A has higher variability (larger standard deviation)",  
+                 "Vector B has higher variability (larger standard deviation)",  
+                 "Both vectors have the same variability",  
+                 "Variability cannot be compared between two vectors"  
+               ),  
+               type = "radio",  
+               q_id = "VAR_Q4",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Running sd(A) gives approximately 2.27 and sd(B) gives approximately 1.74. Vector A has higher variability. You can verify: A <- c(1,3,6,2,1,1,6,8,4,2,3,5,0,0,2,1,2,1,0); B <- c(3,2,5,1,1,4,0,0,2,3,0,3,0,5,4,5,3,3,4); sd(A); sd(B)",  
+               wrong = "Calculate sd() for both vectors in R. Which is larger?")  
+```  
+  
+---  
+  
+## Standard Error {-}  
+  
+The **standard error of the mean (SEM)** is a measure of how precisely the sample mean estimates the true population mean. It depends on both the standard deviation and the sample size:  
+  
+$$\text{SE}_{\bar{x}} = \frac{\sigma}{\sqrt{n}}$$  
+  
+A larger sample size reduces the standard error — larger samples produce more precise estimates of the population mean. This is why replication and large samples matter in empirical research.  
+  
+To illustrate, we use a dataset of reaction times from a lexical decision task (participants decide whether a letter string is a real word):  
+  
+```{r ds30, echo = FALSE, message=FALSE, warning=FALSE}  
+set.seed(12345)  
+RT <- c(rnorm(5, 400, 50), rnorm(5, 380, 50), rnorm(5, 450, 50), rnorm(5, 480, 50))  
+State <- c(rep("Sober", 10), rep("Drunk", 10))  
+Gender <- rep(c(rep("Male", 5), rep("Female", 5)), 2)  
+rts <- data.frame(RT, State, Gender) |>  
+  dplyr::mutate(RT = round(RT, 3))  
+  
+rts |>  
+  as.data.frame() |>  
+  head(20) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .5, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Simulated reaction times (ms) in a lexical decision task, by sobriety and gender.") |>  
+  flextable::border_outer()  
+```  
+  
+We can calculate the SEM manually:  
+  
+```{r ds31, message=FALSE, warning=FALSE}  
+# manual calculation of standard error  
+sd(rts$RT, na.rm = TRUE) / sqrt(length(rts$RT[!is.na(rts$RT)]))  
+```  
+  
+Or more conveniently, using the `describe()` function from the `psych` package:  
+  
+```{r ds32, message=FALSE, warning=FALSE}  
+# describe() from psych provides SE alongside other summary statistics  
+psych::describe(rts$RT, type = 2)  
+```  
+  
+::: {.callout-note}  
+## Standard Error vs. Standard Deviation  
+  
+These two measures are frequently confused:  
+  
+| Measure | What it describes |  
+|---|---|  
+| Standard deviation (SD) | Variability of individual data points around the mean |  
+| Standard error (SE) | Precision of the sample mean as an estimate of the population mean |  
+  
+The SD tells us about the *spread of the data*. The SE tells us about the *precision of our estimate*. SE = SD / √n, so larger samples always have smaller SE.  
+:::  
+  
+---  
+  
+# Confidence Intervals {#ci}  
+  
+A **confidence interval (CI)** is a range of values that is likely to contain the true population parameter (typically the mean) with a specified level of confidence (typically 95%).  
+  
+More precisely: if you repeated your study many times and constructed a 95% CI each time, **95% of those intervals would contain the true population mean**. It does *not* mean "there is a 95% probability the true mean is in this particular interval" (a common misconception).  
+  
+Confidence intervals are important because they quantify the **uncertainty** in our estimates and communicate how precisely we can estimate a population value from a sample.  
+  
+The confidence interval for the mean is calculated as:  
+  
+$$\bar{x} \pm z \cdot \frac{s}{\sqrt{n}}$$  
+  
+For a 95% CI with normally distributed data, the z-value is **1.96** (the value that cuts off 2.5% in each tail of the standard normal distribution):  
+  
+```{r zci, message=FALSE, warning=FALSE}  
+# verify the z-value for 95% CI  
+qnorm(0.975)   # 2.5% in the upper tail → z = 1.96  
+```  
+  
+A practical example — calculating the 95% CI for a vector of values:  
+  
+```{r cim1, message=FALSE, warning=FALSE}  
+values <- c(4, 5, 2, 3, 1, 4, 3, 6, 3, 2, 4, 1)  
+  
+m <- mean(values)  
+s <- sd(values)  
+n <- length(values)  
+  
+lower <- m - 1.96 * (s / sqrt(n))  
+upper <- m + 1.96 * (s / sqrt(n))  
+  
+cat("Lower CI:", round(lower, 3), "\n")  
+cat("Mean:    ", round(m, 3), "\n")  
+cat("Upper CI:", round(upper, 3), "\n")  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Confidence Intervals  
+:::  
+  
+**Q1. What does a 95% confidence interval tell us?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CI_Q1"  
+check_question("If we repeated the study many times, 95% of the constructed intervals would contain the true population mean",  
+               options = c(  
+                 "If we repeated the study many times, 95% of the constructed intervals would contain the true population mean",  
+                 "There is a 95% probability that the true mean lies within this specific interval",  
+                 "95% of individual data points fall within the interval",  
+                 "The mean is accurate to within 5%"  
+               ),  
+               type = "radio",  
+               q_id = "CI_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! This is the frequentist interpretation of a confidence interval. The 95% refers to the long-run coverage of the procedure — not to a probability statement about any particular interval. The common misconception is option B: once an interval is computed, the true mean either is or isn't inside it. The 95% is a property of the method, not of the specific interval.",  
+               wrong = "Think carefully about what is random here: the interval (computed from the sample) or the true mean (fixed)?")  
+```  
+  
+---  
+  
+**Q2. A researcher finds a 95% CI of [48.2, 51.8] for a mean corpus frequency. What can she conclude?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CI_Q2"  
+check_question("The estimated mean is 50.0, and the true population mean is likely (but not certainly) between 48.2 and 51.8",  
+               options = c(  
+                 "The estimated mean is 50.0, and the true population mean is likely (but not certainly) between 48.2 and 51.8",  
+                 "There is a 95% chance the true mean is exactly 50.0",  
+                 "95% of all corpus texts have frequencies between 48.2 and 51.8",  
+                 "The result is statistically significant"  
+               ),  
+               type = "radio",  
+               q_id = "CI_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The interval [48.2, 51.8] centres on the sample mean (50.0) and indicates the precision of that estimate. 'Likely' here means 'if we used this method repeatedly, 95% of intervals would cover the truth'. A narrower interval indicates a more precise estimate. A CI alone does not establish statistical significance — that requires comparing the interval against a null hypothesis value.",  
+               wrong = "The CI describes where the true *mean* likely is — not individual data points, and not a probability about the exact value.")  
+```  
+  
+---  
+  
+**Q3. Two studies estimate the same mean (50.0), but Study A has CI [45, 55] and Study B has CI [49, 51]. What explains the difference?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CI_Q3"  
+check_question("Study B has a larger sample size or lower variability, giving a more precise (narrower) estimate",  
+               options = c(  
+                 "Study B has a larger sample size or lower variability, giving a more precise (narrower) estimate",  
+                 "Study A is more reliable because its CI is wider",  
+                 "Study B made an error — CIs should always be wide",  
+                 "The studies measured different things"  
+               ),  
+               type = "radio",  
+               q_id = "CI_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! CI width = 2 × 1.96 × SE = 2 × 1.96 × (SD/√n). A narrower CI means either a larger n (more data → more precision) or smaller SD (less variability → more precision). Study B's narrower interval reflects greater precision, not error. In research, narrower CIs are generally preferable — they mean we can estimate the population parameter more precisely.",  
+               wrong = "CI width depends on SE = SD/√n. What would make SE smaller?")  
+```  
+  
+---  
+  
+## Confidence Intervals in R: Multiple Methods {-}  
+  
+### For a Simple Vector {-}  
+  
+The `CI()` function from the `Rmisc` package is the most convenient approach:  
+  
+```{r ds36, message=FALSE, warning=FALSE}  
+Rmisc::CI(rts$RT, ci = 0.95)  
+```  
+  
+Alternatively, use `t.test()` (which also tests H₀: μ = 0):  
+  
+```{r ds34, message=FALSE, warning=FALSE}  
+stats::t.test(rts$RT, conf.level = 0.95)  
+```  
+  
+Or `MeanCI()` from `DescTools`:  
+  
+```{r ds37, message=FALSE, warning=FALSE}  
+DescTools::MeanCI(rts$RT, conf.level = 0.95)  
+```  
+  
+### Bootstrapped Confidence Intervals {-}  
+  
+Bootstrapping is a powerful, assumption-free alternative. Rather than relying on the formula $\bar{x} \pm 1.96 \times \text{SE}$ (which assumes normality), bootstrapping repeatedly **resamples** the data and builds an empirical distribution of the sample mean.  
+  
+```{r ds38, message=FALSE, warning=FALSE}  
+# bootstrapped CI using MeanCI  
+DescTools::MeanCI(rts$RT, method = "boot", type = "norm", R = 1000)  
+```  
+  
+::: {.callout-tip}  
+## When to Use Bootstrapped CIs  
+  
+Bootstrapped confidence intervals are preferable when:  
+  
+- The data are **not normally distributed** and the sample is small  
+- You cannot assume the parametric formula is appropriate  
+- You want an empirical, data-driven estimate of uncertainty  
+  
+For large samples, parametric and bootstrapped CIs typically converge. Because bootstrapping is random (resampling), the results will vary slightly between runs. Use a fixed `set.seed()` for reproducibility.  
+:::  
+  
+```{r ds42, message=FALSE, warning=FALSE}  
+# manual bootstrapping with the boot package  
+set.seed(42)  
+  
+BootFunction <- function(x, index) {  
+  return(c(  
+    mean(x[index]),  
+    var(x[index]) / length(index)  
+  ))  
+}  
+  
+Bootstrapped <- boot(  
+  data      = rts$RT,  
+  statistic = BootFunction,  
+  R         = 1000  
+)  
+  
+# extract bootstrapped mean and 95% CI  
+mean(Bootstrapped$t[, 1])  
+boot.ci(Bootstrapped, conf = 0.95)  
+```  
+  
+---  
+  
+### Confidence Intervals for Grouped Data {-}  
+  
+Use `summarySE()` from `Rmisc` to extract mean and CI by group:  
+  
+```{r ds41, message=FALSE, warning=FALSE}  
+Rmisc::summarySE(  
+  data          = rts,  
+  measurevar    = "RT",  
+  groupvars     = "Gender",  
+  conf.interval = 0.95  
+)  
+```  
+  
+---  
+  
+### Confidence Intervals for Nominal (Proportional) Data {-}  
+  
+When the data are **nominal** (e.g., did a speaker use a particular construction: yes/no?), we use binomial confidence intervals. Here we test whether 2 successes out of 20 trials differ from a chance level of 0.5:  
+  
+```{r ds44, message=FALSE, warning=FALSE}  
+stats::binom.test(  
+  x           = 2,    # observed successes  
+  n           = 20,   # total trials  
+  p           = 0.5,  # hypothesised probability  
+  alternative = "two.sided",  
+  conf.level  = 0.95  
+)  
+```  
+  
+The `BinomCI()` function from `DescTools` offers more method options:  
+  
+```{r ds48, message=FALSE, warning=FALSE}  
+DescTools::BinomCI(  
+  x          = 2,  
+  n          = 20,  
+  conf.level = 0.95,  
+  method     = "modified wilson"  
+)  
+```  
+  
+---  
+  
+### Confidence Intervals for Multinomial Data {-}  
+  
+When there are more than two nominal categories (e.g., which of several linguistic constructions was chosen), use `MultinomCI()`:  
+  
+```{r ds50, message=FALSE, warning=FALSE}  
+# observed counts for four categories  
+observed <- c(35, 74, 22, 69)  
+  
+DescTools::MultinomCI(  
+  x          = observed,  
+  conf.level = 0.95,  
+  method     = "goodman"  
+)  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Calculating CIs in R  
+:::  
+  
+**Q1. Calculate the mean and 95% CI for: 1, 2, 3, 4, 5, 6, 7, 8, 9. Which of the following is the correct lower bound of the 95% CI?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CIR_Q1"  
+check_question("Approximately 3.33",  
+               options = c(  
+                 "Approximately 3.33",  
+                 "Approximately 1.00",  
+                 "Approximately 5.00",  
+                 "Approximately 4.50"  
+               ),  
+               type = "radio",  
+               q_id = "CIR_Q1",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! For x = 1:9: mean = 5, sd ≈ 2.74, n = 9, SE = 2.74/3 ≈ 0.913, lower = 5 - 1.96×0.913 ≈ 3.21. (Exact answer depends on whether you use z=1.96 or t-distribution.) The key point is that the CI is centred on 5 and extends roughly ±1.8 units.",  
+               wrong = "Calculate: m = mean(1:9); s = sd(1:9); n = 9; lower = m - 1.96*(s/sqrt(n))")  
+```  
+  
+---  
+  
+**Q2. Which method for computing confidence intervals does NOT assume that the data follow a normal distribution?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CIR_Q2"  
+check_question("Bootstrapping (resampling-based CI)",  
+               options = c(  
+                 "Bootstrapping (resampling-based CI)",  
+                 "The formula: mean ± 1.96 × SE",  
+                 "t.test() with conf.level = 0.95",  
+                 "MeanCI() with default settings"  
+               ),  
+               type = "radio",  
+               q_id = "CIR_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Bootstrapping makes no distributional assumptions. It works by repeatedly resampling the observed data (with replacement) and computing the statistic of interest each time, then using the distribution of those bootstrapped statistics as the basis for the CI. This is particularly valuable for small samples or non-normal data.",  
+               wrong = "The formula ±1.96×SE and t.test() both rely on distributional assumptions (normality of sampling distribution). Which method is purely data-driven?")  
+```  
+  
+---  
+  
+# Data Distributions {#distributions}  
+  
+One of the most important — and most often neglected — steps in any quantitative analysis is examining the **shape** of your data distribution. Descriptive statistics like the mean and standard deviation assume (or are sensitive to) specific distributional shapes. Understanding whether your data are symmetric, skewed, or heavy-tailed is essential for choosing the right analysis and reporting your data responsibly.  
+  
+::: {.callout-note}  
+## What Is a Distribution?  
+  
+A **distribution** describes how values in a dataset are spread across the possible range of values. Key properties include:  
+  
+- **Shape**: Is it symmetric, left-skewed, or right-skewed?  
+- **Modality**: Is there one peak (unimodal) or more (bimodal, multimodal)?  
+- **Tails**: Are extreme values common (heavy tails) or rare (thin tails)?  
+- **Centre and spread**: Where do values cluster, and how widely do they range?  
+:::  
+  
+---  
+  
+## Histograms {-}  
+  
+The **histogram** is the most fundamental tool for visualising a distribution. It divides the range of values into equal-width bins and counts how many observations fall into each bin.  
+  
+```{r hist1, echo=FALSE, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# simulate three types of distributions  
+df_dists <- data.frame(  
+  value = c(rnorm(500, mean = 50, sd = 10),  
+            rbeta(500, 2, 8) * 100,  
+            rbeta(500, 8, 2) * 100),  
+  type  = rep(c("Symmetric (normal)", "Right-skewed", "Left-skewed"), each = 500)  
+) |>  
+  dplyr::mutate(type = factor(type, levels = c("Symmetric (normal)", "Right-skewed", "Left-skewed")))  
+  
+df_dists |>  
+  ggplot(aes(x = value, fill = type)) +  
+  geom_histogram(bins = 30, color = "white", alpha = 0.85) +  
+  facet_wrap(~type, scales = "free") +  
+  theme_bw() +  
+  scale_fill_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  theme(legend.position = "none",  
+        panel.grid.minor = element_blank()) +  
+  labs(x = "Value", y = "Count",  
+       title = "Three common distribution shapes",  
+       subtitle = "Symmetric | Right-skewed (positive skew) | Left-skewed (negative skew)")  
+```  
+  
+In R, a histogram is produced with `hist()` or (recommended) `ggplot2`:  
+  
+```{r hist2, message=FALSE, warning=FALSE}  
+# simulate a right-skewed corpus frequency distribution  
+set.seed(42)  
+corpus_freq <- rgamma(200, shape = 2, rate = 0.1)  
+  
+# base R  
+hist(corpus_freq,  
+     main = "Corpus word frequencies (simulated)",  
+     xlab = "Frequency per million",  
+     col  = "steelblue", border = "white")  
+  
+# ggplot2 (more flexible)  
+ggplot(data.frame(x = corpus_freq), aes(x = x)) +  
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +  
+  theme_bw() +  
+  labs(title = "Corpus word frequencies (simulated)",  
+       x = "Frequency per million", y = "Count")  
+```  
+  
+::: {.callout-tip}  
+## Choosing the Number of Bins  
+  
+The number of bins (`bins` in `ggplot2`, `breaks` in base R) dramatically affects the appearance of a histogram. Too few bins: the shape is obscured. Too many bins: noise dominates the signal.  
+  
+- Start with `bins = 20–30` and adjust visually  
+- Rule of thumb: Sturges' rule suggests $k = \lceil \log_2 n \rceil + 1$ bins  
+- The `breaks = "FD"` option in `hist()` uses the Freedman-Diaconis rule, which is robust to outliers  
+:::  
+  
+---  
+  
+## Density Plots {-}  
+  
+A **density plot** is a smoothed version of the histogram. It estimates the underlying probability density function of the data using **kernel density estimation (KDE)**. Density plots are particularly useful for comparing multiple distributions on the same plot.  
+  
+```{r density1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# simulate reaction times for two conditions  
+rt_data <- data.frame(  
+  RT        = c(rnorm(200, 450, 80), rnorm(200, 520, 100)),  
+  Condition = rep(c("Congruent", "Incongruent"), each = 200)  
+)  
+  
+rt_data |>  
+  ggplot(aes(x = RT, fill = Condition, color = Condition)) +  
+  geom_density(alpha = 0.4, linewidth = 0.8) +  
+  theme_bw() +  
+  scale_fill_manual(values  = c("steelblue", "tomato")) +  
+  scale_color_manual(values = c("steelblue", "tomato")) +  
+  labs(title = "Reaction time distributions: Congruent vs. Incongruent (simulated)",  
+       x = "Reaction Time (ms)", y = "Density") +  
+  theme(legend.position = "top", panel.grid.minor = element_blank())  
+```  
+  
+The density plot clearly shows that the Incongruent condition produces slower (rightward-shifted) reaction times with greater variability — a classic interference effect.  
+  
+---  
+  
+## Q-Q Plots: Testing for Normality Visually {-}  
+  
+A **Q-Q plot** (quantile-quantile plot) compares the quantiles of your data against the quantiles expected from a theoretical normal distribution. If the data are normally distributed, the points fall along a straight diagonal line.  
+  
+```{r qq1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# normal data: points should follow the diagonal  
+normal_data <- rnorm(200, mean = 0, sd = 1)  
+  
+# skewed data: points will curve away from the diagonal  
+skewed_data <- rgamma(200, shape = 1.5, rate = 1)  
+  
+par(mfrow = c(1, 2))  
+qqnorm(normal_data, main = "Q-Q plot: Normal data",  pch = 16, col = "steelblue")  
+qqline(normal_data, col = "red", lwd = 2)  
+  
+qqnorm(skewed_data, main = "Q-Q plot: Skewed data",  pch = 16, col = "tomato")  
+qqline(skewed_data, col = "red", lwd = 2)  
+par(mfrow = c(1, 1))  
+```  
+  
+**How to read a Q-Q plot**  
+  
+- Points **on the line**: data are consistent with normality  
+- Points **curving upward** at the right tail: right skew (long upper tail)  
+- Points **curving downward** at the left tail: left skew  
+- Points **deviating at both tails** in S-shape: heavy tails (leptokurtosis)  
+  
+::: {.callout-important}  
+## Q-Q Plot vs. Shapiro-Wilk: Which to Use?  
+  
+The **Shapiro-Wilk test** formally tests H₀: "the data are normally distributed." However, for large samples (n > ~100), Shapiro-Wilk detects trivially small deviations as "significant" — deviations too small to affect any practical analysis.  
+  
+**Best practice**: Use Q-Q plots for visual assessment. Use Shapiro-Wilk as a secondary check, and interpret the p-value alongside effect size and visual inspection, not as the sole decision criterion.  
+:::  
+  
+```{r sw_test, message=FALSE, warning=FALSE}  
+# Shapiro-Wilk normality test  
+shapiro.test(normal_data)  # should not reject normality  
+shapiro.test(skewed_data)  # should reject normality  
+```  
+  
+---  
+  
+## Skewness {-}  
+  
+**Skewness** measures the asymmetry of a distribution. A perfectly symmetric distribution has skewness = 0.  
+  
+$$\text{skewness} = \frac{1}{n} \sum_{i=1}^{n} \left(\frac{x_i - \bar{x}}{s}\right)^3$$  
+  
+```{r skew_fig, echo=FALSE, message=FALSE, warning=FALSE}  
+set.seed(42)  
+df_skew <- data.frame(  
+  value = c(rnorm(300, 0, 1),  
+            c(rgamma(300, shape = 2, rate = 1)),  
+            c(-rgamma(300, shape = 2, rate = 1))),  
+  type  = rep(c("Symmetric\n(skewness ≈ 0)",  
+                "Right-skewed\n(positive skewness)",  
+                "Left-skewed\n(negative skewness)"), each = 300)  
+) |>  
+  dplyr::mutate(type = factor(type, levels = c(  
+    "Symmetric\n(skewness ≈ 0)",  
+    "Right-skewed\n(positive skewness)",  
+    "Left-skewed\n(negative skewness)")))  
+  
+df_skew |>  
+  ggplot(aes(x = value, fill = type)) +  
+  geom_density(alpha = 0.7) +  
+  facet_wrap(~type, scales = "free") +  
+  scale_fill_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  theme_bw() +  
+  theme(legend.position = "none", panel.grid.minor = element_blank()) +  
+  labs(x = "Value", y = "Density",  
+       title = "Skewness: left, symmetric, and right-skewed distributions") +  
+  geom_vline(aes(xintercept = 0), linetype = "dashed", color = "black", linewidth = 0.6)  
+```  
+  
+| Skewness value | Interpretation |  
+|---|---|  
+| = 0 | Perfectly symmetric |  
+| Slightly positive (0 to 0.5) | Approximately symmetric |  
+| Moderately positive (0.5 to 1) | Moderate right skew |  
+| Strongly positive (> 1) | Strong right skew |  
+| Negative values | Mirror-image interpretations for left skew |  
+  
+In R, skewness is calculated using `e1071::skewness()` or `psych::describe()`:  
+  
+```{r skew_calc, message=FALSE, warning=FALSE}  
+library(e1071)  
+  
+# right-skewed corpus frequency data  
+set.seed(42)  
+corpus_freq <- rgamma(300, shape = 1.5, rate = 0.05)  
+  
+e1071::skewness(corpus_freq)  
+  
+# psych::describe() gives skewness alongside other stats  
+psych::describe(corpus_freq)  
+```  
+  
+::: {.callout-note}  
+## Skewness in Linguistics  
+  
+Many linguistic variables are **right-skewed** (positive skewness):  
+  
+- **Word frequencies**: A few words (function words) are very frequent; most words are rare  
+- **Sentence lengths**: Most sentences are moderate length; some are very long  
+- **Reaction times**: Most responses are fast; occasional very slow responses stretch the upper tail  
+- **Pause durations**: Most pauses are short; some are very long  
+  
+This is why the median and non-parametric statistics are often preferred in corpus linguistics.  
+:::  
+  
+---  
+  
+## Kurtosis {-}  
+  
+**Kurtosis** measures the "peakedness" or "tail heaviness" of a distribution relative to the normal distribution. **Excess kurtosis** is reported relative to the normal distribution (which has kurtosis = 3; excess kurtosis = 0).  
+  
+$$\text{kurtosis} = \frac{1}{n} \sum_{i=1}^{n} \left(\frac{x_i - \bar{x}}{s}\right)^4$$  
+  
+| Type | Excess kurtosis | Shape |  
+|---|---|---|  
+| **Mesokurtic** (normal) | ≈ 0 | Standard bell curve |  
+| **Leptokurtic** | > 0 (positive) | Tall narrow peak, heavy tails — extreme values are more common |  
+| **Platykurtic** | < 0 (negative) | Flat, short peak, thin tails — values spread more evenly |  
+  
+```{r kurt_fig, echo=FALSE, message=FALSE, warning=FALSE}  
+set.seed(42)  
+x_vals <- seq(-5, 5, length.out = 400)  
+df_kurt <- data.frame(  
+  x    = rep(x_vals, 3),  
+  y    = c(dnorm(x_vals, 0, 1),  
+           dt(x_vals, df = 3),  
+           dunif(x_vals, -3, 3) * 0.8 + 0.01),  
+  type = rep(c("Mesokurtic (normal)\nExcess kurtosis = 0",  
+               "Leptokurtic (t-dist., df=3)\nExcess kurtosis > 0",  
+               "Platykurtic (uniform-like)\nExcess kurtosis < 0"), each = 400)  
+) |>  
+  dplyr::mutate(type = factor(type, levels = c(  
+    "Mesokurtic (normal)\nExcess kurtosis = 0",  
+    "Leptokurtic (t-dist., df=3)\nExcess kurtosis > 0",  
+    "Platykurtic (uniform-like)\nExcess kurtosis < 0")))  
+  
+df_kurt |>  
+  ggplot(aes(x = x, y = y, color = type)) +  
+  geom_line(linewidth = 1.2) +  
+  theme_bw() +  
+  scale_color_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  labs(title = "Kurtosis: mesokurtic, leptokurtic, and platykurtic distributions",  
+       x = "Value", y = "Density", color = "Distribution type") +  
+  theme(legend.position = "top", panel.grid.minor = element_blank())  
+```  
+  
+In R:  
+  
+```{r kurt_calc, message=FALSE, warning=FALSE}  
+# kurtosis (excess kurtosis; 0 = normal)  
+e1071::kurtosis(corpus_freq)  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Distributions  
+:::  
+  
+**Q1. A histogram of word frequencies in a corpus shows a very long right tail, with most words occurring fewer than 10 times but a few function words occurring thousands of times. What does this indicate?**  
+  
+```{r}  
+#| echo: false  
+#| label: "DIST_Q1"  
+check_question("Right-skewed distribution (positive skewness) — a few very high-frequency words pull the tail to the right",  
+               options = c(  
+                 "Right-skewed distribution (positive skewness) — a few very high-frequency words pull the tail to the right",  
+                 "Left-skewed distribution — the majority of words are very frequent",  
+                 "Normal distribution — most frequency distributions are normal",  
+                 "Bimodal distribution — there are two peaks in the data"  
+               ),  
+               type = "radio",  
+               q_id = "DIST_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! This is Zipf's Law in action: word frequency distributions in natural language are highly right-skewed. A small number of function words (the, a, of, and...) are extremely frequent, while the vast majority of words are rare. This is why corpus linguists typically work with log-transformed frequencies and use medians rather than means.",  
+               wrong = "Which direction does the long tail extend? If most values are low but a few are extremely high, which skew is that?")  
+```  
+  
+---  
+  
+**Q2. In a Q-Q plot, the data points follow a straight diagonal line closely in the middle but curve sharply upward at the right end. What does this indicate?**  
+  
+```{r}  
+#| echo: false  
+#| label: "DIST_Q2"  
+check_question("Right skew — the data have a longer upper tail than a normal distribution would predict",  
+               options = c(  
+                 "Right skew — the data have a longer upper tail than a normal distribution would predict",  
+                 "Left skew — the data have a longer lower tail",  
+                 "Heavy tails (leptokurtosis) — both tails deviate from the diagonal",  
+                 "The data are normally distributed — minor deviations are expected"  
+               ),  
+               type = "radio",  
+               q_id = "DIST_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! An upward curve at the right tail of a Q-Q plot indicates that the largest observed values are more extreme than a normal distribution would predict — the signature of right skew. If both tails curve away from the line (S-shape), that indicates heavy tails (leptokurtosis). If only the left tail curves downward, that indicates left skew.",  
+               wrong = "Focus on which end deviates. An upward curve at the right end means the upper tail is longer than expected under normality.")  
+```  
+  
+---  
+  
+**Q3. Which function in R calculates the skewness of a numeric vector?**  
+  
+```{r}  
+#| echo: false  
+#| label: "DIST_Q3"  
+check_question("e1071::skewness()",  
+               options = c(  
+                 "e1071::skewness()",  
+                 "base::skew()",  
+                 "stats::skewness()",  
+                 "mean() - median()"  
+               ),  
+               type = "radio",  
+               q_id = "DIST_Q3",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! The e1071 package provides skewness() and kurtosis() functions. The psych package's describe() also reports skewness. Base R has no built-in skewness function. Note that mean - median gives a rough indication of skew direction (positive = right-skewed) but is not the formal skewness statistic.",  
+               wrong = "Base R does not have a built-in skewness function. Which package provides it?")  
+```  
+  
+---  
+  
+# Comprehensive Data Summaries {#summaries}  
+  
+Before running any statistical analysis, it is good practice to generate a **comprehensive summary** of your dataset. This reveals the structure, scale, and quirks of your variables — and often uncovers data quality issues (missing values, impossible values, unexpected distributions) before they cause problems in analysis.  
+  
+---  
+  
+## The `summary()` Function {-}  
+  
+R's built-in `summary()` is the quickest way to get an overview of a dataset. It automatically applies the appropriate summary to each variable type:  
+  
+```{r summ1, message=FALSE, warning=FALSE}  
+# create a small linguistic dataset  
+set.seed(42)  
+linguistics_data <- data.frame(  
+  speaker_id  = paste0("S", 1:50),  
+  age         = round(rnorm(50, mean = 35, sd = 12)),  
+  gender      = sample(c("Female", "Male", "Non-binary"), 50,  
+                       replace = TRUE, prob = c(0.48, 0.48, 0.04)),  
+  proficiency = ordered(sample(c("Beginner", "Intermediate", "Advanced"), 50,  
+                               replace = TRUE), levels = c("Beginner","Intermediate","Advanced")),  
+  RT_ms       = round(rnorm(50, 450, 90)),  
+  errors      = rpois(50, lambda = 3)  
+)  
+  
+summary(linguistics_data)  
+```  
+  
+`summary()` gives:  
+- **Numeric variables**: min, Q1, median, mean, Q3, max (and count of NAs)  
+- **Character variables**: length and type  
+- **Factor/ordered variables**: counts per level  
+  
+---  
+  
+## `psych::describe()` for Detailed Summaries {-}  
+  
+The `describe()` function from the `psych` package extends `summary()` by adding standard deviation, standard error, skewness, kurtosis, and range — everything you need for a complete descriptive statistics table:  
+  
+```{r summ2, message=FALSE, warning=FALSE}  
+# detailed summary of numeric variables  
+psych::describe(linguistics_data[, c("age", "RT_ms", "errors")])  
+```  
+  
+The output columns are: `n`, `mean`, `sd`, `median`, `trimmed` (trimmed mean), `mad` (median absolute deviation), `min`, `max`, `range`, `skew`, `kurtosis`, `se`.  
+  
+---  
+  
+## `psych::describeBy()` for Grouped Summaries {-}  
+  
+When you need summaries **by group** (e.g., by gender, condition, or proficiency level), `describeBy()` is invaluable:  
+  
+```{r summ3, message=FALSE, warning=FALSE}  
+# summary by gender  
+psych::describeBy(  
+  x    = linguistics_data[, c("age", "RT_ms", "errors")],  
+  group = linguistics_data$gender  
+)  
+```  
+  
+---  
+  
+## Creating a Publication-Ready Summary Table {-}  
+  
+For reporting, you often want a clean, formatted table. Here is a workflow using `dplyr` and `flextable`:  
+  
+```{r summ4, message=FALSE, warning=FALSE}  
+library(dplyr)  
+library(flextable)  
+  
+summary_table <- linguistics_data |>  
+  dplyr::group_by(gender) |>  
+  dplyr::summarise(  
+    n        = n(),  
+    Age_M    = round(mean(age), 1),  
+    Age_SD   = round(sd(age), 1),  
+    RT_M     = round(mean(RT_ms), 1),  
+    RT_SD    = round(sd(RT_ms), 1),  
+    Errors_M = round(mean(errors), 1)  
+  )  
+  
+summary_table |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .85, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Descriptive statistics by gender group (M = mean, SD = standard deviation).") |>  
+  flextable::border_outer()  
+```  
+  
+::: {.callout-tip}  
+## What to Include in a Descriptive Statistics Table  
+  
+A standard descriptive statistics table for a linguistic study should report, for each group and variable:  
+  
+- **n** (sample size per group)  
+- **Mean** (M) and **Standard Deviation** (SD) for continuous variables  
+- **Median** (Mdn) if data are skewed or ordinal  
+- **Range** or **IQR** if variability context is important  
+- **Percentages** for categorical variables  
+  
+Many journals also request skewness and kurtosis values to justify the use of parametric vs. non-parametric tests.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Data Summaries  
+:::  
+  
+**Q1. What does R's built-in `summary()` function report for a numeric variable?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SUM_Q1"  
+check_question("Minimum, Q1, median, mean, Q3, maximum (and count of NAs if present)",  
+               options = c(  
+                 "Minimum, Q1, median, mean, Q3, maximum (and count of NAs if present)",  
+                 "Mean, standard deviation, skewness, and kurtosis only",  
+                 "A frequency table of all values",  
+                 "The mean and 95% confidence interval"  
+               ),  
+               type = "radio",  
+               q_id = "SUM_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! summary() provides a five-number summary plus the mean: min, Q1, median, mean, Q3, max. For character variables it gives length and type; for factors it gives level counts. NA counts are added when missing values are present. For more statistics (SD, SE, skewness, kurtosis), use psych::describe().",  
+               wrong = "Run summary(c(1,3,5,7,9)) in R. What does it output?")  
+```  
+  
+---  
+  
+**Q2. Which function provides skewness and kurtosis alongside mean, SD, and SE in a single output?**  
+  
+```{r}  
+#| echo: false  
+#| label: "SUM_Q2"  
+check_question("psych::describe()",  
+               options = c(  
+                 "psych::describe()",  
+                 "base::summary()",  
+                 "stats::var()",  
+                 "DescTools::MeanCI()"  
+               ),  
+               type = "radio",  
+               q_id = "SUM_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! psych::describe() provides a comprehensive one-line summary per variable including: n, mean, sd, median, trimmed mean, MAD, min, max, range, skewness, kurtosis, and SE. It is the go-to function for quickly characterising a numeric variable before analysis.",  
+               wrong = "Which package is specifically designed for psychological/behavioural statistics and includes comprehensive descriptive output?")  
+```  
+  
+---  
+  
+# Frequency Tables and Cross-Tabulations {#freqtables}  
+  
+Frequency tables are essential for describing **categorical** (nominal and ordinal) variables. They show how many observations fall into each category — the foundation for describing language use patterns, speaker demographics, and grammatical choices.  
+  
+---  
+  
+## Simple Frequency Tables {-}  
+  
+The `table()` function in base R creates frequency tables:  
+  
+```{r freq1, message=FALSE, warning=FALSE}  
+# frequency table of grammatical construction choices (simulated)  
+set.seed(42)  
+n_tokens <- 200  
+constructions <- sample(  
+  c("morphological (-er)", "periphrastic (more)", "mixed"),  
+  size    = n_tokens,  
+  replace = TRUE,  
+  prob    = c(0.55, 0.35, 0.10)  
+)  
+  
+# absolute frequencies  
+(freq_abs <- table(constructions))  
+  
+# relative frequencies (proportions)  
+(freq_rel <- prop.table(freq_abs))  
+  
+# relative frequencies as percentages  
+round(freq_rel * 100, 1)  
+```  
+  
+For a polished table output:  
+  
+```{r freq2, message=FALSE, warning=FALSE}  
+data.frame(  
+  Construction = names(freq_abs),  
+  Count        = as.integer(freq_abs),  
+  Percent      = round(as.numeric(freq_rel) * 100, 1)  
+) |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .55, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Frequency of comparative construction types (simulated corpus data).") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+## Two-Way Cross-Tabulations {-}  
+  
+A **cross-tabulation** (contingency table) shows the joint distribution of two categorical variables. This is the standard way to examine whether the frequency distribution of one variable differs across levels of another.  
+  
+```{r crosstab1, message=FALSE, warning=FALSE}  
+# simulate comparative construction data with register variable  
+set.seed(42)  
+n <- 300  
+register      <- sample(c("Formal", "Informal"), n, replace = TRUE, prob = c(0.5, 0.5))  
+construction  <- ifelse(register == "Formal",  
+                        sample(c("periphrastic", "morphological"), n, replace = TRUE, prob = c(0.70, 0.30)),  
+                        sample(c("periphrastic", "morphological"), n, replace = TRUE, prob = c(0.35, 0.65)))  
+  
+(crosstab <- table(Register = register, Construction = construction))  
+```  
+  
+```{r crosstab2, message=FALSE, warning=FALSE}  
+# row proportions: what proportion of each register uses each construction?  
+round(prop.table(crosstab, margin = 1) * 100, 1)  
+```  
+  
+```{r crosstab3, message=FALSE, warning=FALSE}  
+# visualise the cross-tabulation as a grouped bar chart  
+data.frame(  
+  Register     = rep(rownames(crosstab), ncol(crosstab)),  
+  Construction = rep(colnames(crosstab), each = nrow(crosstab)),  
+  Count        = as.vector(crosstab)  
+) |>  
+  ggplot(aes(x = Register, y = Count, fill = Construction)) +  
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.85) +  
+  theme_bw() +  
+  scale_fill_manual(values = c("steelblue", "tomato")) +  
+  labs(title = "Comparative construction choice by register (simulated)",  
+       y = "Count", x = "Register") +  
+  theme(legend.position = "top", panel.grid.minor = element_blank())  
+```  
+  
+::: {.callout-note}  
+## From Description to Inference  
+  
+A cross-tabulation *describes* the data. To test whether the association between two categorical variables is statistically significant, we use a **chi-square test of independence** (`chisq.test()` in R). But that is inferential statistics — cross-tabulations are the descriptive foundation.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Frequency Tables  
+:::  
+  
+**Q1. A researcher finds the following construction counts: morphological = 110, periphrastic = 90. What proportion uses the periphrastic form?**  
+  
+```{r}  
+#| echo: false  
+#| label: "FT_Q1"  
+check_question("45% (90 / 200 = 0.45)",  
+               options = c(  
+                 "45% (90 / 200 = 0.45)",  
+                 "90% (90 out of 100 is the majority)",  
+                 "55% (the remaining proportion)",  
+                 "Cannot be determined without more data"  
+               ),  
+               type = "radio",  
+               q_id = "FT_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Total = 110 + 90 = 200 tokens. Proportion periphrastic = 90/200 = 0.45 = 45%. In R: prop.table(table(c(rep('morphological',110), rep('periphrastic',90))))",  
+               wrong = "Total tokens = 110 + 90 = 200. Proportion = periphrastic count / total = ?")  
+```  
+  
+---  
+  
+**Q2. In a cross-tabulation, `prop.table(tab, margin = 1)` computes**  
+  
+```{r}  
+#| echo: false  
+#| label: "FT_Q2"  
+check_question("Row proportions — each cell divided by its row total",  
+               options = c(  
+                 "Row proportions — each cell divided by its row total",  
+                 "Column proportions — each cell divided by its column total",  
+                 "Overall proportions — each cell divided by the grand total",  
+                 "The chi-square contribution of each cell"  
+               ),  
+               type = "radio",  
+               q_id = "FT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! margin = 1 divides by row totals (row proportions). margin = 2 divides by column totals (column proportions). No margin argument (or margin = NULL) divides by the grand total (overall proportions). Row proportions answer: 'Within each row category, what is the distribution across columns?'",  
+               wrong = "In R, margin = 1 refers to rows, margin = 2 refers to columns. Which direction does margin = 1 normalise across?")  
+```  
+  
+---  
+  
+# Data Visualisation for Description {#visualisation}  
+  
+Effective data visualisation is as important as numerical summaries. Graphs reveal patterns, outliers, and distributional shapes that tables cannot communicate. This section covers the most important plot types for descriptive purposes.  
+  
+---  
+  
+## Boxplots {-}  
+  
+The **boxplot** (box-and-whisker plot) is the standard visualisation of the five-number summary: minimum, Q1, median, Q3, maximum. Outliers (values more than 1.5 × IQR beyond Q1 or Q3) are plotted individually.  
+  
+```{r viz_box, message=FALSE, warning=FALSE}  
+set.seed(42)  
+rt_viz <- data.frame(  
+  RT        = c(rnorm(80, 450, 70), rnorm(80, 520, 100)),  
+  Condition = rep(c("Congruent", "Incongruent"), each = 80)  
+)  
+  
+rt_viz |>  
+  ggplot(aes(x = Condition, y = RT, fill = Condition)) +  
+  geom_boxplot(alpha = 0.7, outlier.color = "red", outlier.shape = 16) +  
+  theme_bw() +  
+  scale_fill_manual(values = c("steelblue", "tomato")) +  
+  labs(title = "Reaction times by condition (simulated)",  
+       y = "Reaction Time (ms)", x = "") +  
+  theme(legend.position = "none", panel.grid.minor = element_blank())  
+```  
+  
+---  
+  
+## Violin Plots {-}  
+  
+The **violin plot** combines the boxplot's summary statistics with the density plot's distributional information. It is particularly useful when distributions are non-normal or multimodal.  
+  
+```{r viz_violin, message=FALSE, warning=FALSE}  
+rt_viz |>  
+  ggplot(aes(x = Condition, y = RT, fill = Condition)) +  
+  geom_violin(alpha = 0.6, trim = FALSE) +  
+  geom_boxplot(width = 0.15, fill = "white", outlier.color = "red") +  
+  theme_bw() +  
+  scale_fill_manual(values = c("steelblue", "tomato")) +  
+  labs(title = "Violin + boxplot: reaction times by condition (simulated)",  
+       y = "Reaction Time (ms)", x = "") +  
+  theme(legend.position = "none", panel.grid.minor = element_blank())  
+```  
+  
+::: {.callout-tip}  
+## Boxplot vs. Violin Plot  
+  
+Use a **boxplot** when you want to emphasise the five-number summary and outliers, and when your audience is familiar with boxplots.  
+  
+Use a **violin plot** (especially with embedded boxplot) when:  
+- The distribution shape matters (e.g., bimodal vs. unimodal)  
+- You want to show density alongside summary statistics  
+- You are comparing multiple groups and want to see distributional differences beyond spread  
+:::  
+  
+---  
+  
+## Bar Charts for Categorical Data {-}  
+  
+Bar charts are the standard visualisation for categorical (frequency) data. Use `geom_bar()` for raw data or `geom_col()` when you have pre-computed counts:  
+  
+```{r viz_bar, message=FALSE, warning=FALSE}  
+# bar chart with error bars (mean ± SE)  
+set.seed(42)  
+bar_data <- data.frame(  
+  Group     = rep(c("Group A", "Group B", "Group C"), each = 30),  
+  Score     = c(rnorm(30, 70, 10), rnorm(30, 75, 12), rnorm(30, 65, 8))  
+)  
+  
+bar_summary <- bar_data |>  
+  dplyr::group_by(Group) |>  
+  dplyr::summarise(  
+    M  = mean(Score),  
+    SE = sd(Score) / sqrt(n()),  
+    .groups = "drop"  
+  )  
+  
+bar_summary |>  
+  ggplot(aes(x = Group, y = M, fill = Group)) +  
+  geom_col(alpha = 0.8, width = 0.6) +  
+  geom_errorbar(aes(ymin = M - SE, ymax = M + SE), width = 0.2, linewidth = 0.8) +  
+  coord_cartesian(ylim = c(55, 90)) +  
+  theme_bw() +  
+  scale_fill_manual(values = c("steelblue", "tomato", "seagreen")) +  
+  labs(title = "Mean scores by group with standard error bars",  
+       y = "Mean Score", x = "") +  
+  theme(legend.position = "none", panel.grid.minor = element_blank())  
+```  
+  
+---  
+  
+## Scatterplots {-}  
+  
+A **scatterplot** visualises the relationship between two continuous variables. It is the standard first step in any correlation analysis.  
+  
+```{r viz_scatter, message=FALSE, warning=FALSE}  
+set.seed(42)  
+scatter_data <- data.frame(  
+  Syllables  = sample(1:4, 150, replace = TRUE),  
+  Periphrastic_pct = NA  
+)  
+scatter_data$Periphrastic_pct <- 30 - scatter_data$Syllables * 5 +   
+  rnorm(150, 0, 8) + scatter_data$Syllables * 12 +   
+  rnorm(150, 0, 5)  
+scatter_data$Periphrastic_pct <- pmax(0, pmin(100, scatter_data$Periphrastic_pct))  
+  
+scatter_data |>  
+  ggplot(aes(x = Syllables, y = Periphrastic_pct)) +  
+  geom_jitter(width = 0.15, alpha = 0.5, color = "steelblue") +  
+  geom_smooth(method = "lm", se = TRUE, color = "tomato", fill = "tomato", alpha = 0.2) +  
+  theme_bw() +  
+  labs(title = "Adjective syllable count vs. periphrastic comparative use (simulated)",  
+       x = "Number of syllables", y = "% periphrastic comparative") +  
+  theme(panel.grid.minor = element_blank())  
+```  
+  
+The regression line and confidence band summarise the trend: longer adjectives tend to use the periphrastic comparative more frequently — a well-established finding in the comparative literature.  
+  
+---  
+  
+# Correlation {#correlation}  
+  
+**Correlation** is one of the most commonly reported descriptive statistics for quantifying the **strength and direction of a linear relationship** between two continuous variables. It is important to note that correlation is a *descriptive* statistic — it quantifies an observed association, not a causal relationship.  
+  
+::: {.callout-important}  
+## Correlation ≠ Causation  
+  
+A correlation between X and Y tells us they co-vary systematically. It does **not** tell us:  
+  
+- Whether X causes Y  
+- Whether Y causes X  
+- Whether a third variable Z causes both  
+  
+Causal inference requires experimental design, not correlation alone.  
+:::  
+  
+---  
+  
+## Pearson's r {-}  
+  
+**Pearson's product-moment correlation coefficient (r)** measures the strength of a *linear* relationship between two normally distributed continuous variables.  
+  
+$$r = \frac{\sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n}(x_i - \bar{x})^2 \cdot \sum_{i=1}^{n}(y_i - \bar{y})^2}}$$  
+  
+Pearson's r ranges from **−1** (perfect negative linear relationship) through **0** (no linear relationship) to **+1** (perfect positive linear relationship).  
+  
+```{r corr_guide, echo=FALSE, message=FALSE, warning=FALSE}  
+interp <- data.frame(  
+  r_value    = c("|r| = 1.0", "|r| ≥ 0.9", "|r| ≥ 0.7", "|r| ≥ 0.5", "|r| ≥ 0.3", "|r| < 0.3"),  
+  Strength   = c("Perfect", "Very strong", "Strong", "Moderate", "Weak", "Negligible"),  
+  Typical_context = c("Measurement error only", "Measurement reliability studies",  
+                      "Well-established predictors in psychology/linguistics",  
+                      "Typical effect size in social sciences",  
+                      "Small but potentially meaningful effect",  
+                      "Often noise — interpret with caution")  
+)  
+colnames(interp) <- c("r value", "Strength", "Typical context")  
+interp |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .9, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Conventional guidelines for interpreting Pearson's r (Cohen, 1988).") |>  
+  flextable::border_outer()  
+```  
+  
+In R:  
+  
+```{r corr1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+syllables <- sample(1:4, 100, replace = TRUE)  
+periphrastic <- 20 + syllables * 15 + rnorm(100, 0, 10)  
+  
+# Pearson's r  
+cor(syllables, periphrastic, method = "pearson")  
+  
+# with significance test  
+cor.test(syllables, periphrastic, method = "pearson")  
+```  
+  
+---  
+  
+## Spearman's ρ (rho) {-}  
+  
+**Spearman's rank correlation coefficient (ρ)** is the non-parametric alternative to Pearson's r. It measures the strength of a *monotonic* (not necessarily linear) relationship and is appropriate when:  
+  
+- The data are **ordinal** (e.g., Likert scale ratings, ranked judgements)  
+- The data are **continuous but non-normal** (e.g., skewed frequency data)  
+- **Outliers** are present that would distort Pearson's r  
+  
+Spearman's ρ is calculated by ranking both variables and then computing Pearson's r on the ranks.  
+  
+```{r corr2, message=FALSE, warning=FALSE}  
+# Spearman correlation (more robust to skew and outliers)  
+cor.test(syllables, periphrastic, method = "spearman")  
+```  
+  
+---  
+  
+## Correlation Matrices {-}  
+  
+When you have multiple variables and want to explore their pairwise relationships, a **correlation matrix** is efficient:  
+  
+```{r corr3, message=FALSE, warning=FALSE}  
+set.seed(42)  
+corr_data <- data.frame(  
+  syllables       = sample(1:4, 80, replace = TRUE),  
+  word_freq       = round(rgamma(80, 2, 0.01)),  
+  formality_score = rnorm(80, 50, 15),  
+  RT_ms           = rnorm(80, 480, 80)  
+)  
+  
+# correlation matrix (Pearson)  
+round(cor(corr_data, method = "pearson"), 2)  
+```  
+  
+For a visually appealing correlation matrix, use the `ggcorrplot` package or `ggpubr::ggscatter()` for pairwise scatterplots:  
+  
+```{r corr4, message=FALSE, warning=FALSE}  
+# pairwise scatterplot matrix with correlation coefficients  
+pairs(corr_data,  
+      main  = "Pairwise scatterplot matrix",  
+      pch   = 16,  
+      col   = adjustcolor("steelblue", alpha.f = 0.6),  
+      lower.panel = function(x, y, ...) {  
+        r <- round(cor(x, y), 2)  
+        par(usr = c(0, 1, 0, 1))  
+        text(0.5, 0.5, paste0("r = ", r), cex = 1.2,  
+             col = ifelse(abs(r) > 0.3, "red", "gray40"))  
+      })  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Correlation  
+:::  
+  
+**Q1. A researcher calculates Pearson's r = −0.72 between adjective syllable count and the rate of morphological comparative use. What does this mean?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CORR_Q1"  
+check_question("There is a strong negative relationship: longer adjectives are associated with lower rates of morphological comparative use",  
+               options = c(  
+                 "There is a strong negative relationship: longer adjectives are associated with lower rates of morphological comparative use",  
+                 "There is a strong positive relationship: longer adjectives use more morphological comparatives",  
+                 "The relationship is weak and should be ignored",  
+                 "Longer adjectives cause speakers to avoid morphological comparatives"  
+               ),  
+               type = "radio",  
+               q_id = "CORR_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! r = −0.72 indicates a strong (|r| > 0.7) negative (as X increases, Y decreases) linear relationship. As adjective syllable count increases, morphological comparative use decreases — consistent with the well-known pattern that monosyllabic adjectives favour *-er* while polysyllabic adjectives favour *more*. Note: correlation tells us about the association, not the cause.",  
+               wrong = "What do the sign (−) and magnitude (0.72) of the correlation coefficient each tell us?")  
+```  
+  
+---  
+  
+**Q2. When should Spearman's ρ be preferred over Pearson's r?**  
+  
+```{r}  
+#| echo: false  
+#| label: "CORR_Q2"  
+check_question("When the data are ordinal, non-normal, or contain influential outliers",  
+               options = c(  
+                 "When the data are ordinal, non-normal, or contain influential outliers",  
+                 "When the sample size is very large (n > 1000)",  
+                 "When Pearson's r is greater than 0.5",  
+                 "Spearman's ρ is always preferred as it is more conservative"  
+               ),  
+               type = "radio",  
+               q_id = "CORR_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Spearman's ρ is the appropriate choice when (1) the data are ordinal (e.g., Likert scale ratings, ranked acceptability judgements), (2) the continuous data are non-normally distributed (e.g., corpus frequency data), or (3) outliers are present that would distort Pearson's r. Spearman's ρ works on the ranks of the data and is therefore robust to these violations.",  
+               wrong = "Think about what assumptions Pearson's r makes about the data (linearity, normality, no outliers). When are those violated in linguistic data?")  
+```  
+  
+---  
+  
+# Outlier Detection {#outliers}  
+  
+**Outliers** are observations that deviate markedly from the rest of the data. They can arise from data entry errors, measurement problems, genuine extreme cases, or non-normal distributions. Detecting and understanding outliers is a critical part of descriptive analysis — they can distort means, inflate variances, and violate the assumptions of statistical tests.  
+  
+::: {.callout-warning}  
+## Outliers: Exclude or Investigate?  
+  
+Outliers should **not** be automatically removed. Before excluding any observation, ask:  
+  
+1. **Is it a data entry or measurement error?** → Fix or exclude with justification  
+2. **Is it a genuine extreme value from the population of interest?** → Retain and report  
+3. **Is it from a different population?** (e.g., a non-native speaker in a native-speaker study) → Exclusion criterion should be defined *a priori*  
+  
+Always **report** how many observations were identified as outliers and what decision was made. Transparency is essential.  
+:::  
+  
+---  
+  
+## Method 1: The Z-Score Method {-}  
+  
+A z-score expresses each value as the number of standard deviations from the mean. Values with $|z| > 3$ are commonly flagged as potential outliers (corresponding to approximately the outer 0.3% of a normal distribution).  
+  
+```{r out1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# simulate reading time data with one extreme outlier  
+reading_times <- c(rnorm(99, mean = 450, sd = 80), 1850)  
+  
+# calculate z-scores  
+z_scores <- scale(reading_times)[, 1]  
+  
+# identify outliers: |z| > 3  
+outliers_z <- which(abs(z_scores) > 3)  
+cat("Outliers (z-score method):", outliers_z, "\n")  
+cat("Outlier values:", reading_times[outliers_z], "\n")  
+```  
+  
+---  
+  
+## Method 2: The IQR Method {-}  
+  
+The **IQR method** (Tukey's fences) is more robust than the z-score approach because it does not depend on the mean or standard deviation, which are themselves distorted by outliers. An observation is flagged if it falls more than **1.5 × IQR** below Q1 or above Q3.  
+  
+$$\text{Lower fence} = Q_1 - 1.5 \times \text{IQR}$$  
+$$\text{Upper fence} = Q_3 + 1.5 \times \text{IQR}$$  
+  
+This is the same rule used by ggplot2 boxplots to plot individual outlier points.  
+  
+```{r out2, message=FALSE, warning=FALSE}  
+Q1  <- quantile(reading_times, 0.25)  
+Q3  <- quantile(reading_times, 0.75)  
+IQR_val <- IQR(reading_times)  
+  
+lower_fence <- Q1 - 1.5 * IQR_val  
+upper_fence <- Q3 + 1.5 * IQR_val  
+  
+cat("Lower fence:", round(lower_fence, 1), "\n")  
+cat("Upper fence:", round(upper_fence, 1), "\n")  
+  
+outliers_iqr <- which(reading_times < lower_fence | reading_times > upper_fence)  
+cat("Outliers (IQR method):", reading_times[outliers_iqr], "\n")  
+```  
+  
+---  
+  
+## Visualising Outliers {-}  
+  
+The best way to identify and communicate outliers is visually:  
+  
+```{r out3, message=FALSE, warning=FALSE}  
+df_rt <- data.frame(RT = reading_times,  
+                    is_outlier = abs(scale(reading_times)[,1]) > 3)  
+  
+# boxplot: outliers shown as individual points  
+p1 <- df_rt |>  
+  ggplot(aes(y = RT)) +  
+  geom_boxplot(fill = "steelblue", alpha = 0.6, outlier.color = "red",  
+               outlier.size = 3) +  
+  theme_bw() +  
+  labs(title = "Boxplot", y = "Reading Time (ms)", x = "") +  
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())  
+  
+# dot plot: all points, outlier highlighted  
+p2 <- df_rt |>  
+  ggplot(aes(x = seq_along(RT), y = RT, color = is_outlier)) +  
+  geom_point(alpha = 0.6) +  
+  scale_color_manual(values = c("steelblue", "red"),  
+                     labels = c("Normal", "Outlier")) +  
+  theme_bw() +  
+  labs(title = "Dot plot with outlier flagged",  
+       x = "Observation index", y = "Reading Time (ms)", color = "") +  
+  theme(legend.position = "top")  
+  
+# display side by side using cowplot  
+plot_grid(p1, p2, ncol = 2, rel_widths = c(0.35, 0.65))  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Outliers  
+:::  
+  
+**Q1. A reaction time dataset has Q1 = 380ms, Q3 = 520ms, and IQR = 140ms. Using Tukey's fences (1.5 × IQR), what is the upper fence above which values are flagged as outliers?**  
+  
+```{r}  
+#| echo: false  
+#| label: "OUT_Q1"  
+check_question("730 ms (= 520 + 1.5 × 140)",  
+               options = c(  
+                 "730 ms (= 520 + 1.5 × 140)",  
+                 "660 ms (= 520 + 140)",  
+                 "590 ms (= 520 + 0.5 × 140)",  
+                 "800 ms (= 520 + 2 × 140)"  
+               ),  
+               type = "radio",  
+               q_id = "OUT_Q1",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! Upper fence = Q3 + 1.5 × IQR = 520 + 1.5 × 140 = 520 + 210 = 730 ms. Any reaction time above 730 ms would be flagged as a potential outlier by Tukey's fences. The lower fence = Q1 - 1.5 × IQR = 380 - 210 = 170 ms.",  
+               wrong = "Upper fence = Q3 + 1.5 × IQR. What is 520 + (1.5 × 140)?")  
+```  
+  
+---  
+  
+**Q2. Why is the IQR method for detecting outliers generally preferred over the z-score method?**  
+  
+```{r}  
+#| echo: false  
+#| label: "OUT_Q2"  
+check_question("The IQR method uses the median and quartiles, which are not themselves distorted by outliers",  
+               options = c(  
+                 "The IQR method uses the median and quartiles, which are not themselves distorted by outliers",  
+                 "The IQR method always identifies more outliers",  
+                 "The z-score method requires a normally distributed variable",  
+                 "The IQR method is built into ggplot2 boxplots"  
+               ),  
+               type = "radio",  
+               q_id = "OUT_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The z-score method uses the mean and standard deviation to identify outliers — but both of these are themselves distorted by the very outliers you are trying to find. A single extreme value raises the mean and inflates the SD, potentially masking the outlier or making it appear less extreme. The IQR method avoids this problem by using the median and quartiles, which are robust to extreme values.",  
+               wrong = "Think about what the z-score formula uses: mean and SD. What happens to the mean and SD when there are extreme outliers in the data?")  
+```  
+  
+---  
+  
+# Quick Reference {#quickref .unnumbered}  
+  
+## Choosing the Right Descriptive Statistic {-}  
+  
+```{r qref1, echo=FALSE, message=FALSE, warning=FALSE}  
+qref <- data.frame(  
+  Question = c(  
+    "What is the typical value?",  
+    "What is the typical value? (skewed/ordinal)",  
+    "What is the most common category?",  
+    "How spread out are the values?",  
+    "How spread out? (robust to outliers)",  
+    "How spread out? (for reporting with mean)",  
+    "How precise is my mean estimate?",  
+    "Is the distribution symmetric?",  
+    "Are there extreme values?",  
+    "How strong is the relationship between two variables?",  
+    "How strong? (ordinal/non-normal data)"  
+  ),  
+  Statistic = c(  
+    "Arithmetic mean",  
+    "Median",  
+    "Mode",  
+    "Range or IQR",  
+    "IQR (interquartile range)",  
+    "Standard deviation (SD)",  
+    "Standard error (SE)",  
+    "Skewness; Q-Q plot; histogram",  
+    "Z-scores or IQR fences; boxplot",  
+    "Pearson's r",  
+    "Spearman's ρ"  
+  ),  
+  R_function = c(  
+    "mean(x)",  
+    "median(x)",  
+    "names(which.max(table(x)))",  
+    "range(x); IQR(x)",  
+    "IQR(x)",  
+    "sd(x)",  
+    "sd(x)/sqrt(length(x))",  
+    "e1071::skewness(x); qqnorm(x)",  
+    "scale(x); IQR method",  
+    "cor(x, y, method='pearson')",  
+    "cor(x, y, method='spearman')"  
+  )  
+)  
+colnames(qref) <- c("Question", "Statistic", "R function")  
+  
+qref |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .99, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 11) |>  
+  flextable::fontsize(size = 11, part = "header") |>  
+  flextable::align_text_col(align = "left") |>  
+  flextable::set_caption(caption = "Quick reference: choosing the right descriptive statistic.") |>  
+  flextable::border_outer()  
+```  
+  
+## Visualisation Cheat Sheet {-}  
+  
+| Data type | Best plots |  
+|---|---|  
+| Single continuous variable | Histogram, density plot, boxplot |  
+| Continuous + grouping variable | Boxplot by group, violin plot, density overlay |  
+| Two continuous variables | Scatterplot (with regression line) |  
+| Single categorical variable | Bar chart, frequency table |  
+| Two categorical variables | Grouped bar chart, cross-tabulation, mosaic plot |  
+| Checking normality | Q-Q plot, histogram vs. normal curve |  
+| Checking for outliers | Boxplot, dot plot, z-score plot |  
+  
+---  
+  
+## Complete Workflow Checklist {-}  
+  
+Use this checklist every time you begin a new descriptive analysis:  
+  
+| Step | Action | R tool |  
+|---|---|---|  
+| 1 | Load data | `readr::read_csv()` |  
+| 2 | Inspect structure | `str()`, `dplyr::glimpse()` |  
+| 3 | Check for missing values | `colSums(is.na())` |  
+| 4 | Check factor levels for typos | `table(data$var)` |  
+| 5 | Check numeric ranges for impossible values | `summary()`, `range()` |  
+| 6 | Compute central tendency | `mean()`, `median()`, `mode via which.max(table())` |  
+| 7 | Compute variability | `sd()`, `IQR()`, `mad()` |  
+| 8 | Check distribution shape | `hist()`, `qqnorm()`, `e1071::skewness()` |  
+| 9 | Detect outliers | `boxplot()`, z-score or IQR method |  
+| 10 | Grouped summaries | `psych::describeBy()`, `dplyr::group_by() |> summarise()` |  
+| 11 | Compute correlations | `cor()`, `cor.test()` |  
+| 12 | Calculate effect sizes | `effectsize::cohens_d()`, `effectsize::eta_squared()` |  
+| 13 | Build reporting table | `flextable::flextable()` |  
+  
+---  
+  
+## Effect Size Benchmarks {-}  
+  
+| Statistic | Small | Medium | Large | Use when |  
+|---|---|---|---|---|  
+| Cohen's *d* | 0.2 | 0.5 | 0.8 | Comparing two group means |  
+| Pearson's *r* | 0.1 | 0.3 | 0.5 | Two continuous variables |  
+| Eta-squared (η²) | 0.01 | 0.06 | 0.14 | ANOVA: proportion of variance |  
+  
+# Robust Measures and Resistant Statistics {#robust}  
+  
+Standard measures like the mean and standard deviation assume — or are strongly affected by — the presence of extreme values and departures from normality. **Robust statistics** are designed to remain informative even when these assumptions are violated. They are particularly important in linguistics, where corpus frequency data, reaction times, and judgement scores are routinely non-normal.  
+  
+---  
+  
+## The Trimmed Mean {-}  
+  
+The **trimmed mean** discards a fixed percentage of the most extreme values at both ends of the distribution before calculating the mean. A common choice is the **5% trimmed mean** (removing the bottom 5% and top 5% of values) or the **10% trimmed mean**.  
+  
+$$\bar{x}_{\text{trim}} = \frac{1}{n - 2k} \sum_{i=k+1}^{n-k} x_{(i)}$$  
+  
+where $x_{(i)}$ are the sorted values and $k = \lfloor n \cdot \text{trim} \rfloor$ observations are dropped from each end.  
+  
+```{r trim1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# reaction times with a few extreme slow responses  
+rt_skewed <- c(rnorm(95, mean = 450, sd = 70), c(1800, 1950, 2100, 1750, 1600))  
+  
+# regular mean — inflated by outliers  
+mean(rt_skewed)  
+  
+# 5% trimmed mean — more resistant  
+mean(rt_skewed, trim = 0.05)  
+  
+# 10% trimmed mean  
+mean(rt_skewed, trim = 0.10)  
+  
+# median for comparison  
+median(rt_skewed)  
+```  
+  
+The trimmed mean sits between the mean (inflated by outliers) and the median (which ignores all values except the central one). It is reported in `psych::describe()` as the `trimmed` column (10% trim by default).  
+  
+---  
+  
+## Winsorisation {-}  
+  
+**Winsorisation** replaces extreme values with the nearest non-extreme value rather than discarding them. For example, in a 5% Winsorised dataset, all values below the 5th percentile are replaced with the 5th percentile value, and all values above the 95th percentile are replaced with the 95th percentile value.  
+  
+Unlike trimming, Winsorisation retains the full sample size — important when data are scarce.  
+  
+```{r wins1, message=FALSE, warning=FALSE}  
+library(DescTools)  
+  
+# Winsorise at 5th and 95th percentiles  
+rt_winsorised <- DescTools::Winsorize(rt_skewed)  
+  
+# compare means  
+cat("Original mean:    ", round(mean(rt_skewed), 1), "\n")  
+cat("Winsorised mean:  ", round(mean(rt_winsorised), 1), "\n")  
+cat("Trimmed mean:     ", round(mean(rt_skewed, trim = 0.05), 1), "\n")  
+cat("Median:           ", round(median(rt_skewed), 1), "\n")  
+```  
+  
+---  
+  
+## Median Absolute Deviation (MAD) {-}  
+  
+The **Median Absolute Deviation (MAD)** is the most robust measure of variability. It is computed as the median of the absolute deviations from the median:  
+  
+$$\text{MAD} = \text{median}\left(|x_i - \text{median}(x)|\right)$$  
+  
+Because MAD uses the median twice, it is completely unaffected by extreme values. It is reported by `psych::describe()` as the `mad` column.  
+  
+```{r mad1, message=FALSE, warning=FALSE}  
+# MAD is resistant to extreme values  
+mad(rt_skewed, constant = 1)   # raw MAD (constant=1 gives actual median of |deviations|)  
+mad(rt_skewed)                  # scaled MAD (default: multiply by 1.4826 for consistency with SD)  
+  
+# for comparison: SD is heavily inflated by the outliers  
+sd(rt_skewed)  
+```  
+  
+::: {.callout-note}  
+## MAD vs. SD: When to Use Which  
+  
+| Measure | Use when |  
+|---|---|  
+| Standard deviation (SD) | Data are approximately normally distributed; parametric tests will be used |  
+| MAD | Data are skewed or contain outliers; non-parametric or robust methods are used |  
+| IQR | Reporting alongside median in summary tables; ordinal or skewed data |  
+  
+In published linguistics research, SD is still most commonly reported — but MAD and trimmed means are increasingly used in psycholinguistics and corpus work, where data rarely meet normality assumptions.  
+:::  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Robust Measures  
+:::  
+  
+**Q1. A reaction time dataset has a mean of 520 ms and a 10% trimmed mean of 470 ms. What does this discrepancy suggest?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ROB_Q1"  
+check_question("The distribution has extreme values in the upper tail that are inflating the mean",  
+               options = c(  
+                 "The distribution has extreme values in the upper tail that are inflating the mean",  
+                 "The data are normally distributed and both measures are equally valid",  
+                 "The median is probably around 520 ms",  
+                 "The trimmed mean is always smaller than the mean, so this is expected"  
+               ),  
+               type = "radio",  
+               q_id = "ROB_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! When the trimmed mean is substantially lower than the regular mean, it indicates that extreme high values (outliers or heavy upper tail) are pulling the mean upward. The trimmed mean, by excluding the top 10% of values, gives a more representative estimate of the typical reaction time. The discrepancy of 50 ms here is practically meaningful — it corresponds to the entire range of typical priming effects.",  
+               wrong = "The trimmed mean removes the most extreme values before averaging. If trimming lowers the mean considerably, what does that tell you about the removed values?")  
+```  
+  
+---  
+  
+**Q2. Why is the MAD considered more robust than the standard deviation?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ROB_Q2"  
+check_question("MAD is based on the median of absolute deviations, so a single extreme value cannot distort it",  
+               options = c(  
+                 "MAD is based on the median of absolute deviations, so a single extreme value cannot distort it",  
+                 "MAD is always smaller than the standard deviation",  
+                 "MAD uses squared deviations, which reduces the influence of outliers",  
+                 "MAD can only be used with non-parametric tests"  
+               ),  
+               type = "radio",  
+               q_id = "ROB_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! The SD uses the mean (which is itself distorted by outliers) and squares deviations (amplifying extreme values further). The MAD instead uses the median as its centre and the median of the absolute deviations as its spread — two median operations that are each independently resistant to extreme values. A single arbitrarily large outlier cannot move the MAD at all, as long as it does not displace the median.",  
+               wrong = "Think about what SD uses internally: the mean (affected by outliers) and squared deviations. What does MAD use instead?")  
+```  
+  
+---  
+  
+# Working with Real Data: Loading, Inspecting, and Cleaning {#realdata}  
+  
+All previous sections have used simulated data. In practice, you will be loading messy, real-world datasets from files. This section covers the practical workflow for importing data, getting an initial overview, and handling missing values — essential skills before any descriptive analysis.  
+  
+---  
+  
+## Loading Data {-}  
+  
+The most common data formats in linguistics research are CSV files (comma-separated values) and Excel spreadsheets. The recommended approach is the `readr` package (part of `tidyverse`) for CSVs and `readxl` for Excel files.  
+  
+```{r load1, eval = FALSE, message=FALSE, warning=FALSE}  
+library(readr)  
+library(readxl)  
+  
+# load a CSV file  
+data_csv <- readr::read_csv("path/to/your/data.csv")  
+  
+# load an Excel file (specify sheet name or number)  
+data_xlsx <- readxl::read_excel("path/to/your/data.xlsx", sheet = 1)  
+  
+# base R alternative for CSVs  
+data_base <- read.csv("path/to/your/data.csv", stringsAsFactors = FALSE)  
+```  
+  
+::: {.callout-tip}  
+## `read_csv()` vs. `read.csv()`  
+  
+Prefer `readr::read_csv()` over base R's `read.csv()` because it:  
+  
+- Does **not** convert strings to factors by default (no need for `stringsAsFactors = FALSE`)  
+- Reads files faster for large datasets  
+- Reports a column specification summary so you can verify that columns were parsed correctly  
+- Creates a `tibble` (tidyverse data frame) with cleaner printing behaviour  
+:::  
+  
+---  
+  
+## Getting an Initial Overview {-}  
+  
+Before computing any statistics, always inspect your data structure:  
+  
+```{r inspect1, message=FALSE, warning=FALSE}  
+# create a realistic linguistics dataset to demonstrate  
+set.seed(42)  
+n <- 120  
+linguistics_corpus <- data.frame(  
+  text_id      = paste0("T", sprintf("%03d", 1:n)),  
+  register     = sample(c("Spoken", "Written", "CMC"), n, replace = TRUE),  
+  word_count   = round(rnorm(n, 850, 300)),  
+  TTR          = round(runif(n, 0.3, 0.8), 3),    # type-token ratio  
+  mean_wl      = round(rnorm(n, 4.8, 0.9), 2),    # mean word length in chars  
+  clauses_per_sent = round(rnorm(n, 2.1, 0.6), 1),  
+  speaker_age  = c(round(rnorm(n - 5, 35, 12)), rep(NA, 5))  # 5 missing values  
+)  
+  
+# 1. Check dimensions (rows × columns)  
+dim(linguistics_corpus)  
+  
+# 2. Variable names and types  
+str(linguistics_corpus)  
+```  
+  
+```{r inspect2, message=FALSE, warning=FALSE}  
+# 3. First few rows  
+head(linguistics_corpus, 5)  
+  
+# 4. tidyverse-style overview (cleaner output)  
+dplyr::glimpse(linguistics_corpus)  
+```  
+  
+```{r inspect3, message=FALSE, warning=FALSE}  
+# 5. Full summary  
+summary(linguistics_corpus)  
+```  
+  
+The `summary()` output immediately reveals the 5 missing values (`NA's: 5`) in `speaker_age` — something you must address before computing means or running tests on that variable.  
+  
+---  
+  
+## Handling Missing Values {-}  
+  
+Missing data (`NA` in R) are the rule rather than the exception in real linguistic datasets. R's default behaviour is to propagate `NA` values: any arithmetic involving `NA` returns `NA`.  
+  
+```{r na1, message=FALSE, warning=FALSE}  
+# NA propagates through arithmetic  
+mean(linguistics_corpus$speaker_age)           # returns NA  
+  
+# solution: exclude NAs with na.rm = TRUE  
+mean(linguistics_corpus$speaker_age, na.rm = TRUE)  
+sd(linguistics_corpus$speaker_age,   na.rm = TRUE)  
+median(linguistics_corpus$speaker_age, na.rm = TRUE)  
+```  
+  
+### Identifying and Counting Missing Values {-}  
+  
+```{r na2, message=FALSE, warning=FALSE}  
+# how many NAs per column?  
+colSums(is.na(linguistics_corpus))  
+  
+# which rows have NAs?  
+which(is.na(linguistics_corpus$speaker_age))  
+  
+# proportion of missing values per column  
+round(colMeans(is.na(linguistics_corpus)) * 100, 1)  
+```  
+  
+### Complete Cases {-}  
+  
+`complete.cases()` returns a logical vector: `TRUE` for rows with no missing values, `FALSE` for rows with at least one `NA`.  
+  
+```{r na3, message=FALSE, warning=FALSE}  
+# how many complete cases?  
+sum(complete.cases(linguistics_corpus))  
+  
+# filter to complete cases only  
+corpus_complete <- linguistics_corpus[complete.cases(linguistics_corpus), ]  
+nrow(corpus_complete)  
+```  
+  
+::: {.callout-warning}  
+## Missing Data: Do Not Simply Delete  
+  
+Listwise deletion (removing any row with an `NA`) is the default in most R functions, but it is not always the best approach:  
+  
+- If data are **Missing Completely at Random (MCAR)**: deletion is unbiased but reduces sample size  
+- If data are **Missing at Random (MAR)** or **Missing Not at Random (MNAR)**: deletion introduces bias  
+  
+Advanced techniques — **multiple imputation** (`mice` package), **maximum likelihood estimation**, or **mixed models** — handle missing data more appropriately. Always report the number of missing values and your handling strategy in your methods section.  
+:::  
+  
+---  
+  
+## Checking Data Quality {-}  
+  
+Before analysing, always check for impossible or suspicious values:  
+  
+```{r qa1, message=FALSE, warning=FALSE}  
+# check for impossible values (e.g., negative word counts or TTR > 1)  
+sum(linguistics_corpus$word_count < 0)     # should be 0  
+sum(linguistics_corpus$TTR > 1)           # should be 0  
+  
+# check range of each numeric variable  
+sapply(linguistics_corpus[, sapply(linguistics_corpus, is.numeric)], range, na.rm = TRUE)  
+```  
+  
+```{r qa2, message=FALSE, warning=FALSE}  
+# check factor/character levels for typos  
+table(linguistics_corpus$register)  
+```  
+  
+This last step catches a very common problem: data entry inconsistencies such as `"spoken"` and `"Spoken"` being treated as different categories. Always inspect categorical variable levels before analysis.  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Real Data Workflow  
+:::  
+  
+**Q1. You load a dataset and run `mean(data$age)` but get `NA` as the result. What is the most likely cause and solution?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RD_Q1"  
+check_question("The column contains missing values (NA); use mean(data$age, na.rm = TRUE) to exclude them",  
+               options = c(  
+                 "The column contains missing values (NA); use mean(data$age, na.rm = TRUE) to exclude them",  
+                 "The column is stored as character type; convert with as.numeric()",  
+                 "The mean() function does not work on columns extracted with $",  
+                 "The dataset is too large for mean() to handle"  
+               ),  
+               type = "radio",  
+               q_id = "RD_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! R propagates NA values — any operation involving NA returns NA by default. The na.rm = TRUE argument tells R to remove NA values before computing the statistic. You can check for NAs first with sum(is.na(data$age)) and then decide whether na.rm = TRUE is appropriate or whether the missingness requires more careful handling.",  
+               wrong = "What does R do when you try to compute a statistic on a vector that contains NA values?")  
+```  
+  
+---  
+  
+**Q2. Which function returns `TRUE` for rows in a data frame that have NO missing values in any column?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RD_Q2"  
+check_question("complete.cases()",  
+               options = c(  
+                 "complete.cases()",  
+                 "na.omit()",  
+                 "is.na()",  
+                 "drop_na()"  
+               ),  
+               type = "radio",  
+               q_id = "RD_Q2",  
+               random_answer_order = FALSE,  
+               button_label = "Check answer",  
+               right = "Correct! complete.cases(df) returns a logical vector the same length as the number of rows in df. TRUE = no NAs in that row; FALSE = at least one NA. You can use it to subset: df[complete.cases(df), ]. na.omit() does the same subsetting directly. is.na() works cell-by-cell. drop_na() (tidyr) removes rows with NAs from a tibble.",  
+               wrong = "Which function checks whether all values in a row are present (non-missing)?")  
+```  
+  
+---  
+  
+**Q3. After loading a dataset, you find the `register` column has levels: 'Formal', 'formal', 'FORMAL', 'Informal', 'informal'. What is the problem and how should you fix it?**  
+  
+```{r}  
+#| echo: false  
+#| label: "RD_Q3"  
+check_question("Data entry inconsistency — the same category appears with different capitalisation; standardise with tolower() or recode()",  
+               options = c(  
+                 "Data entry inconsistency — the same category appears with different capitalisation; standardise with tolower() or recode()",  
+                 "R automatically treats all of these as the same level, so no action is needed",  
+                 "The column must be re-imported as a factor rather than character",  
+                 "Remove all rows with lower-case register values"  
+               ),  
+               type = "radio",  
+               q_id = "RD_Q3",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! R is case-sensitive: 'Formal', 'formal', and 'FORMAL' are three different character strings. table(data$register) will show them as three separate categories, inflating your level count and producing wrong frequencies. Fix with: data$register <- tolower(data$register) to make everything lowercase, then optionally recode to your preferred capitalisation with dplyr::recode().",  
+               wrong = "R treats strings as case-sensitive. Would 'Formal' and 'formal' be counted as the same category in table()?")  
+```  
+  
+---  
+  
+# Effect Sizes as Descriptive Statistics {#effectsizes}  
+  
+**Effect size** statistics describe the *magnitude* of a difference or association in a way that is independent of sample size. While *p*-values only tell us whether an effect is statistically distinguishable from zero, effect sizes tell us *how large* the effect is — information that is essential for interpreting whether a finding is practically meaningful.  
+  
+::: {.callout-important}  
+## Why Effect Sizes Matter  
+  
+A study with N = 10,000 participants can detect effects so tiny they are meaningless in practice. A study with N = 20 may miss a large, genuine effect. The *p*-value conflates effect size with sample size. Effect sizes do not.  
+  
+Reporting effect sizes is now required by most major journals in linguistics, psychology, and the language sciences, following guidelines from the APA Publication Manual (7th edition) and initiatives such as the Open Science Framework.  
+:::  
+  
+---  
+  
+## Cohen's *d* for Comparing Two Means {-}  
+  
+**Cohen's *d*** measures the standardised difference between two group means — the difference in means expressed in units of the pooled standard deviation:  
+  
+$$d = \frac{\bar{x}_1 - \bar{x}_2}{s_{\text{pooled}}}$$  
+  
+$$s_{\text{pooled}} = \sqrt{\frac{(n_1 - 1)s_1^2 + (n_2 - 1)s_2^2}{n_1 + n_2 - 2}}$$  
+  
+```{r es_d1, echo=FALSE, message=FALSE, warning=FALSE}  
+d_table <- data.frame(  
+  d_value    = c("< 0.2", "0.2", "0.5", "0.8", "> 1.2"),  
+  Magnitude  = c("Negligible", "Small", "Medium", "Large", "Very large"),  
+  Practical  = c("Likely noise", "Detectable but small",  
+                 "Noticeable in practice",  
+                 "Clearly meaningful difference",  
+                 "Very large, dramatic difference")  
+)  
+colnames(d_table) <- c("|d| value", "Magnitude", "Practical interpretation")  
+d_table |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .85, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(caption = "Cohen's d benchmarks (Cohen, 1988). Note: in linguistics, effect sizes tend to be smaller than in psychology; treat these as rough guides.") |>  
+  flextable::border_outer()  
+```  
+  
+In R, Cohen's *d* can be calculated manually or via `effectsize::cohens_d()`:  
+  
+```{r es_d2, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# simulated reaction times: congruent vs. incongruent condition  
+rt_cong   <- rnorm(50, mean = 440, sd = 75)  
+rt_incong <- rnorm(50, mean = 510, sd = 85)  
+  
+# manual calculation  
+pool_sd <- sqrt(((50-1)*var(rt_cong) + (50-1)*var(rt_incong)) / (50+50-2))  
+d_manual <- (mean(rt_incong) - mean(rt_cong)) / pool_sd  
+cat("Cohen's d (manual):", round(d_manual, 3), "\n")  
+  
+# using effectsize package  
+if (!requireNamespace("effectsize", quietly = TRUE)) {  
+  install.packages("effectsize")  
+}  
+library(effectsize)  
+effectsize::cohens_d(rt_incong, rt_cong)  
+```  
+  
+---  
+  
+## Pearson's *r* as an Effect Size {-}  
+  
+When the relationship between two variables is the focus (rather than a group difference), **Pearson's *r*** itself serves as an effect size. The benchmarks are:  
+  
+| |r| value | Magnitude |  
+|---|---|  
+| < 0.10 | Negligible |  
+| 0.10 | Small |  
+| 0.30 | Medium |  
+| 0.50 | Large |  
+  
+Pearson's *r* and Cohen's *d* are mathematically related:  
+  
+$$r = \frac{d}{\sqrt{d^2 + 4}}$$  
+  
+---  
+  
+## Eta-squared (η²) for ANOVAs {-}  
+  
+**Eta-squared (η²)** is the effect size for one-way ANOVA. It represents the proportion of total variance accounted for by the grouping variable:  
+  
+$$\eta^2 = \frac{SS_{\text{between}}}{SS_{\text{total}}}$$  
+  
+| η² value | Magnitude |  
+|---|---|  
+| 0.01 | Small |  
+| 0.06 | Medium |  
+| 0.14 | Large |  
+  
+```{r es_eta, message=FALSE, warning=FALSE}  
+set.seed(42)  
+# three register groups with different mean sentence lengths  
+sent_length <- c(rnorm(40, 18, 5), rnorm(40, 25, 6), rnorm(40, 12, 4))  
+register_grp <- rep(c("Spoken", "Written", "CMC"), each = 40)  
+  
+# one-way ANOVA  
+aov_result <- aov(sent_length ~ register_grp)  
+summary(aov_result)  
+  
+# eta-squared via effectsize package  
+effectsize::eta_squared(aov_result)  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Effect Sizes  
+:::  
+  
+**Q1. A study reports a statistically significant difference in reaction times between two conditions (p = .03) with Cohen's d = 0.08. How should you interpret this?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ES_Q1"  
+check_question("The effect is statistically significant but negligibly small (d < 0.2); the practical importance is minimal",  
+               options = c(  
+                 "The effect is statistically significant but negligibly small (d < 0.2); the practical importance is minimal",  
+                 "Because p < .05, the effect is large and important",  
+                 "Cohen's d of 0.08 means 8% of the variance is explained",  
+                 "The result is unreliable because p and d disagree"  
+               ),  
+               type = "radio",  
+               q_id = "ES_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! With a large enough sample, even a trivially small effect will produce p < .05. Cohen's d = 0.08 falls well below the 'small' threshold of 0.2 — the difference between conditions is less than one-tenth of a standard deviation. This illustrates why effect sizes are essential: statistical significance does not imply practical significance.",  
+               wrong = "Remember that p-values depend on sample size. A tiny effect with N = 10,000 will be 'significant'. What does d = 0.08 tell us about the actual size of the difference?")  
+```  
+  
+---  
+  
+**Q2. What is the key advantage of reporting effect sizes alongside p-values?**  
+  
+```{r}  
+#| echo: false  
+#| label: "ES_Q2"  
+check_question("Effect sizes quantify the magnitude of an effect independent of sample size, enabling comparison across studies",  
+               options = c(  
+                 "Effect sizes quantify the magnitude of an effect independent of sample size, enabling comparison across studies",  
+                 "Effect sizes replace p-values and make statistical testing unnecessary",  
+                 "Effect sizes tell us whether the null hypothesis is true",  
+                 "Effect sizes are more accurate than p-values for small samples"  
+               ),  
+               type = "radio",  
+               q_id = "ES_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Effect sizes serve two complementary purposes: (1) they communicate practical magnitude — is the effect large enough to matter in the real world? (2) they enable meta-analysis and cross-study comparison, because they are not inflated by sample size. A d = 0.5 means the same thing in a study of n = 30 or n = 3,000. p-values do not have this property.",  
+               wrong = "Think about what happens to a p-value as sample size increases. Does the effect size change in the same way?")  
+```  
+  
+---  
+  
+# Reporting Descriptive Statistics {#reporting}  
+  
+Knowing *how* to compute descriptive statistics is only half the skill. Knowing *how to report* them clearly and consistently is equally important. This section summarises the conventions used in linguistics and adjacent fields.  
+  
+---  
+  
+## General Principles {-}  
+  
+::: {.callout-note}  
+## APA-Style Reporting Guidelines  
+  
+The **APA Publication Manual (7th edition)** provides the most widely used conventions in linguistics and psychology:  
+  
+- Report **mean and SD** for continuous normally distributed variables: *M* = 450 ms, *SD* = 82 ms  
+- Report **median and IQR** for skewed or ordinal data: *Mdn* = 430 ms, *IQR* = 95 ms  
+- Round to **two decimal places** for most statistics; use fewer when precision is not meaningful  
+- Report **sample size** (*n*) for every group  
+- Include **effect sizes** alongside inferential statistics: *t*(58) = 3.12, *p* = .003, *d* = 0.81  
+- For proportions: *n* = 42 out of 120 (35.0%)  
+- Use **italics** for statistical symbols: *M*, *SD*, *p*, *t*, *r*, *n*  
+:::  
+  
+---  
+  
+## A Model Reporting Paragraph {-}  
+  
+Here is an example of a well-written descriptive statistics paragraph for a linguistics study:  
+  
+> Reaction times were recorded for 60 participants (30 per condition). In the congruent condition, mean RT was *M* = 442 ms (*SD* = 74 ms, *Mdn* = 431 ms); in the incongruent condition, *M* = 518 ms (*SD* = 88 ms, *Mdn* = 504 ms). RT distributions in both conditions were approximately normal (Shapiro-Wilk: congruent *W* = 0.97, *p* = .43; incongruent *W* = 0.96, *p* = .29), and no outliers were identified (all values within ±3 *SD* of the group mean). Four participants were excluded prior to analysis due to error rates exceeding 30%.  
+  
+Notice what this paragraph includes:  
+  
+- Sample size per group  
+- Mean and SD (primary) plus median (secondary, as a robustness check)  
+- Normality check with test statistic and p-value  
+- Outlier handling procedure  
+- Exclusion criteria and number excluded  
+  
+---  
+  
+## A Model Results Table {-}  
+  
+For multiple groups or variables, a table is clearer than prose:  
+  
+```{r rep1, message=FALSE, warning=FALSE}  
+set.seed(42)  
+report_data <- data.frame(  
+  Condition   = rep(c("Congruent", "Incongruent", "Neutral"), each = 40),  
+  RT          = c(rnorm(40, 442, 74), rnorm(40, 518, 88), rnorm(40, 478, 81)),  
+  Errors      = c(rpois(40, 1.2), rpois(40, 3.1), rpois(40, 2.0))  
+)  
+  
+report_table <- report_data |>  
+  dplyr::group_by(Condition) |>  
+  dplyr::summarise(  
+    n       = n(),  
+    RT_M    = round(mean(RT), 1),  
+    RT_SD   = round(sd(RT), 1),  
+    RT_Mdn  = round(median(RT), 1),  
+    Err_M   = round(mean(Errors), 2),  
+    Err_SD  = round(sd(Errors), 2),  
+    .groups = "drop"  
+  ) |>  
+  dplyr::rename(  
+    `N`          = n,  
+    `RT: M (ms)` = RT_M,  
+    `RT: SD`     = RT_SD,  
+    `RT: Mdn`    = RT_Mdn,  
+    `Errors: M`  = Err_M,  
+    `Errors: SD` = Err_SD  
+  )  
+  
+report_table |>  
+  flextable::flextable() |>  
+  flextable::set_table_properties(width = .9, layout = "autofit") |>  
+  flextable::theme_zebra() |>  
+  flextable::fontsize(size = 12) |>  
+  flextable::fontsize(size = 12, part = "header") |>  
+  flextable::align_text_col(align = "center") |>  
+  flextable::set_caption(  
+    caption = "Descriptive statistics by condition. M = mean; SD = standard deviation; Mdn = median.") |>  
+  flextable::border_outer()  
+```  
+  
+---  
+  
+::: {.callout-tip}  
+## Exercises: Reporting  
+:::  
+  
+**Q1. A researcher writes: "The mean response time was 487ms." What crucial information is missing?**  
+  
+```{r}  
+#| echo: false  
+#| label: "REP_Q1"  
+check_question("The standard deviation (or other variability measure) and the sample size",  
+               options = c(  
+                 "The standard deviation (or other variability measure) and the sample size",  
+                 "The p-value showing the mean is significantly different from zero",  
+                 "The raw data values for all participants",  
+                 "Nothing — reporting the mean is sufficient"  
+               ),  
+               type = "radio",  
+               q_id = "REP_Q1",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! A mean without a measure of variability is incomplete. M = 487 ms tells us nothing about whether participants were similar (SD = 20 ms) or wildly different (SD = 300 ms). The sample size is also needed to assess the precision of the estimate. Standard reporting: M = 487 ms, SD = 74 ms, n = 48.",  
+               wrong = "A mean alone tells us the centre but not the spread. What else do readers need to interpret a mean value?")  
+```  
+  
+---  
+  
+**Q2. For a 7-point Likert scale measuring attitude, which statistics should be reported?**  
+  
+```{r}  
+#| echo: false  
+#| label: "REP_Q2"  
+check_question("Median and IQR (ordinal data — mean and SD assume equal intervals which Likert scales lack)",  
+               options = c(  
+                 "Median and IQR (ordinal data — mean and SD assume equal intervals which Likert scales lack)",  
+                 "Mean and SD only (the standard choice for all numeric-looking data)",  
+                 "Mode only (since the scale has discrete categories)",  
+                 "Mean, SD, and a t-test against the scale midpoint"  
+               ),  
+               type = "radio",  
+               q_id = "REP_Q2",  
+               random_answer_order = TRUE,  
+               button_label = "Check answer",  
+               right = "Correct! Likert scales are strictly ordinal: we cannot assume that the psychological distance between 'Strongly Disagree' and 'Disagree' equals the distance between 'Neutral' and 'Agree'. Formally, median and IQR are appropriate. In practice, many researchers report both median and mean (noting the ordinal caveat), since means facilitate comparison across studies. If reporting the mean, always acknowledge the ordinal nature of the scale.",  
+               wrong = "Likert scales have ordered categories but not necessarily equal psychological intervals between them. Which variable type is this?")  
+```  
+  
+---  
+  
+  
+  
+Schweinberger, Martin. 2026. *Descriptive Statistics with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/dstats/dstats.html (Version 2026.03.26).  
+  
+```  
+@manual{schweinberger2026dstats,  
+  author       = {Schweinberger, Martin},  
+  title        = {Descriptive Statistics with R},  
+  note         = {https://ladal.edu.au/tutorials/dstats/dstats.html},  
+  year         = {2026},  
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
+  address      = {Brisbane},  
+  edition      = {2026.03.26}  
+}  
+```  
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. The structure, conceptual explanations, worked examples, R code, and exercises build on an earlier tutorial by Martin Schweinberger. Claude was used to substantially revise and expand the tutorial, convert legacy HTML divs to Quarto callouts, add learning objectives and check questions, expand conceptual explanations, add the comparison section, and fix typographical errors. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r fin}  
+sessionInfo()  
+```  
+  
+---  
+  
+[Back to top](#intro)  
+  
+[Back to LADAL home](/)  
+  
+---  
+  
+# References {-}  

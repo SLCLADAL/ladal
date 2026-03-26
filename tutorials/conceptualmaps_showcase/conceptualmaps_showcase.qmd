@@ -36,7 +36,7 @@ In this tutorial, we will:
 ::: {.callout-note}
 ## Related Tutorial
 
-This showcase is a companion to the main [Conceptual Maps tutorial](/tutorials/conceptualmaps_showcase2/conceptualmaps_showcase2.html), which introduces the core concepts. The focus here is on **comparing methods**: understanding what each layout algorithm reveals, and which works best for which purpose.
+This showcase is a companion to the main [Conceptual Maps tutorial](/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html), which introduces the core concepts. The focus here is on **comparing methods**: understanding what each layout algorithm reveals, and which works best for which purpose.
 :::
 
 ::: {.callout-note}
@@ -64,7 +64,7 @@ By the end of this tutorial you will be able to:
 ::: {.callout-note}
 ## Citation
 
-Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase2/conceptualmaps_showcase2.html (Version 2026.05.01).
+Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html (Version 2026.05.01).
 :::
 
 ---
@@ -99,24 +99,24 @@ This means we can query `closest_to(training, "periodone", 30)` and receive the 
 ::: {.callout-warning}
 ## Data File Required
 
-The COOEE corpus file (`ALL_byperiod_nomarkup.txt`) must be present in `tutorials/conceptualmaps_showcase2/data/` before running any of the code in this tutorial. Download it using the code below on first use.
+The COOEE corpus file (`ALL_byperiod_nomarkup.txt`) must be present in `tutorials/conceptualmaps_showcase/data/` before running any of the code in this tutorial. Download it using the code below on first use.
 :::
 
 ```{r download-cooee, eval=FALSE, message=FALSE, warning=FALSE}
 # Create the data folder if it does not exist
-dir.create("tutorials/conceptualmaps_showcase2/data", recursive = TRUE, showWarnings = FALSE)
+dir.create("tutorials/conceptualmaps_showcase/data", recursive = TRUE, showWarnings = FALSE)
 
 # Download the COOEE corpus (run once)
 download.file(
-  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup.txt",
-  destfile = "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup.txt",
+  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt",
+  destfile = "tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt",
   mode     = "wb"
 )
 ```
 
-```{r set-data-path, message=FALSE, warning=FALSE}
+```{r set-data-path, eval = FALSE, message=FALSE, warning=FALSE}
 # Path to the corpus file — adjust if your project structure differs
-corpus_file <- "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup.txt"
+corpus_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup.txt")
 ```
 
 ---
@@ -157,7 +157,7 @@ remotes::install_github("analyxcompany/ForceAtlas2")
 
 ## Loading packages {-}
 
-```{r load-pkgs, message=FALSE, warning=FALSE}
+```{r load-pkgs, eval = FALSE, message=FALSE, warning=FALSE}
 library(igraph)
 library(tidyverse)
 library(tidytext)
@@ -189,10 +189,10 @@ The word2vec algorithm learns a vector representation for every word in the corp
 
 The `prep_word2vec()` function tokenises and lowercases the raw text, producing a cleaned version ready for training:
 
-```{r prep-corpus, eval=TRUE, message=FALSE, warning=FALSE}
+```{r prep-corpus, eval=FALSE, message=FALSE, warning=FALSE}
 prep_word2vec(
   origin      = corpus_file,
-  destination = "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup_out.txt",
+  destination = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_out.txt"),
   lowercase   = TRUE
 )
 ```
@@ -205,11 +205,11 @@ prep_word2vec(
 Training with window size 10 takes approximately 4 minutes. Run this block once and then load the saved `.bin` file instead. The `force = TRUE` argument overwrites any existing model.
 :::
 
-```{r train-word2vec, eval=TRUE, message=FALSE, warning=FALSE}
+```{r train-word2vec, eval=FALSE, message=FALSE, warning=FALSE}
 # Window size 10 — recommended default (4 minutes)
 training <- train_word2vec(
-  train_file  = "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup_out.txt",
-  output_file = "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup_w10.bin",
+  train_file  = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_out.txt"),
+  output_file = here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_w10.bin"),
   threads     = 4,
   vectors     = 200,
   window      = 10,
@@ -227,9 +227,9 @@ training <- train_word2vec(
 
 After training once, always load the saved `.bin` file directly:
 
-```{r load-model, message=FALSE, warning=FALSE}
+```{r load-model, eval = FALSE, message=FALSE, warning=FALSE}
 # Load pre-trained model (fast — no re-training)
-model_file <- "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_nomarkup_w10.bin"
+model_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_nomarkup_w10.bin")
 
 training <- read.binary.vectors(
   filename      = model_file,
@@ -254,35 +254,35 @@ The `closest_to()` function returns the words most similar to a query term accor
 
 ## Content words {-}
 
-```{r test-convict, message=FALSE, warning=FALSE}
+```{r test-convict, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "convict", 30)
 ```
 
 The first settlers were convicts. A mutiny during transport was the greatest danger for the captain and the midshipman; surgeons were stretched. The word *female* is more surprising — it appears because frequent phrases like "male and female convicts" make *female* a near-neighbour of *convict*, even with a small window.
 
-```{r test-letter, message=FALSE, warning=FALSE}
+```{r test-letter, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "letter", 30)
 ```
 
 COOEE is a corpus of letters; this query shows what *letter* is associated with — delivery, postage, and the act of writing and receiving.
 
-```{r test-dear, message=FALSE, warning=FALSE}
+```{r test-dear, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "dear", 30)
 ```
 
 *Dear* is primarily used to address recipients and to formally express affection.
 
-```{r test-england, message=FALSE, warning=FALSE}
+```{r test-england, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "england", 30)
 ```
 
 The associations of *england* include expected relatives such as *scotland*, but also *colony* and *sailed* — reflecting the long sea voyage that separated the colonists from home.
 
-```{r test-australia, message=FALSE, warning=FALSE}
+```{r test-australia, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "australia", 30)
 ```
 
-```{r test-government, message=FALSE, warning=FALSE}
+```{r test-government, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "government", 30)
 ```
 
@@ -290,25 +290,25 @@ closest_to(training, "government", 30)
 
 One of the most interesting features of the COOEE corpus is its embedded period labels. Querying these pseudo-words reveals the dominant themes of each historical period.
 
-```{r test-period1, message=FALSE, warning=FALSE}
+```{r test-period1, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "periodone", 30)
 ```
 
 Period 1 (1788–1825) — the earliest settlement period — returns years falling within the period, and names of people prominent in those years. For example, Frederick Garling (1775–1848) was one of the first solicitors admitted in Australia ([Wikipedia](https://en.wikipedia.org/wiki/Frederick_Garling)).
 
-```{r test-period2, message=FALSE, warning=FALSE}
+```{r test-period2, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "periodtwo", 30)
 ```
 
 Period 2 (1826–1850) again returns years and personal names, reflecting the continued growth of the colony and its social structures.
 
-```{r test-period3, message=FALSE, warning=FALSE}
+```{r test-period3, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "periodthree", 30)
 ```
 
 Period 3 (1851–1875) — the gold rush era and expansion inland. Person names dominate; to see what is distinctive about this period compared to others, we would need to dig deeper.
 
-```{r test-period4, message=FALSE, warning=FALSE}
+```{r test-period4, eval = FALSE, message=FALSE, warning=FALSE}
 closest_to(training, "periodfour", 30)
 ```
 
@@ -328,13 +328,13 @@ Period 4 (1875–1900) is foreshadowing Australia's federation. Among the top ne
 
 We take the 1,000 most frequent words in the model as our vocabulary for the maps. You can experiment with this number — 500 to 1,000 is a good range. More words make the graph richer but slower to compute and harder to read.
 
-```{r word-list, message=FALSE, warning=FALSE}
+```{r word-list, eval = FALSE, message=FALSE, warning=FALSE}
 word_list <- rownames(training)[1:1000]
 ```
 
 ## Subsetting the model {-}
 
-```{r subset-model, message=FALSE, warning=FALSE}
+```{r subset-model, eval = FALSE, message=FALSE, warning=FALSE}
 sub_model <- training[word_list, ]
 ```
 
@@ -342,7 +342,7 @@ sub_model <- training[word_list, ]
 
 We compute the full word–word cosine similarity matrix. This is a 1,000 × 1,000 matrix where every cell contains the cosine similarity between two words.
 
-```{r cosine-matrix, message=FALSE, warning=FALSE}
+```{r cosine-matrix, eval = FALSE, message=FALSE, warning=FALSE}
 similarity_matrix <- cosineSimilarity(sub_model, sub_model)
 
 # Inspect the top-left corner as a sanity check
@@ -353,10 +353,10 @@ similarity_matrix[1:10, 1:10]
 
 It is good practice to save this intermediate result so you can reload it without recomputing:
 
-```{r save-matrix, eval=TRUE, message=FALSE, warning=FALSE}
+```{r save-matrix, eval=FALSE, message=FALSE, warning=FALSE}
 write.csv(
   as.data.frame(similarity_matrix),
-  "tutorials/conceptualmaps_showcase2/data/word_similarity_matrix_top1000_w10.csv"
+  here::here("tutorials/conceptualmaps_showcase/data/word_similarity_matrix_top1000_w10.csv")
 )
 ```
 
@@ -364,7 +364,7 @@ write.csv(
 
 Graph tools and `igraph` expect an edge list (long form) rather than a square matrix. We convert using `as.table()`:
 
-```{r long-form, message=FALSE, warning=FALSE}
+```{r long-form, eval = FALSE, message=FALSE, warning=FALSE}
 similarity_df <- as.data.frame(as.table(similarity_matrix))
 colnames(similarity_df) <- c("word1", "word2", "similarity")
 head(similarity_df)
@@ -378,7 +378,7 @@ We apply three filters:
 2. Remove very short words (3 characters or fewer)
 3. Keep only pairs with cosine similarity above 0.25, excluding self-similarities
 
-```{r filter-matrix, message=FALSE, warning=FALSE}
+```{r filter-matrix, eval = FALSE, message=FALSE, warning=FALSE}
 # Use quanteda's stopword list as a fallback — avoids tidytext data dependency
 eng_stopwords <- quanteda::stopwords("english")
 
@@ -416,7 +416,7 @@ Setting the threshold above 0.5 will cause the graph to split into disconnected 
 
 We now have everything we need to build an igraph object. We also add a `label` attribute (for compatibility with Gephi and Graphia) and a `weight` attribute (for layout algorithms that use it):
 
-```{r build-graph, message=FALSE, warning=FALSE}
+```{r build-graph, eval = FALSE, message=FALSE, warning=FALSE}
 g  <- graph_from_data_frame(similarity_df, directed = FALSE)
 g2 <- g  # keep a copy of the original before we modify g
 
@@ -435,10 +435,10 @@ head(E(g))
 
 Exporting to GraphML/GML allows you to import the graph into Gephi or Graphia for further exploration:
 
-```{r export-graph, eval=TRUE, message=FALSE, warning=FALSE}
+```{r export-graph, eval=FALSE, message=FALSE, warning=FALSE}
 write_graph(
   g,
-  "tutorials/conceptualmaps_showcase2/data/COOEE_w10_simgt0.25.gml",
+  here::here("tutorials/conceptualmaps_showcase/data/COOEE_w10_simgt0.25.gml"),
   format = "gml"
 )
 ```
@@ -457,13 +457,13 @@ The **t-SNE** algorithm (t-distributed Stochastic Neighbour Embedding) maps the 
 
 A quick overview plot using the `wordVectors` built-in:
 
-```{r tsne-quick, message=FALSE, warning=FALSE}
+```{r tsne-quick, eval = FALSE, message=FALSE, warning=FALSE}
 plot(training)
 ```
 
 For a more flexible and readable version, we apply `Rtsne` directly and label the points with `ggplot2`:
 
-```{r tsne-ggplot, message=FALSE, warning=FALSE}
+```{r tsne-ggplot, eval = FALSE, message=FALSE, warning=FALSE}
 termsize <- 1000  # number of terms to include
 
 mytsne <- Rtsne(training[1:termsize, ])
@@ -482,7 +482,7 @@ plot(tsne_plot)
 
 The static plot is dense. For better exploration, use the interactive plotly version where you can zoom and hover:
 
-```{r tsne-interactive, message=FALSE, warning=FALSE}
+```{r tsne-interactive, eval = FALSE, message=FALSE, warning=FALSE}
 # Build plotly directly — avoids the ggplotly conversion error
 tsne_df <- mytsne$Y |>
   as.data.frame() |>
@@ -504,7 +504,7 @@ plot_ly(
   )
 ```
 
-```{r tsne-save, eval=TRUE, message=FALSE, warning=FALSE}
+```{r tsne-save, eval=FALSE, message=FALSE, warning=FALSE}
 # Save as standalone HTML
 tsne_interactive <- plot_ly(
   data     = tsne_df,
@@ -523,7 +523,7 @@ tsne_interactive <- plot_ly(
 
 saveWidget(
   widget = tsne_interactive,
-  file   = "tutorials/conceptualmaps_showcase2/data/tsne_cooee.html"
+  file   = here::here("tutorials/conceptualmaps_showcase/data/tsne_cooee.html")
 )
 ```
 
@@ -603,21 +603,6 @@ plot.igraph(
 )
 ```
 
-```{r fr-pdf, eval=FALSE, message=FALSE, warning=FALSE}
-# Optional: export to PDF for high-resolution viewing
-pdf("tutorials/conceptualmaps_showcase2/data/semantic_network_FR.pdf", width = 20, height = 20)
-set.seed(1)
-plot.igraph(
-  g,
-  layout           = layout_with_fr(g, weights = E(g)$w_scaled, niter = 2000),
-  vertex.size      = 0,
-  vertex.label.cex = 0.7,
-  edge.width       = E(g)$similarity / 5,
-  main             = "Word Similarity Network — FR, weights rescaled to 1–100"
-)
-dev.off()
-```
-
 ---
 
 # Method THREE: igraph with DRL {#drl}
@@ -644,19 +629,6 @@ plot.igraph(
 )
 ```
 
-```{r drl-pdf, eval=FALSE, message=FALSE, warning=FALSE}
-pdf("tutorials/conceptualmaps_showcase2/data/semantic_network_DRL.pdf", width = 20, height = 20)
-set.seed(1)
-plot.igraph(
-  g,
-  layout           = layout_with_drl(g, weights = E(g)$w_scaled_drl),
-  vertex.size      = 0,
-  vertex.label.cex = 0.7,
-  edge.width       = E(g)$similarity / 20,
-  main             = "Word Similarity Network — DRL, weights rescaled to 1–10,000"
-)
-dev.off()
-```
 
 ::: {.callout-note}
 ## FR vs DRL
@@ -704,19 +676,6 @@ plot.igraph(
 )
 ```
 
-```{r fa2-pdf, eval=FALSE, message=FALSE, warning=FALSE}
-pdf("tutorials/conceptualmaps_showcase2/data/semantic_network_ForceAtlas2.pdf", width = 20, height = 20)
-set.seed(1)
-plot.igraph(
-  g2,
-  layout           = fa2_layout,
-  vertex.size      = 0,
-  vertex.label.cex = 0.6,
-  edge.width       = E(g2)$similarity / 10,
-  main             = "Word Similarity Network — ForceAtlas2"
-)
-dev.off()
-```
 
 ::: {.callout-note}
 ## Interpreting the ForceAtlas2 Map
@@ -771,16 +730,6 @@ text(
 )
 ```
 
-```{r umap-pdf, eval=FALSE, message=FALSE, warning=FALSE}
-pdf("tutorials/conceptualmaps_showcase2/data/semantic_network_UMAP.pdf", width = 15, height = 15)
-set.seed(1)
-umap_result <- umap(sub_model, n_neighbors = 500, min_dist = 0.2,
-                    n_components = 2, metric = "euclidean")
-plot(umap_result[, 1], umap_result[, 2], pch = 1, col = "white",
-     xlab = "UMAP 1", ylab = "UMAP 2", main = "UMAP projection")
-text(umap_result[, 1], umap_result[, 2], labels = rownames(sub_model), cex = 0.7)
-dev.off()
-```
 
 ::: {.callout-note}
 ## Interpreting the UMAP Map
@@ -805,8 +754,8 @@ This section uses a `.gml` file generated by the `textplot` command-line tool (M
 
 ```{r download-gml, eval=FALSE, message=FALSE, warning=FALSE}
 download.file(
-  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase2/data/ALL_byperiod_momarkup3_t400-s10.gml",
-  destfile = "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_momarkup3_t400-s10.gml",
+  url      = "https://ladal.edu.au/tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml",
+  destfile = "tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml",
   mode     = "wb"
 )
 ```
@@ -821,14 +770,14 @@ textplot generate --term_depth 400 --skim_depth 10 --bandwidth 30000 \
 
 ## Loading the GML file {-}
 
-```{r load-gml, message=FALSE, warning=FALSE}
-gml_file <- "tutorials/conceptualmaps_showcase2/data/ALL_byperiod_momarkup3_t400-s10.gml"
+```{r load-gml, eval = FALSE, message=FALSE, warning=FALSE}
+gml_file <- here::here("tutorials/conceptualmaps_showcase/data/ALL_byperiod_momarkup3_t400-s10.gml")
 g_tp <- read_graph(gml_file, format = "gml")
 ```
 
 ## Visualising with Fruchterman-Reingold {-}
 
-```{r textplot-fr, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+```{r textplot-fr, eval = FALSE, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
 set.seed(1)
 plot.igraph(
   g_tp,
@@ -850,7 +799,7 @@ A legal cluster is visible at the top of the map, with *court*, *defendant*, and
 
 When loading a `.gml` file from textplot, node names are stored in the `label` attribute rather than igraph's default `name`. We need to copy `label` to `name` before using ForceAtlas2:
 
-```{r textplot-fa2, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
+```{r textplot-fa2, eval = FALSE, fig.dim=c(12, 12), message=FALSE, warning=FALSE}
 V(g_tp)$name <- V(g_tp)$label
 
 set.seed(1)
@@ -875,14 +824,6 @@ plot.igraph(
 )
 ```
 
-```{r textplot-fa2-pdf, eval=TRUE, message=FALSE, warning=FALSE}
-pdf("tutorials/conceptualmaps_showcase2/data/semantic_network_textplot_FA2.pdf", width = 20, height = 20)
-set.seed(1)
-plot.igraph(g_tp, layout = fa2_layout_tp, vertex.size = 0,
-            vertex.label.cex = 0.6, edge.width = E(g_tp)$weight / 10,
-            main = "Textplot Graph — ForceAtlas2")
-dev.off()
-```
 
 ---
 
@@ -924,13 +865,13 @@ The comparison of methods presented here also reinforces a broader methodologica
 
 # Citation & Session Info {-}
 
-Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase2/conceptualmaps_showcase2.html (Version 2026.05.01).
+Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The Language Technology and Data Analysis Laboratory (LADAL). url: https://ladal.edu.au/tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html (Version 2026.05.01).
 
 ```
-@manual{schneider2026conceptualmaps_showcase2,
+@manual{schneider2026conceptualmaps_showcase,
   author       = {Schneider, Gerold},
   title        = {Comparing Methods for Conceptual Maps},
-  note         = {tutorials/conceptualmaps_showcase2/conceptualmaps_showcase2.html},
+  note         = {tutorials/conceptualmaps_showcase/conceptualmaps_showcase.html},
   year         = {2026},
   organization = {The University of Queensland, Australia. School of Languages and Cultures},
   address      = {Brisbane},
@@ -941,7 +882,7 @@ Schneider, Gerold. 2026. *Comparing Methods for Conceptual Maps*. Brisbane: The 
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was adapted for LADAL by Martin Schweinberger with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. The original tutorial was authored by Gerold Schneider (2026). The adaptation involved converting the document to Quarto format; fixing the YAML (which was malformed in the original); removing `getwd()`/`list.files()` diagnostic chunks; replacing all hardcoded absolute paths with portable relative paths; removing all PDF-iframe embed patterns and replacing them with inline R plot output; adding LADAL-style section overviews, learning objectives, a prerequisite callout, and a method comparison table; adding PDF export blocks with `eval=TRUE`; consolidating duplicate UMAP plot blocks; adding `set.seed(1)` to the UMAP block for reproducibility; and adding the GML download block so the textplot section can be run without access to external tools. All scientific content, interpretation, and code logic are the work of the original author.
+This tutorial was adapted for LADAL by Martin Schweinberger with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. The original tutorial was authored by Gerold Schneider (2026). The adaptation involved converting the document to Quarto format; fixing the YAML; replacing all hardcoded absolute paths with portable relative paths; removing all PDF-iframe embed patterns and replacing them with inline R plot output; adding LADAL-style section overviews, learning objectives, a prerequisite callout; consolidating duplicate UMAP plot blocks; adding `set.seed(1)` to the UMAP block for reproducibility; and adding the GML download block so the textplot section can be run without access to external tools. All scientific content, interpretation, and code logic are the work of the original author.
 :::
 
 ```{r fin}
