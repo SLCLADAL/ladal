@@ -78,7 +78,8 @@ renamed_tutorials <- list(
   "coll" = "collocation_tutorial/collocation_tutorial",
   "svm" = "semanticvectors_tutorial/semanticvectors_tutorial",
   "comp" = "workingwithcomputers_tutorial/workingwithcomputers_tutorial",
-  "dstats" = "descriptivestats_tutorial/descriptivestats_tutorial"
+  "dstats" = "descriptivestats_tutorial/descriptivestats_tutorial",
+  "corplingr" = "corpuslinguistics_showcase/corpuslinguistics_showcase"
 )
 
 for (old_name in names(renamed_tutorials)) {
