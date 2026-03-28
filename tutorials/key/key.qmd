@@ -1,11 +1,21 @@
 ---
 title: "Keyness and Keyword Analysis in R"
 author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:       "Keyness and Keyword Analysis in R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:     "2026.03.28"
+  url:         "https://ladal.edu.au/tutorials/key/key.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  doi:         ""
 format:
   html:
     toc: true
     toc-depth: 4
     code-fold: show
+    code-tools: true
     theme: cosmo
 ---
 
@@ -29,16 +39,31 @@ options(max.print = 1000)
 
 # Introduction {#intro}
 
-This tutorial introduces **keyness and keyword analysis** — a set of corpus-linguistic methods for identifying words that are statistically characteristic of one text or corpus when compared to another. Keywords play a pivotal role in text analysis, serving as distinctive terms that hold particular significance within a given text, context, or collection. These words stand out due to their heightened frequency in a specific text or context, setting them apart from their occurrence in another. In essence, keywords are linguistic markers that encapsulate the essence or topical focus of a document or dataset. The process of identifying keywords involves a methodology akin to the one employed for detecting collocations using kwics: we compare the use of a particular word in a *target* corpus A against its use in a *reference* corpus B. By discerning the frequency disparities, we gain valuable insights into the salient terms that contribute significantly to the unique character and thematic emphasis of a given text or context.^[I am extremely grateful to Joseph Flanagan, who provided very helpful feedback and pointed out errors in previous versions of this tutorial. All remaining errors are, of course, my own.]
-
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **keyness and keyword analysis** — a set of corpus-linguistic methods for identifying words that are statistically characteristic of one text or corpus when compared to another. Keywords play a pivotal role in text analysis, serving as distinctive terms that hold particular significance within a given text, context, or collection. These words stand out due to their heightened frequency in a specific text or context, setting them apart from their occurrence in another. In essence, keywords are linguistic markers that encapsulate the essence or topical focus of a document or dataset. The process of identifying keywords involves a methodology akin to the one employed for detecting collocations using kwics: we compare the use of a particular word in a *target* corpus A against its use in a *reference* corpus B. By discerning the frequency disparities, we gain valuable insights into the salient terms that contribute significantly to the unique character and thematic emphasis of a given text or context.^[I am extremely grateful to Joseph Flanagan, who provided very helpful feedback and pointed out errors in previous versions of this tutorial. All remaining errors are, of course, my own.]
 
 This tutorial is aimed at **beginners and intermediate users of R** with the aim of showcasing how to extract keywords from and analyze keywords in textual data using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with keyness and keyword analysis.
 
 ::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what a keyword is and how keyness analysis differs from simple frequency analysis
+2. Describe the dimensions of keyness proposed by @egbert2019incorporating and @soenning2023key — frequency vs. dispersion, and target-intrinsic vs. comparative
+3. Construct the 2×2 contingency table that underlies all keyness statistics
+4. Compute a comprehensive suite of keyness measures in R — G², χ², phi, MI, PMI, Log Odds Ratio, Rate Ratio, Rate Difference, Difference Coefficient, Odds Ratio, DeltaP, and Signed DKL
+5. Apply Fisher's Exact Test and Bonferroni correction to assess and control for statistical significance
+6. Visualise keyword results using dot plots, bar plots, and comparison word clouds
+7. Interpret types (overrepresented words) and antitypes (underrepresented words) substantively
+8. Report keyword analyses in accordance with best-practice conventions in corpus linguistics
+:::
+
+::: {.callout-note}
 ## Prerequisite Tutorials
 
-To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following **R Basics** tutorials:
+To be able to follow this tutorial, we suggest you check out and familiarise yourself with the content of the following tutorials:
 
 - [Getting started with R](/tutorials/intror/intror.html)
 - [Loading, saving, and generating data in R](/tutorials/load/load.html)
@@ -52,48 +77,30 @@ To be able to follow this tutorial, we suggest you check out and familiarise you
 Familiarity with basic frequency analysis and with the concept of statistical significance testing will be particularly helpful for understanding the keyness statistics introduced in this tutorial.
 :::
 
-<br>
+::: {.callout-note}
+## Citation
 
-::: {.callout-tip}
-## Learning Objectives
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  sep = ""
+)
+```
 
-By the end of this tutorial you will be able to:
-
-1. **Explain** what a keyword is and how keyness analysis differs from simple frequency analysis
-2. **Describe** the dimensions of keyness proposed by @egbert2019incorporating and @soenning2023key — frequency vs. dispersion, and target-intrinsic vs. comparative
-3. **Construct** the 2×2 contingency table that underlies all keyness statistics
-4. **Compute** a comprehensive suite of keyness measures in R — G², χ², phi, MI, PMI, Log Odds Ratio, Rate Ratio, Rate Difference, Difference Coefficient, Odds Ratio, DeltaP, and Signed DKL
-5. **Apply** Fisher's Exact Test and Bonferroni correction to assess and control for statistical significance
-6. **Visualise** keyword results using dot plots, bar plots, and comparison word clouds
-7. **Interpret** types (overrepresented words) and antitypes (underrepresented words) substantively
-8. **Report** keyword analyses in accordance with best-practice conventions in corpus linguistics
-:::
-
-<br>
-
-::: {.callout-tip}
-## What This Tutorial Covers
-
-1. **Dimensions of keyness** — frequency vs. dispersion, discernibility vs. distinctiveness, target-intrinsic vs. comparative approaches
-2. **The 2×2 contingency table** — the logical and mathematical foundation of keyword identification
-3. **Computing keyness statistics** — G², χ², phi, MI, PMI, Log Odds Ratio, Rate Ratio, Rate Difference, Difference Coefficient, Odds Ratio, DeltaP, Signed DKL
-4. **Significance testing** — Fisher's Exact Test and Bonferroni correction for multiple comparisons
-5. **Visualising keywords** — dot plots, bar plots, and comparison word clouds
-6. **Reporting standards** — what to report, model paragraphs, and a quick-reference checklist
 :::
 
 ---
 
 ## Preparation and Session Set-up {-}
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information on how to use R [here](/tutorials/intror/intror.html). For this tutorial we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code in this section. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code — it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+Install required packages once:
 
-```{r prep1, echo=T, eval=F, message=FALSE, warning=FALSE}
-# set options
-options(stringsAsFactors = F)
-options(scipen = 999)
-options(max.print = 1000)
-# install packages
+```{r prep1, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 install.packages("checkdown")
 install.packages("flextable")
 install.packages("Matrix")
@@ -106,10 +113,9 @@ install.packages("tm")
 install.packages("ggplot2")
 ```
 
-Next, we load the packages.
+Load packages for this session:
 
 ```{r prep2, message=FALSE, warning=FALSE}
-# load packages
 library(checkdown)             # interactive quiz questions
 library(flextable)             # formatted tables
 library(Matrix)                # sparse matrix support
@@ -122,50 +128,13 @@ library(tm)                    # stopword lists
 library(ggplot2)               # data visualisation
 ```
 
----
+::: {.callout-tip}
+## Research question
 
-## Interactive Keyword Tool {-}
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-**KEYWORD TOOL**
-</p>
-<p style='margin-top:1em; text-align:center'></p>
-
-```{r binder_url, echo=FALSE}
-base_url       <- "https://binderhub.atap-binder.cloud.edu.au/v2/gh/SLCLADAL/interactive-notebooks-environment/main"
-repo_url       <- "https://github.com/SLCLADAL/interactive-notebooks"
-notebook_path  <- "interactive-notebooks/notebooks/keytool.ipynb"
-repo_param     <- URLencode(paste0("repo=", URLencode(repo_url, repeated = TRUE)), repeated = TRUE)
-notebook_param <- URLencode(paste0("urlpath=lab/tree/", notebook_path), repeated = TRUE)
-params         <- paste0("urlpath=git-pull%3F", repo_param, "%26", notebook_param, "%26branch=main")
-binder_url     <- paste0(base_url, "?", params)
-```
-
-::: {.text-center}
-[![](https://mybinder.org/badge_logo.svg)](`r binder_url`)
-
-Click [**here**](`r binder_url`) to open an notebook-based tool <br>that **calculates keyness statistics** and allows you to download the results.
-:::
-
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-<br>
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>How can you detect keywords — words that are characteristic of a text or a collection of texts?</b><br></p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
-
-<br>
+**How can you detect keywords — words that are characteristic of a text or a collection of texts?**
 
 This tutorial aims to show how you can answer this question.
+:::
 
 ---
 
@@ -174,11 +143,11 @@ This tutorial aims to show how you can answer this question.
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** What keywords are, why they matter, and how keyword identification relates to frequency analysis
+**What you will learn:** What keywords are, why they matter, and how keyword identification relates to frequency analysis.
 
 **Key concepts:** Target corpus, reference corpus, typicalness, keyword, antitype
 
-**Why it matters:** Understanding the logic of keyness is essential before computing any statistics — knowing what a keyword *is* tells you how to choose the right measure and how to interpret the results
+**Why it matters:** Understanding the logic of keyness is essential before computing any statistics — knowing what a keyword *is* tells you how to choose the right measure and how to interpret the results.
 :::
 
 Keywords play a central role in corpus linguistics and computational text analysis. In everyday language, the word *keyword* may mean simply an important or central word in a document. In corpus linguistics, however, the term has a more precise, comparative meaning: a keyword is a word whose frequency — or whose distribution — in a **target corpus** is statistically unusual compared to a **reference corpus** [@scott1997pc; @stubbs2010three].
@@ -194,7 +163,7 @@ The identification of keywords is used across a wide range of applications in li
 - **Language pedagogy** — identifying vocabulary that is key to a specific academic field or register
 
 ::: {.callout-important}
-## The Reference Corpus Matters
+## The reference corpus matters
 
 The reference corpus is not a neutral backdrop — it shapes every keyword that emerges from the analysis. A study comparing academic writing to news prose will produce very different keywords than one comparing the same academic texts to spoken conversation. Always report what your reference corpus is, justify why it is the appropriate baseline for your research question, and interpret all keywords in light of that choice.
 :::
@@ -206,7 +175,7 @@ The reference corpus is not a neutral backdrop — it shapes every keyword that 
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** The theoretical framework for understanding different *types* of keyness — frequency-based vs. dispersion-based, and target-intrinsic vs. comparative
+**What you will learn:** The theoretical framework for understanding different *types* of keyness — frequency-based vs. dispersion-based, and target-intrinsic vs. comparative.
 
 **Key references:** @egbert2019incorporating; @soenning2023key
 
@@ -224,27 +193,26 @@ These criteria bridge traditional keyness approaches with broader linguistic per
 
 Following @soenning2023key, we can adopt @egbert2019incorporating's keyness criteria and distinguish between **frequency-oriented** and **dispersion-oriented** approaches to assess keyness. We can also distinguish between keyness features that are assessed relative to the target variety only (*target-intrinsic*) and those that emerge only from a comparison to a reference variety (*comparative*). This four-way classification, detailed in the table below, links methodological choices to the linguistic meaning conveyed by quantitative measures:
 
-```{r ds17, echo=FALSE, message=FALSE, warning=FALSE}
-Analysis     <- c("Target variety in isolation", "Comparison to reference variety")
-FreqOriented <- c(
-  "Discernibility of item in the target variety",
-  "Distinctiveness relative to the reference variety"
-)
-DispOriented <- c(
-  "Generality across texts in the target variety",
-  "Comparative generality relative to the reference variety"
-)
-data.frame(Analysis,
-           `Frequency-oriented` = FreqOriented,
-           `Dispersion-oriented` = DispOriented,
-           check.names = FALSE) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Dimensions of keyness (adapted from Sønning 2023: 3, building on Egbert & Biber 2019).") %>%
+```{r dim-table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  Analysis     = c("Target variety in isolation", "Comparison to reference variety"),
+  `Frequency-oriented` = c(
+    "Discernibility of item in the target variety",
+    "Distinctiveness relative to the reference variety"
+  ),
+  `Dispersion-oriented` = c(
+    "Generality across texts in the target variety",
+    "Comparative generality relative to the reference variety"
+  ),
+  check.names = FALSE
+) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Dimensions of keyness (adapted from Soenning 2023: 3, building on Egbert & Biber 2019).") |>
   flextable::border_outer()
 ```
 
@@ -278,8 +246,6 @@ check_question(
 )
 ```
 
----
-
 **Q2. What is the difference between content-distinctiveness and content-generalizability as described by Egbert & Biber (2019)?**
 
 ```{r}
@@ -309,7 +275,7 @@ check_question(
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** The logical and mathematical structure of keyword identification — how the 2×2 contingency table works and what information it captures
+**What you will learn:** The logical and mathematical structure of keyword identification — how the 2×2 contingency table works and what information it captures.
 
 **Key concepts:** O~11~, O~12~, O~21~, O~22~, expected frequencies, null hypothesis, types, antitypes
 
@@ -338,7 +304,7 @@ $$E_{11} = \frac{R_1 \times C_1}{N}, \quad E_{12} = \frac{R_1 \times C_2}{N}$$
 If the observed O~11~ substantially *exceeds* E~11~, the word appears more often in the target than chance would predict: it is a candidate **keyword**, also called a **type**. If O~11~ is substantially *below* E~11~, the word is underrepresented in the target: it is an **antitype** — a keyword of the reference corpus.
 
 ::: {.callout-note}
-## Types and Antitypes
+## Types and antitypes
 
 Both directions of keyness are substantively informative:
 
@@ -352,45 +318,50 @@ Antitypes can reveal what a text or genre systematically avoids saying, which is
 
 # Data: Two Literary Texts {#data}
 
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to load and inspect the two texts used as our target and reference corpora throughout this tutorial.
+:::
+
 We begin with loading two texts. `text1` is our *target* and `text2` is our *reference*.
 
-```{r loaddata, message=F, warning=F}
-# load data
-text1 <- base::readRDS("tutorials/key/data/orwell.rda", "rb") %>%
+```{r load-data, message=FALSE, warning=FALSE}
+text1 <- base::readRDS("tutorials/key/data/orwell.rda", "rb") |>
   paste0(collapse = " ")
-text2 <- base::readRDS("tutorials/key/data/melville.rda", "rb") %>%
+text2 <- base::readRDS("tutorials/key/data/melville.rda", "rb") |>
   paste0(collapse = " ")
 ```
 
 We inspect the first 200 characters of each text to confirm what we are working with:
 
-```{r echo=F, message=FALSE, warning=FALSE}
-text1 %>%
-  substr(start = 1, stop = 200) %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 200 characters of text1 (target corpus).") %>%
+```{r text1-preview, echo=FALSE, message=FALSE, warning=FALSE}
+text1 |>
+  substr(start = 1, stop = 200) |>
+  as.data.frame() |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "First 200 characters of text1 (target corpus).") |>
   flextable::border_outer()
 ```
 
 As you can see, text1 is George Orwell's *Nineteen Eighty-Four*.
 
-```{r echo=F, message=FALSE, warning=FALSE}
-text2 %>%
-  substr(start = 1, stop = 200) %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 200 characters of text2 (reference corpus).") %>%
+```{r text2-preview, echo=FALSE, message=FALSE, warning=FALSE}
+text2 |>
+  substr(start = 1, stop = 200) |>
+  as.data.frame() |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "First 200 characters of text2 (reference corpus).") |>
   flextable::border_outer()
 ```
 
@@ -403,107 +374,92 @@ The table shows that text2 is Herman Melville's *Moby Dick*. These two novels ar
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** How to tokenise two texts, build frequency and contingency tables, and calculate a comprehensive suite of keyness measures in R — step by step
+**What you will learn:** How to tokenise two texts, build frequency and contingency tables, and calculate a comprehensive suite of keyness measures in R — step by step.
 
 **Key statistics computed:** G² (log-likelihood), χ², phi, MI, PMI, Log Odds Ratio, Rate Ratio, Rate Difference, Difference Coefficient, Odds Ratio, DeltaP, Signed DKL, LLR
 
-**Why it matters:** Building the analysis from scratch means you understand exactly what each step does and can adapt it to your own corpora and research questions
+**Why it matters:** Building the analysis from scratch means you understand exactly what each step does and can adapt it to your own corpora and research questions.
 :::
 
 After loading the two texts, we create a frequency table of the first text (the target).
 
-```{r freq1, message=F, warning=F}
-text1_words <- text1 %>%
+```{r freq-text1, message=FALSE, warning=FALSE}
+text1_words <- text1 |>
   # remove non-word characters
-  stringr::str_remove_all("[^[:alpha:] ]") %>%
+  stringr::str_remove_all("[^[:alpha:] ]") |>
   # convert to lower case
-  tolower() %>%
-  # tokenize the corpus files
+  tolower() |>
+  # tokenize
   quanteda::tokens(
     remove_punct   = TRUE,
     remove_symbols = TRUE,
     remove_numbers = TRUE
-  ) %>%
-  # unlist the tokens to create a data frame
-  unlist() %>%
-  as.data.frame() %>%
-  # rename the column to 'token'
-  dplyr::rename(token = 1) %>%
-  # group by 'token' and count occurrences
-  dplyr::group_by(token) %>%
-  dplyr::summarise(n = n()) %>%
-  # add column stating where the frequency list is 'from'
+  ) |>
+  # unlist to a data frame
+  unlist() |>
+  as.data.frame() |>
+  dplyr::rename(token = 1) |>
+  dplyr::group_by(token) |>
+  dplyr::summarise(n = n()) |>
   dplyr::mutate(type = "text1")
 ```
 
 Now, we create a frequency table for the second text (the reference).
 
-```{r freq2, message=F, warning=F}
-text2_words <- text2 %>%
-  # remove non-word characters
-  stringr::str_remove_all("[^[:alpha:] ]") %>%
-  # convert to lower case
-  tolower() %>%
-  # tokenize the corpus files
+```{r freq-text2, message=FALSE, warning=FALSE}
+text2_words <- text2 |>
+  stringr::str_remove_all("[^[:alpha:] ]") |>
+  tolower() |>
   quanteda::tokens(
     remove_punct   = TRUE,
     remove_symbols = TRUE,
     remove_numbers = TRUE
-  ) %>%
-  # unlist the tokens to create a data frame
-  unlist() %>%
-  as.data.frame() %>%
-  # rename the column to 'token'
-  dplyr::rename(token = 1) %>%
-  # group by 'token' and count occurrences
-  dplyr::group_by(token) %>%
-  dplyr::summarise(n = n()) %>%
-  # add column stating where the frequency list is 'from'
+  ) |>
+  unlist() |>
+  as.data.frame() |>
+  dplyr::rename(token = 1) |>
+  dplyr::group_by(token) |>
+  dplyr::summarise(n = n()) |>
   dplyr::mutate(type = "text2")
 ```
 
 In a next step, we combine the two frequency tables. We use a left join so that every word from the target corpus appears in the combined table, with a zero count assigned to words that do not appear in the reference corpus.
 
-```{r combine, message=F, warning=F}
-texts_df <- dplyr::left_join(text1_words, text2_words, by = c("token")) %>%
-  # rename columns and select relevant columns
-  dplyr::rename(
-    text1 = n.x,
-    text2 = n.y
-  ) %>%
-  dplyr::select(-type.x, -type.y) %>%
-  # replace NA values with 0
+```{r combine-freq, message=FALSE, warning=FALSE}
+texts_df <- dplyr::left_join(text1_words, text2_words, by = c("token")) |>
+  dplyr::rename(text1 = n.x, text2 = n.y) |>
+  dplyr::select(-type.x, -type.y) |>
   tidyr::replace_na(list(text1 = 0, text2 = 0))
 ```
 
-```{r echo=F, message=FALSE, warning=FALSE}
-texts_df %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the combined frequency table (text1 = target; text2 = reference).") %>%
+```{r combined-table, echo=FALSE, message=FALSE, warning=FALSE}
+texts_df |>
+  as.data.frame() |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "First 10 rows of the combined frequency table (text1 = target; text2 = reference).") |>
   flextable::border_outer()
 ```
 
 We now calculate the observed and expected frequencies as well as the row and column totals needed to fill the 2×2 contingency table for each word.
 
-```{r contingency, message=F, warning=F}
-texts_df %>%
+```{r contingency, message=FALSE, warning=FALSE}
+texts_df |>
   dplyr::mutate(
     text1 = as.numeric(text1),
     text2 = as.numeric(text2)
-  ) %>%
+  ) |>
   dplyr::mutate(
     C1 = sum(text1),
     C2 = sum(text2),
     N  = C1 + C2
-  ) %>%
-  dplyr::rowwise() %>%
+  ) |>
+  dplyr::rowwise() |>
   dplyr::mutate(
     R1  = text1 + text2,
     R2  = N - R1,
@@ -512,55 +468,55 @@ texts_df %>%
     O12 = R1 - O11,
     O21 = C1 - O11,
     O22 = C2 - O12
-  ) %>%
+  ) |>
   dplyr::mutate(
     E11 = (R1 * C1) / N,
     E12 = (R1 * C2) / N,
     E21 = (R2 * C1) / N,
     E22 = (R2 * C2) / N
-  ) %>%
+  ) |>
   dplyr::select(-text1, -text2) -> stats_tb2
 ```
 
-```{r echo=F, message=FALSE, warning=FALSE}
-stats_tb2 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the processed frequency table with observed and expected frequencies.") %>%
+```{r contingency-table, echo=FALSE, message=FALSE, warning=FALSE}
+stats_tb2 |>
+  as.data.frame() |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "First 10 rows of the processed frequency table with observed and expected frequencies.") |>
   flextable::border_outer()
 ```
 
 We can now calculate the keyness measures. Each statistic is described in detail in [Section 7](#measures) below.
 
-```{r keyness_calc, message=F, warning=F}
-stats_tb2 %>%
-  # determine number of rows (for Bonferroni correction)
-  dplyr::mutate(Rws = nrow(.)) %>%
-  # work row-wise
-  dplyr::rowwise() %>%
-  # calculate Fisher's Exact Test p-value
+```{r keyness-calc, message=FALSE, warning=FALSE}
+Rws <- nrow(stats_tb2)
+
+stats_tb2 |>
+  dplyr::mutate(Rws = Rws) |>
+  dplyr::rowwise() |>
+  # Fisher's Exact Test p-value
   dplyr::mutate(p = as.vector(unlist(fisher.test(matrix(
     c(O11, O12, O21, O22), ncol = 2, byrow = TRUE
-  ))[1]))) %>%
+  ))[1]))) |>
   # relative frequencies per thousand words
   dplyr::mutate(
     ptw_target = O11 / C1 * 1000,
     ptw_ref    = O12 / C2 * 1000
-  ) %>%
+  ) |>
   # chi-square statistic
   dplyr::mutate(
     X2 = (O11 - E11)^2 / E11 +
          (O12 - E12)^2 / E12 +
          (O21 - E21)^2 / E21 +
          (O22 - E22)^2 / E22
-  ) %>%
-  # extract keyness measures
+  ) |>
+  # keyness measures
   dplyr::mutate(
     phi              = sqrt(X2 / N),
     MI               = log2(O11 / E11),
@@ -574,7 +530,6 @@ stats_tb2 %>%
        O21           * log(O21 / E21) +
        O22           * log(O22 / E22)
     ),
-    # traditional keyness measures
     RateRatio             = ((O11 + 0.001) / (C1 * 1000)) / ((O12 + 0.001) / (C2 * 1000)),
     RateDifference        = (O11 / (C1 * 1000)) - (O12 / (C2 * 1000)),
     DifferenceCoefficient = RateDifference / sum((O11 / (C1 * 1000)), (O12 / (C2 * 1000))),
@@ -586,32 +541,31 @@ stats_tb2 %>%
       ifelse(O11 > 0, O11 * log(O11 / ((O11 + O12) / 2)), 0) -
       ifelse(O12 > 0, O12 * log(O12 / ((O11 + O12) / 2)), 0)
     )
-  ) %>%
-  # determine Bonferroni-corrected significance
+  ) |>
+  # Bonferroni-corrected significance
   dplyr::mutate(Sig_corrected = dplyr::case_when(
     p / Rws >  .05  ~ "n.s.",
     p / Rws >  .01  ~ "p < .05*",
     p / Rws >  .001 ~ "p < .01**",
     p / Rws <= .001 ~ "p < .001***",
     TRUE            ~ "N.A."
-  )) %>%
+  )) |>
   # round p-value, classify direction, sign phi and G2 for antitypes
   dplyr::mutate(
     p    = round(p, 5),
     type = ifelse(E11 > O11, "antitype", "type"),
     phi  = ifelse(E11 > O11, -phi, phi),
     G2   = ifelse(E11 > O11, -G2,  G2)
-  ) %>%
-  # filter out non-significant results
-  dplyr::filter(Sig_corrected != "n.s.") %>%
-  # arrange by G2 (strongest types first)
-  dplyr::arrange(-G2) %>%
-  # remove superfluous columns
+  ) |>
+  # filter non-significant results
+  dplyr::filter(Sig_corrected != "n.s.") |>
+  # arrange by G2
+  dplyr::arrange(-G2) |>
   dplyr::select(-any_of(c(
     "TermCoocFreq", "AllFreq", "NRows", "R1", "R2",
     "C1", "C2", "E12", "E21", "E22", "upp", "low",
     "op", "t.score", "z.score", "Rws"
-  ))) %>%
+  ))) |>
   dplyr::relocate(any_of(c(
     "token", "type", "Sig_corrected", "O11", "O12",
     "ptw_target", "ptw_ref", "G2", "RDF", "RateRatio",
@@ -621,17 +575,17 @@ stats_tb2 %>%
   ))) -> assoc_tb3
 ```
 
-```{r echo=F, message=FALSE, warning=FALSE}
-assoc_tb3 %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Top 10 keywords for text1 (Orwell's Nineteen Eighty-Four) — Bonferroni-corrected significant results only, sorted by G².") %>%
+```{r results-table, echo=FALSE, message=FALSE, warning=FALSE}
+assoc_tb3 |>
+  as.data.frame() |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Top 10 keywords for text1 (Orwell's Nineteen Eighty-Four) — Bonferroni-corrected significant results only, sorted by G².") |>
   flextable::border_outer()
 ```
 
@@ -663,8 +617,6 @@ check_question(
 )
 ```
 
----
-
 **Q2. Why is a small offset (e.g., +0.1) added to zero-count cells before calculating keyness statistics?**
 
 ```{r}
@@ -686,8 +638,6 @@ check_question(
   wrong  = "Think about what happens mathematically when you compute log(0). Why would this be a problem for any statistic that involves a logarithm?"
 )
 ```
-
----
 
 **Q3. What does it mean for a word to be an *antitype* in a keyword analysis?**
 
@@ -718,22 +668,22 @@ check_question(
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** What each keyness statistic measures conceptually, its mathematical formula, and when it is most appropriate to use
+**What you will learn:** What each keyness statistic measures conceptually, its mathematical formula, and when it is most appropriate to use.
 
 **Key measures:** G², χ², phi, MI, PMI, Log Odds Ratio, Rate Ratio, Rate Difference, Difference Coefficient, Odds Ratio, DeltaP, Signed DKL
 
 **Why it matters:** Different keyness measures capture different aspects of the relationship between a word and a corpus. Knowing what each one does allows you to make principled choices and report results accurately.
 :::
 
-This section explains each of the statistics produced by the code above. Understanding these measures allows you to choose the most appropriate one for your research question and to interpret results correctly. These measures help analyse the association strength and significance of a token's attraction to the target rather than the reference corpus.
+This section explains each of the statistics produced by the code above. Understanding these measures allows you to choose the most appropriate one for your research question and to interpret results correctly.
 
-## Delta P (ΔP) {-}
+## Delta P {-}
 
-**Delta P** is a measure of association that indicates the difference in conditional probabilities. It measures the strength and direction of the association between a word and corpus membership:
+**Delta P** measures the strength and direction of the association between a word and corpus membership through conditional probabilities:
 
-$$\Delta P(A|B) = P(A|B) - P(A|\neg B) \quad \Rightarrow \quad \Delta P = \frac{O_{11}}{R_1} - \frac{O_{21}}{R_2}$$
+$$\Delta P = \frac{O_{11}}{R_1} - \frac{O_{21}}{R_2}$$
 
-Where $P(A|B)$ is the probability of A given B, and $P(A|\neg B)$ is the probability of A given not-B. Delta P ranges from −1 to +1 and is increasingly recommended in corpus-linguistic work [@gries2013statistics].
+Delta P ranges from −1 to +1 and is increasingly recommended in corpus-linguistic work [@gries2013statistics].
 
 ## Log Odds Ratio {-}
 
@@ -745,7 +695,7 @@ Positive values indicate overrepresentation in the target; negative values indic
 
 ## Mutual Information (MI) {-}
 
-**Mutual Information** quantifies the amount of information obtained about corpus membership through knowing the word. It measures mutual dependence between the word and the corpus:
+**Mutual Information** quantifies the amount of information obtained about corpus membership through knowing the word:
 
 $$MI = \log_2\!\left(\frac{O_{11}}{E_{11}}\right)$$
 
@@ -757,7 +707,7 @@ MI is highly sensitive to low-frequency items: a word appearing only once or twi
 
 $$\text{PMI}(w, \text{target}) = \log_2\!\left(\frac{P(w, \text{target})}{P(w) \cdot P(\text{target})}\right)$$
 
-Like MI, PMI is sensitive to low-frequency words, though in slightly different ways depending on the implementation. Both MI and PMI are better used as ranking or ordering metrics than as standalone significance tests.
+Like MI, PMI is sensitive to low-frequency words. Both MI and PMI are better used as ranking or ordering metrics than as standalone significance tests.
 
 ## Phi (φ) Coefficient {-}
 
@@ -765,7 +715,7 @@ The **phi coefficient** is a scale-free effect size for the association between 
 
 $$\phi = \sqrt{\frac{\chi^2}{N}}$$
 
-Where $n_{ij}$ are the counts in each cell. Phi ranges from 0 (no association) to 1 (perfect association), and is signed here to indicate direction (positive = type, negative = antitype). Because phi is not influenced by sample size, it is valuable for comparing keyness strength across words or studies.
+Phi ranges from 0 (no association) to 1 (perfect association), and is signed here to indicate direction (positive = type, negative = antitype). Because phi is not influenced by sample size, it is valuable for comparing keyness strength across words or studies.
 
 ## Chi-Square (χ²) {-}
 
@@ -781,15 +731,15 @@ The **log-likelihood ratio statistic (G²)** is the most widely recommended keyn
 
 $$G^2 = 2 \sum_{i} O_i \log\!\left(\frac{O_i}{E_i}\right)$$
 
-G² follows an approximate chi-square distribution, making significance assessment straightforward. Unlike Pearson's χ², G² performs well even when expected cell frequencies are low, making it more robust for rare words.
+G² follows an approximate chi-square distribution, making significance assessment straightforward. Unlike Pearson's χ², G² performs well even when expected cell frequencies are low.
 
 ## Rate Ratio {-}
 
-The **Rate Ratio** compares the rate of events between two groups — here, the per-thousand-word frequencies in the target and reference corpora:
+The **Rate Ratio** compares the per-thousand-word frequencies in the two corpora:
 
 $$\text{Rate Ratio} = \frac{(O_{11} / C_1) \times 1000}{(O_{12} / C_2) \times 1000}$$
 
-A Rate Ratio of 3.0 means the word appears three times more frequently per thousand words in the target than in the reference. It is intuitive and easy to communicate to non-specialist audiences. A small offset (+0.001) avoids division by zero for words absent from the reference.
+A Rate Ratio of 3.0 means the word appears three times more frequently per thousand words in the target than in the reference. It is intuitive and easy to communicate to non-specialist audiences.
 
 ## Rate Difference {-}
 
@@ -797,11 +747,11 @@ The **Rate Difference** measures the absolute difference in per-thousand-word ev
 
 $$\text{Rate Difference} = \frac{O_{11}}{C_1 \times 1000} - \frac{O_{12}}{C_2 \times 1000}$$
 
-While the Rate Ratio is relative (multiplicative), the Rate Difference is absolute (additive). Both capture useful but distinct aspects of how usage rates differ.
+While the Rate Ratio is relative (multiplicative), the Rate Difference is absolute (additive).
 
 ## Difference Coefficient {-}
 
-The **Difference Coefficient** (also known as the Difference Score) normalises the Rate Difference by the sum of the two rates:
+The **Difference Coefficient** normalises the Rate Difference by the sum of the two rates:
 
 $$D = \frac{\text{Rate}_1 - \text{Rate}_2}{\text{Rate}_1 + \text{Rate}_2}$$
 
@@ -823,7 +773,7 @@ $$\text{LLR} = 2 \times O_{11} \times \log\!\left(\frac{O_{11}}{E_{11}}\right)$$
 
 ## Relative Difference (RDF) and PDiff {-}
 
-**RDF** is the absolute difference in relative frequencies (proportions) between the two corpora:
+**RDF** is the absolute difference in relative frequencies between the two corpora:
 
 $$\text{RDF} = \left|\frac{O_{11}}{C_1} - \frac{O_{12}}{C_2}\right|$$
 
@@ -841,16 +791,14 @@ $$\text{SignedDKL} = \sum\!\left[O_{11} \log\!\frac{O_{11}}{(O_{11}+O_{12})/2} -
 
 It is signed to indicate direction (positive = more frequent in target; negative = more frequent in reference).
 
-## Significance and Multiple Testing {-}
+## Significance and multiple testing {-}
 
-All keyness statistics above measure association *strength*, but to determine whether a keyword is *statistically significant* we need a hypothesis test. The code uses **Fisher's Exact Test**, which computes the exact probability of observing a contingency table as extreme as the one observed under the null hypothesis of no association. This is more reliable than the asymptotic chi-square approximation, especially for words with small expected counts.
+All keyness statistics above measure association *strength*, but to determine whether a keyword is *statistically significant* we need a hypothesis test. The code uses **Fisher's Exact Test**, which computes the exact probability of observing a contingency table as extreme as the one observed under the null hypothesis of no association.
 
 ::: {.callout-important}
-## Bonferroni Correction for Multiple Testing
+## Bonferroni correction for multiple testing
 
 When testing thousands of words simultaneously, some will appear significant purely by chance. If we test 10,000 words at α = .05, we expect roughly 500 false positives even if no word is truly a keyword. The **Bonferroni correction** addresses this by dividing the significance threshold by the number of tests performed: α~corrected~ = α / *k*, where *k* is the number of word types tested.
-
-In the output table, the corrected significance tiers are:
 
 | Label | Meaning |
 |---|---|
@@ -859,7 +807,7 @@ In the output table, the corrected significance tiers are:
 | `p < .05*` | *p* / *k* ≤ .05 |
 | `n.s.` | Not significant after Bonferroni correction — excluded from results |
 
-The Bonferroni correction is conservative (it increases the risk of false negatives alongside reducing false positives). An alternative that controls the **False Discovery Rate (FDR)** rather than the family-wise error rate is the Benjamini–Hochberg procedure, which offers more statistical power at the cost of allowing a small proportion of false positives among the significant results.
+The Bonferroni correction is conservative (it increases the risk of false negatives alongside reducing false positives). An alternative that controls the **False Discovery Rate (FDR)** is the Benjamini–Hochberg procedure, which offers more statistical power at the cost of allowing a small proportion of false positives.
 :::
 
 ::: {.callout-tip}
@@ -888,8 +836,6 @@ check_question(
 )
 ```
 
----
-
 **Q2. G² = 45.3 (p < .001, Bonferroni-corrected). What does this tell us?**
 
 ```{r}
@@ -907,12 +853,10 @@ check_question(
   q_id   = "MEAS_Q2",
   random_answer_order = TRUE,
   button_label = "Check answer",
-  right  = "Correct! G² is a test statistic following an approximate chi-square distribution. A value of 45.3 with p < .001 (Bonferroni-corrected) means the discrepancy between observed and expected frequencies is far too large to be explained by chance. G² alone does not indicate the direction of the effect (type vs. antitype) — for that we compare O11 to E11 or inspect the sign we have assigned — nor the magnitude; for magnitude, always also report phi or Log Odds Ratio.",
+  right  = "Correct! G² is a test statistic following an approximate chi-square distribution. A value of 45.3 with p < .001 (Bonferroni-corrected) means the discrepancy between observed and expected frequencies is far too large to be explained by chance. G² alone does not indicate direction — for that we compare O11 to E11 or inspect the sign we have assigned — nor magnitude; for magnitude, always also report phi or Log Odds Ratio.",
   wrong  = "G² is a test statistic for assessing significance — it is not a frequency, proportion, or percentage. What does a large, significant test statistic tell us about O11 relative to E11?"
 )
 ```
-
----
 
 **Q3. A Rate Ratio of 0.15 for a word in a keyword analysis of text1 vs. text2 means:**
 
@@ -943,20 +887,20 @@ check_question(
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** How to create and interpret three complementary visualisations of keyword results — dot plots, bar plots, and comparison word clouds
+**What you will learn:** How to create and interpret three complementary visualisations of keyword results — dot plots, bar plots, and comparison word clouds.
 
-**Why visualisation matters:** A table with thousands of rows of keyness statistics is difficult to scan; visualisations make patterns immediately communicable and allow you to identify the most important results at a glance
+**Why visualisation matters:** A table with thousands of rows of keyness statistics is difficult to scan; visualisations make patterns immediately communicable and allow you to identify the most important results at a glance.
 :::
 
-## Dot Plot {-}
+## Dot plot {-}
 
-We can visualise the keyness strengths in a **dot plot** as shown in the code below. Sorting by G² in descending order and selecting the top 20 types gives us the words most strongly characteristic of Orwell's *Nineteen Eighty-Four*.
+We can visualise keyness strengths in a **dot plot**. Sorting by G² in descending order and selecting the top 20 types gives us the words most strongly characteristic of Orwell's *Nineteen Eighty-Four*.
 
-```{r dotplot, message=F, warning=F}
-assoc_tb3 %>%
-  dplyr::filter(type == "type") %>%
-  dplyr::arrange(-G2) %>%
-  head(20) %>%
+```{r dot-plot, message=FALSE, warning=FALSE}
+assoc_tb3 |>
+  dplyr::filter(type == "type") |>
+  dplyr::arrange(-G2) |>
+  head(20) |>
   ggplot(aes(x = reorder(token, G2, mean), y = G2)) +
   geom_point(color = "steelblue", size = 3) +
   geom_segment(aes(xend = token, y = 0, yend = G2),
@@ -973,25 +917,22 @@ assoc_tb3 %>%
 
 The dot plot shows that words like *party*, *winston*, *telescreen*, and *thought* are among the most distinctive terms in *Nineteen Eighty-Four* — words that encapsulate the novel's preoccupation with totalitarian control, surveillance, and political conformity.
 
-## Bar Plot {-}
+## Bar plot {-}
 
-Another option is to visualise keyness as a **bar plot** that simultaneously shows the top keywords for *each* text. We display the 12 strongest types (keywords of text1) and 12 strongest antitypes (keywords of text2) in a single panel, making the contrasting vocabularies of the two novels immediately apparent.
+A **bar plot** can simultaneously show the top keywords for *each* text. We display the 12 strongest types (keywords of text1) and 12 strongest antitypes (keywords of text2) in a single panel, making the contrasting vocabularies of the two novels immediately apparent.
 
-```{r barplot, message=F, warning=F}
-# get top 12 keywords for text1 (types)
-top <- assoc_tb3 %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(type == "type") %>%
+```{r bar-plot, message=FALSE, warning=FALSE}
+top <- assoc_tb3 |>
+  dplyr::ungroup() |>
+  dplyr::filter(type == "type") |>
   dplyr::slice_head(n = 12)
 
-# get top 12 keywords for text2 (antitypes of text1)
-bot <- assoc_tb3 %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(type == "antitype") %>%
+bot <- assoc_tb3 |>
+  dplyr::ungroup() |>
+  dplyr::filter(type == "antitype") |>
   dplyr::slice_tail(n = 12)
 
-# combine and plot
-rbind(top, bot) %>%
+rbind(top, bot) |>
   ggplot(aes(x = reorder(token, G2, mean), y = G2,
              label = round(G2, 1), fill = type)) +
   geom_bar(stat = "identity") +
@@ -1014,37 +955,30 @@ rbind(top, bot) %>%
 
 Bars extending to the right (blue) show the strongest keywords of *Nineteen Eighty-Four*; bars extending to the left (orange) show words characteristic of *Moby Dick* that are underrepresented in Orwell. The contrast is striking: Melville's distinctive vocabulary (*whale*, *ship*, *sea*, *ahab*) reflects the nautical world of the novel, while Orwell's keywords (*party*, *winston*, *telescreen*) evoke the dystopian political landscape of *Nineteen Eighty-Four*.
 
-## Comparative Word Clouds {-}
+## Comparison word clouds {-}
 
-Another form of word clouds, known as **comparison clouds**, is helpful in discerning disparities between texts. The problem compared to previous, more rigorous methods for identifying keywords is that comparison clouds use a very basic and not very sophisticated method for identifying distinctive words. Nonetheless, comparison clouds are very useful visualisation tools during the initial steps of an analysis.
+**Comparison word clouds** are helpful for discerning lexical disparities between texts at a glance. They use a simplified algorithm and should be used for exploration or illustration rather than as primary evidence.
 
-In a first step, we generate a corpus object from the texts and create a variable with the author name.
+In a first step, we generate a corpus object and create a variable with the author name.
 
-```{r wc3, message=FALSE, warning=FALSE}
+```{r wordcloud-corpus, message=FALSE, warning=FALSE}
 corp_dom <- quanteda::corpus(c(text1, text2))
 attr(corp_dom, "docvars")$Author <- c("Orwell", "Melville")
 ```
 
-Now, we can remove so-called *stopwords* (non-lexical function words) and punctuation and generate the comparison cloud.
+Now, we remove stopwords and punctuation and generate the comparison cloud.
 
-```{r wc4, message=FALSE, warning=FALSE}
-# create a comparison word cloud for a corpus
-corp_dom %>%
-  # tokenize the corpus, removing punctuation, symbols, and numbers
+```{r wordcloud-plot, message=FALSE, warning=FALSE}
+corp_dom |>
   quanteda::tokens(
     remove_punct   = TRUE,
     remove_symbols = TRUE,
     remove_numbers = TRUE
-  ) %>%
-  # remove English stopwords
-  quanteda::tokens_remove(stopwords("english")) %>%
-  # create a Document-Feature Matrix (DFM)
-  quanteda::dfm() %>%
-  # group the DFM by the 'Author' column
-  quanteda::dfm_group(groups = corp_dom$Author) %>%
-  # trim the DFM, keeping terms that occur at least 10 times
-  quanteda::dfm_trim(min_termfreq = 10, verbose = FALSE) %>%
-  # generate a comparison word cloud
+  ) |>
+  quanteda::tokens_remove(stopwords("english")) |>
+  quanteda::dfm() |>
+  quanteda::dfm_group(groups = corp_dom$Author) |>
+  quanteda::dfm_trim(min_termfreq = 10, verbose = FALSE) |>
   quanteda.textplots::textplot_wordcloud(
     comparison = TRUE,
     color      = c("darkgray", "orange"),
@@ -1053,7 +987,7 @@ corp_dom %>%
 ```
 
 ::: {.callout-important}
-## Interpreting Comparison Word Clouds Cautiously
+## Interpreting comparison word clouds cautiously
 
 Comparison word clouds use a simplified keyness algorithm that does not apply multiple testing correction and does not distinguish between statistical significance and visual prominence. They should be used for exploration or illustration rather than as the primary or sole evidence for research claims. Always accompany word clouds with the full statistical keyword table, and report statistics (G², phi, etc.) for any keywords you discuss substantively.
 :::
@@ -1084,8 +1018,6 @@ check_question(
 )
 ```
 
----
-
 **Q2. Why are comparison word clouds considered a less rigorous method of keyword identification than the statistical approach demonstrated earlier?**
 
 ```{r}
@@ -1103,7 +1035,7 @@ check_question(
   q_id   = "VIZ_Q2",
   random_answer_order = TRUE,
   button_label = "Check answer",
-  right  = "Correct! Comparison word clouds use a simple frequency-contrast method with no correction for the large number of simultaneous comparisons being made. This means words can appear visually prominent by chance, and there is no way to read off a Bonferroni-corrected p-value from the visual. Word clouds are excellent for exploration, rapid hypothesis generation, and engaging non-specialist audiences — but research claims must be supported by the full statistical analysis.",
+  right  = "Correct! Comparison word clouds use a simple frequency-contrast method with no correction for the large number of simultaneous comparisons being made. Words can appear visually prominent by chance, and there is no way to read off a Bonferroni-corrected p-value from the visual. Word clouds are excellent for exploration, rapid hypothesis generation, and engaging non-specialist audiences — but research claims must be supported by the full statistical analysis.",
   wrong  = "Think about what statistical safeguards the word cloud algorithm does or does not apply. Can you read off a significance level or effect size from a word cloud? What does this imply for its use as primary evidence?"
 )
 ```
@@ -1112,16 +1044,20 @@ check_question(
 
 # Reporting Standards {#reporting}
 
-Reporting keyword analyses clearly and completely is as important as conducting them correctly. This section summarises conventions for reporting keyness analyses in corpus linguistics and adjacent fields.
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What to report in a keyword analysis, a model reporting paragraph, a quick-reference table of keyness measures, and a reporting checklist.
+:::
+
+Reporting keyword analyses clearly and completely is as important as conducting them correctly.
 
 ---
 
-## General Principles {-}
+## General principles {-}
 
 ::: {.callout-note}
-## What to Report in a Keyword Analysis
-
-Following best practice in corpus linguistics [@hunston2002corpora; @gries2013statistics]:
+## What to report in a keyword analysis
 
 **Corpus description**
 
@@ -1146,21 +1082,21 @@ Following best practice in corpus linguistics [@hunston2002corpora; @gries2013st
 
 ---
 
-## Model Reporting Paragraph {-}
+## Model reporting paragraph {-}
 
 > To identify the lexical characteristics of Orwell's *Nineteen Eighty-Four* relative to Melville's *Moby Dick*, a keyword analysis was conducted using the log-likelihood statistic (G²; @dunning1993accurate). Fisher's Exact Test was used to assess statistical significance, with a Bonferroni correction applied to control for multiple comparisons across all word types tested (α~corrected~ = .05 / *k*). Only words reaching the corrected threshold of *p* < .001 are reported. Effect sizes are reported as phi (φ). The strongest keywords of *Nineteen Eighty-Four* included *party* (G² = [X], φ = [X], *p* < .001), *winston* (G² = [X], φ = [X], *p* < .001), and *telescreen* (G² = [X], φ = [X], *p* < .001), reflecting the novel's preoccupation with political control and surveillance. Prominent antitypes — words significantly underrepresented in *Nineteen Eighty-Four* relative to *Moby Dick* — included *whale* and *ship*, consistent with the nautical thematic focus of the reference text.
 
 ---
 
-## Quick Reference: Keyness Measures {-}
+## Quick reference: keyness measures {-}
 
-```{r measure_table, echo=FALSE, message=FALSE, warning=FALSE}
-measure_df <- data.frame(
+```{r measure-table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
   Measure = c(
-    "G² (Log-Likelihood)", "χ² (Chi-Square)", "Phi (φ)",
+    "G² (Log-Likelihood)", "chi-square", "Phi",
     "MI (Mutual Information)", "PMI",
     "Log Odds Ratio", "Rate Ratio", "Rate Difference",
-    "Difference Coefficient", "Odds Ratio", "DeltaP (ΔP)", "Signed DKL"
+    "Difference Coefficient", "Odds Ratio", "DeltaP", "Signed DKL"
   ),
   Strengths = c(
     "Robust for rare words; best general-purpose keyness test; widely used",
@@ -1171,9 +1107,9 @@ measure_df <- data.frame(
     "Symmetric; amenable to CIs; recommended effect size for keyness",
     "Intuitive; easy to communicate to non-specialist audiences",
     "Shows absolute magnitude of frequency difference",
-    "Bounded [−1, +1]; accounts for base rate differences",
+    "Bounded [-1, +1]; accounts for base rate differences",
     "Familiar from epidemiology; simple ratio",
-    "Bounded [−1, +1]; grounded in conditional probability",
+    "Bounded [-1, +1]; grounded in conditional probability",
     "Information-theoretic; sensitive to distributional divergence"
   ),
   `Use with caution when` = c(
@@ -1191,24 +1127,23 @@ measure_df <- data.frame(
     "Implementation details vary across software — document formula used"
   ),
   check.names = FALSE
-)
-measure_df %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .99, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 10) %>%
-  flextable::fontsize(size = 10, part = "header") %>%
-  flextable::align_text_col(align = "left") %>%
-  flextable::set_caption(caption = "Quick reference: strengths and cautions for keyness measures computed in this tutorial.") %>%
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::fontsize(size = 10, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Quick reference: strengths and cautions for keyness measures computed in this tutorial.") |>
   flextable::border_outer()
 ```
 
 ---
 
-## Reporting Checklist {-}
+## Reporting checklist {-}
 
 ```{r checklist, echo=FALSE, message=FALSE, warning=FALSE}
-checklist_df <- data.frame(
+data.frame(
   `Reporting item` = c(
     "Target corpus described (source, size in tokens, composition)",
     "Reference corpus described and choice justified relative to research question",
@@ -1227,39 +1162,67 @@ checklist_df <- data.frame(
     "Recommended", "Recommended", "Yes", "Yes", "Yes"
   ),
   check.names = FALSE
-)
-checklist_df %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .90, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 11) %>%
-  flextable::fontsize(size = 11, part = "header") %>%
-  flextable::align_text_col(align = "left") %>%
-  flextable::set_caption(caption = "Reporting checklist for keyword analyses in corpus linguistics.") %>%
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .90, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Reporting checklist for keyword analyses in corpus linguistics.") |>
   flextable::border_outer()
 ```
 
 ---
 
-# Citation & Session Info {-}
+# Citation & Session Info {.unnumbered}
 
-Schweinberger, Martin. 2026. *Keyness and Keyword Analysis in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/key/key.html (Version 2026.02.24).
 
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
 ```
-@manual{schweinberger2026key,
-  author       = {Schweinberger, Martin},
-  title        = {Keyness and Keyword Analysis in R},
-  note         = {tutorials/key/key.html},
-  year         = {2026},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address      = {Brisbane},
-  edition      = {2026.02.24}
-}
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
 ```
+:::
 
 ```{r fin}
 sessionInfo()
 ```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. All original code and analysis logic have been preserved. All content was reviewed, edited, and approved by Martin Schweinberger, who takes full responsibility for the accuracy, completeness, and pedagogical appropriateness of the material.
+:::
+
 
 ---
 
@@ -1269,15 +1232,7 @@ sessionInfo()
 
 ---
 
-# References {-}
+# References {.unnumbered}
 
 ::: {#refs}
-:::
-
----
-
-::: {.callout-note}
-## AI Transparency Statement
-
-This tutorial was developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to help revise, expand, and improve the tutorial text; add and structure new sections (learning objectives, prerequisite tutorials, section overview callout boxes, detailed explanations of each keyness measure, the types/antitypes callout, reporting guidelines, and quick-reference tables); write the `checkdown` multiple-choice exercises with detailed right/wrong feedback; and refine the `ggplot2` visualisations. All original code and analysis logic from the draft tutorial have been preserved and integrated. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy, completeness, and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.
 :::
