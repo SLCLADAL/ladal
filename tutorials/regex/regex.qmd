@@ -1,1294 +1,1377 @@
----  
-title: "Regular Expressions in R"  
-author: "Martin Schweinberger"  
-format:  
-  html:  
-    toc: true  
-    toc-depth: 4  
-    code-fold: show  
-    theme: cosmo  
----  
-  
-```{r setup, echo=FALSE, message=FALSE, warning=FALSE}  
-library(checkdown)  
-library(stringr)  
-library(dplyr)  
-library(flextable)  
-options(stringsAsFactors = FALSE)  
-options(scipen = 100)  
-options(max.print = 100)  
-```  
-  
-![](/images/uq1.jpg){ width=100% }  
-  
-# Introduction {#intro}  
-  
-![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }  
-  
-This tutorial introduces **regular expressions** (regex) and demonstrates how to use them when working with language data in R. A regular expression is a special sequence of characters that describes a search pattern. You can think of regular expressions as precision search tools — far more powerful than simple find-and-replace — that let you locate, extract, validate, and transform text based on its structure rather than its exact content.  
-  
-Regular expressions have wide applications across linguistics and computational humanities: searching corpora for inflected forms, extracting named entities, cleaning OCR output, tokenising text, validating annotation schemes, and building text-processing pipelines. Once mastered, they become one of the most versatile tools in any language researcher's toolkit.  
-  
-::: {.callout-note}  
-## Prerequisite Tutorials  
-  
-Before working through this tutorial, please complete or familiarise yourself with:  
-  
-- [Getting Started with R and RStudio](/tutorials/intror/intror.html)  
-- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)  
-- [String Processing in R](/tutorials/string/string.html)  
-:::  
-  
-<br>  
-  
-::: {.callout-tip}  
-## What This Tutorial Covers  
-  
-1. **Basic characters** — literal matching and the wildcard `.`  
-2. **Anchors** — matching positions (start, end, word boundaries)  
-3. **Character classes** — sets, ranges, and POSIX classes  
-4. **Quantifiers** — repetition (`*`, `+`, `?`, `{n,m}`)  
-5. **Groups and alternation** — capturing groups and `|`  
-6. **Special escape sequences** — `\w`, `\d`, `\s`, and their negations  
-7. **Lookahead and lookbehind** — context-sensitive matching  
-8. **Key `stringr` functions** — `str_detect()`, `str_extract()`, `str_replace()`, and more  
-9. **Practical applications** — corpus searches, text cleaning, extraction tasks  
-10. **Regex in `dplyr` pipelines** — filtering and mutating with patterns  
-:::  
-  
-::: {.callout-tip}  
-## External Resources  
-  
-For further study, the following resources are highly recommended:  
-  
-- @friedl2006mastering — the definitive reference on regular expressions  
-- Chapter 17 of @peng2016r — a practical introduction in an R context  
-- [RStudio Regex Cheatsheet](https://rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf) — a quick-reference card by Ian Kopacka  
-- Nick Thieberger's [Introduction to Regular Expressions](https://www.youtube.com/watch?v=8ILToE0CNpM) — a YouTube tutorial aimed at humanities scholars  
-:::  
-  
----  
-  
-## Preparation and Session Set-up {-}  
-  
-Install required packages (once only):  
-  
-```{r install, eval=FALSE}  
-install.packages("stringr")  
-install.packages("dplyr")  
-install.packages("flextable")  
-install.packages("checkdown")  
-```  
-  
-Load packages:  
-  
-```{r load, message=FALSE, warning=FALSE}  
-library(stringr)     # string manipulation and regex functions  
-library(dplyr)       # data frame manipulation  
-library(flextable)   # formatted tables  
-library(checkdown)   # interactive exercises  
-  
-options(stringsAsFactors = FALSE)  
-options(scipen = 100)  
-```  
-  
-We will work with two types of objects throughout: a short **example sentence** for demonstrating individual patterns, and a longer **example text** representing realistic corpus data.  
-  
-```{r sample_data}  
-# Short example sentence for basic demonstrations  
-sent <- "The cat sat on the mat."  
-  
-# A longer example text: an excerpt about linguistics  
-et <- paste(  
-  "Grammar is the system of a language. People sometimes describe grammar as",  
-  "the rules of a language, but in fact no language has rules. If we use the",  
-  "word rules, we suggest that somebody created the rules first and then spoke",  
-  "the language, like the rules of a game. But languages did not start like",  
-  "that. Languages started when humans started to communicate with each other.",  
-  "Grammars developed naturally. After some time, people described the grammar",  
-  "of their languages. Languages change over time. Grammar changes too.",  
-  "Children learn the grammar of their first language naturally. They do not",  
-  "need to study it. Native speakers know intuitively whether a sentence is",  
-  "grammatically correct or not. Non-native speakers often learn grammar rules",  
-  "formally, through instruction. Prescriptive grammar describes how people",  
-  "should speak, while descriptive grammar describes how people actually speak.",  
-  "Linguists study grammars to understand language structure and acquisition.",  
-  "The field of syntax deals with sentence structure, while morphology examines",  
-  "how words are formed. Phonology studies sound systems in human languages.",  
-  "Pragmatics investigates how context influences the interpretation of meaning.",  
-  "Computational linguistics applies formal grammar to natural language processing.",  
-  "Regular expressions are useful tools for searching and extracting patterns.",  
-  "They can match words like 'cat', 'bat', or 'hat' with a single pattern."  
-)  
-  
-# Split into individual tokens (words and punctuation)  
-tokens <- str_split(et, "\\s+") |> unlist()  
-```  
-  
----  
-  
-# Regular Expression Patterns {#patterns}  
-  
-::: {.callout-note}  
-## Section Overview  
-  
-**What you'll learn:** The building blocks of regular expressions — how each type of pattern works and what it matches  
-  
-**Key concept:** Regular expressions describe structure, not content. `[aeiou]{2,}` matches any sequence of two or more vowels, regardless of which vowels or in which word.  
-:::  
-  
-## Basic Characters {-}  
-  
-The simplest regular expression is a **literal character** — it matches exactly that character. A sequence of literal characters matches that exact sequence:  
-  
-```{r basic_chars}  
-# Literal match: does "cat" appear in the sentence?  
-str_detect(sent, "cat")  
-  
-# The dot . matches ANY single character except newline  
-str_detect(sent, "c.t")    # matches "cat"  
-str_detect(sent, "m.t")    # matches "mat"  
-str_detect(sent, ".at")    # matches "cat", "sat", "mat"  
-```  
-  
-To match a literal dot (rather than "any character"), **escape it** with a double backslash:  
-  
-```{r literal_dot}  
-# Match a literal period at the end of the sentence  
-str_detect(sent, "\\.")    # TRUE — the sentence ends with a full stop  
-  
-# Without escaping, . matches any character:  
-str_detect("abc", ".")     # TRUE — any character matches  
-str_detect("abc", "\\.")   # FALSE — no literal dot in "abc"  
-```  
-  
-::: {.callout-tip}  
-## The Double Backslash in R  
-  
-In most programming languages, a single backslash `\` is the regex escape character. In R strings, `\` itself must be escaped, so regex escapes require **double** backslash `\\`. For example:  
-  
-- `\\.` in R code → `\.` as a regex → matches a literal dot  
-- `\\b` in R code → `\b` as a regex → matches a word boundary  
-- `\\d` in R code → `\d` as a regex → matches a digit  
-  
-This double-backslash requirement catches many beginners. Remember: every `\` you intend for regex needs to be written as `\\` in R.  
-:::  
-  
-## Anchors {-}  
-  
-Anchors match **positions** in the string, not characters. They constrain where in the string a pattern can match.  
-  
-```{r anchors}  
-# ^ matches the START of the string  
-str_detect(sent, "^The")     # TRUE — "The" is at the start  
-str_detect(sent, "^cat")     # FALSE — "cat" is not at the start  
-  
-# $ matches the END of the string  
-str_detect(sent, "mat\\.$")  # TRUE — "mat." is at the end  
-str_detect(sent, "cat$")     # FALSE — "cat" is not at the end  
-  
-# \b matches a WORD BOUNDARY (between a word char and a non-word char)  
-str_detect("catalogue", "\\bcat\\b")   # FALSE — "cat" is part of a word  
-str_detect("the cat sat", "\\bcat\\b") # TRUE — "cat" is a whole word  
-  
-# \B matches where \b does NOT (i.e., inside a word)  
-str_detect("catalogue", "\\Bcat\\B")   # FALSE — "cat" is at word START  
-str_detect("concatenate", "\\Bcat\\B") # TRUE — "cat" is in the middle  
-```  
-  
-::: {.callout-tip}  
-## Word Boundaries in Corpus Searches  
-  
-`\b` is indispensable for corpus searches. Without it, searching for "the" would match "the" inside "other", "there", "ather", and so on. Always use `\\bword\\b` when you want whole-word matches.  
-:::  
-  
-## Character Classes {-}  
-  
-A **character class** `[...]` matches any single character from the set listed inside the brackets:  
-  
-```{r char_classes}  
-# Match 'c', 's', or 'm' followed by 'at'  
-str_extract_all(sent, "[csm]at")  
-  
-# Negated class [^...]: match any character NOT in the set  
-str_extract_all(sent, "[^aeiou ]")   # non-vowel, non-space characters  
-  
-# Ranges  
-str_extract_all("Hello World 123", "[a-z]")   # lowercase letters  
-str_extract_all("Hello World 123", "[A-Z]")   # uppercase letters  
-str_extract_all("Hello World 123", "[0-9]")   # digits  
-str_extract_all("Hello World 123", "[a-zA-Z]") # all letters  
-```  
-  
-### POSIX Character Classes {-}  
-  
-R supports **POSIX character classes** — named sets written inside `[:..:]` inside an outer `[...]`:  
-  
-```{r posix}  
-str_extract_all("Hello, World! 123.", "[[:alpha:]]")  # letters only  
-str_extract_all("Hello, World! 123.", "[[:digit:]]")  # digits only  
-str_extract_all("Hello, World! 123.", "[[:punct:]]")  # punctuation only  
-str_extract_all("Hello, World! 123.", "[[:alnum:]]")  # letters and digits  
-str_extract_all("Hello\tWorld  123",  "[[:blank:]]")  # spaces and tabs  
-```  
-  
-The full set of POSIX classes available in R:  
-  
-```{r posix_table, echo=FALSE}  
-data.frame(  
-  Class        = c("[:alpha:]", "[:lower:]", "[:upper:]", "[:digit:]",  
-                   "[:alnum:]", "[:punct:]", "[:space:]", "[:blank:]",  
-                   "[:graph:]", "[:print:]"),  
-  Matches      = c("Any letter (a–z, A–Z)",  
-                   "Lowercase letters (a–z)",  
-                   "Uppercase letters (A–Z)",  
-                   "Digits (0–9)",  
-                   "Letters and digits",  
-                   "Punctuation: . , ; : ! ? \" ' ( ) [ ] { } / \\ @ # $ % ^ & * - _ + = ~ ` |",  
-                   "All whitespace: space, tab, newline, return, form-feed",  
-                   "Space and tab only",  
-                   "All visible characters (alnum + punct)",  
-                   "Printable characters (graph + space)")  
-) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .9, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 11) |>  
-  flextable::fontsize(size = 11, part = "header") |>  
-  flextable::align_text_col(align = "left") |>  
-  flextable::set_caption(caption = "POSIX character classes available in R.") |>  
-  flextable::border_outer()  
-```  
-  
-## Quantifiers {-}  
-  
-**Quantifiers** specify how many times the preceding element should match:  
-  
-```{r quantifiers}  
-# * : 0 or more  
-str_extract_all("aabbbcccc", "b*")   # matches "", "bbb", ""...  
-  
-# + : 1 or more  
-str_extract_all("aabbbcccc", "b+")   # matches "bbb"  
-  
-# ? : 0 or 1 (makes the element optional)  
-str_detect(c("color", "colour"), "colou?r")   # both TRUE  
-  
-# {n} : exactly n  
-str_extract_all(et, "[a-z]{10}")     # exactly 10-letter sequences  
-  
-# {n,} : n or more  
-str_extract_all(tokens, "^[[:alpha:]]{8,}$")  # words of 8+ letters  
-  
-# {n,m} : between n and m  
-str_extract_all(tokens, "^[[:alpha:]]{4,6}$") # words of 4–6 letters  
-```  
-  
-### Greedy vs. Lazy Matching {-}  
-  
-By default, quantifiers are **greedy** — they match as much as possible. Adding `?` after a quantifier makes it **lazy** — it matches as little as possible:  
-  
-```{r greedy_lazy}  
-html <- "<b>bold</b> and <i>italic</i>"  
-  
-# Greedy: matches from first < to LAST >  
-str_extract(html, "<.+>")  
-  
-# Lazy: matches from first < to next >  
-str_extract(html, "<.+?>")  
-  
-# Extract each tag individually (lazy)  
-str_extract_all(html, "<.+?>")  
-```  
-  
-## Groups and Alternation {-}  
-  
-**Parentheses** `()` create a **capturing group** — a sub-pattern whose match can be referenced or extracted separately. The **alternation operator** `|` means OR within a group or pattern.  
-  
-```{r groups}  
-# Alternation: match "cat" OR "dog"  
-str_detect(c("I have a cat", "I have a dog", "I have a fish"),  
-           "cat|dog")  
-  
-# Alternation inside a group: match "colour" OR "color"  
-str_extract_all(c("British colour", "American color"), "colo(u|)r")  
-  
-# Match all forms of "walk": walk, walks, walked, walking  
-str_extract_all(et, "walk(s|ed|ing|er)?")  
-  
-# Groups allow repetition of a sub-pattern  
-str_detect("abababab", "(ab)+")   # matches one or more "ab"  
-```  
-  
-### Non-Capturing Groups {-}  
-  
-Use `(?:...)` when you need to group for alternation or quantification but do not need to capture the match:  
-  
-```{r non_capture}  
-# Group for alternation without capturing  
-str_extract_all(et, "(?:gram|morpho|phono)logy")  
-```  
-  
-## Special Escape Sequences {-}  
-  
-R supports **shorthand escape sequences** for common character classes:  
-  
-```{r escape_table, echo=FALSE}  
-data.frame(  
-  Sequence   = c("\\\\w", "\\\\W", "\\\\d", "\\\\D", "\\\\s", "\\\\S",  
-                 "\\\\b", "\\\\B"),  
-  Matches    = c("Word characters: [[:alnum:]_]",  
-                 "Non-word characters: [^[:alnum:]_]",  
-                 "Digits: [[:digit:]]",  
-                 "Non-digits: [^[:digit:]]",  
-                 "Whitespace: [[:space:]]",  
-                 "Non-whitespace: [^[:space:]]",  
-                 "Word boundary (position)",  
-                 "Non-word boundary (position)"),  
-  Example_R  = c('"\\\\w+"', '"\\\\W+"', '"\\\\d+"', '"\\\\D+"',  
-                 '"\\\\s+"', '"\\\\S+"', '"\\\\bcat\\\\b"', '"\\\\Bcat\\\\B"')  
-) |>  
-  dplyr::rename("Sequence (in R code)" = Sequence,  
-                "Example (R string)" = Example_R) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .95, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 11) |>  
-  flextable::fontsize(size = 11, part = "header") |>  
-  flextable::align_text_col(align = "left") |>  
-  flextable::set_caption(caption = "Special escape sequences for common character classes.") |>  
-  flextable::border_outer()  
-```  
-  
-```{r escapes_demo}  
-# \w: word characters  
-str_extract_all("price: $4.99!", "\\w+")  
-  
-# \d: digits  
-str_extract_all("Call 07 3365 1234 or 07 3346 5678", "\\d+")  
-  
-# \s: whitespace (useful for splitting on any whitespace)  
-str_split("word1   word2\tword3\nword4", "\\s+")[[1]]  
-  
-# \b: whole-word match  
-str_extract_all("grammar, grammarian, ungrammatical", "\\bgrammar\\b")  
-```  
-  
-## Lookahead and Lookbehind {-}  
-  
-**Lookaround** assertions match a position based on what comes before or after it, without including that context in the match. They are essential for extracting values that are preceded or followed by specific markers.  
-  
-```{r lookaround_table, echo=FALSE}  
-data.frame(  
-  Syntax     = c("(?=...)", "(?!...)", "(?<=...)", "(?<!...)"),  
-  Name       = c("Positive lookahead", "Negative lookahead",  
-                 "Positive lookbehind", "Negative lookbehind"),  
-  Matches    = c("Position followed by ...",  
-                 "Position NOT followed by ...",  
-                 "Position preceded by ...",  
-                 "Position NOT preceded by ...")  
-) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .85, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 11) |>  
-  flextable::fontsize(size = 11, part = "header") |>  
-  flextable::align_text_col(align = "left") |>  
-  flextable::set_caption(caption = "Lookahead and lookbehind assertions.") |>  
-  flextable::border_outer()  
-```  
-  
-```{r lookaround}  
-prices <- c("$12.99", "$4.50", "USD 7.00", "8.95 EUR")  
-  
-# Positive lookahead: match digits followed by a dot  
-str_extract_all(prices, "\\d+(?=\\.)")  
-  
-# Positive lookbehind: match digits preceded by "$"  
-str_extract_all(prices, "(?<=\\$)\\d+\\.\\d+")  
-  
-# Negative lookbehind: match numbers NOT preceded by "$"  
-str_extract_all(prices, "(?<!\\$)\\b\\d+\\.\\d+")  
-```  
-  
-A linguistic example — extract words that come before a comma:  
-  
-```{r lookahead_ling}  
-sample_text <- "Grammar, syntax, and morphology are core subfields of linguistics."  
-str_extract_all(sample_text, "\\w+(?=,)")  
-```  
-  
----  
-  
-::: {.callout-tip}  
-## Exercises: Regex Patterns  
-:::  
-  
-**Q1. What does the regex `^[A-Z]` match?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PAT_Q1"  
-check_question("A string that begins with an uppercase letter",  
-               options = c(  
-                 "A string that begins with an uppercase letter",  
-                 "Any uppercase letter anywhere in the string",  
-                 "A string that consists entirely of uppercase letters",  
-                 "The end of a string followed by an uppercase letter"  
-               ),  
-               type = "radio",  
-               q_id = "PAT_Q1",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! The ^ anchor matches the position at the start of the string. [A-Z] matches one uppercase letter. Together, ^[A-Z] means 'a string (or line) whose first character is an uppercase letter'. Without the ^, [A-Z] would match any uppercase letter anywhere in the string.",  
-               wrong = "Break it into two components: what does ^ anchor, and what does [A-Z] match?")  
-```  
-  
----  
-  
-**Q2. What is the difference between `colou?r` and `colo[u]?r`?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PAT_Q2"  
-check_question("They are equivalent — both match 'colour' and 'color'; the ? makes the preceding element optional in both cases",  
-               options = c(  
-                 "They are equivalent — both match 'colour' and 'color'; the ? makes the preceding element optional in both cases",  
-                 "colou?r matches only 'colour'; colo[u]?r matches both",  
-                 "colo[u]?r is invalid syntax — ? cannot follow a character class",  
-                 "colou?r matches 'color' only; colo[u]?r matches 'colour' only"  
-               ),  
-               type = "radio",  
-               q_id = "PAT_Q2",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! In colou?r, the ? applies to the literal character u — making it optional. In colo[u]?r, the ? applies to the character class [u], which also contains only u — so it is equally optional. Both patterns match 'color' (no u) and 'colour' (one u). The [u]? form is slightly more explicit about what is optional, and more easily extended: [ou]? would allow either 'o' or 'u' to appear optionally.",  
-               wrong = "The ? quantifier makes the immediately preceding element optional. What is that element in each case?")  
-```  
-  
----  
-  
-**Q3. You want to match words of exactly 5 characters that consist only of lowercase letters. Which pattern is correct?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PAT_Q3"  
-check_question("^[a-z]{5}$",  
-               options = c(  
-                 "^[a-z]{5}$",  
-                 "[a-z]{5}",  
-                 "^[a-z]+{5}$",  
-                 "[a-z]{5,5}"  
-               ),  
-               type = "radio",  
-               q_id = "PAT_Q3",  
-               random_answer_order = FALSE,  
-               button_label = "Check answer",  
-               right = "Correct! ^[a-z]{5}$ anchors the match at both ends of the string and requires exactly 5 lowercase letters. Without the anchors, [a-z]{5} would match any 5-letter sequence inside a longer word — for example, it would match 'gramm' inside 'grammar'. The {5,5} option works but is redundant (equivalent to {5}). The + before {5} is a syntax error.",  
-               wrong = "The quantifier {5} means 'exactly 5'. But which patterns ensure the ENTIRE string is exactly 5 characters, rather than finding 5-character sequences within longer strings?")  
-```  
-  
----  
-  
-# Key `stringr` Functions {#stringr}  
-  
-::: {.callout-note}  
-## Section Overview  
-  
-**What you'll learn:** The `stringr` functions used most frequently with regular expressions, and when to use each  
-  
-**Key functions:** `str_detect()`, `str_count()`, `str_extract()`, `str_extract_all()`, `str_replace()`, `str_replace_all()`, `str_remove()`, `str_remove_all()`, `str_split()`, `str_locate()`  
-:::  
-  
-The `stringr` package provides a consistent, user-friendly interface to regular expressions in R. All `stringr` functions follow the same pattern: the string comes first, the pattern second.  
-  
-## `str_detect()` — Does the Pattern Exist? {-}  
-  
-Returns `TRUE`/`FALSE` for each string in a vector. Most commonly used for filtering:  
-  
-```{r str_detect}  
-words_sample <- c("grammar", "syntax", "morphology", "phonology",  
-                  "pragmatics", "grammarian", "ungrammatical")  
-  
-# Which words contain "gram"?  
-str_detect(words_sample, "gram")  
-  
-# Which words start with a vowel?  
-str_detect(words_sample, "^[aeiou]")  
-  
-# Negate with !  
-words_sample[!str_detect(words_sample, "gram")]  
-```  
-  
-## `str_count()` — How Many Times? {-}  
-  
-Counts non-overlapping occurrences of a pattern within each string:  
-  
-```{r str_count}  
-# How many vowels in each word?  
-str_count(words_sample, "[aeiou]")  
-  
-# How many times does "a" appear in the example text?  
-str_count(et, "\\ba\\b")   # the word "a" as a whole word  
-```  
-  
-## `str_extract()` and `str_extract_all()` — What Matches? {-}  
-  
-`str_extract()` returns the **first** match in each string. `str_extract_all()` returns **all** matches as a list:  
-  
-```{r str_extract}  
-# Extract the first sequence of 3+ consonants  
-str_extract(words_sample, "[^aeiou]{3,}")  
-  
-# Extract all sequences of digits from a mixed string  
-mixed <- c("price: 12.99 dollars", "code: A4-B12", "year: 2024")  
-str_extract_all(mixed, "\\d+")  
-  
-# Extract all words longer than 8 characters from the example text  
-long_words <- str_extract_all(et, "\\b[[:alpha:]]{9,}\\b")[[1]]  
-sort(unique(long_words))  
-```  
-  
-## `str_replace()` and `str_replace_all()` {-}  
-  
-Replace the first (or all) occurrence(s) of a pattern with a replacement string. **Backreferences** (`\\1`, `\\2`) refer to captured groups in the replacement:  
-  
-```{r str_replace}  
-# Replace first match  
-str_replace(sent, "[csm]at", "dog")  
-  
-# Replace all matches  
-str_replace_all(sent, "[csm]at", "dog")  
-  
-# Backreference: reverse the order of two words separated by "and"  
-str_replace_all("cats and dogs", "(\\w+) and (\\w+)", "\\2 and \\1")  
-  
-# Add emphasis around all long words  
-str_replace_all(et, "\\b[[:alpha:]]{8,}\\b", "**\\0**") |>  
-  substr(1, 120)   # show first 120 characters  
-```  
-  
-## `str_remove()` and `str_remove_all()` {-}  
-  
-Shorthand for `str_replace(x, pattern, "")` and `str_replace_all(x, pattern, "")`:  
-  
-```{r str_remove}  
-# Remove all punctuation from the sentence  
-str_remove_all(sent, "[[:punct:]]")  
-  
-# Remove all digits  
-str_remove_all("Call us on 07-3365-1234", "\\d")  
-  
-# Remove trailing whitespace  
-str_remove_all("  linguistics  ", "^\\s+|\\s+$")  
-  
-# Remove words shorter than 4 characters from tokens  
-long_tokens <- tokens[str_detect(tokens, "^[[:alpha:]]{4,}$")]  
-head(long_tokens, 10)  
-```  
-  
-## `str_split()` {-}  
-  
-Split strings on a pattern, returning a list:  
-  
-```{r str_split}  
-# Split on whitespace  
-str_split("the cat sat on the mat", "\\s+")[[1]]  
-  
-# Split on punctuation or whitespace  
-str_split("one,two; three    four", "[[:punct:]\\s]+")[[1]]  
-  
-# Split a text into sentences (approximate)  
-sentences <- str_split(et, "(?<=[.!?])\\s+")[[1]]  
-head(sentences, 3)  
-```  
-  
-## `str_locate()` — Where Is the Match? {-}  
-  
-Returns the start and end positions of matches — useful when you need to know where in the string a pattern occurs:  
-  
-```{r str_locate}  
-# Find where "grammar" first occurs in the example text  
-str_locate(et, "grammar")  
-  
-# Find all occurrences  
-str_locate_all(et, "\\bgrammar\\b")[[1]]  
-```  
-  
----  
-  
-::: {.callout-tip}  
-## Exercises: `stringr` Functions  
-:::  
-  
-**Q1. What is the difference between `str_extract()` and `str_extract_all()`?**  
-  
-```{r}  
-#| echo: false  
-#| label: "STR_Q1"  
-check_question("str_extract() returns only the first match in each string; str_extract_all() returns all matches as a list",  
-               options = c(  
-                 "str_extract() returns only the first match in each string; str_extract_all() returns all matches as a list",  
-                 "str_extract() returns a character vector; str_extract_all() returns a logical vector",  
-                 "str_extract_all() is faster than str_extract() for long strings",  
-                 "They are identical — the _all suffix makes no difference"  
-               ),  
-               type = "radio",  
-               q_id = "STR_Q1",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! str_extract(x, pattern) returns a character vector of the same length as x, where each element is the first match in the corresponding string (or NA if no match). str_extract_all(x, pattern) returns a list of the same length as x, where each element is a character vector of ALL matches in the corresponding string. Use str_extract() when you expect one match per string; use str_extract_all() when you want every occurrence.",  
-               wrong = "Think about how many matches each function returns per input string, and what data structure holds the result.")  
-```  
-  
----  
-  
-**Q2. You want to capitalise all words longer than 5 characters in a text. Which `stringr` function would you use?**  
-  
-```{r}  
-#| echo: false  
-#| label: "STR_Q2"  
-check_question("str_replace_all() — replace each matching word with an uppercase version using a replacement function",  
-               options = c(  
-                 "str_replace_all() — replace each matching word with an uppercase version using a replacement function",  
-                 "str_extract_all() — extract the words and then capitalise",  
-                 "str_detect() — detect long words and then capitalise separately",  
-                 "str_remove_all() — remove the original words then insert capitals"  
-               ),  
-               type = "radio",  
-               q_id = "STR_Q2",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! str_replace_all() can accept a function as the replacement argument. The function receives each match and returns the replacement: str_replace_all(text, '\\\\b[a-z]{6,}\\\\b', toupper). str_extract_all() only extracts, it does not modify. str_detect() only returns TRUE/FALSE. str_remove_all() deletes matches rather than transforming them.",  
-               wrong = "Which function both finds a pattern AND replaces it with something? And which one can apply a transformation function to each match?")  
-```  
-  
----  
-  
-# Practical Applications {#practice}  
-  
-::: {.callout-note}  
-## Section Overview  
-  
-**What you'll learn:** How to apply regular expressions to realistic corpus linguistics and text processing tasks  
-  
-**Tasks covered:** Corpus searching, text cleaning, extraction, frequency analysis, and `dplyr` integration  
-:::  
-  
-## Searching a Corpus: Concordance-Style Extraction {-}  
-  
-A common corpus task is retrieving all contexts in which a pattern appears. We simulate a small multi-document corpus:  
-  
-```{r corpus_setup}  
-set.seed(42)  
-  
-corpus <- data.frame(  
-  doc_id   = paste0("doc", 1:10),  
-  register = rep(c("Academic", "News"), each = 5),  
-  text     = c(  
-    "Grammar is the systematic study of the structure of a language.",  
-    "Morphology examines how words are formed from smaller units called morphemes.",  
-    "Syntax deals with the arrangement of words to form grammatical sentences.",  
-    "Phonology studies the sound systems and phonological rules of languages.",  
-    "Pragmatics investigates how context and intention affect meaning in communication.",  
-    "Scientists announced a major breakthrough in natural language processing yesterday.",  
-    "The new grammar checker software was released to the public on Monday morning.",  
-    "Researchers found that bilingual speakers process syntax differently than monolinguals.",  
-    "Language acquisition in children follows predictable phonological and syntactic stages.",  
-    "The government launched a literacy program to improve grammar skills in schools."  
-  ),  
-  stringsAsFactors = FALSE  
-)  
-```  
-  
-```{r corpus_search}  
-# Find all documents containing words ending in "-ology"  
-corpus |>  
-  dplyr::filter(str_detect(text, "\\b\\w+ology\\b")) |>  
-  dplyr::select(doc_id, register, text)  
-```  
-  
-```{r corpus_extract}  
-# Extract all "-ology" words from each document  
-corpus |>  
-  dplyr::mutate(  
-    ology_words = sapply(text, function(t)  
-      paste(str_extract_all(t, "\\b\\w+ology\\b")[[1]], collapse = ", "))  
-  ) |>  
-  dplyr::filter(ology_words != "") |>  
-  dplyr::select(doc_id, ology_words)  
-```  
-  
-## Counting Pattern Frequencies {-}  
-  
-```{r count_patterns}  
-# Count occurrences of "grammar" (case-insensitive) per document  
-corpus |>  
-  dplyr::mutate(  
-    n_grammar = str_count(text, regex("grammar", ignore_case = TRUE))  
-  ) |>  
-  dplyr::select(doc_id, register, n_grammar) |>  
-  dplyr::arrange(dplyr::desc(n_grammar))  
-```  
-  
-```{r count_patterns2}  
-# Count different syntactic subfields mentioned  
-subfields <- c("syntax", "morphology", "phonology", "pragmatics", "grammar")  
-subfield_counts <- sapply(subfields, function(sf)  
-  sum(str_count(corpus$text, regex(sf, ignore_case = TRUE))))  
-  
-data.frame(subfield = subfields, count = subfield_counts) |>  
-  dplyr::arrange(dplyr::desc(count)) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .4, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 12) |>  
-  flextable::fontsize(size = 12, part = "header") |>  
-  flextable::align_text_col(align = "center") |>  
-  flextable::set_caption(caption = "Frequency of linguistic subfield terms in the corpus.") |>  
-  flextable::border_outer()  
-```  
-  
-## Text Cleaning {-}  
-  
-Regular expressions are the primary tool for cleaning raw corpus text:  
-  
-```{r text_clean}  
-raw_texts <- c(  
-  "   Grammar  is the  system   of a language.   ",  
-  "Words like 'cat', 'bat', and 'hat' rhyme!",  
-  "Phone: +61-7-3365-1234  |  Email: info@uq.edu.au",  
-  "Chapter 4: Syntax (pp. 112--145) — see also §3.2",  
-  "The year\t2024\twas notable for advances in NLP."  
-)  
-  
-raw_texts |>  
-  # Normalise whitespace (collapse multiple spaces/tabs to one space)  
-  str_replace_all("\\s+", " ") |>  
-  # Remove leading and trailing whitespace  
-  str_trim() |>  
-  # Remove content in parentheses  
-  str_remove_all("\\(.*?\\)") |>  
-  # Remove section references (§3.2 etc.)  
-  str_remove_all("§\\d+\\.\\d+") |>  
-  # Remove em dashes and extra spaces left behind  
-  str_remove_all("—\\s*") |>  
-  # Trim again after removals  
-  str_trim()  
-```  
-  
-## Extracting Structured Information {-}  
-  
-A powerful application of regex is extracting structured information from free text:  
-  
-```{r extract_structured}  
-# Simulate file names with embedded metadata  
-file_names <- c(  
-  "speaker01_female_academic_2019.txt",  
-  "speaker14_male_news_2021.txt",  
-  "speaker07_female_fiction_2020.txt",  
-  "speaker23_male_academic_2022.txt"  
-)  
-  
-# Extract each metadata component  
-data.frame(  
-  filename   = file_names,  
-  speaker_id = str_extract(file_names, "speaker\\d+"),  
-  gender     = str_extract(file_names, "(?<=_)(female|male)(?=_)"),  
-  register   = str_extract(file_names, "(?<=_(female|male)_)\\w+"),  
-  year       = str_extract(file_names, "\\d{4}")  
-)  
-```  
-  
-## Case-Insensitive Matching {-}  
-  
-By default, regex in `stringr` is case-sensitive. Use `regex(..., ignore_case = TRUE)` to match regardless of case:  
-  
-```{r case_insensitive}  
-# Match "Grammar", "GRAMMAR", "grammar" etc.  
-str_detect(c("Grammar", "GRAMMAR", "grammar", "GrAmMaR"),  
-           regex("grammar", ignore_case = TRUE))  
-  
-# Extract all mentions of a term regardless of capitalisation  
-str_extract_all(et, regex("\\bgrammar\\w*\\b", ignore_case = TRUE))[[1]]  
-```  
-  
-## Regex in `dplyr` Pipelines {-}  
-  
-Regular expressions integrate seamlessly with `dplyr` for filtering and creating new columns:  
-  
-```{r dplyr_regex}  
-corpus |>  
-  # Filter: keep only documents mentioning a specific pattern  
-  dplyr::filter(str_detect(text, regex("syntax|morphology", ignore_case = TRUE))) |>  
-  # Mutate: extract the first linguistic subfield mentioned  
-  dplyr::mutate(  
-    primary_topic = str_extract(text,  
-      regex("syntax|morphology|phonology|pragmatics|grammar",  
-            ignore_case = TRUE)),  
-    n_words = str_count(text, "\\S+"),  
-    has_definition = str_detect(text, "\\bis\\b|\\bdeals with\\b|\\bexamines\\b")  
-  ) |>  
-  dplyr::select(doc_id, register, primary_topic, n_words, has_definition)  
-```  
-  
----  
-  
-::: {.callout-tip}  
-## Exercises: Practical Applications  
-:::  
-  
-**Q1. What regular expression would you use to extract all words that contain at least one digit (e.g., "A4", "mp3", "COVID-19")?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PRAC_Q1"  
-check_question("\\\\w*\\\\d\\\\w* — a word character sequence containing at least one digit",  
-               options = c(  
-                 "\\\\w*\\\\d\\\\w* — a word character sequence containing at least one digit",  
-                 "\\\\d+ — one or more digits",  
-                 "[0-9] — a single digit",  
-                 "\\\\b\\\\d\\\\b — a word boundary around a single digit"  
-               ),  
-               type = "radio",  
-               q_id = "PRAC_Q1",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! \\w*\\d\\w* matches: zero or more word characters (\\w*), then at least one digit (\\d), then zero or more word characters (\\w*). This captures tokens like 'A4', 'mp3', 'COVID-19' (hyphen aside — you may need \\w*\\d\\w*(-\\w*\\d\\w*)* for hyphenated forms). The plain \\d+ would extract only the digit sequence, not the surrounding letters. Wrapping in \\b...\\b adds whole-word anchoring.",  
-               wrong = "You need a pattern that matches the whole token (letters + digits), not just the digit itself. What pattern matches a sequence of word characters that includes at least one digit?")  
-```  
-  
----  
-  
-**Q2. You want to extract the domain name from email addresses (the part after `@` and before the final `.`). Which regex extracts `uq` from `user@uq.edu.au`?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PRAC_Q2"  
-check_question("(?<=@)[\\w.]+(?=\\.\\w+$) — a lookbehind for @ and lookahead for the final .extension",  
-               options = c(  
-                 "(?<=@)[\\w.]+(?=\\.\\w+$) — a lookbehind for @ and lookahead for the final .extension",  
-                 "@\\w+ — the @ sign followed by word characters",  
-                 "\\w+\\.[\\w.]+ — word characters and dots after the @",  
-                 "\\w+(?=\\.edu|\\.com|\\.org) — lookahead for known domain suffixes"  
-               ),  
-               type = "radio",  
-               q_id = "PRAC_Q2",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! (?<=@) is a positive lookbehind that requires @ immediately before the match. [\\w.]+ matches word characters and dots (the full domain like 'uq.edu'). (?=\\.\\w+$) is a positive lookahead requiring a dot followed by word characters at the end of the string ('.au'). The lookbehind and lookahead ensure we are positioned correctly without including @ or the final extension in the match. This is a deliberately tricky extraction — in practice you would often split on @ first, then extract the relevant part of the domain.",  
-               wrong = "Think about lookahead and lookbehind: how can you match the content between @ and the last .extension without including the @ or the extension in the match?")  
-```  
-  
----  
-  
-**Q3. What does `str_replace_all(text, \"(\\\\w+) and (\\\\w+)\", \"\\\\2 and \\\\1\")` do?**  
-  
-```{r}  
-#| echo: false  
-#| label: "PRAC_Q3"  
-check_question("It swaps the two words on either side of 'and', using backreferences \\\\1 and \\\\2 to refer to the captured groups",  
-               options = c(  
-                 "It swaps the two words on either side of 'and', using backreferences \\\\1 and \\\\2 to refer to the captured groups",  
-                 "It removes the word 'and' and joins the surrounding words",  
-                 "It replaces every occurrence of 'and' with \\\\2 and \\\\1 literally",  
-                 "It matches only if there are exactly two words separated by 'and'"  
-               ),  
-               type = "radio",  
-               q_id = "PRAC_Q3",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = "Correct! The pattern (\\w+) and (\\w+) captures two words in groups 1 and 2. The replacement \\2 and \\1 puts them back in reverse order. So 'cats and dogs' becomes 'dogs and cats'. Backreferences in str_replace_all() replacements use \\1, \\2, etc. to refer to what was captured in the corresponding group. This is a powerful technique for reordering, reformatting, and transforming structured text.",  
-               wrong = "The parentheses () create capturing groups numbered left to right. In the replacement string, \\1 inserts what group 1 captured, and \\2 inserts what group 2 captured. What does reversing their order do?")  
-```  
-  
----  
-  
-# Corpus Search Exercises {#exercises}  
-  
-::: {.callout-note}  
-## Section Overview  
-  
-**Ten practical exercises covering the most common corpus-search regex tasks**  
-  
-Each question asks you to identify the correct regular expression for a realistic search task on a tokenised text vector. All answers use `stringr::str_detect()` applied to a character vector called `text`.  
-:::  
-  
-```{r exercise_setup, echo=FALSE}  
-# Example tokenised text for all exercises below  
-text <- c(  
-  "Walking", "walked", "walks", "walk", "walker",  
-  "ungrammatical", "unusual", "undo", "Unknown",  
-  "The", "year", "2024", "saw", "COVID-19",  
-  "well-being", "self-aware", "long-term",  
-  "London", "Paris", "Grammar", "Syntax",  
-  "agreement", "book", "feet", "see", "moon",  
-  "running", "working", "thinking", "helping",  
-  "cat@uq.edu.au", "info@ladal.edu.au",  
-  "Where", "are", "you?", "What", "is", "this?",  
-  "mp3", "A4", "type2"  
-)  
-```  
-  
----  
-  
-**Q1. Which regex extracts all forms of *walk* from a tokenised text (walk, walks, walked, walking, walker)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q1"  
-check_question('\\\\bwalk\\\\w*\\\\b — word boundary + "walk" + zero or more word characters',  
-               options = c(  
-                 '\\\\bwalk\\\\w*\\\\b — word boundary + "walk" + zero or more word characters',  
-                 '"walk" — a plain literal match',  
-                 '"walk.*" — "walk" followed by any characters',  
-                 '"[Ww]alk" — capital or lowercase W followed by alk'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q1",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\bwalk\\w*\\b matches the literal string "walk" at a word boundary, followed by zero or more word characters (\\w*), up to the next word boundary. This captures walk, walks, walked, walking, walker, and any other form beginning with "walk". The word boundaries prevent matching inside longer words like "sidewalk" if that is not desired — remove them if you want substring matches too. The plain "walk" or "walk.*" without boundaries would work on a tokenised vector since each token is one word, but \\bwalk\\w*\\b is the most explicit and transferable form.',  
-               wrong = 'You need a pattern that starts with "walk" and captures any suffix (s, ed, ing, er, ...). Which pattern anchors to word boundaries and allows zero or more following word characters?')  
-```  
-  
----  
-  
-**Q2. Which regex extracts all words beginning with "un" (e.g., *ungrammatical*, *unusual*, *undo*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q2"  
-check_question('\\\\b[Uu]n\\\\w+ — word boundary + "un" (case-flexible) + one or more word characters',  
-               options = c(  
-                 '\\\\b[Uu]n\\\\w+ — word boundary + "un" (case-flexible) + one or more word characters',  
-                 '"un" — matches any token containing "un" anywhere',  
-                 '"^un" — anchors to string start (works on single tokens)',  
-                 '"\\\\bun" — word boundary before "un" with no suffix requirement'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q2",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\b[Uu]n\\w+ matches: a word boundary (\\b), then "un" or "Un", then one or more word characters (\\w+). The \\w+ ensures we match a word that continues beyond "un" — this avoids matching the word "un" alone as a token. The [Uu] handles both "ungrammatical" and "Unknown". On a tokenised vector where each element is one word, "^un" also works well, but \\b[Uu]n\\w+ generalises to running on raw text too.',  
-               wrong = 'What pattern starts at a word boundary, matches the prefix "un", and then requires at least one more character to follow?')  
-```  
-  
----  
-  
-**Q3. Which regex finds all numeric tokens (whole numbers like *2024*, *42*, *100*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q3"  
-check_question('\\\\b\\\\d+\\\\b — word boundaries around one or more digits',  
-               options = c(  
-                 '\\\\b\\\\d+\\\\b — word boundaries around one or more digits',  
-                 '"[0-9]" — matches a single digit anywhere in the token',  
-                 '"\\\\d" — matches a single digit',  
-                 '"\\\\d*" — zero or more digits (matches every string)'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q3",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\b\\d+\\b matches one or more digits (\\d+) as a complete token (word boundaries on both sides). This matches "2024", "42", "100" but not "COVID-19" or "mp3" (which contain non-digit characters too). Use \\d+ without boundaries if you want to match digit sequences embedded in mixed tokens. The patterns [0-9] and \\d match only a single digit; \\d* matches zero or more digits and would return TRUE for every string (since zero digits is satisfied by any string).',  
-               wrong = 'You need to match a complete numeric token — all digits, nothing else. Which pattern uses \\d and word boundaries correctly?')  
-```  
-  
----  
-  
-**Q4. Which regex extracts all words ending in *-ing* (e.g., *running*, *working*, *thinking*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q4"  
-check_question('\\\\b\\\\w+ing\\\\b — one or more word characters followed by "ing" at a word boundary',  
-               options = c(  
-                 '\\\\b\\\\w+ing\\\\b — one or more word characters followed by "ing" at a word boundary',  
-                 '"ing$" — "ing" at the end of the string (works on single tokens)',  
-                 '".*ing" — any characters followed by "ing"',  
-                 '"[ing]" — any of the characters i, n, or g'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q4",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\b\\w+ing\\b matches: a word boundary, then one or more word characters (\\w+ ensures there is a stem before the suffix), then the literal "ing", then a word boundary. This captures running, walking, thinking, helping, etc. On a tokenised vector, "ing$" (anchoring to string end) works equally well. The pattern ".*ing" would also match but is less precise — on raw text it would match greedily across sentence boundaries. "[ing]" is completely different: it is a character class matching any single character that is i, n, or g.',  
-               wrong = 'You need a pattern that ends with "ing" and has a word boundary after it. What ensures there is also a stem before the suffix?')  
-```  
-  
----  
-  
-**Q5. Which regex matches email addresses (e.g., *cat\@uq.edu.au*, *info\@ladal.edu.au*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q5"  
-check_question('"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}" — local part + @ + domain + TLD',  
-               options = c(  
-                 '"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}" — local part + @ + domain + TLD',  
-                 '"\\\\w+@\\\\w+" — word characters on both sides of @',  
-                 '"@" — any token containing the @ symbol',  
-                 '"\\\\S+@\\\\S+" — non-whitespace characters around @'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q5",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! The full email pattern [A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,} captures: the local part (letters, digits, dots, underscores, %, +, -), the @ symbol, the domain (letters, digits, dots, hyphens), a literal dot, and a top-level domain of at least 2 letters. This handles standard email formats robustly. Simpler patterns like \\w+@\\w+ miss dots and hyphens in domains. \\S+@\\S+ is too broad and would match things like "price@$4" or "not@an-email!". Email validation with regex is notoriously tricky — the pattern above covers the most common real-world cases.',  
-               wrong = 'An email address has three structural components: a local part, the @ symbol, and a domain with a top-level domain. Which pattern captures all three correctly?')  
-```  
-  
----  
-  
-**Q6. Which regex identifies tokens that contain at least one digit mixed with letters (e.g., *mp3*, *A4*, *COVID-19*, *type2*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q6"  
-check_question('"\\\\w*\\\\d\\\\w*" — word characters, then a digit, then word characters',  
-               options = c(  
-                 '"\\\\w*\\\\d\\\\w*" — word characters, then a digit, then word characters',  
-                 '"\\\\d+" — one or more digits (matches pure numbers too)',  
-                 '"[a-z]\\\\d" — a letter followed immediately by a digit',  
-                 '"\\\\b\\\\d\\\\b" — a digit as a complete token'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q6",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\w*\\d\\w* matches zero or more word characters, then at least one digit, then zero or more word characters. This captures mp3 (letters then digit), A4 (letter then digit), and type2 (letters then digit). Note it also matches pure numbers like "2024" — if you want to exclude those, use [a-zA-Z]\\w*\\d|\\d\\w*[a-zA-Z] to require at least one letter AND one digit. \\d+ matches only digit sequences. [a-z]\\d requires a letter immediately before the digit, missing "A4" if case-sensitive. \\b\\d\\b matches only a single digit as a complete token.',  
-               wrong = 'You need a token that contains both letters and at least one digit. Which pattern allows word characters before AND after a digit, with zero or more letters on either side?')  
-```  
-  
----  
-  
-**Q7. Which regex extracts hyphenated compound words (e.g., *well-being*, *self-aware*, *long-term*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q7"  
-check_question('"\\\\b\\\\w+-\\\\w+\\\\b" — word characters, hyphen, word characters within word boundaries',  
-               options = c(  
-                 '"\\\\b\\\\w+-\\\\w+\\\\b" — word characters, hyphen, word characters within word boundaries',  
-                 '"-" — any token containing a hyphen',  
-                 '"\\\\w-\\\\w" — one word character, hyphen, one word character',  
-                 '"[a-z]-[a-z]" — a lowercase letter, hyphen, lowercase letter'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q7",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\b\\w+-\\w+\\b matches: a word boundary, one or more word characters (the first element), a literal hyphen, one or more word characters (the second element), a word boundary. This captures well-being, self-aware, long-term, and any other standard hyphenated compound. The plain "-" would match any token with a hyphen, including punctuation. \\w-\\w requires exactly one character on each side, missing multi-character elements. [a-z]-[a-z] is similar but also case-sensitive. For multi-part compounds like "mother-in-law", extend to \\w+(-\\w+)+.',  
-               wrong = 'A hyphenated word has one or more word characters before the hyphen and one or more after. Which pattern captures full word elements (not just single characters) on both sides?')  
-```  
-  
----  
-  
-**Q8. Which regex finds capitalised tokens — words beginning with an uppercase letter followed by lowercase letters (e.g., proper nouns like *London*, *Paris*, *Grammar*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q8"  
-check_question('"\\\\b[A-Z][a-z]+\\\\b" — uppercase first letter followed by one or more lowercase letters',  
-               options = c(  
-                 '"\\\\b[A-Z][a-z]+\\\\b" — uppercase first letter followed by one or more lowercase letters',  
-                 '"[A-Z]" — any uppercase letter anywhere in the token',  
-                 '"[A-Z]+" — one or more uppercase letters (matches ALL-CAPS too)',  
-                 '"^[A-Z]" — string starting with uppercase (same as \\\\b[A-Z] on tokens)'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q8",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! \\b[A-Z][a-z]+\\b matches: a word boundary, one uppercase letter, one or more lowercase letters, a word boundary. This matches London, Paris, Grammar, Syntax — title-case words. It deliberately excludes ALL-CAPS tokens like "NLP" or "COVID" (which [A-Z]+ would match) and single uppercase letters. Note: at sentence boundaries, even non-proper nouns are capitalised; for proper-noun detection you would need additional context filtering. On a raw text, use with str_extract_all() rather than on individual tokens.',  
-               wrong = 'You want Title Case: one uppercase letter at the start, then lowercase letters. Which pattern enforces both the case of the first character and the case of those that follow?')  
-```  
-  
----  
-  
-**Q9. Which regex finds tokens that are questions ending with a question mark (e.g., *you?*, *this?*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q9"  
-check_question('"\\\\?" — matches any token ending in a literal question mark (on a tokenised vector)',  
-               options = c(  
-                 '"\\\\?" — matches any token ending in a literal question mark (on a tokenised vector)',  
-                 '"?" — zero or one of the preceding element (quantifier, not literal)',  
-                 '".*\\\\?$" — any characters followed by ? at string end',  
-                 '"\\\\?$" — a question mark at the end of the string'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q9",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! On a tokenised vector (one word/punctuation per element), \\? detects any token containing a literal question mark. Since ? is a quantifier in regex, it must be escaped as \\? to match the literal character. \\?$ is equally correct — it anchors the ? to the end of the string, which is more precise. .*\\?$ works too and is the most explicit form: any characters, then a literal ?, then end of string. The unescaped "?" alone is a regex quantifier meaning "zero or one of the preceding element" — on its own with nothing preceding it, it either errors or matches everything.',  
-               wrong = 'The question mark has special meaning in regex (it is a quantifier). How do you match a LITERAL question mark character?')  
-```  
-  
----  
-  
-**Q10. Which regex finds tokens containing double vowels (e.g., *agreement*, *book*, *see*, *moon*)?**  
-  
-```{r}  
-#| echo: false  
-#| label: "EX_Q10"  
-check_question('"[aeiouAEIOU]{2}" — two consecutive vowels (case-insensitive vowel class, quantified)',  
-               options = c(  
-                 '"[aeiouAEIOU]{2}" — two consecutive vowels (case-insensitive vowel class, quantified)',  
-                 '"[aeiou][aeiou]" — same as above but written out explicitly',  
-                 '"[aeiou]+" — one or more vowels (also matches single vowels)',  
-                 '"(aa|ee|ii|oo|uu)" — only identical vowel pairs'  
-               ),  
-               type = "radio",  
-               q_id = "EX_Q10",  
-               random_answer_order = TRUE,  
-               button_label = "Check answer",  
-               right = 'Correct! [aeiouAEIOU]{2} matches any two consecutive vowels (the same or different: "oo", "ea", "ai", "ou"). This captures agreement (ee? no — "ee" is in "see"; agreement has "ee"? check: a-g-r-e-e-m-e-n-t → yes, "ee"), book (oo), see (ee), moon (oo). Both [aeiouAEIOU]{2} and [aeiou][aeiou] are correct — the {2} form is more compact and easier to extend to {3} or {2,}. [aeiou]+ also matches double vowels but would return TRUE for any vowel at all (single included). (aa|ee|ii|oo|uu) only matches identical doubled vowels, missing "ea", "ou", "ai" etc.',  
-               wrong = 'You want exactly two consecutive vowel characters. A vowel character class covers [aeiou]. What quantifier specifies exactly two occurrences?')  
-```  
-  
----  
-  
-# Quick Reference {#reference}  
-  
-::: {.callout-note}  
-## Section Overview  
-  
-**A compact reference for the most commonly used regex elements in R**  
-:::  
-  
-## Pattern Summary Table {-}  
-  
-```{r ref_table, echo=FALSE}  
-data.frame(  
-  Pattern     = c(  
-    ".", "^", "$", "\\\\b", "\\\\B",  
-    "[abc]", "[^abc]", "[a-z]", "[[:alpha:]]", "[[:digit:]]", "[[:punct:]]",  
-    "*", "+", "?", "{n}", "{n,}", "{n,m}",  
-    "(abc)", "(?:abc)", "a|b",  
-    "\\\\w", "\\\\d", "\\\\s",  
-    "\\\\W", "\\\\D", "\\\\S",  
-    "(?=...)", "(?!...)", "(?<=...)", "(?<!...)"  
-  ),  
-  Meaning     = c(  
-    "Any character except newline",  
-    "Start of string / line",  
-    "End of string / line",  
-    "Word boundary",  
-    "Non-word boundary",  
-    "One of: a, b, or c",  
-    "Not a, b, or c",  
-    "Lowercase letter",  
-    "Any letter",  
-    "Any digit",  
-    "Any punctuation",  
-    "0 or more (greedy)",  
-    "1 or more (greedy)",  
-    "0 or 1 (optional)",  
-    "Exactly n times",  
-    "n or more times",  
-    "Between n and m times",  
-    "Capturing group",  
-    "Non-capturing group",  
-    "a or b",  
-    "Word character [a-zA-Z0-9_]",  
-    "Digit [0-9]",  
-    "Whitespace",  
-    "Non-word character",  
-    "Non-digit",  
-    "Non-whitespace",  
-    "Positive lookahead",  
-    "Negative lookahead",  
-    "Positive lookbehind",  
-    "Negative lookbehind"  
-  )  
-) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .75, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 11) |>  
-  flextable::fontsize(size = 11, part = "header") |>  
-  flextable::align_text_col(align = "left") |>  
-  flextable::set_caption(caption = "Quick reference: regular expression patterns in R.") |>  
-  flextable::border_outer()  
-```  
-  
-## `stringr` Function Summary {-}  
-  
-```{r fn_table, echo=FALSE}  
-data.frame(  
-  Function            = c(  
-    "str_detect(x, p)",  
-    "str_count(x, p)",  
-    "str_extract(x, p)",  
-    "str_extract_all(x, p)",  
-    "str_replace(x, p, r)",  
-    "str_replace_all(x, p, r)",  
-    "str_remove(x, p)",  
-    "str_remove_all(x, p)",  
-    "str_split(x, p)",  
-    "str_locate(x, p)",  
-    "str_locate_all(x, p)",  
-    "str_starts(x, p)",  
-    "str_ends(x, p)"  
-  ),  
-  Returns             = c(  
-    "logical vector — does p match?",  
-    "integer vector — how many matches?",  
-    "character vector — first match (NA if none)",  
-    "list of character vectors — all matches",  
-    "character vector — first match replaced",  
-    "character vector — all matches replaced",  
-    "character vector — first match removed",  
-    "character vector — all matches removed",  
-    "list of character vectors — parts between matches",  
-    "integer matrix — start and end of first match",  
-    "list of integer matrices — all match positions",  
-    "logical — does x start with p?",  
-    "logical — does x end with p?"  
-  )  
-) |>  
-  flextable() |>  
-  flextable::set_table_properties(width = .99, layout = "autofit") |>  
-  flextable::theme_zebra() |>  
-  flextable::fontsize(size = 11) |>  
-  flextable::fontsize(size = 11, part = "header") |>  
-  flextable::align_text_col(align = "left") |>  
-  flextable::set_caption(caption = "Key stringr functions for use with regular expressions.") |>  
-  flextable::border_outer()  
-```  
-  
----  
-  
-# Citation & Session Info {-}  
-  
-Schweinberger, Martin. 2026. *Regular Expressions in R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/regex/regex.html (Version 2026.02.19).  
-  
-```  
-@manual{schweinberger2026regex,  
-  author       = {Schweinberger, Martin},  
-  title        = {Regular Expressions in R},  
-  note         = {https://ladal.edu.au/tutorials/regex/regex.html},  
-  year         = {2026},  
-  organization = {The University of Queensland, Australia. School of Languages and Cultures},  
-  address      = {Brisbane},  
-  edition      = {2026.02.19}  
-}  
-```  
-  
-```{r fin}  
-sessionInfo()  
-```  
-  
----  
-  
-[Back to top](#intro)  
-  
-[Back to HOME](/index.html)  
-  
----  
-  
-# References {-}  
+---
+title: "Regular Expressions in R"
+author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:       "Regular Expressions in R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:     "2026.03.28"
+  url:         "https://ladal.edu.au/tutorials/regex/regex.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  doi:         ""
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(checkdown)
+library(stringr)
+library(dplyr)
+library(flextable)
+options(stringsAsFactors = FALSE)
+options(scipen = 100)
+options(max.print = 100)
+```
+
+![](/images/uq1.jpg){ width=100% }
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **regular expressions** (regex) and demonstrates how to use them when working with language data in R. A regular expression is a special sequence of characters that describes a search pattern. You can think of regular expressions as precision search tools — far more powerful than simple find-and-replace — that let you locate, extract, validate, and transform text based on its structure rather than its exact content.
+
+Regular expressions have wide applications across linguistics and computational humanities: searching corpora for inflected forms, extracting named entities, cleaning OCR output, tokenising text, validating annotation schemes, and building text-processing pipelines. Once mastered, they become one of the most versatile tools in any language researcher's toolkit.
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what a regular expression is and how it differs from a simple string search
+2. Construct patterns using literal characters, the wildcard `.`, anchors, character classes, and POSIX classes
+3. Apply quantifiers — including greedy and lazy variants — to specify repetition
+4. Use capturing groups, non-capturing groups, and alternation
+5. Use shorthand escape sequences (`\w`, `\d`, `\s`) and understand the double-backslash requirement in R
+6. Write lookahead and lookbehind assertions for context-sensitive matching
+7. Apply the key `stringr` functions — `str_detect()`, `str_extract()`, `str_replace()`, and others — with regular expressions
+8. Use regular expressions for practical corpus tasks: concordance searches, text cleaning, metadata extraction, and frequency analysis
+9. Integrate regex with `dplyr` pipelines for filtering and annotation
+:::
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, please complete or familiarise yourself with:
+
+- [Getting Started with R and RStudio](/tutorials/intror/intror.html)
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)
+- [String Processing in R](/tutorials/string/string.html)
+:::
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  sep = ""
+)
+```
+:::
+
+::: {.callout-note}
+## External Resources
+
+For further study, the following resources are highly recommended:
+
+- @friedl2006mastering — the definitive reference on regular expressions
+- Chapter 17 of @peng2016r — a practical introduction in an R context
+- [RStudio Regex Cheatsheet](https://rstudio.com/wp-content/uploads/2016/09/RegExCheatsheet.pdf) — a quick-reference card by Ian Kopacka
+- Nick Thieberger's [Introduction to Regular Expressions](https://www.youtube.com/watch?v=8ILToE0CNpM) — a YouTube tutorial aimed at humanities scholars
+:::
+
+---
+
+## Preparation and Session Set-up {-}
+
+Install required packages (once only):
+
+```{r install, eval=FALSE}
+install.packages("stringr")
+install.packages("dplyr")
+install.packages("flextable")
+install.packages("checkdown")
+```
+
+Load packages:
+
+```{r load-packages, message=FALSE, warning=FALSE}
+library(stringr)     # string manipulation and regex functions
+library(dplyr)       # data frame manipulation
+library(flextable)   # formatted tables
+library(checkdown)   # interactive exercises
+
+options(stringsAsFactors = FALSE)
+options(scipen = 100)
+```
+
+We will work with two types of objects throughout: a short **example sentence** for demonstrating individual patterns, and a longer **example text** representing realistic corpus data.
+
+```{r sample-data}
+# Short example sentence for basic demonstrations
+sent <- "The cat sat on the mat."
+
+# A longer example text: an excerpt about linguistics
+et <- paste(
+  "Grammar is the system of a language. People sometimes describe grammar as",
+  "the rules of a language, but in fact no language has rules. If we use the",
+  "word rules, we suggest that somebody created the rules first and then spoke",
+  "the language, like the rules of a game. But languages did not start like",
+  "that. Languages started when humans started to communicate with each other.",
+  "Grammars developed naturally. After some time, people described the grammar",
+  "of their languages. Languages change over time. Grammar changes too.",
+  "Children learn the grammar of their first language naturally. They do not",
+  "need to study it. Native speakers know intuitively whether a sentence is",
+  "grammatically correct or not. Non-native speakers often learn grammar rules",
+  "formally, through instruction. Prescriptive grammar describes how people",
+  "should speak, while descriptive grammar describes how people actually speak.",
+  "Linguists study grammars to understand language structure and acquisition.",
+  "The field of syntax deals with sentence structure, while morphology examines",
+  "how words are formed. Phonology studies sound systems in human languages.",
+  "Pragmatics investigates how context influences the interpretation of meaning.",
+  "Computational linguistics applies formal grammar to natural language processing.",
+  "Regular expressions are useful tools for searching and extracting patterns.",
+  "They can match words like 'cat', 'bat', or 'hat' with a single pattern."
+)
+
+# Split into individual tokens (words and punctuation)
+tokens <- str_split(et, "\\s+") |> unlist()
+```
+
+---
+
+# Regular Expression Patterns {#patterns}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The building blocks of regular expressions — how each type of pattern works and what it matches.
+
+**Key concept:** Regular expressions describe structure, not content. `[aeiou]{2,}` matches any sequence of two or more vowels, regardless of which vowels or in which word.
+:::
+
+## Basic characters {-}
+
+The simplest regular expression is a **literal character** — it matches exactly that character. A sequence of literal characters matches that exact sequence:
+
+```{r basic-chars}
+# Literal match: does "cat" appear in the sentence?
+str_detect(sent, "cat")
+
+# The dot . matches ANY single character except newline
+str_detect(sent, "c.t")    # matches "cat"
+str_detect(sent, "m.t")    # matches "mat"
+str_detect(sent, ".at")    # matches "cat", "sat", "mat"
+```
+
+To match a literal dot (rather than "any character"), **escape it** with a double backslash:
+
+```{r literal-dot}
+# Match a literal period at the end of the sentence
+str_detect(sent, "\\.")    # TRUE — the sentence ends with a full stop
+
+# Without escaping, . matches any character:
+str_detect("abc", ".")     # TRUE — any character matches
+str_detect("abc", "\\.")   # FALSE — no literal dot in "abc"
+```
+
+::: {.callout-tip}
+## The double backslash in R
+
+In most programming languages, a single backslash `\` is the regex escape character. In R strings, `\` itself must be escaped, so regex escapes require **double** backslash `\\`. For example:
+
+- `\\.` in R code → `\.` as a regex → matches a literal dot
+- `\\b` in R code → `\b` as a regex → matches a word boundary
+- `\\d` in R code → `\d` as a regex → matches a digit
+
+This double-backslash requirement catches many beginners. Remember: every `\` you intend for regex needs to be written as `\\` in R.
+:::
+
+## Anchors {-}
+
+Anchors match **positions** in the string, not characters. They constrain where in the string a pattern can match.
+
+```{r anchors}
+# ^ matches the START of the string
+str_detect(sent, "^The")     # TRUE — "The" is at the start
+str_detect(sent, "^cat")     # FALSE — "cat" is not at the start
+
+# $ matches the END of the string
+str_detect(sent, "mat\\.$")  # TRUE — "mat." is at the end
+str_detect(sent, "cat$")     # FALSE — "cat" is not at the end
+
+# \b matches a WORD BOUNDARY (between a word char and a non-word char)
+str_detect("catalogue", "\\bcat\\b")   # FALSE — "cat" is part of a word
+str_detect("the cat sat", "\\bcat\\b") # TRUE — "cat" is a whole word
+
+# \B matches where \b does NOT (i.e., inside a word)
+str_detect("catalogue", "\\Bcat\\B")   # FALSE — "cat" is at word START
+str_detect("concatenate", "\\Bcat\\B") # TRUE — "cat" is in the middle
+```
+
+::: {.callout-tip}
+## Word boundaries in corpus searches
+
+`\b` is indispensable for corpus searches. Without it, searching for "the" would match "the" inside "other", "there", "ather", and so on. Always use `\\bword\\b` when you want whole-word matches.
+:::
+
+## Character classes {-}
+
+A **character class** `[...]` matches any single character from the set listed inside the brackets:
+
+```{r char-classes}
+# Match 'c', 's', or 'm' followed by 'at'
+str_extract_all(sent, "[csm]at")
+
+# Negated class [^...]: match any character NOT in the set
+str_extract_all(sent, "[^aeiou ]")   # non-vowel, non-space characters
+
+# Ranges
+str_extract_all("Hello World 123", "[a-z]")    # lowercase letters
+str_extract_all("Hello World 123", "[A-Z]")    # uppercase letters
+str_extract_all("Hello World 123", "[0-9]")    # digits
+str_extract_all("Hello World 123", "[a-zA-Z]") # all letters
+```
+
+### POSIX character classes {-}
+
+R supports **POSIX character classes** — named sets written inside `[:..:]` inside an outer `[...]`:
+
+```{r posix}
+str_extract_all("Hello, World! 123.", "[[:alpha:]]")  # letters only
+str_extract_all("Hello, World! 123.", "[[:digit:]]")  # digits only
+str_extract_all("Hello, World! 123.", "[[:punct:]]")  # punctuation only
+str_extract_all("Hello, World! 123.", "[[:alnum:]]")  # letters and digits
+str_extract_all("Hello\tWorld  123",  "[[:blank:]]")  # spaces and tabs
+```
+
+The full set of POSIX classes available in R:
+
+```{r posix-table, echo=FALSE}
+data.frame(
+  Class   = c("[:alpha:]", "[:lower:]", "[:upper:]", "[:digit:]",
+               "[:alnum:]", "[:punct:]", "[:space:]", "[:blank:]",
+               "[:graph:]", "[:print:]"),
+  Matches = c("Any letter (a-z, A-Z)",
+               "Lowercase letters (a-z)",
+               "Uppercase letters (A-Z)",
+               "Digits (0-9)",
+               "Letters and digits",
+               "Punctuation: . , ; : ! ? \" ' ( ) [ ] { } / \\ @ # $ % ^ & * - _ + = ~ ` |",
+               "All whitespace: space, tab, newline, return, form-feed",
+               "Space and tab only",
+               "All visible characters (alnum + punct)",
+               "Printable characters (graph + space)")
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .9, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "POSIX character classes available in R.") |>
+  flextable::border_outer()
+```
+
+## Quantifiers {-}
+
+**Quantifiers** specify how many times the preceding element should match. The table below gives a complete overview:
+
+```{r quantifier-table, echo=FALSE}
+data.frame(
+  Quantifier  = c("*", "+", "?", "{n}", "{n,}", "{n,m}",
+                  "*?", "+?", "??", "{n,m}?"),
+  Meaning     = c("0 or more (greedy)",
+                  "1 or more (greedy)",
+                  "0 or 1 — makes element optional (greedy)",
+                  "Exactly n times",
+                  "n or more times (greedy)",
+                  "Between n and m times (greedy)",
+                  "0 or more (lazy — as few as possible)",
+                  "1 or more (lazy — as few as possible)",
+                  "0 or 1 (lazy)",
+                  "Between n and m times (lazy)"),
+  `R example`   = c('"b*"',
+                    '"b+"',
+                    '"colou?r"',
+                    '"[a-z]{5}"',
+                    '"[a-z]{3,}"',
+                    '"[a-z]{3,6}"',
+                    '"<.*?>"',
+                    '"<.+?>"',
+                    '"colou??r"',
+                    '"[a-z]{3,6}?"'),
+  `Example matches` = c(
+    '""  "b"  "bbb"',
+    '"b"  "bbb"',
+    '"color"  "colour"',
+    '"hello"  "world"',
+    '"cat"  "grammar"',
+    '"cat"  "gram"  "syntax"',
+    'first tag only in "<b>bold</b>"',
+    'first tag only in "<b>bold</b>"',
+    '"color"  "colour"',
+    'shortest run of 3-6 letters'),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Quantifiers in regular expressions: greedy (default) and lazy (? suffix) variants.") |>
+  flextable::border_outer()
+```
+
+```{r quantifiers}
+# * : 0 or more
+str_extract_all("aabbbcccc", "b*")   # matches "", "bbb", ""...
+
+# + : 1 or more
+str_extract_all("aabbbcccc", "b+")   # matches "bbb"
+
+# ? : 0 or 1 (makes the element optional)
+str_detect(c("color", "colour"), "colou?r")   # both TRUE
+
+# {n} : exactly n
+str_extract_all(et, "[a-z]{10}")     # exactly 10-letter sequences
+
+# {n,} : n or more
+str_extract_all(tokens, "^[[:alpha:]]{8,}$")  # words of 8+ letters
+
+# {n,m} : between n and m
+str_extract_all(tokens, "^[[:alpha:]]{4,6}$") # words of 4-6 letters
+```
+
+### Greedy vs. lazy matching {-}
+
+By default, quantifiers are **greedy** — they match as much as possible. Adding `?` after a quantifier makes it **lazy** — it matches as little as possible:
+
+```{r greedy-lazy}
+html <- "<b>bold</b> and <i>italic</i>"
+
+# Greedy: matches from first < to LAST >
+str_extract(html, "<.+>")
+
+# Lazy: matches from first < to next >
+str_extract(html, "<.+?>")
+
+# Extract each tag individually (lazy)
+str_extract_all(html, "<.+?>")
+```
+
+## Groups and alternation {-}
+
+**Parentheses** `()` create a **capturing group** — a sub-pattern whose match can be referenced or extracted separately. The **alternation operator** `|` means OR within a group or pattern.
+
+```{r groups}
+# Alternation: match "cat" OR "dog"
+str_detect(c("I have a cat", "I have a dog", "I have a fish"),
+           "cat|dog")
+
+# Alternation inside a group: match "colour" OR "color"
+str_extract_all(c("British colour", "American color"), "colo(u|)r")
+
+# Match all forms of "walk": walk, walks, walked, walking
+str_extract_all(et, "walk(s|ed|ing|er)?")
+
+# Groups allow repetition of a sub-pattern
+str_detect("abababab", "(ab)+")   # matches one or more "ab"
+```
+
+### Non-capturing groups {-}
+
+Use `(?:...)` when you need to group for alternation or quantification but do not need to capture the match:
+
+```{r non-capture}
+# Group for alternation without capturing
+str_extract_all(et, "(?:gram|morpho|phono)logy")
+```
+
+### Backreferences in replacements {-}
+
+Captured groups can be referred back to in replacement strings using `\\1`, `\\2`, etc.:
+
+```{r backrefs}
+# Swap the two words on either side of "and"
+str_replace_all("cats and dogs", "(\\w+) and (\\w+)", "\\2 and \\1")
+
+# Wrap all long words in asterisks (using \\0 for the whole match)
+str_replace_all(et, "\\b[[:alpha:]]{8,}\\b", "**\\0**") |>
+  substr(1, 120)
+```
+
+## Special escape sequences {-}
+
+R supports **shorthand escape sequences** for common character classes:
+
+```{r escape-table, echo=FALSE}
+data.frame(
+  Sequence   = c("\\\\w", "\\\\W", "\\\\d", "\\\\D", "\\\\s", "\\\\S",
+                 "\\\\b", "\\\\B"),
+  Matches    = c("Word characters: [[:alnum:]_]",
+                 "Non-word characters: [^[:alnum:]_]",
+                 "Digits: [[:digit:]]",
+                 "Non-digits: [^[:digit:]]",
+                 "Whitespace: [[:space:]]",
+                 "Non-whitespace: [^[:space:]]",
+                 "Word boundary (position)",
+                 "Non-word boundary (position)"),
+  `Example (R string)` = c('"\\\\w+"', '"\\\\W+"', '"\\\\d+"', '"\\\\D+"',
+                            '"\\\\s+"', '"\\\\S+"', '"\\\\bcat\\\\b"', '"\\\\Bcat\\\\B"'),
+  check.names = FALSE
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Special escape sequences for common character classes (written as R strings).") |>
+  flextable::border_outer()
+```
+
+```{r escapes-demo}
+# \w: word characters
+str_extract_all("price: $4.99!", "\\w+")
+
+# \d: digits
+str_extract_all("Call 07 3365 1234 or 07 3346 5678", "\\d+")
+
+# \s: whitespace (useful for splitting on any whitespace)
+str_split("word1   word2\tword3\nword4", "\\s+")[[1]]
+
+# \b: whole-word match
+str_extract_all("grammar, grammarian, ungrammatical", "\\bgrammar\\b")
+```
+
+## Lookahead and lookbehind {-}
+
+**Lookaround** assertions match a position based on what comes before or after it, without including that context in the match. They are essential for extracting values that are preceded or followed by specific markers.
+
+```{r lookaround-table, echo=FALSE}
+data.frame(
+  Syntax  = c("(?=...)", "(?!...)", "(?<=...)", "(?<!...)"),
+  Name    = c("Positive lookahead", "Negative lookahead",
+               "Positive lookbehind", "Negative lookbehind"),
+  Matches = c("Position followed by ...",
+               "Position NOT followed by ...",
+               "Position preceded by ...",
+               "Position NOT preceded by ...")
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .85, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Lookahead and lookbehind assertions.") |>
+  flextable::border_outer()
+```
+
+```{r lookaround}
+prices <- c("$12.99", "$4.50", "USD 7.00", "8.95 EUR")
+
+# Positive lookahead: match digits followed by a dot
+str_extract_all(prices, "\\d+(?=\\.)")
+
+# Positive lookbehind: match digits preceded by "$"
+str_extract_all(prices, "(?<=\\$)\\d+\\.\\d+")
+
+# Negative lookbehind: match numbers NOT preceded by "$"
+str_extract_all(prices, "(?<!\\$)\\b\\d+\\.\\d+")
+```
+
+A linguistic example — extract words that come before a comma:
+
+```{r lookahead-ling}
+sample_text <- "Grammar, syntax, and morphology are core subfields of linguistics."
+str_extract_all(sample_text, "\\w+(?=,)")
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: Regex Patterns
+:::
+
+**Q1. What does the regex `^[A-Z]` match?**
+
+```{r}
+#| echo: false
+#| label: "PAT_Q1"
+check_question("A string that begins with an uppercase letter",
+               options = c(
+                 "A string that begins with an uppercase letter",
+                 "Any uppercase letter anywhere in the string",
+                 "A string that consists entirely of uppercase letters",
+                 "The end of a string followed by an uppercase letter"
+               ),
+               type = "radio",
+               q_id = "PAT_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! The ^ anchor matches the position at the start of the string. [A-Z] matches one uppercase letter. Together, ^[A-Z] means 'a string (or line) whose first character is an uppercase letter'. Without the ^, [A-Z] would match any uppercase letter anywhere in the string.",
+               wrong = "Break it into two components: what does ^ anchor, and what does [A-Z] match?")
+```
+
+**Q2. What is the difference between `colou?r` and `colo[u]?r`?**
+
+```{r}
+#| echo: false
+#| label: "PAT_Q2"
+check_question("They are equivalent — both match 'colour' and 'color'; the ? makes the preceding element optional in both cases",
+               options = c(
+                 "They are equivalent — both match 'colour' and 'color'; the ? makes the preceding element optional in both cases",
+                 "colou?r matches only 'colour'; colo[u]?r matches both",
+                 "colo[u]?r is invalid syntax — ? cannot follow a character class",
+                 "colou?r matches 'color' only; colo[u]?r matches 'colour' only"
+               ),
+               type = "radio",
+               q_id = "PAT_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! In colou?r, the ? applies to the literal character u — making it optional. In colo[u]?r, the ? applies to the character class [u], which also contains only u — so it is equally optional. Both patterns match 'color' (no u) and 'colour' (one u). The [u]? form is slightly more explicit and more easily extended: [ou]? would allow either 'o' or 'u' to appear optionally.",
+               wrong = "The ? quantifier makes the immediately preceding element optional. What is that element in each case?")
+```
+
+**Q3. You want to match words of exactly 5 characters that consist only of lowercase letters. Which pattern is correct?**
+
+```{r}
+#| echo: false
+#| label: "PAT_Q3"
+check_question("^[a-z]{5}$",
+               options = c(
+                 "^[a-z]{5}$",
+                 "[a-z]{5}",
+                 "^[a-z]+{5}$",
+                 "[a-z]{5,5}"
+               ),
+               type = "radio",
+               q_id = "PAT_Q3",
+               random_answer_order = FALSE,
+               button_label = "Check answer",
+               right = "Correct! ^[a-z]{5}$ anchors the match at both ends of the string and requires exactly 5 lowercase letters. Without the anchors, [a-z]{5} would match any 5-letter sequence inside a longer word — for example, it would match 'gramm' inside 'grammar'. The {5,5} option works but is redundant (equivalent to {5}). The + before {5} is a syntax error.",
+               wrong = "The quantifier {5} means 'exactly 5'. But which patterns ensure the ENTIRE string is exactly 5 characters, rather than finding 5-character sequences within longer strings?")
+```
+
+---
+
+# Key `stringr` Functions {#stringr}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The `stringr` functions used most frequently with regular expressions, and when to use each.
+
+**Key functions:** `str_detect()`, `str_count()`, `str_extract()`, `str_extract_all()`, `str_replace()`, `str_replace_all()`, `str_remove()`, `str_remove_all()`, `str_split()`, `str_locate()`
+:::
+
+The `stringr` package provides a consistent, user-friendly interface to regular expressions in R. All `stringr` functions follow the same pattern: the string comes first, the pattern second.
+
+## `str_detect()` {-}
+
+Returns `TRUE`/`FALSE` for each string in a vector. Most commonly used for filtering:
+
+```{r str-detect}
+words_sample <- c("grammar", "syntax", "morphology", "phonology",
+                  "pragmatics", "grammarian", "ungrammatical")
+
+# Which words contain "gram"?
+str_detect(words_sample, "gram")
+
+# Which words start with a vowel?
+str_detect(words_sample, "^[aeiou]")
+
+# Negate with !
+words_sample[!str_detect(words_sample, "gram")]
+```
+
+## `str_count()` {-}
+
+Counts non-overlapping occurrences of a pattern within each string:
+
+```{r str-count}
+# How many vowels in each word?
+str_count(words_sample, "[aeiou]")
+
+# How many times does the word "a" appear in the example text?
+str_count(et, "\\ba\\b")
+```
+
+## `str_extract()` and `str_extract_all()` {-}
+
+`str_extract()` returns the **first** match in each string. `str_extract_all()` returns **all** matches as a list:
+
+```{r str-extract}
+# Extract the first sequence of 3+ consonants
+str_extract(words_sample, "[^aeiou]{3,}")
+
+# Extract all sequences of digits from a mixed string
+mixed <- c("price: 12.99 dollars", "code: A4-B12", "year: 2024")
+str_extract_all(mixed, "\\d+")
+
+# Extract all words longer than 8 characters from the example text
+long_words <- str_extract_all(et, "\\b[[:alpha:]]{9,}\\b")[[1]]
+sort(unique(long_words))
+```
+
+## `str_replace()` and `str_replace_all()` {-}
+
+Replace the first (or all) occurrence(s) of a pattern with a replacement string. **Backreferences** (`\\1`, `\\2`) refer to captured groups in the replacement:
+
+```{r str-replace}
+# Replace first match
+str_replace(sent, "[csm]at", "dog")
+
+# Replace all matches
+str_replace_all(sent, "[csm]at", "dog")
+
+# Backreference: reverse the order of two words separated by "and"
+str_replace_all("cats and dogs", "(\\w+) and (\\w+)", "\\2 and \\1")
+
+# Add emphasis around all long words
+str_replace_all(et, "\\b[[:alpha:]]{8,}\\b", "**\\0**") |>
+  substr(1, 120)
+```
+
+## `str_remove()` and `str_remove_all()` {-}
+
+Shorthand for `str_replace(x, pattern, "")` and `str_replace_all(x, pattern, "")`:
+
+```{r str-remove}
+# Remove all punctuation from the sentence
+str_remove_all(sent, "[[:punct:]]")
+
+# Remove all digits
+str_remove_all("Call us on 07-3365-1234", "\\d")
+
+# Remove leading and trailing whitespace
+str_remove_all("  linguistics  ", "^\\s+|\\s+$")
+
+# Keep only tokens of 4+ letters
+long_tokens <- tokens[str_detect(tokens, "^[[:alpha:]]{4,}$")]
+head(long_tokens, 10)
+```
+
+## `str_split()` {-}
+
+Split strings on a pattern, returning a list:
+
+```{r str-split}
+# Split on whitespace
+str_split("the cat sat on the mat", "\\s+")[[1]]
+
+# Split on punctuation or whitespace
+str_split("one,two; three    four", "[[:punct:]\\s]+")[[1]]
+
+# Split a text into sentences (approximate)
+sentences <- str_split(et, "(?<=[.!?])\\s+")[[1]]
+head(sentences, 3)
+```
+
+## `str_locate()` {-}
+
+Returns the start and end positions of matches — useful when you need to know where in the string a pattern occurs:
+
+```{r str-locate}
+# Find where "grammar" first occurs in the example text
+str_locate(et, "grammar")
+
+# Find all occurrences
+str_locate_all(et, "\\bgrammar\\b")[[1]]
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: `stringr` Functions
+:::
+
+**Q1. What is the difference between `str_extract()` and `str_extract_all()`?**
+
+```{r}
+#| echo: false
+#| label: "STR_Q1"
+check_question("str_extract() returns only the first match in each string; str_extract_all() returns all matches as a list",
+               options = c(
+                 "str_extract() returns only the first match in each string; str_extract_all() returns all matches as a list",
+                 "str_extract() returns a character vector; str_extract_all() returns a logical vector",
+                 "str_extract_all() is faster than str_extract() for long strings",
+                 "They are identical — the _all suffix makes no difference"
+               ),
+               type = "radio",
+               q_id = "STR_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! str_extract(x, pattern) returns a character vector of the same length as x, where each element is the first match in the corresponding string (or NA if no match). str_extract_all(x, pattern) returns a list of the same length as x, where each element is a character vector of ALL matches in the corresponding string. Use str_extract() when you expect one match per string; use str_extract_all() when you want every occurrence.",
+               wrong = "Think about how many matches each function returns per input string, and what data structure holds the result.")
+```
+
+**Q2. You want to capitalise all words longer than 5 characters in a text. Which `stringr` function would you use?**
+
+```{r}
+#| echo: false
+#| label: "STR_Q2"
+check_question("str_replace_all() — replace each matching word with an uppercase version using a replacement function",
+               options = c(
+                 "str_replace_all() — replace each matching word with an uppercase version using a replacement function",
+                 "str_extract_all() — extract the words and then capitalise",
+                 "str_detect() — detect long words and then capitalise separately",
+                 "str_remove_all() — remove the original words then insert capitals"
+               ),
+               type = "radio",
+               q_id = "STR_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! str_replace_all() can accept a function as the replacement argument. The function receives each match and returns the replacement: str_replace_all(text, '\\\\b[a-z]{6,}\\\\b', toupper). str_extract_all() only extracts, it does not modify. str_detect() only returns TRUE/FALSE. str_remove_all() deletes matches rather than transforming them.",
+               wrong = "Which function both finds a pattern AND replaces it with something? And which one can apply a transformation function to each match?")
+```
+
+---
+
+# Practical Applications {#practice}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply regular expressions to realistic corpus linguistics and text processing tasks.
+
+**Tasks covered:** Corpus searching, text cleaning, metadata extraction, frequency analysis, and `dplyr` integration.
+:::
+
+## Searching a corpus: concordance-style extraction {-}
+
+A common corpus task is retrieving all contexts in which a pattern appears. We simulate a small multi-document corpus:
+
+```{r corpus-setup}
+corpus <- data.frame(
+  doc_id   = paste0("doc", 1:10),
+  register = rep(c("Academic", "News"), each = 5),
+  text     = c(
+    "Grammar is the systematic study of the structure of a language.",
+    "Morphology examines how words are formed from smaller units called morphemes.",
+    "Syntax deals with the arrangement of words to form grammatical sentences.",
+    "Phonology studies the sound systems and phonological rules of languages.",
+    "Pragmatics investigates how context and intention affect meaning in communication.",
+    "Scientists announced a major breakthrough in natural language processing yesterday.",
+    "The new grammar checker software was released to the public on Monday morning.",
+    "Researchers found that bilingual speakers process syntax differently than monolinguals.",
+    "Language acquisition in children follows predictable phonological and syntactic stages.",
+    "The government launched a literacy program to improve grammar skills in schools."
+  ),
+  stringsAsFactors = FALSE
+)
+```
+
+```{r corpus-search}
+# Find all documents containing words ending in "-ology"
+corpus |>
+  dplyr::filter(str_detect(text, "\\b\\w+ology\\b")) |>
+  dplyr::select(doc_id, register, text)
+```
+
+```{r corpus-extract}
+# Extract all "-ology" words from each document
+corpus |>
+  dplyr::mutate(
+    ology_words = sapply(text, function(t)
+      paste(str_extract_all(t, "\\b\\w+ology\\b")[[1]], collapse = ", "))
+  ) |>
+  dplyr::filter(ology_words != "") |>
+  dplyr::select(doc_id, ology_words)
+```
+
+## Counting pattern frequencies {-}
+
+```{r count-patterns}
+# Count occurrences of "grammar" (case-insensitive) per document
+corpus |>
+  dplyr::mutate(
+    n_grammar = str_count(text, regex("grammar", ignore_case = TRUE))
+  ) |>
+  dplyr::select(doc_id, register, n_grammar) |>
+  dplyr::arrange(dplyr::desc(n_grammar))
+```
+
+```{r count-subfields}
+# Count how often each linguistic subfield is mentioned
+subfields <- c("syntax", "morphology", "phonology", "pragmatics", "grammar")
+subfield_counts <- sapply(subfields, function(sf)
+  sum(str_count(corpus$text, regex(sf, ignore_case = TRUE))))
+
+data.frame(subfield = subfields, count = subfield_counts) |>
+  dplyr::arrange(dplyr::desc(count)) |>
+  flextable() |>
+  flextable::set_table_properties(width = .4, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Frequency of linguistic subfield terms in the corpus.") |>
+  flextable::border_outer()
+```
+
+## Text cleaning {-}
+
+Regular expressions are the primary tool for cleaning raw corpus text:
+
+```{r text-clean}
+raw_texts <- c(
+  "   Grammar  is the  system   of a language.   ",
+  "Words like 'cat', 'bat', and 'hat' rhyme!",
+  "Phone: +61-7-3365-1234  |  Email: info@uq.edu.au",
+  "Chapter 4: Syntax (pp. 112--145) — see also §3.2",
+  "The year\t2024\twas notable for advances in NLP."
+)
+
+raw_texts |>
+  # Normalise whitespace (collapse multiple spaces/tabs to one)
+  str_replace_all("\\s+", " ") |>
+  # Remove leading and trailing whitespace
+  str_trim() |>
+  # Remove content in parentheses
+  str_remove_all("\\(.*?\\)") |>
+  # Remove section references (§3.2 etc.)
+  str_remove_all("§\\d+\\.\\d+") |>
+  # Remove em dashes and following spaces
+  str_remove_all("—\\s*") |>
+  # Trim again after removals
+  str_trim()
+```
+
+## Extracting structured information {-}
+
+A powerful application of regex is extracting structured information from free text:
+
+```{r extract-structured}
+# Simulate file names with embedded metadata
+file_names <- c(
+  "speaker01_female_academic_2019.txt",
+  "speaker14_male_news_2021.txt",
+  "speaker07_female_fiction_2020.txt",
+  "speaker23_male_academic_2022.txt"
+)
+
+# Extract each metadata component
+data.frame(
+  filename   = file_names,
+  speaker_id = str_extract(file_names, "speaker\\d+"),
+  gender     = str_extract(file_names, "(?<=_)(female|male)(?=_)"),
+  register   = str_extract(file_names, "(?<=_(female|male)_)\\w+"),
+  year       = str_extract(file_names, "\\d{4}")
+)
+```
+
+## Case-insensitive matching {-}
+
+By default, regex in `stringr` is case-sensitive. Use `regex(..., ignore_case = TRUE)` to match regardless of case:
+
+```{r case-insensitive}
+# Match "Grammar", "GRAMMAR", "grammar" etc.
+str_detect(c("Grammar", "GRAMMAR", "grammar", "GrAmMaR"),
+           regex("grammar", ignore_case = TRUE))
+
+# Extract all mentions of a term regardless of capitalisation
+str_extract_all(et, regex("\\bgrammar\\w*\\b", ignore_case = TRUE))[[1]]
+```
+
+## Regex in `dplyr` pipelines {-}
+
+Regular expressions integrate seamlessly with `dplyr` for filtering and creating new columns:
+
+```{r dplyr-regex}
+corpus |>
+  dplyr::filter(str_detect(text, regex("syntax|morphology", ignore_case = TRUE))) |>
+  dplyr::mutate(
+    primary_topic = str_extract(text,
+      regex("syntax|morphology|phonology|pragmatics|grammar",
+            ignore_case = TRUE)),
+    n_words       = str_count(text, "\\S+"),
+    has_definition = str_detect(text, "\\bis\\b|\\bdeals with\\b|\\bexamines\\b")
+  ) |>
+  dplyr::select(doc_id, register, primary_topic, n_words, has_definition)
+```
+
+---
+
+::: {.callout-tip}
+## Exercises: Practical Applications
+:::
+
+**Q1. What regular expression would you use to extract all words that contain at least one digit (e.g., "A4", "mp3", "COVID-19")?**
+
+```{r}
+#| echo: false
+#| label: "PRAC_Q1"
+check_question("\\\\w*\\\\d\\\\w* — a word character sequence containing at least one digit",
+               options = c(
+                 "\\\\w*\\\\d\\\\w* — a word character sequence containing at least one digit",
+                 "\\\\d+ — one or more digits",
+                 "[0-9] — a single digit",
+                 "\\\\b\\\\d\\\\b — a word boundary around a single digit"
+               ),
+               type = "radio",
+               q_id = "PRAC_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! \\w*\\d\\w* matches: zero or more word characters (\\w*), then at least one digit (\\d), then zero or more word characters (\\w*). This captures tokens like 'A4', 'mp3', 'COVID-19' (hyphen aside). The plain \\d+ would extract only the digit sequence, not the surrounding letters.",
+               wrong = "You need a pattern that matches the whole token (letters + digits), not just the digit itself. What pattern matches a sequence of word characters that includes at least one digit?")
+```
+
+**Q2. You want to extract the domain name from email addresses (the part after `@` and before the final `.`). Which regex extracts `uq` from `user@uq.edu.au`?**
+
+```{r}
+#| echo: false
+#| label: "PRAC_Q2"
+check_question("(?<=@)[\\w.]+(?=\\.\\w+$) — a lookbehind for @ and lookahead for the final .extension",
+               options = c(
+                 "(?<=@)[\\w.]+(?=\\.\\w+$) — a lookbehind for @ and lookahead for the final .extension",
+                 "@\\w+ — the @ sign followed by word characters",
+                 "\\w+\\.[\\w.]+ — word characters and dots after the @",
+                 "\\w+(?=\\.edu|\\.com|\\.org) — lookahead for known domain suffixes"
+               ),
+               type = "radio",
+               q_id = "PRAC_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! (?<=@) is a positive lookbehind requiring @ immediately before the match. [\\w.]+ matches word characters and dots (the full domain like 'uq.edu'). (?=\\.\\w+$) is a positive lookahead requiring a dot followed by word characters at the end of the string ('.au'). The lookbehind and lookahead ensure we are positioned correctly without including @ or the final extension in the match.",
+               wrong = "Think about lookahead and lookbehind: how can you match the content between @ and the last .extension without including the @ or the extension in the match?")
+```
+
+**Q3. What does `str_replace_all(text, \"(\\\\w+) and (\\\\w+)\", \"\\\\2 and \\\\1\")` do?**
+
+```{r}
+#| echo: false
+#| label: "PRAC_Q3"
+check_question("It swaps the two words on either side of 'and', using backreferences \\\\1 and \\\\2 to refer to the captured groups",
+               options = c(
+                 "It swaps the two words on either side of 'and', using backreferences \\\\1 and \\\\2 to refer to the captured groups",
+                 "It removes the word 'and' and joins the surrounding words",
+                 "It replaces every occurrence of 'and' with \\\\2 and \\\\1 literally",
+                 "It matches only if there are exactly two words separated by 'and'"
+               ),
+               type = "radio",
+               q_id = "PRAC_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! The pattern (\\w+) and (\\w+) captures two words in groups 1 and 2. The replacement \\2 and \\1 puts them back in reverse order. So 'cats and dogs' becomes 'dogs and cats'. Backreferences in str_replace_all() replacements use \\1, \\2, etc. to refer to what was captured in the corresponding group.",
+               wrong = "The parentheses () create capturing groups numbered left to right. In the replacement string, \\1 inserts what group 1 captured, and \\2 inserts what group 2 captured. What does reversing their order do?")
+```
+
+---
+
+# Corpus Search Exercises {#exercises}
+
+::: {.callout-note}
+## Section Overview
+
+**Ten practical exercises covering the most common corpus-search regex tasks.**
+
+Each question asks you to identify the correct regular expression for a realistic search task on a tokenised text vector. All answers use `stringr::str_detect()` applied to a character vector called `text`.
+:::
+
+```{r exercise-setup, echo=FALSE}
+text <- c(
+  "Walking", "walked", "walks", "walk", "walker",
+  "ungrammatical", "unusual", "undo", "Unknown",
+  "The", "year", "2024", "saw", "COVID-19",
+  "well-being", "self-aware", "long-term",
+  "London", "Paris", "Grammar", "Syntax",
+  "agreement", "book", "feet", "see", "moon",
+  "running", "working", "thinking", "helping",
+  "cat@uq.edu.au", "info@ladal.edu.au",
+  "Where", "are", "you?", "What", "is", "this?",
+  "mp3", "A4", "type2"
+)
+```
+
+**Q1. Which regex extracts all forms of *walk* from a tokenised text (walk, walks, walked, walking, walker)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q1"
+check_question('\\\\bwalk\\\\w*\\\\b — word boundary + "walk" + zero or more word characters',
+               options = c(
+                 '\\\\bwalk\\\\w*\\\\b — word boundary + "walk" + zero or more word characters',
+                 '"walk" — a plain literal match',
+                 '"walk.*" — "walk" followed by any characters',
+                 '"[Ww]alk" — capital or lowercase W followed by alk'
+               ),
+               type = "radio",
+               q_id = "EX_Q1",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\bwalk\\w*\\b matches the literal string "walk" at a word boundary, followed by zero or more word characters (\\w*), up to the next word boundary. This captures walk, walks, walked, walking, walker, and any other form beginning with "walk".',
+               wrong = 'You need a pattern that starts with "walk" and captures any suffix (s, ed, ing, er, ...). Which pattern anchors to word boundaries and allows zero or more following word characters?')
+```
+
+**Q2. Which regex extracts all words beginning with "un" (e.g., *ungrammatical*, *unusual*, *undo*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q2"
+check_question('\\\\b[Uu]n\\\\w+ — word boundary + "un" (case-flexible) + one or more word characters',
+               options = c(
+                 '\\\\b[Uu]n\\\\w+ — word boundary + "un" (case-flexible) + one or more word characters',
+                 '"un" — matches any token containing "un" anywhere',
+                 '"^un" — anchors to string start (works on single tokens)',
+                 '"\\\\bun" — word boundary before "un" with no suffix requirement'
+               ),
+               type = "radio",
+               q_id = "EX_Q2",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\b[Uu]n\\w+ matches: a word boundary (\\b), then "un" or "Un", then one or more word characters (\\w+). The \\w+ ensures we match a word that continues beyond "un" — avoiding matching the standalone token "un". The [Uu] handles both "ungrammatical" and "Unknown".',
+               wrong = 'What pattern starts at a word boundary, matches the prefix "un", and then requires at least one more character to follow?')
+```
+
+**Q3. Which regex finds all numeric tokens (whole numbers like *2024*, *42*, *100*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q3"
+check_question('\\\\b\\\\d+\\\\b — word boundaries around one or more digits',
+               options = c(
+                 '\\\\b\\\\d+\\\\b — word boundaries around one or more digits',
+                 '"[0-9]" — matches a single digit anywhere in the token',
+                 '"\\\\d" — matches a single digit',
+                 '"\\\\d*" — zero or more digits (matches every string)'
+               ),
+               type = "radio",
+               q_id = "EX_Q3",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\b\\d+\\b matches one or more digits (\\d+) as a complete token (word boundaries on both sides). This matches "2024", "42", "100" but not "COVID-19" or "mp3". Use \\d+ without boundaries if you want digit sequences embedded in mixed tokens.',
+               wrong = 'You need to match a complete numeric token — all digits, nothing else. Which pattern uses \\d and word boundaries correctly?')
+```
+
+**Q4. Which regex extracts all words ending in *-ing* (e.g., *running*, *working*, *thinking*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q4"
+check_question('\\\\b\\\\w+ing\\\\b — one or more word characters followed by "ing" at a word boundary',
+               options = c(
+                 '\\\\b\\\\w+ing\\\\b — one or more word characters followed by "ing" at a word boundary',
+                 '"ing$" — "ing" at the end of the string (works on single tokens)',
+                 '".*ing" — any characters followed by "ing"',
+                 '"[ing]" — any of the characters i, n, or g'
+               ),
+               type = "radio",
+               q_id = "EX_Q4",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\b\\w+ing\\b matches: a word boundary, one or more word characters (\\w+ ensures there is a stem before the suffix), then "ing", then a word boundary. This captures running, walking, thinking, helping. On a tokenised vector, "ing$" (anchoring to string end) works equally well.',
+               wrong = 'You need a pattern that ends with "ing" and has a word boundary after it. What ensures there is also a stem before the suffix?')
+```
+
+**Q5. Which regex matches email addresses (e.g., *cat\@uq.edu.au*, *info\@ladal.edu.au*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q5"
+check_question('"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}" — local part + @ + domain + TLD',
+               options = c(
+                 '"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}" — local part + @ + domain + TLD',
+                 '"\\\\w+@\\\\w+" — word characters on both sides of @',
+                 '"@" — any token containing the @ symbol',
+                 '"\\\\S+@\\\\S+" — non-whitespace characters around @'
+               ),
+               type = "radio",
+               q_id = "EX_Q5",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! The full email pattern [A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,} captures: the local part (letters, digits, dots, underscores, %, +, -), the @ symbol, the domain, a literal dot, and a top-level domain of at least 2 letters. Simpler patterns like \\w+@\\w+ miss dots and hyphens in domains.',
+               wrong = 'An email address has three structural components: a local part, the @ symbol, and a domain with a top-level domain. Which pattern captures all three correctly?')
+```
+
+**Q6. Which regex identifies tokens that contain at least one digit mixed with letters (e.g., *mp3*, *A4*, *COVID-19*, *type2*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q6"
+check_question('"\\\\w*\\\\d\\\\w*" — word characters, then a digit, then word characters',
+               options = c(
+                 '"\\\\w*\\\\d\\\\w*" — word characters, then a digit, then word characters',
+                 '"\\\\d+" — one or more digits (matches pure numbers too)',
+                 '"[a-z]\\\\d" — a letter followed immediately by a digit',
+                 '"\\\\b\\\\d\\\\b" — a digit as a complete token'
+               ),
+               type = "radio",
+               q_id = "EX_Q6",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\w*\\d\\w* matches zero or more word characters, then at least one digit, then zero or more word characters. This captures mp3, A4, and type2. Note it also matches pure numbers like "2024" — if you want to exclude those, use [a-zA-Z]\\w*\\d|\\d\\w*[a-zA-Z] to require at least one letter AND one digit.',
+               wrong = 'You need a token that contains both letters and at least one digit. Which pattern allows word characters before AND after a digit, with zero or more letters on either side?')
+```
+
+**Q7. Which regex extracts hyphenated compound words (e.g., *well-being*, *self-aware*, *long-term*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q7"
+check_question('"\\\\b\\\\w+-\\\\w+\\\\b" — word characters, hyphen, word characters within word boundaries',
+               options = c(
+                 '"\\\\b\\\\w+-\\\\w+\\\\b" — word characters, hyphen, word characters within word boundaries',
+                 '"-" — any token containing a hyphen',
+                 '"\\\\w-\\\\w" — one word character, hyphen, one word character',
+                 '"[a-z]-[a-z]" — a lowercase letter, hyphen, lowercase letter'
+               ),
+               type = "radio",
+               q_id = "EX_Q7",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\b\\w+-\\w+\\b matches: a word boundary, one or more word characters (the first element), a literal hyphen, one or more word characters (the second element), a word boundary. This captures well-being, self-aware, long-term. For multi-part compounds like "mother-in-law", extend to \\w+(-\\w+)+.',
+               wrong = 'A hyphenated word has one or more word characters before the hyphen and one or more after. Which pattern captures full word elements (not just single characters) on both sides?')
+```
+
+**Q8. Which regex finds capitalised tokens — words beginning with an uppercase letter followed by lowercase letters (e.g., proper nouns like *London*, *Paris*, *Grammar*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q8"
+check_question('"\\\\b[A-Z][a-z]+\\\\b" — uppercase first letter followed by one or more lowercase letters',
+               options = c(
+                 '"\\\\b[A-Z][a-z]+\\\\b" — uppercase first letter followed by one or more lowercase letters',
+                 '"[A-Z]" — any uppercase letter anywhere in the token',
+                 '"[A-Z]+" — one or more uppercase letters (matches ALL-CAPS too)',
+                 '"^[A-Z]" — string starting with uppercase (same as \\\\b[A-Z] on tokens)'
+               ),
+               type = "radio",
+               q_id = "EX_Q8",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! \\b[A-Z][a-z]+\\b matches: a word boundary, one uppercase letter, one or more lowercase letters, a word boundary. This matches London, Paris, Grammar, Syntax — title-case words. It excludes ALL-CAPS tokens like "NLP" or "COVID". Note: at sentence boundaries, even non-proper nouns are capitalised; for proper-noun detection you would need additional context filtering.',
+               wrong = 'You want Title Case: one uppercase letter at the start, then lowercase letters. Which pattern enforces both the case of the first character and the case of those that follow?')
+```
+
+**Q9. Which regex finds tokens that are questions ending with a question mark (e.g., *you?*, *this?*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q9"
+check_question('"\\\\?" — matches any token ending in a literal question mark (on a tokenised vector)',
+               options = c(
+                 '"\\\\?" — matches any token ending in a literal question mark (on a tokenised vector)',
+                 '"?" — zero or one of the preceding element (quantifier, not literal)',
+                 '".*\\\\?$" — any characters followed by ? at string end',
+                 '"\\\\?$" — a question mark at the end of the string'
+               ),
+               type = "radio",
+               q_id = "EX_Q9",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! On a tokenised vector, \\? detects any token containing a literal question mark. Since ? is a quantifier in regex, it must be escaped as \\? to match the literal character. \\?$ is equally correct — it anchors the ? to the end of the string. .*\\?$ works too and is the most explicit form. The unescaped "?" alone is a regex quantifier meaning "zero or one of the preceding element".',
+               wrong = 'The question mark has special meaning in regex (it is a quantifier). How do you match a LITERAL question mark character?')
+```
+
+**Q10. Which regex finds tokens containing double vowels (e.g., *agreement*, *book*, *see*, *moon*)?**
+
+```{r}
+#| echo: false
+#| label: "EX_Q10"
+check_question('"[aeiouAEIOU]{2}" — two consecutive vowels (case-insensitive vowel class, quantified)',
+               options = c(
+                 '"[aeiouAEIOU]{2}" — two consecutive vowels (case-insensitive vowel class, quantified)',
+                 '"[aeiou][aeiou]" — same as above but written out explicitly',
+                 '"[aeiou]+" — one or more vowels (also matches single vowels)',
+                 '"(aa|ee|ii|oo|uu)" — only identical vowel pairs'
+               ),
+               type = "radio",
+               q_id = "EX_Q10",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = 'Correct! [aeiouAEIOU]{2} matches any two consecutive vowels (same or different: "oo", "ea", "ai", "ou"). Both [aeiouAEIOU]{2} and [aeiou][aeiou] are correct — the {2} form is more compact and easier to extend to {3} or {2,}. [aeiou]+ also matches double vowels but would return TRUE for any vowel at all. (aa|ee|ii|oo|uu) only matches identical doubled vowels, missing "ea", "ou", "ai".',
+               wrong = 'You want exactly two consecutive vowel characters. A vowel character class covers [aeiou]. What quantifier specifies exactly two occurrences?')
+```
+
+---
+
+# Quick Reference {#reference}
+
+::: {.callout-note}
+## Section Overview
+
+**A compact reference for the most commonly used regex elements in R.**
+:::
+
+## Pattern summary table {-}
+
+```{r ref-table, echo=FALSE}
+data.frame(
+  Pattern = c(
+    ".", "^", "$", "\\\\b", "\\\\B",
+    "[abc]", "[^abc]", "[a-z]", "[[:alpha:]]", "[[:digit:]]", "[[:punct:]]",
+    "*", "+", "?", "{n}", "{n,}", "{n,m}",
+    "*?", "+?", "{n,m}?",
+    "(abc)", "(?:abc)", "a|b",
+    "\\\\w", "\\\\d", "\\\\s",
+    "\\\\W", "\\\\D", "\\\\S",
+    "(?=...)", "(?!...)", "(?<=...)", "(?<!...)"
+  ),
+  Meaning = c(
+    "Any character except newline",
+    "Start of string / line",
+    "End of string / line",
+    "Word boundary",
+    "Non-word boundary",
+    "One of: a, b, or c",
+    "Not a, b, or c",
+    "Lowercase letter",
+    "Any letter",
+    "Any digit",
+    "Any punctuation",
+    "0 or more (greedy)",
+    "1 or more (greedy)",
+    "0 or 1 — optional (greedy)",
+    "Exactly n times",
+    "n or more times (greedy)",
+    "Between n and m times (greedy)",
+    "0 or more (lazy)",
+    "1 or more (lazy)",
+    "Between n and m times (lazy)",
+    "Capturing group",
+    "Non-capturing group",
+    "a or b",
+    "Word character [a-zA-Z0-9_]",
+    "Digit [0-9]",
+    "Whitespace",
+    "Non-word character",
+    "Non-digit",
+    "Non-whitespace",
+    "Positive lookahead",
+    "Negative lookahead",
+    "Positive lookbehind",
+    "Negative lookbehind"
+  )
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Quick reference: regular expression patterns in R (lazy quantifiers added).") |>
+  flextable::border_outer()
+```
+
+## `stringr` function summary {-}
+
+```{r fn-table, echo=FALSE}
+data.frame(
+  Function = c(
+    "str_detect(x, p)",
+    "str_count(x, p)",
+    "str_extract(x, p)",
+    "str_extract_all(x, p)",
+    "str_replace(x, p, r)",
+    "str_replace_all(x, p, r)",
+    "str_remove(x, p)",
+    "str_remove_all(x, p)",
+    "str_split(x, p)",
+    "str_locate(x, p)",
+    "str_locate_all(x, p)",
+    "str_starts(x, p)",
+    "str_ends(x, p)"
+  ),
+  Returns = c(
+    "logical vector — does p match?",
+    "integer vector — how many matches?",
+    "character vector — first match (NA if none)",
+    "list of character vectors — all matches",
+    "character vector — first match replaced",
+    "character vector — all matches replaced",
+    "character vector — first match removed",
+    "character vector — all matches removed",
+    "list of character vectors — parts between matches",
+    "integer matrix — start and end of first match",
+    "list of integer matrices — all match positions",
+    "logical — does x start with p?",
+    "logical — does x end with p?"
+  )
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Key stringr functions for use with regular expressions.") |>
+  flextable::border_outer()
+```
+
+---
+
+# Citation & Session Info {.unnumbered}
+
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
+```
+:::
+
+
+
+```{r fin}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was revised and restyled with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. All changes were reviewed and approved by Martin Schweinberger, who takes full responsibility for the tutorial's accuracy.
+:::
+
+---
+
+[Back to top](#intro)
+
+[Back to HOME](/index.html)
+
+---
+
+# References {.unnumbered}

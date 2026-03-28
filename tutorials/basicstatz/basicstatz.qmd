@@ -1,11 +1,21 @@
 ---
 title: "Basic Inferential Statistics using R"
 author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:       "Basic Inferential Statistics using R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:     "2026.03.28"
+  url:         "https://ladal.edu.au/tutorials/basicstatz/basicstatz.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  doi:         ""
 format:
   html:
     toc: true
     toc-depth: 4
     code-fold: show
+    code-tools: true
     theme: cosmo
 ---
 
@@ -30,13 +40,30 @@ options("scipen" = 100, "digits" = 12)
 
 # Introduction {#intro}
 
-This tutorial introduces **basic inferential statistics** — the methods we use to draw conclusions about populations based on samples, test hypotheses, and quantify the strength and significance of relationships in data. Where [descriptive statistics](/tutorials/dstats/dstats.html) summarise *what we observe*, inferential statistics allow us to reason about *what we cannot directly observe*: the patterns and relationships that exist in the broader population our data represent.
-
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **basic inferential statistics** — the methods we use to draw conclusions about populations based on samples, test hypotheses, and quantify the strength and significance of relationships in data. Where [descriptive statistics](/tutorials/dstats/dstats.html) summarise *what we observe*, inferential statistics allow us to reason about *what we cannot directly observe*: the patterns and relationships that exist in the broader population our data represent.
 
 Inferential statistics provide an indispensable framework for empirical research in linguistics and the humanities. They help us determine whether an observed difference between groups (e.g., native speakers vs. learners) is likely to reflect a genuine population-level difference or whether it could plausibly have arisen by chance. They also help us quantify the strength of associations, assess the reliability of our estimates, and communicate uncertainty honestly.
 
 This tutorial is aimed at **beginners and intermediate R users**. The goal is not to provide a fully comprehensive treatment of statistics but to introduce and exemplify the most commonly used inferential tests in linguistics research, covering both their conceptual foundations and their implementation in R.
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain the logic of null hypothesis significance testing (NHST) and correctly interpret p-values and effect sizes
+2. Check parametric assumptions visually (histograms, Q-Q plots) and formally (Shapiro-Wilk, Levene's test)
+3. Compute and interpret skewness and kurtosis
+4. Decide between parametric and non-parametric tests based on data characteristics
+5. Apply paired and independent t-tests in R and extract Cohen's *d* as an effect size
+6. Apply Fisher's Exact Test, Mann-Whitney U, Wilcoxon signed rank, Kruskal-Wallis, and Friedman tests
+7. Perform Pearson's χ² test and compute phi or Cramér's V as effect sizes
+8. Apply chi-square extensions for 2×k and z×k sub-tables
+9. Conduct Configural Frequency Analysis (CFA) and Hierarchical CFA (HCFA)
+10. Report inferential statistics in APA style with test statistics, degrees of freedom, p-values, and effect sizes
+:::
 
 ::: {.callout-note}
 ## Prerequisite Tutorials
@@ -53,27 +80,29 @@ Before working through this tutorial, we recommend familiarity with the followin
 - [Handling Tables in R](/tutorials/table/table.html)
 :::
 
-<br>
+::: {.callout-note}
+## Citation
 
-::: {.callout-tip}
-## What This Tutorial Covers
-
-1. **Checking assumptions** — visual inspection, skewness, kurtosis, Shapiro-Wilk, Levene's test
-2. **Parametric tests** — paired and independent t-tests with effect sizes
-3. **Simple linear regression** — a brief introduction and pointer to the full tutorial
-4. **Non-parametric tests** — Fisher's Exact Test, Mann-Whitney U, Wilcoxon signed rank, Kruskal-Wallis, Friedman
-5. **Chi-square tests** — Pearson's χ², extensions for 2×k and z×k tables, CFA and HCFA
-6. **Reporting standards** — model paragraphs and reporting conventions
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  sep = ""
+)
+```
 :::
 
 ---
 
 ## Preparation and Session Set-up {-}
 
-This tutorial requires several R packages. If you have not yet installed them, run the code below. This only needs to be done once.
+Install required packages once:
 
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# install packages
+```{r prep1, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 install.packages("dplyr")
 install.packages("ggplot2")
 install.packages("tidyr")
@@ -88,10 +117,9 @@ install.packages("report")
 install.packages("checkdown")
 ```
 
-Once installed, load the packages:
+Load packages for this session:
 
-```{r qq01, message=F, warning=F}
-# load packages
+```{r load-packages, message=FALSE, warning=FALSE}
 library(dplyr)       # data processing
 library(ggplot2)     # data visualisation
 library(tidyr)       # data transformation
@@ -106,26 +134,17 @@ library(report)      # automated result summaries
 library(checkdown)   # interactive exercises
 ```
 
-We also load the sample datasets used throughout this tutorial:
+Load the sample datasets used throughout this tutorial:
 
-```{r data, message=F, warning=F}
-# data for independent t-test
+```{r load-data, message=FALSE, warning=FALSE}
 itdata  <- base::readRDS("tutorials/basicstatz/data/itdata.rda", "rb")
-# data for paired t-test
 ptdata  <- base::readRDS("tutorials/basicstatz/data/ptdata.rda", "rb")
-# data for Fisher's Exact test
 fedata  <- base::readRDS("tutorials/basicstatz/data/fedata.rda", "rb")
-# data for Mann-Whitney U test
 mwudata <- base::readRDS("tutorials/basicstatz/data/mwudata.rda", "rb")
-# data for Wilcoxon test
 uhmdata <- base::readRDS("tutorials/basicstatz/data/uhmdata.rda", "rb")
-# data for Friedman test
 frdata  <- base::readRDS("tutorials/basicstatz/data/frdata.rda", "rb")
-# data for χ² test
 x2data  <- base::readRDS("tutorials/basicstatz/data/x2data.rda", "rb")
-# data for χ² extensions
 x2edata <- base::readRDS("tutorials/basicstatz/data/x2edata.rda", "rb")
-# multi-purpose data
 mdata   <- base::readRDS("tutorials/basicstatz/data/mdata.rda", "rb")
 ```
 
@@ -133,7 +152,11 @@ mdata   <- base::readRDS("tutorials/basicstatz/data/mdata.rda", "rb")
 
 # Inferential Logic: From Sample to Population {#logic}
 
-Before turning to specific tests, it is worth understanding what inferential statistics actually do.
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The conceptual foundation of inferential statistics — what a p-value actually means, how NHST works, and why effect sizes are essential alongside significance tests.
+:::
 
 When we collect data in linguistics — a corpus, an experiment, a survey — we almost never observe the entire population of interest. Instead, we work with a **sample**: a subset of the population we hope is representative. Inferential statistics provide the tools to reason from the sample to the population under conditions of uncertainty.
 
@@ -146,7 +169,7 @@ The dominant framework for this reasoning is **null hypothesis significance test
 5. If p falls below a pre-specified **significance threshold** (typically α = .05), we **reject H₀** in favour of H₁.
 
 ::: {.callout-important}
-## Common Misconceptions About p-values
+## Common misconceptions about p-values
 
 The p-value is one of the most frequently misinterpreted statistics in all of science. It is **not**:
 
@@ -161,7 +184,7 @@ Always report effect sizes alongside p-values.
 :::
 
 ::: {.callout-note}
-## Parametric vs. Non-parametric Tests
+## Parametric vs. non-parametric tests
 
 Tests can be broadly divided into two families:
 
@@ -180,11 +203,11 @@ The choice between parametric and non-parametric tests depends on whether parame
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** How to assess whether your data meet the assumptions required for parametric tests
+**What you will learn:** How to assess whether your data meet the assumptions required for parametric tests.
 
 **Key methods:** Visual inspection (histograms, Q-Q plots), skewness, kurtosis, Shapiro-Wilk test, Levene's test
 
-**Why it matters:** Using a parametric test on data that violate its assumptions can produce misleading results
+**Why it matters:** Using a parametric test on data that violate its assumptions can produce misleading results.
 :::
 
 The most important assumptions for parametric tests are:
@@ -192,39 +215,39 @@ The most important assumptions for parametric tests are:
 1. **Normality**: The errors (residuals) within each group are approximately normally distributed
 2. **Homogeneity of variances** (homoskedasticity): The variances of the groups are approximately equal
 
-We illustrate assumption checking with word count data from a sample corpus. We extract 100 utterances from men and 100 from women.
+We illustrate assumption checking with word count data from a sample corpus, extracting 100 utterances from men and 100 from women.
 
-```{r assdat01, message=F, warning=F}
-ndata <- mdata %>%
-  dplyr::rename(Gender = sex, Words = word.count) %>%
-  dplyr::select(Gender, Words) %>%
-  dplyr::filter(!is.na(Words), !is.na(Gender)) %>%
-  dplyr::group_by(Gender) %>%
+```{r assdat01, message=FALSE, warning=FALSE}
+ndata <- mdata |>
+  dplyr::rename(Gender = sex, Words = word.count) |>
+  dplyr::select(Gender, Words) |>
+  dplyr::filter(!is.na(Words), !is.na(Gender)) |>
+  dplyr::group_by(Gender) |>
   dplyr::sample_n(100)
 ```
 
-```{r assdat02, echo = F, message=F, warning=F}
-ndata %>%
-  head(10) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First ten rows of the word count data.") %>%
+```{r assdat02, echo=FALSE, message=FALSE, warning=FALSE}
+ndata |>
+  head(10) |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "First ten rows of the word count data.") |>
   flextable::border_outer()
 ```
 
 ---
 
-## Visual Inspection {-}
+## Visual inspection {-}
 
 ### Histograms {-}
 
 Histograms with density curves give an immediate impression of the distribution shape. A normally distributed variable should produce a symmetric, bell-shaped histogram.
 
-```{r ass02, message=F, warning=F}
+```{r hist-normality, message=FALSE, warning=FALSE}
 ggplot(ndata, aes(x = Words)) +
   facet_grid(~Gender) +
   geom_histogram(aes(y = after_stat(density)), bins = 20,
@@ -236,13 +259,13 @@ ggplot(ndata, aes(x = Words)) +
   theme(panel.grid.minor = element_blank())
 ```
 
-The strong right skew in both groups suggests that the word count data are non-normal — a very common pattern in linguistic data, where a few very long utterances dominate the upper tail.
+The strong right skew in both groups suggests non-normality — a very common pattern in linguistic data, where a few very long utterances dominate the upper tail.
 
-### Quantile-Quantile Plots {-}
+### Quantile-quantile plots {-}
 
 A **Q-Q plot** compares the quantiles of the observed data against quantiles expected from a normal distribution. If the data are normal, points fall along the diagonal reference line. Departures from the line — especially systematic curves — indicate non-normality.
 
-```{r ass03, message=F, warning=F}
+```{r qq-plots, message=FALSE, warning=FALSE}
 ggplot(ndata, aes(sample = Words)) +
   facet_grid(~Gender) +
   geom_qq(color = "steelblue", alpha = 0.7) +
@@ -257,24 +280,24 @@ The upward curve at the right tail confirms positive skew (a longer-than-normal 
 
 ---
 
-## Statistical Measures: Skewness and Kurtosis {-}
+## Statistical measures: skewness and kurtosis {-}
 
 ### Skewness {-}
 
-**Skewness** measures the asymmetry of a distribution. In a perfectly symmetric distribution, skewness = 0. When the tail extends to the right (positive values), we have *positive* (or right) skew; when it extends to the left (negative values), we have *negative* (or left) skew.
+**Skewness** measures the asymmetry of a distribution. In a perfectly symmetric distribution, skewness = 0. When the tail extends to the right, we have *positive* (right) skew; when it extends to the left, we have *negative* (left) skew.
 
-```{r skewness, echo = F, warning=F, message=F}
+```{r skewness-plot, echo=FALSE, warning=FALSE, message=FALSE}
 set.seed(42)
-skew <- data.frame(rbeta(1000000, 10, 2)) %>%
-  mutate(
+skew <- data.frame(rbeta(1000000, 10, 2)) |>
+  dplyr::mutate(
     pskew = rbeta(1000000, 2, 10),
     nrm   = rbeta(1000000, 10, 10)
-  ) %>%
+  ) |>
   dplyr::rename(nskew = 1, pskew = 2, nrm = 3)
 
 ggplot(skew, aes(x = nskew)) +
   geom_density(fill = "lightgreen", alpha = .5, color = "lightgreen") +
-  geom_density(aes(x = pskew), fill = "orange", alpha = .5, color = "orange") +
+  geom_density(aes(x = pskew), fill = "orange",    alpha = .5, color = "orange") +
   geom_density(aes(x = nrm),   fill = "lightgray", alpha = .5, color = "lightgray") +
   theme_bw() +
   theme(legend.position = "none") +
@@ -283,28 +306,24 @@ ggplot(skew, aes(x = nskew)) +
   theme(panel.grid.minor = element_blank())
 ```
 
-As a rule of thumb, skewness values outside the range [−1, +1] indicate substantial skew that may violate parametric assumptions [@hair2017dist].
+As a rule of thumb, skewness values outside the range [−1, +1] indicate substantial skew that may violate parametric assumptions.
 
-We extract the word counts for women and test their skewness:
-
-```{r skew03, message=F, warning=F}
-words_women <- ndata %>%
-  dplyr::filter(Gender == "female") %>%
+```{r words-women, message=FALSE, warning=FALSE}
+words_women <- ndata |>
+  dplyr::filter(Gender == "female") |>
   dplyr::pull(Words)
-```
 
-```{r calskew1, warning=F, message=F}
 summary(words_women)
 ```
 
-The mean is considerably larger than the median, confirming positive skew. We quantify this using the `skewness()` function from the `e1071` package:
+The mean is considerably larger than the median, confirming positive skew. We quantify it using the `skewness()` function from the `e1071` package:
 
-```{r skew04, message=F, warning=F}
+```{r calc-skewness, message=FALSE, warning=FALSE}
 e1071::skewness(words_women, type = 2)
 ```
 
 ::: {.callout-note}
-## Interpreting Skewness Values
+## Interpreting skewness values
 
 | Skewness | Interpretation |
 |---|---|
@@ -323,18 +342,18 @@ Positive skewness means the distribution leans left (the *tail* points right). N
 - **Leptokurtic**: Taller peak and heavier tails than normal (excess kurtosis > 0)
 - **Platykurtic**: Flatter peak and thinner tails than normal (excess kurtosis < 0)
 
-```{r kurtosis, echo = F, warning=F, message=F}
-kur <- data.frame(x = seq(-4, 4, length.out = 100)) %>%
-  mutate(
-    lep    = dt(x, 1)^2 * 5,
-    nrm    = dnorm(x),
-    thk    = dt(x, 1)
+```{r kurtosis-plot, echo=FALSE, warning=FALSE, message=FALSE}
+kur <- data.frame(x = seq(-4, 4, length.out = 100)) |>
+  dplyr::mutate(
+    lep = dt(x, 1)^2 * 5,
+    nrm = dnorm(x),
+    thk = dt(x, 1)
   )
 
 ggplot(kur, aes(x = x)) +
-  geom_ribbon(aes(x = x, ymax = lep),    ymin = 0, alpha = 0.5, fill = "orange") +
-  geom_ribbon(aes(x = x, ymax = nrm),    ymin = 0, alpha = 0.5, fill = "lightgray") +
-  geom_ribbon(aes(x = x, ymax = thk),    ymin = 0, alpha = 0.5, fill = "lightgreen") +
+  geom_ribbon(aes(x = x, ymax = lep), ymin = 0, alpha = 0.5, fill = "orange") +
+  geom_ribbon(aes(x = x, ymax = nrm), ymin = 0, alpha = 0.5, fill = "lightgray") +
+  geom_ribbon(aes(x = x, ymax = thk), ymin = 0, alpha = 0.5, fill = "lightgreen") +
   theme_bw() +
   labs(title = "Leptokurtic (orange) | Mesokurtic/normal (gray) | Platykurtic (green)",
        x = "", y = "Density") +
@@ -347,55 +366,55 @@ ggplot(kur, aes(x = x)) +
   coord_cartesian(xlim = c(-4, 4), ylim = c(0, .5))
 ```
 
-```{r skew05, message=F, warning=F}
+```{r calc-kurtosis, message=FALSE, warning=FALSE}
 e1071::kurtosis(words_women)
 ```
 
-A kurtosis value above 1 indicates the distribution is leptokurtic (too peaked); below −1 indicates platykurtic (too flat) [@hair2017dist].
+A kurtosis value above 1 indicates leptokurtosis (too peaked); below −1 indicates platykurtosis (too flat).
 
 ---
 
-## Formal Tests of Assumptions {-}
+## Formal tests of assumptions {-}
 
-### Shapiro-Wilk Test {-}
+### Shapiro-Wilk test {-}
 
-The **Shapiro-Wilk test** formally tests H₀: "the data are normally distributed." If the p-value is greater than .05, we cannot reject normality; if below .05, the data deviate significantly from a normal distribution.
+The **Shapiro-Wilk test** formally tests H₀: "the data are normally distributed." A p-value greater than .05 means we cannot reject normality; a p-value below .05 indicates significant departure from normality.
 
 ::: {.callout-warning}
-## Shapiro-Wilk: Limitations
+## Shapiro-Wilk: limitations
 
 The Shapiro-Wilk test is sensitive to sample size:
 
-- **Small samples** (n < 50): The test has low power and may fail to detect non-normality that genuinely exists
-- **Large samples** (n > 200): The test becomes overly strict and flags trivially small deviations as "significant"
+- **Small samples** (n < 50): Low power — may fail to detect genuine non-normality
+- **Large samples** (n > 200): Overly strict — flags trivially small deviations as significant
 
 Always use the Shapiro-Wilk test alongside visual inspection, not as the sole criterion.
 :::
 
-```{r shapiro2, message=F, warning=F}
+```{r shapiro-test, message=FALSE, warning=FALSE}
 shapiro.test(words_women)
 ```
 
-The test confirms significant departure from normality (W = 0.79, p < .001). This suggests a non-parametric test may be more appropriate for these data.
+The test confirms significant departure from normality (W = 0.79, p < .001), suggesting a non-parametric test may be more appropriate.
 
-### Levene's Test {-}
+### Levene's test {-}
 
-The **Levene's test** tests H₀: "the variances of the groups are equal" (homoskedasticity). Unequal variances — heteroskedasticity — suggest that some unmeasured variable is influencing the dependent variable differently across groups, which can undermine the reliability of parametric tests.
+The **Levene's test** tests H₀: "the variances of the groups are equal" (homoskedasticity). Unequal variances can undermine the reliability of parametric tests that assume equal group variances.
 
-```{r levene, message=F, warning=F}
+```{r levene-test, message=FALSE, warning=FALSE}
 lawstat::levene.test(mdata$word.count, mdata$sex)
 ```
 
-A p-value > .05 means we cannot reject homoskedasticity. Here (W ≈ 0.005, p = .944), the variances of men and women are approximately equal.
+Here (W ≈ 0.005, p = .944), the variances of men and women are approximately equal — we cannot reject homoskedasticity.
 
 ::: {.callout-tip}
-## Deciding Between Parametric and Non-parametric Tests
+## Deciding between parametric and non-parametric tests
 
 Use this decision tree:
 
 1. Is the dependent variable numeric (interval or ratio scale)? **No** → non-parametric
 2. Are the residuals within each group approximately normal? **No** → consider non-parametric
-3. Are the variances approximately equal? **No** → consider Welch's t-test (parametric but robust to unequal variances) or non-parametric
+3. Are the variances approximately equal? **No** → consider Welch's t-test or non-parametric
 
 When in doubt, run both and compare conclusions. If they agree, the violation may not be consequential. If they disagree, prefer the non-parametric result.
 :::
@@ -426,8 +445,6 @@ check_question("Right skew — the upper tail is longer than a normal distributi
                wrong = "Focus on which end of the Q-Q plot deviates. An upward curve at the right end means the upper tail is longer than expected under normality — which direction of skew is that?")
 ```
 
----
-
 **Q2. A Shapiro-Wilk test returns W = 0.99, p = .62 for a sample of n = 500. Can you safely conclude that the data are normally distributed?**
 
 ```{r}
@@ -444,11 +461,9 @@ check_question("Not definitively — with large samples the Shapiro-Wilk test is
                q_id = "ASS_Q2",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! With n = 500, a p-value of .62 is reassuring but not conclusive — the test has high power to detect real non-normality, so a non-significant result is genuinely informative here. However, the Shapiro-Wilk test can also be *too* sensitive with very large samples, flagging trivial deviations. Always combine the formal test with visual inspection (histogram, Q-Q plot).",
+               right = "Correct! With n = 500, a p-value of .62 is reassuring but not conclusive. The Shapiro-Wilk test can also be *too* sensitive with very large samples, flagging trivial deviations. Always combine the formal test with visual inspection (histogram, Q-Q plot).",
                wrong = "Think about how sample size affects test power. With large n, does p > .05 definitively confirm normality?")
 ```
-
----
 
 **Q3. A Levene's test returns p = .018. What should you do next?**
 
@@ -466,7 +481,7 @@ check_question("Consider using Welch's t-test (which does not assume equal varia
                q_id = "ASS_Q3",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! p = .018 < .05 means we reject the null hypothesis of equal variances — the groups have significantly different variances (heteroskedasticity). Student's t-test assumes equal variances, so it is inappropriate here. In R, Welch's t-test (the default in t.test()) handles unequal variances by adjusting the degrees of freedom. Alternatively, a Mann-Whitney U test makes no assumptions about variances.",
+               right = "Correct! p = .018 < .05 means we reject the null hypothesis of equal variances. Student's t-test assumes equal variances, so it is inappropriate here. Welch's t-test (the default in R's t.test()) handles unequal variances by adjusting the degrees of freedom. Alternatively, a Mann-Whitney U test makes no assumptions about variances.",
                wrong = "p = .018 is below .05, meaning the variances differ significantly. What does this imply for Student's t-test, which assumes equal variances?")
 ```
 
@@ -477,14 +492,14 @@ check_question("Consider using Welch's t-test (which does not assume equal varia
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** When and how to apply t-tests and extract effect sizes in R
+**What you will learn:** When and how to apply t-tests and extract effect sizes in R.
 
 **Prerequisites:** Normally distributed residuals within each group; numeric dependent variable
 
 **Key tests:** Paired t-test, independent t-test (Student's and Welch's)
 :::
 
-**Parametric tests** assume that the residuals (errors) within each group are approximately normally distributed. They are called "parametric" because they make assumptions about the parameters of the population distribution (e.g., that data come from a normal distribution with a particular mean and standard deviation).
+**Parametric tests** assume that the residuals (errors) within each group are approximately normally distributed. They are called "parametric" because they make assumptions about the parameters of the population distribution.
 
 The most widely used parametric test in linguistics research is the **Student's t-test**, which compares the means of two groups or conditions.
 
@@ -492,19 +507,12 @@ The most widely used parametric test in linguistics research is the **Student's 
 
 ## Student's t-test {-}
 
-There are two variants of the t-test:
-
 | Type | Use when |
 |---|---|
 | **Paired (dependent) t-test** | The same participants are measured in two conditions; measurements are not independent |
 | **Independent t-test** | Two separate groups of participants; all measurements are independent |
 
-The assumptions of the t-test are:
-
-- The dependent variable is continuous (numeric)
-- The independent variable is binary (two groups or conditions)
-- Residuals within each group are approximately normally distributed
-- For Student's t-test: variances within groups are approximately equal (use Welch's t-test otherwise)
+The assumptions of the t-test are: the dependent variable is continuous; the independent variable is binary; residuals within each group are approximately normally distributed; and for Student's t-test, variances within groups are approximately equal (use Welch's otherwise).
 
 ### Paired t-test {-}
 
@@ -516,32 +524,32 @@ $$t = \frac{\bar{D}}{s_D / \sqrt{N}}$$
 
 where $\bar{D}$ is the mean difference between paired observations, $s_D$ is the standard deviation of the differences, and $N$ is the number of pairs.
 
-**Example**: Does an 8-week teaching intervention reduce spelling errors? Six students wrote essays of the same length before and after the intervention.
+**Example**: Does an 8-week teaching intervention reduce spelling errors? Six students wrote essays before and after the intervention.
 
-```{r pairedt_01a, message=F, warning=F}
+```{r paired-data, message=FALSE, warning=FALSE}
 Pretest  <- c(78, 65, 71, 68, 76, 59)
 Posttest <- c(71, 62, 70, 60, 66, 48)
 ptd <- data.frame(Pretest, Posttest)
 ```
 
-```{r pairedt_01b, echo = F, message=F, warning=F}
-ptd %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Spelling errors before and after the teaching intervention (six students).") %>%
+```{r paired-table, echo=FALSE, message=FALSE, warning=FALSE}
+ptd |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Spelling errors before and after the teaching intervention (six students).") |>
   flextable::border_outer()
 ```
 
-Let us first visualise the differences:
+Let us first visualise the within-student differences:
 
-```{r pairedt_viz, message=F, warning=F}
+```{r paired-viz, message=FALSE, warning=FALSE}
 ptd_long <- tidyr::pivot_longer(ptd, cols = everything(),
-                                 names_to = "Time", values_to = "Errors") %>%
-  dplyr::mutate(Time = factor(Time, levels = c("Pretest", "Posttest")),
+                                names_to = "Time", values_to = "Errors") |>
+  dplyr::mutate(Time    = factor(Time, levels = c("Pretest", "Posttest")),
                 Student = rep(1:6, 2))
 
 ggplot(ptd_long, aes(x = Time, y = Errors, group = Student)) +
@@ -554,9 +562,9 @@ ggplot(ptd_long, aes(x = Time, y = Errors, group = Student)) +
   theme(legend.position = "none", panel.grid.minor = element_blank())
 ```
 
-Each line represents one student. The general downward trend suggests improvement. We now test this formally:
+Each line represents one student. The general downward trend suggests improvement. We test this formally:
 
-```{r pairedt_02, message=F, warning=F}
+```{r paired-ttest, message=FALSE, warning=FALSE}
 t.test(ptd$Pretest, ptd$Posttest,
        paired     = TRUE,
        conf.level = 0.95)
@@ -564,29 +572,30 @@ t.test(ptd$Pretest, ptd$Posttest,
 
 The t-test is significant (t₅ = 4.15, p = .009). We extract Cohen's *d* as the effect size:
 
-```{r t-test_effect, message=F, warning = F}
+```{r paired-effect, message=FALSE, warning=FALSE}
 effectsize::cohens_d(x = ptd$Pretest, y = ptd$Posttest, paired = TRUE)
 ```
 
-```{r t-test_effectsize, echo = F, message=F, warning = F}
-EffectSize <- c("Very small", "Small", "Medium", "Large", "Very large", "Huge")
-d          <- c(0.01, 0.20, 0.50, 0.80, 1.20, 2.0)
-Reference  <- c("Sawilowsky (2009)", "Cohen (1988)", "Cohen (1988)",
-                "Cohen (1988)", "Sawilowsky (2009)", "Sawilowsky (2009)")
-data.frame(EffectSize, d, Reference) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Cohen's d benchmarks for interpreting effect size.") %>%
+```{r cohens-d-table, echo=FALSE, message=FALSE, warning=FALSE}
+data.frame(
+  EffectSize = c("Very small", "Small", "Medium", "Large", "Very large", "Huge"),
+  d          = c(0.01, 0.20, 0.50, 0.80, 1.20, 2.0),
+  Reference  = c("Sawilowsky (2009)", "Cohen (1988)", "Cohen (1988)",
+                 "Cohen (1988)", "Sawilowsky (2009)", "Sawilowsky (2009)")
+) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Cohen's d benchmarks for interpreting effect size.") |>
   flextable::border_outer()
 ```
 
 The automated summary from the `report` package:
 
-```{r t-test_report, message=F, warning = F}
+```{r paired-report, message=FALSE, warning=FALSE}
 report::report(t.test(ptd$Pretest, ptd$Posttest, paired = TRUE, conf.level = 0.95))
 ```
 
@@ -598,7 +607,7 @@ A paired t-test confirmed that the 8-week teaching intervention produced a signi
 
 ### Independent t-test {-}
 
-An **independent t-test** compares the means of two separate, unrelated groups. It is appropriate when all observations come from different participants and groups do not overlap.
+An **independent t-test** compares the means of two separate, unrelated groups.
 
 The test statistic is:
 
@@ -611,19 +620,19 @@ $$s^2_p = \frac{(N_1 - 1)s^2_1 + (N_2 - 1)s^2_2}{N_1 + N_2 - 2}$$
 ::: {.callout-tip}
 ## Student's vs. Welch's t-test
 
-By default, R's `t.test()` uses **Welch's t-test**, which adjusts the degrees of freedom to account for unequal variances. This is generally the safer choice. If you have verified that variances are equal (via Levene's test) and want the classical Student's test, set `var.equal = TRUE`.
+By default, R's `t.test()` uses **Welch's t-test**, which adjusts the degrees of freedom to account for unequal variances. This is generally the safer choice. To use the classical Student's formula (after verifying equal variances), set `var.equal = TRUE`.
 :::
 
 **Example**: Do native speakers and learners of English differ in their proficiency test scores?
 
-```{r t1, message=F, warning=F}
-tdata <- base::readRDS("tutorials/basicstatz/data/d03.rda", "rb") %>%
-  dplyr::rename(NativeSpeakers = 1, Learners = 2) %>%
-  tidyr::gather(Group, Score, NativeSpeakers:Learners) %>%
+```{r indep-data, message=FALSE, warning=FALSE}
+tdata <- base::readRDS("tutorials/basicstatz/data/d03.rda", "rb") |>
+  dplyr::rename(NativeSpeakers = 1, Learners = 2) |>
+  tidyr::gather(Group, Score, NativeSpeakers:Learners) |>
   dplyr::mutate(Group = factor(Group))
 ```
 
-```{r t_viz, message=F, warning=F}
+```{r indep-viz, message=FALSE, warning=FALSE}
 ggplot(tdata, aes(x = Group, y = Score, fill = Group)) +
   geom_boxplot(alpha = 0.7, outlier.color = "red") +
   scale_fill_manual(values = c("steelblue", "tomato")) +
@@ -633,15 +642,15 @@ ggplot(tdata, aes(x = Group, y = Score, fill = Group)) +
   theme(legend.position = "none", panel.grid.minor = element_blank())
 ```
 
-```{r t3, message=F, warning=F}
+```{r indep-ttest, message=FALSE, warning=FALSE}
 t.test(Score ~ Group, var.equal = TRUE, data = tdata)
 ```
 
-```{r indep_ttest_effect, message=F, warning = F}
+```{r indep-effect, message=FALSE, warning=FALSE}
 effectsize::cohens_d(tdata$Score ~ tdata$Group, paired = FALSE)
 ```
 
-```{r indet-test_report, message=F, warning = F}
+```{r indep-report, message=FALSE, warning=FALSE}
 report::report(t.test(Score ~ Group, var.equal = TRUE, data = tdata))
 ```
 
@@ -677,8 +686,6 @@ check_question("Paired t-test — the same participants appear in both condition
                wrong = "The key question is: are the measurements independent? Each participant contributes one score per condition — are those scores from the same or different people?")
 ```
 
----
-
 **Q2. A t-test returns t(48) = 2.45, p = .018, Cohen's d = 0.12. How should you interpret this?**
 
 ```{r}
@@ -695,11 +702,9 @@ check_question("The result is statistically significant but the effect is very s
                q_id = "TTEST_Q2",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! p = .018 < .05 means the result is statistically significant. But Cohen's d = 0.12 is well below the 'small' threshold of 0.2 — the groups differ by barely more than one-tenth of a standard deviation. This illustrates the critical distinction between statistical significance (which depends on sample size) and practical significance (which requires effect size). With a large enough sample, even a trivially small effect will be 'significant'.",
+               right = "Correct! p = .018 < .05 means the result is statistically significant. But Cohen's d = 0.12 is well below the 'small' threshold of 0.2. This illustrates the critical distinction between statistical significance (which depends on sample size) and practical significance (which requires effect size). With a large enough sample, even a trivially small effect will be 'significant'.",
                wrong = "Consider both pieces of information separately: what does p = .018 tell you? What does d = 0.12 tell you? Do they tell you the same thing?")
 ```
-
----
 
 **Q3. Which R argument makes `t.test()` use the classical Student's formula (assuming equal variances)?**
 
@@ -717,7 +722,7 @@ check_question("var.equal = TRUE",
                q_id = "TTEST_Q3",
                random_answer_order = FALSE,
                button_label = "Check answer",
-               right = "Correct! By default, R's t.test() uses Welch's t-test (var.equal = FALSE), which does not assume equal variances. Setting var.equal = TRUE switches to the classical Student's t-test. Unless Levene's test has confirmed equal variances, Welch's t-test is generally the safer default.",
+               right = "Correct! By default, R's t.test() uses Welch's t-test (var.equal = FALSE). Setting var.equal = TRUE switches to the classical Student's t-test. Unless Levene's test has confirmed equal variances, Welch's t-test is generally the safer default.",
                wrong = "Check R's t.test() help page (?t.test). Which argument controls whether variances are assumed equal?")
 ```
 
@@ -725,12 +730,13 @@ check_question("var.equal = TRUE",
 
 # Simple Linear Regression {#regression}
 
-Simple linear regression is a powerful and widely used method for modelling the relationship between a numeric outcome variable and one or more predictor variables. It goes beyond the t-test by providing:
+::: {.callout-note}
+## Section Overview
 
-- A measure of **how much** the outcome changes per unit increase in the predictor (the regression coefficient)
-- A measure of **model fit** (R², the proportion of variance explained)
-- **Model diagnostics** to check whether assumptions are met
-- The ability to include **multiple predictors** simultaneously
+**What you will learn:** Why regression extends beyond the t-test, and where to find the dedicated LADAL regression tutorials.
+:::
+
+Simple linear regression models the relationship between a numeric outcome variable and one or more predictor variables. It goes beyond the t-test by providing a regression coefficient (how much the outcome changes per unit increase in the predictor), R² (the proportion of variance explained), model diagnostics, and the ability to include multiple predictors simultaneously.
 
 Because regression is both conceptually rich and practically important, it is covered in dedicated tutorials:
 
@@ -746,46 +752,40 @@ We strongly recommend working through these tutorials before applying regression
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** Non-parametric alternatives to t-tests and ANOVA, and the chi-square family of tests
+**What you will learn:** Non-parametric alternatives to t-tests and ANOVA for use when parametric assumptions are not met.
 
 **When to use:** Ordinal dependent variables; non-normal residuals; small samples; nominal data
 
 **Key tests:** Fisher's Exact Test, Mann-Whitney U, Wilcoxon signed rank, Kruskal-Wallis, Friedman
 :::
 
-**Non-parametric tests** do not assume that the data follow a normal distribution. They are appropriate when:
+**Non-parametric tests** do not assume that the data follow a normal distribution. They are appropriate when the dependent variable is ordinal, residuals are non-normally distributed with small samples, or the dependent variable is nominal.
 
-- The dependent variable is **ordinal** (rank-ordered but not truly numeric)
-- The residuals are **non-normally distributed** and sample sizes are too small to invoke the Central Limit Theorem
-- The dependent variable is **nominal** (categorical)
-
-Non-parametric tests typically work by **ranking** the data and testing whether the distribution of ranks differs between groups. They are more conservative than their parametric equivalents (i.e., they have less statistical power when parametric assumptions are met), but more robust when assumptions are violated.
+Non-parametric tests typically work by **ranking** the data and testing whether the distribution of ranks differs between groups. They are more conservative than their parametric equivalents when assumptions are met, but more robust when they are violated.
 
 ---
 
 ## Fisher's Exact Test {-}
 
-**Fisher's Exact Test** is used when we have a 2×2 contingency table and want to test whether two categorical variables are associated. Unlike the chi-square test (covered below), it does not rely on the normal approximation and is therefore exact — making it preferable for small samples or when expected cell frequencies are low (below 5).
+**Fisher's Exact Test** is used for 2×2 contingency tables when expected cell frequencies are small (below 5). Unlike the chi-square test, it does not rely on a normal approximation and is exact for any sample size.
 
-The test calculates the probability of all possible outcomes as extreme as or more extreme than the observed table, given the fixed marginal totals.
+**Example**: Do the adverbs *very* and *truly* differ in their preference to co-occur with *cool*?
 
-**Example**: Do the adverbs *very* and *truly* differ in their preference to co-occur with the adjective *cool*?
-
-```{r fisher1, echo=FALSE, warning=F, message=F}
+```{r fisher-table, echo=FALSE, warning=FALSE, message=FALSE}
 matrix(c("truly", "very", 5, 17, 40, 41), ncol = 3, byrow = FALSE,
-       dimnames = list(NULL, c("Adverb", "with cool", "with other adjectives"))) %>%
-  as.data.frame() %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .7, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Observed co-occurrences of truly/very with cool vs. other adjectives.") %>%
+       dimnames = list(NULL, c("Adverb", "with cool", "with other adjectives"))) |>
+  as.data.frame() |>
+  flextable() |>
+  flextable::set_table_properties(width = .7, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Observed co-occurrences of truly/very with cool vs. other adjectives.") |>
   flextable::border_outer()
 ```
 
-```{r fisher2, eval = T, echo= T, warning=F, message=F}
+```{r fisher-test, message=FALSE, warning=FALSE}
 coolmx <- matrix(
   c(5, 17, 40, 41),
   nrow = 2,
@@ -800,30 +800,25 @@ fisher.test(coolmx)
 ::: {.callout-note}
 ## Reporting: Fisher's Exact Test
 
-A Fisher's Exact Test was used to test whether *very* and *truly* differ in their preference to co-occur with *cool*. The test revealed a statistically significant association (*p* = .030). The effect size was moderate (Odds Ratio = 0.30), suggesting that *truly* is relatively less likely than *very* to co-occur with *cool*.
+A Fisher's Exact Test revealed a statistically significant association between adverb and adjective (*p* = .030). The effect was moderate (Odds Ratio = 0.30), suggesting that *truly* is relatively less likely than *very* to co-occur with *cool*.
 :::
 
 ---
 
 ## Mann-Whitney U Test {-}
 
-The **Mann-Whitney U test** is the non-parametric alternative to the independent t-test. It tests whether values from one group tend to be larger than values from another group, by comparing the ranks of observations rather than their raw values. It is appropriate when:
+The **Mann-Whitney U test** is the non-parametric alternative to the independent t-test. It tests whether values from one group tend to be larger than values from another group by comparing ranks rather than raw values.
 
-- Two groups are being compared (independent observations)
-- The dependent variable is ordinal, or continuous but non-normally distributed
+**Example**: Do two language families differ in the size of their phoneme inventories?
 
-In R, the Mann-Whitney U test is implemented via `wilcox.test()` with `paired = FALSE` (the default).
-
-**Example**: Do two language families differ in the size of their phoneme inventories? We work with ranked inventory sizes.
-
-```{r mwu1, warning=F, message=F}
-Rank          <- c(1, 3, 5, 6, 8, 9, 10, 11, 17, 19,
-                   2, 4, 7, 12, 13, 14, 15, 16, 18, 20)
+```{r mwu-data, warning=FALSE, message=FALSE}
+Rank           <- c(1, 3, 5, 6, 8, 9, 10, 11, 17, 19,
+                    2, 4, 7, 12, 13, 14, 15, 16, 18, 20)
 LanguageFamily <- c(rep("Kovati", 10), rep("Urudi", 10))
 lftb <- data.frame(LanguageFamily, Rank)
 ```
 
-```{r mwu2, eval = T, echo=T, warning=F, message=F}
+```{r mwu-viz, message=FALSE, warning=FALSE}
 ggplot(lftb, aes(x = LanguageFamily, y = Rank, fill = LanguageFamily)) +
   geom_boxplot(alpha = 0.7) +
   scale_fill_manual(values = c("steelblue", "tomato")) +
@@ -833,25 +828,25 @@ ggplot(lftb, aes(x = LanguageFamily, y = Rank, fill = LanguageFamily)) +
        x = "", y = "Rank (inventory size)")
 ```
 
-```{r mwu4, warning=F, message=F}
+```{r mwu-test, warning=FALSE, message=FALSE}
 wilcox.test(lftb$Rank ~ lftb$LanguageFamily)
 ```
 
-```{r wilcox_report, message=F, warning = F}
+```{r mwu-report, message=FALSE, warning=FALSE}
 report::report(wilcox.test(lftb$Rank ~ lftb$LanguageFamily))
 ```
 
 ::: {.callout-note}
 ## Reporting: Mann-Whitney U Test
 
-A Mann-Whitney U test found no significant difference in phoneme inventory size between the two language families (W = 34, *p* = .247). Despite the non-significant result, the rank-biserial correlation suggests a moderate effect size (*r* = −0.32, 95% CI [−0.69, 0.18]), indicating that with a larger sample, a difference might emerge.
+A Mann-Whitney U test found no significant difference in phoneme inventory size between the two language families (W = 34, *p* = .247). The rank-biserial correlation suggested a moderate effect (*r* = −0.32, 95% CI [−0.69, 0.18]), indicating the study may have been underpowered.
 :::
 
-### Mann-Whitney U with Continuity Correction {-}
+### Mann-Whitney U with continuity correction {-}
 
-When both variables are continuous and non-normal, a continuity correction is applied automatically when tied ranks are present. The example below examines whether reaction time for word recognition correlates with token frequency, both of which are highly skewed.
+When both variables are continuous and non-normal, a continuity correction is applied automatically when tied ranks are present.
 
-```{r mwu5, echo=FALSE, warning=F, message=F}
+```{r mwu-skewed-data, echo=FALSE, warning=FALSE, message=FALSE}
 set.seed(42)
 frequency       <- round(1 / (1:100 / 20) * 1000, 0)
 normal_reaction <- round(fGarch::rsnorm(100, 2000, 400), 1)
@@ -863,7 +858,7 @@ wxdata <- data.frame(
 )
 ```
 
-```{r mwu5c, echo=FALSE, warning=F, message=F}
+```{r mwu-skewed-plots, echo=FALSE, warning=FALSE, message=FALSE}
 p1 <- ggplot(wxdata, aes(Frequency)) +
   geom_density(fill = "steelblue", alpha = .5) +
   theme_bw() + labs(y = "Density", x = "Frequency") +
@@ -879,11 +874,11 @@ gridExtra::grid.arrange(p1, p2, nrow = 1)
 
 Both variables are strongly right-skewed, ruling out parametric tests.
 
-```{r mwu6, echo=T, eval = T, warning=F, message=F}
+```{r mwu-cc-test, message=FALSE, warning=FALSE}
 wilcox.test(wxdata$Reaction, wxdata$Frequency)
 ```
 
-```{r wilcox2_report, message=F, warning = F}
+```{r mwu-cc-report, message=FALSE, warning=FALSE}
 report::report(wilcox.test(wxdata$Reaction, wxdata$Frequency))
 ```
 
@@ -891,18 +886,18 @@ report::report(wilcox.test(wxdata$Reaction, wxdata$Frequency))
 
 ## Wilcoxon Signed Rank Test {-}
 
-The **Wilcoxon signed rank test** is the non-parametric alternative to the paired t-test. It is used when the same individuals are measured under two conditions and the data are ordinal or non-normally distributed. Setting `paired = TRUE` in `wilcox.test()` performs this test.
+The **Wilcoxon signed rank test** is the non-parametric alternative to the paired t-test, used when the same individuals are measured under two conditions and the data are ordinal or non-normally distributed. Set `paired = TRUE` in `wilcox.test()`.
 
 **Example**: Do people make more errors reading tongue twisters when intoxicated vs. sober?
 
-```{r mwu7, echo=T, eval = T, warning=F, message=F}
+```{r wilcoxon-data, message=FALSE, warning=FALSE}
 set.seed(42)
 sober       <- sample(0:9,  15, replace = TRUE)
 intoxicated <- sample(3:12, 15, replace = TRUE)
 intoxtb <- data.frame(sober, intoxicated)
 ```
 
-```{r mwu8, eval = T, echo=T, warning=F, message=F}
+```{r wilcoxon-viz, message=FALSE, warning=FALSE}
 intoxtb_long <- data.frame(
   State  = c(rep("Sober", 15), rep("Intoxicated", 15)),
   Errors = c(intoxtb$sober, intoxtb$intoxicated)
@@ -910,73 +905,75 @@ intoxtb_long <- data.frame(
 ggplot(intoxtb_long, aes(x = State, y = Errors, fill = State)) +
   geom_boxplot(alpha = 0.7, width = 0.5) +
   scale_fill_manual(values = c("tomato", "steelblue")) +
-  theme_bw() + theme(legend.position = "none", panel.grid.minor = element_blank()) +
+  theme_bw() +
+  theme(legend.position = "none", panel.grid.minor = element_blank()) +
   labs(title = "Tongue twister errors: sober vs. intoxicated",
        x = "", y = "Number of errors")
 ```
 
-```{r mwu9, echo=T, eval = T, warning=F, message=F}
+```{r wilcoxon-test, message=FALSE, warning=FALSE}
 wilcox.test(intoxtb$intoxicated, intoxtb$sober, paired = TRUE)
 ```
 
-```{r wilcox3_report, message=F, warning = F}
+```{r wilcoxon-report, message=FALSE, warning=FALSE}
 report::report(wilcox.test(intoxtb$intoxicated, intoxtb$sober, paired = TRUE))
 ```
 
 ::: {.callout-note}
 ## Reporting: Wilcoxon Signed Rank Test
 
-A Wilcoxon signed rank test confirmed that intoxicated participants made significantly more errors on tongue twisters than when sober (W = 6.50, *p* = .003). The effect was very large (rank-biserial *r* = −0.89, 95% CI [−0.97, −0.64]).
+A Wilcoxon signed rank test confirmed that intoxicated participants made significantly more tongue twister errors than when sober (W = 6.50, *p* = .003). The effect was very large (rank-biserial *r* = −0.89, 95% CI [−0.97, −0.64]).
 :::
 
 ---
 
 ## Kruskal-Wallis Rank Sum Test {-}
 
-The **Kruskal-Wallis test** is the non-parametric equivalent of a one-way ANOVA. It tests whether three or more independent groups differ in their distribution of a ranked dependent variable. It is sometimes called a *one-way ANOVA by ranks*.
+The **Kruskal-Wallis test** is the non-parametric equivalent of a one-way ANOVA, testing whether three or more independent groups differ in their distribution of a ranked dependent variable.
 
 **Example**: Do learners and native speakers differ in their use of filled pauses (*uhm*)?
 
-```{r kwt1, warning=F, message=F}
+```{r kw-data, warning=FALSE, message=FALSE}
 uhms    <- c(15, 13, 10, 8, 37, 23, 31, 52, 11, 17)
 Speaker <- c(rep("Learner", 5), rep("NativeSpeaker", 5))
 uhmtb   <- data.frame(Speaker, uhms)
 ```
 
-```{r kwt2, eval = T, echo=T, warning=F, message=F}
+```{r kw-viz, message=FALSE, warning=FALSE}
 ggplot(uhmtb, aes(x = Speaker, y = uhms, fill = Speaker)) +
   geom_boxplot(alpha = 0.7) +
   scale_fill_manual(values = c("steelblue", "tomato")) +
-  theme_bw() + theme(legend.position = "none", panel.grid.minor = element_blank()) +
+  theme_bw() +
+  theme(legend.position = "none", panel.grid.minor = element_blank()) +
   labs(title = "Filled pauses (uhm) by speaker type", x = "", y = "Count of uhm")
 ```
 
-```{r kwt3, echo=T, eval = T, warning=F, message=F}
+```{r kw-test, message=FALSE, warning=FALSE}
 kruskal.test(uhmtb$Speaker ~ uhmtb$uhms)
 ```
 
-The p-value (> .05) means we cannot reject H₀: there is no significant difference in filled pause use between learners and native speakers in this (small, fictitious) sample.
+The p-value (> .05) means we cannot reject H₀: there is no significant difference in filled pause use between groups in this small, fictitious sample.
 
 ---
 
 ## Friedman Rank Sum Test {-}
 
-The **Friedman test** is a non-parametric alternative to a two-way repeated measures ANOVA. It tests whether a numeric outcome differs across a grouping factor, while controlling for a blocking factor. It is appropriate when each combination of grouping and blocking factor occurs exactly once (a randomised block design).
+The **Friedman test** is a non-parametric alternative to a two-way repeated measures ANOVA, testing whether a numeric outcome differs across a grouping factor while controlling for a blocking factor.
 
 **Example**: Does the use of filled pauses vary by gender, controlling for age?
 
-```{r ft1, echo=T, eval = T, warning=F, message=F}
+```{r friedman-data, message=FALSE, warning=FALSE}
 uhms   <- c(7.2, 9.1, 14.6, 13.8)
 Gender <- c("Female", "Male", "Female", "Male")
 Age    <- c("Young", "Young", "Old", "Old")
 uhmtb2 <- data.frame(Gender, Age, uhms)
 ```
 
-```{r ft2, echo=T, eval = T, warning=F, message=F}
+```{r friedman-test, message=FALSE, warning=FALSE}
 friedman.test(uhms ~ Age | Gender, data = uhmtb2)
 ```
 
-The non-significant result (p > .05) suggests that age does not significantly affect filled pause use, even after controlling for gender.
+The non-significant result (p > .05) suggests that age does not significantly affect filled pause use after controlling for gender.
 
 ---
 
@@ -984,7 +981,7 @@ The non-significant result (p > .05) suggests that age does not significantly af
 ## Exercises: Non-Parametric Tests
 :::
 
-**Q1. You want to compare reading speed (words per minute) between two groups: participants who learned to read in a phonics-based programme and those who used a whole-language programme. Reading speed is strongly right-skewed. Which test is most appropriate?**
+**Q1. You want to compare reading speed (words per minute) between two groups: participants who learned to read via phonics vs. whole-language programme. Reading speed is strongly right-skewed. Which test is most appropriate?**
 
 ```{r}
 #| echo: false
@@ -1000,11 +997,9 @@ check_question("Mann-Whitney U test — two independent groups with non-normal d
                q_id = "NP_Q1",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! The Mann-Whitney U test is the non-parametric alternative to the independent t-test. It is appropriate here because: (1) the groups are independent (different participants in each programme), (2) the data are non-normally distributed. The Kruskal-Wallis test is used for three or more groups. The Wilcoxon signed rank test is for paired/matched data.",
+               right = "Correct! The Mann-Whitney U test is appropriate here because the groups are independent (different participants in each programme) and the data are non-normally distributed. The Kruskal-Wallis test is for three or more groups. The Wilcoxon signed rank test is for paired/matched data.",
                wrong = "Consider: (1) Are the groups independent or matched? (2) Are the data normal or non-normal? Which non-parametric test handles independent groups?")
 ```
-
----
 
 **Q2. In R, what is the difference between `wilcox.test(x, y)` and `wilcox.test(x, y, paired = TRUE)`?**
 
@@ -1022,11 +1017,9 @@ check_question("wilcox.test(x, y) performs a Mann-Whitney U test (independent gr
                q_id = "NP_Q2",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! R's wilcox.test() implements two related but distinct tests depending on the paired argument. With paired = FALSE (default): Mann-Whitney U test — assumes the two vectors contain independent observations from different groups. With paired = TRUE: Wilcoxon signed rank test — assumes the two vectors are paired (same participants in two conditions), and works on the signed differences within pairs.",
+               right = "Correct! With paired = FALSE (default): Mann-Whitney U test — independent observations from different groups. With paired = TRUE: Wilcoxon signed rank test — same participants in two conditions, working on signed differences within pairs.",
                wrong = "The paired argument fundamentally changes which test is performed. How does the research design (independent vs. paired) affect which test is appropriate?")
 ```
-
----
 
 **Q3. A Kruskal-Wallis test returns χ²(2) = 8.43, p = .015. What does this tell us, and what should we do next?**
 
@@ -1044,8 +1037,8 @@ check_question("There is a significant overall difference across the three group
                q_id = "NP_Q3",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! Like ANOVA, the Kruskal-Wallis test is an omnibus test — a significant result tells us that *at least one* group differs from the others, but not *which* groups differ. Post-hoc pairwise comparisons (e.g., Dunn's test with multiple comparison correction, available in the dunn.test or FSA packages) are needed to identify the specific group differences.",
-               wrong = "The Kruskal-Wallis test is an omnibus test covering all groups simultaneously. Does a significant overall test tell us which specific pairs of groups differ?")
+               right = "Correct! Like ANOVA, the Kruskal-Wallis test is an omnibus test — a significant result tells us that at least one group differs from the others, but not which groups. Post-hoc pairwise comparisons (e.g., Dunn's test with multiple comparison correction) are needed to identify the specific differences.",
+               wrong = "The Kruskal-Wallis test is an omnibus test. Does a significant overall test tell us which specific pairs of groups differ?")
 ```
 
 ---
@@ -1055,107 +1048,85 @@ check_question("There is a significant overall difference across the three group
 ::: {.callout-note}
 ## Section Overview
 
-**What you'll learn:** How to test associations between categorical variables using the chi-square family of tests
+**What you will learn:** How to test associations between categorical variables using the chi-square family of tests.
 
 **Key tests:** Pearson's χ², Fisher's Exact Test (revisited), Yates' correction, CFA, HCFA
 
-**Why it matters:** Many linguistic variables are categorical — word choice, grammatical construction, language variety, register
+**Why it matters:** Many linguistic variables are categorical — word choice, grammatical construction, language variety, register.
 :::
 
-The **chi-square test** (χ²) is one of the most widely used statistical tests in linguistics. It tests whether there is an association between two categorical variables, or whether observed frequencies differ significantly from expected frequencies under a null model.
+The **chi-square test** (χ²) tests whether there is an association between two categorical variables, or whether observed frequencies differ significantly from expected frequencies under a null model of independence.
 
 ---
 
 ## Pearson's Chi-Square Test {-}
 
-**Pearson's χ² test** compares observed frequencies in a contingency table to the frequencies that would be expected *if the two variables were independent*.
-
-The test statistic is:
+**Pearson's χ² test** compares observed cell frequencies to expected frequencies under independence:
 
 $$\chi^2 = \sum_{i} \frac{(O_i - E_i)^2}{E_i}$$
 
-where $O_i$ is the observed frequency and $E_i$ is the expected frequency for cell $i$.
+Expected frequencies: $E_i = \frac{\text{Row total} \times \text{Column total}}{\text{Grand total}}$
 
-Expected frequencies are calculated as:
+Degrees of freedom: $df = (\text{rows} - 1) \times (\text{columns} - 1)$
 
-$$E_i = \frac{\text{Row total} \times \text{Column total}}{\text{Grand total}}$$
+**Example**: Do speakers of AmE and BrE differ in their use of *sort of* vs. *kind of*?
 
-The degrees of freedom are:
-
-$$df = (\text{rows} - 1) \times (\text{columns} - 1)$$
-
-**Example**: Do speakers of American English (AmE) and British English (BrE) differ in their use of *sort of* vs. *kind of*?
-
-$$H_0: \text{Variety of English and hedge choice are independent}$$
-$$H_1: \text{Variety of English and hedge choice are associated}$$
-
-```{r chi_data, echo=FALSE, message=FALSE, warning=FALSE}
+```{r chi-data, echo=FALSE, message=FALSE, warning=FALSE}
 chidata <- matrix(c(181, 655, 177, 67), nrow = 2, byrow = TRUE,
                   dimnames = list(c("kindof", "sortof"), c("BrE", "AmE")))
-chidata %>%
-  as.data.frame() %>%
-  tibble::rownames_to_column("Hedge") %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .5, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Observed frequencies of kind of and sort of in BrE and AmE.") %>%
+chidata |>
+  as.data.frame() |>
+  tibble::rownames_to_column("Hedge") |>
+  flextable() |>
+  flextable::set_table_properties(width = .5, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Observed frequencies of kind of and sort of in BrE and AmE.") |>
   flextable::border_outer()
 ```
 
-Let us first visualise the association:
-
-```{r chi_viz, message=FALSE, warning=FALSE}
+```{r chi-viz, message=FALSE, warning=FALSE}
 assocplot(as.matrix(chidata),
-          main = "Association plot: kind of / sort of × BrE / AmE")
+          main = "Association plot: kind of / sort of x BrE / AmE")
 ```
 
-```{r chi_mosaic, echo=T, warning=F, message=F}
+```{r chi-mosaic, message=FALSE, warning=FALSE}
 mosaicplot(chidata, shade = TRUE, type = "pearson",
-           main = "Mosaic plot: kind of / sort of × BrE / AmE")
+           main = "Mosaic plot: kind of / sort of x BrE / AmE")
 ```
 
-The complementary pattern of blue and red cells confirms a strong association. Now we test it formally:
-
-```{r chi_test, echo=T, warning=F, message=F}
-# chi-square test without Yates' continuity correction
+```{r chi-test, message=FALSE, warning=FALSE}
 chisq.test(chidata, correct = FALSE)
 ```
 
-### Effect Size: Phi (φ) and Cramér's V {-}
+### Effect size: phi (φ) and Cramér's V {-}
 
-Statistical significance alone does not tell us how strong the association is. For 2×2 tables, the **phi coefficient** (φ) is the appropriate effect size:
+For 2×2 tables: $\phi = \sqrt{\frac{\chi^2}{N}}$
 
-$$\phi = \sqrt{\frac{\chi^2}{N}}$$
+For larger tables: $V = \sqrt{\frac{\chi^2}{N \cdot (k - 1)}}$ where $k = \min(\text{rows}, \text{columns})$
 
-For larger tables (more than 2 rows or 2 columns), **Cramér's V** is used:
-
-$$V = \sqrt{\frac{\chi^2}{N \cdot (k - 1)}}$$
-
-where $k = \min(\text{rows}, \text{columns})$.
-
-```{r chi_effect, echo=T, warning=F, message=F}
+```{r chi-effect, message=FALSE, warning=FALSE}
 phi <- sqrt(chisq.test(chidata, correct = FALSE)$statistic /
               sum(chidata) * (min(dim(chidata)) - 1))
 cat("Phi coefficient:", round(phi, 3))
 ```
 
-```{r chi_effectsize_table, echo=FALSE, message=FALSE, warning=FALSE}
+```{r phi-table, echo=FALSE, message=FALSE, warning=FALSE}
 data.frame(
   phi_V      = c("< .10", ".10", ".30", ".50"),
   Magnitude  = c("Negligible", "Small", "Medium", "Large"),
   Comparable = c("—", "Cohen's d = 0.2", "Cohen's d = 0.5", "Cohen's d = 0.8")
-) %>%
-  dplyr::rename("φ or V" = phi_V, "Magnitude" = Magnitude, "Comparable to" = Comparable) %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .75, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "Conventional benchmarks for phi and Cramér's V (Cohen, 1988).") %>%
+) |>
+  dplyr::rename("phi or V" = phi_V, "Magnitude" = Magnitude, "Comparable to" = Comparable) |>
+  flextable() |>
+  flextable::set_table_properties(width = .75, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Conventional benchmarks for phi and Cramer's V (Cohen, 1988).") |>
   flextable::border_outer()
 ```
 
@@ -1165,37 +1136,35 @@ data.frame(
 A Pearson's χ² test confirmed a highly significant association of moderate size between variety of English and hedge choice (χ²(1) = 220.73, *p* < .001, φ = .45). BrE speakers strongly favoured *sort of*, while AmE speakers showed a preference for *kind of*.
 :::
 
-### Requirements of the Chi-Square Test {-}
-
-The χ² test relies on the approximation that observed frequencies follow a χ² distribution, which requires sufficient sample sizes:
+### Requirements of the chi-square test {-}
 
 ::: {.callout-warning}
-## Chi-Square Assumptions
+## Chi-square assumptions
 
 - At least **80% of expected cell frequencies** must be ≥ 5
 - **No expected cell frequency** may be < 1
 - Observations must be **independent** (each participant contributes to only one cell)
 
-When these conditions are not met, use **Fisher's Exact Test** instead, which does not rely on the approximation and works with any sample size.
+When these conditions are not met, use **Fisher's Exact Test** instead.
 :::
 
 ---
 
 ## Yates' Continuity Correction {-}
 
-For 2×2 tables with moderate sample sizes (approximately 15–60 observations), a **Yates' continuity correction** can improve the approximation by reducing the χ² value slightly:
+For 2×2 tables with moderate sample sizes (approximately 15–60 observations), Yates' correction improves the approximation:
 
 $$\chi^2_{\text{Yates}} = \sum \frac{(|O_i - E_i| - 0.5)^2}{E_i}$$
 
-In R, `chisq.test()` applies Yates' correction by default (`correct = TRUE`). To obtain the uncorrected statistic, set `correct = FALSE`. Note that the correction is considered by many statisticians to be overly conservative for large samples; when in doubt, apply Fisher's Exact Test for small samples and uncorrected χ² for larger ones.
+In R, `chisq.test()` applies Yates' correction by default (`correct = TRUE`). Set `correct = FALSE` to obtain the uncorrected statistic. The correction is considered overly conservative for large samples; prefer Fisher's Exact Test for small samples.
 
 ---
 
 ## Chi-Square in 2×k Tables {-}
 
-When comparing a sub-table against its embedding context (e.g., testing whether soft X-rays and hard X-rays differ within a larger study of radiation effects), an ordinary Pearson's χ² is inappropriate because the sub-sample is not independent of the remaining data. A modified formula from @bortz109verteilungsfreie accounts for the full table structure.
+When comparing a sub-table against its embedding context, the standard Pearson's χ² is inappropriate because the sub-sample is not independent of the remaining data. A modified formula accounts for the full table structure:
 
-```{r chi2k_1, echo = T, message=FALSE, warning=FALSE}
+```{r chi2k-setup, message=FALSE, warning=FALSE}
 wholetable <- matrix(c(21, 14, 18, 13, 24, 12, 13, 30),
                      byrow = TRUE, nrow = 4,
                      dimnames = list(
@@ -1205,7 +1174,7 @@ wholetable <- matrix(c(21, 14, 18, 13, 24, 12, 13, 30),
 subtable <- wholetable[1:2, ]
 ```
 
-```{r chi2k_2, echo = T, message=FALSE, warning=FALSE}
+```{r chi2k-test, message=FALSE, warning=FALSE}
 # incorrect: standard chi-square ignores embedding context
 chisq.test(subtable, correct = FALSE)
 
@@ -1218,9 +1187,9 @@ x2.2k(wholetable, 1, 2)
 
 ## Chi-Square in z×k Tables {-}
 
-Similarly, when comparing sub-tables within a larger table with multiple rows and columns (z×k tables), the standard Pearson's χ² must be modified. The function below, based on @gries2014frequency, applies the correct formula:
+When comparing sub-tables within a larger z×k table, the standard Pearson's χ² must similarly be modified:
 
-```{r chizk, echo = T, message=FALSE, warning=FALSE}
+```{r chizk-test, message=FALSE, warning=FALSE}
 wholetable <- matrix(c(8, 31, 44, 36, 5, 14, 25, 38, 4, 22, 17, 12, 8, 11, 16, 24),
                      ncol = 4,
                      dimnames = list(
@@ -1233,24 +1202,18 @@ results <- sub.table(wholetable, 2:3, 2:3, out = "short")
 results
 ```
 
-The result (χ² = 3.86, p < .05) shows a significant difference between spoken and fiction in their use of EMOTION IS LIGHT vs. EMOTION IS A FORCE OF NATURE — a finding that the incorrect ordinary χ² would have missed.
+The result (χ² = 3.86, p < .05) shows a significant difference between spoken and fiction registers in their use of EMOTION IS LIGHT vs. EMOTION IS A FORCE OF NATURE.
 
 ---
 
 ## Configural Frequency Analysis (CFA) {-}
 
-When a full χ² test on a multi-way table is significant, we know that *somewhere* in the table there are cells with frequencies deviating significantly from expectation — but not *which* cells. **Configural Frequency Analysis (CFA)** identifies individual cells (configurations) that occur significantly more or less frequently than expected.
+When a χ² test on a multi-way table is significant, **CFA** identifies which specific cells (configurations) deviate significantly from expectation. A **type** occurs more often than expected; an **antitype** occurs less often than expected.
 
-- A **type** (positive configuration): occurs significantly more often than expected
-- An **antitype** (negative configuration): occurs significantly less often than expected
-
-```{r cfa1, message=FALSE, warning=FALSE}
+```{r cfa-data, message=FALSE, warning=FALSE}
 library(cfa)
 cfadata <- base::readRDS("tutorials/basicstatz/data/cfd.rda", "rb")
-```
-
-```{r cfa2, message=FALSE, warning=FALSE}
-configs <- cfadata %>% dplyr::select(Variety, Age, Gender, Class)
+configs <- cfadata |> dplyr::select(Variety, Age, Gender, Class)
 counts  <- cfadata$Frequency
 cfa(configs, counts)
 ```
@@ -1259,13 +1222,13 @@ cfa(configs, counts)
 
 ## Hierarchical CFA (HCFA) {-}
 
-**Hierarchical CFA** extends CFA to nested data, testing configurations while accounting for the hierarchical structure of the grouping factors:
+**HCFA** extends CFA to nested data, testing configurations while accounting for the hierarchical structure of the grouping factors:
 
-```{r hcfa3, message=FALSE, warning=FALSE}
+```{r hcfa-test, message=FALSE, warning=FALSE}
 hcfa(configs, counts)
 ```
 
-According to the HCFA, only the configuration Variety × Age × Class is significant (χ² = 12.21, p = .016), suggesting that the association between variety, age, and social class is the key patterning in this dataset.
+The HCFA finds that only the configuration Variety × Age × Class is significant (χ² = 12.21, p = .016), suggesting this is the key patterning in the dataset.
 
 ---
 
@@ -1289,11 +1252,9 @@ check_question("No — one cell has an expected frequency below 5 (E = 2), and 5
                q_id = "CHI_Q1",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! The χ² assumption requires that at least 80% of expected cells are ≥ 5, and no expected cell is < 1. Here, two of four expected cells (50%) are below 5, which violates the 80% rule. Fisher's Exact Test is the appropriate alternative — it makes no assumptions about expected cell sizes and is exact for any sample size.",
+               right = "Correct! The χ² assumption requires that at least 80% of expected cells are ≥ 5, and no expected cell is < 1. Here, two of four cells (50%) are below 5, violating the 80% rule. Fisher's Exact Test makes no assumptions about expected cell sizes and is exact for any sample size.",
                wrong = "Check the χ² requirements: what percentage of expected cells must be ≥ 5? Count how many cells below 5 there are out of 4 total.")
 ```
-
----
 
 **Q2. Pearson's χ² test on a 2×2 table returns χ²(1) = 4.21, p = .040. What effect size measure should be reported?**
 
@@ -1311,11 +1272,9 @@ check_question("Phi (φ) — the standard effect size for 2×2 contingency table
                q_id = "CHI_Q2",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! For 2×2 tables, the phi coefficient (φ = √(χ²/N)) is the standard effect size. Cramér's V is used for tables larger than 2×2 (it equals φ for 2×2 tables). Neither Cohen's d nor R² is appropriate for chi-square tests on frequency data. In R: phi <- sqrt(chisq.test(x)$statistic / sum(x))",
+               right = "Correct! For 2×2 tables, the phi coefficient (φ = √(χ²/N)) is the standard effect size. Cramér's V is used for tables larger than 2×2. In R: phi <- sqrt(chisq.test(x)$statistic / sum(x))",
                wrong = "Effect size measures are specific to their test contexts. Which measure is designed specifically for the chi-square test on a 2×2 table?")
 ```
-
----
 
 **Q3. What is the key difference between CFA (Configural Frequency Analysis) and a standard Pearson's χ² test?**
 
@@ -1333,7 +1292,7 @@ check_question("The chi-square test tells us whether the overall table deviates 
                q_id = "CHI_Q3",
                random_answer_order = TRUE,
                button_label = "Check answer",
-               right = "Correct! A significant χ² test tells us that the distribution across cells differs from independence — but it is an omnibus test that doesn't tell us *where* in the table the deviations are. CFA goes further by testing each cell individually, identifying types (cells occurring more often than expected) and antitypes (cells occurring less often than expected). This makes CFA the appropriate follow-up when a significant χ² is found in a multi-way table.",
+               right = "Correct! A significant χ² test is an omnibus result — it tells us that somewhere in the table there are deviations from independence, but not where. CFA tests each cell individually, identifying types (cells occurring more than expected) and antitypes (cells occurring less than expected). CFA is the appropriate follow-up when a significant χ² is found.",
                wrong = "Think of the chi-square test as giving an overall verdict and CFA as the detailed follow-up. What specific information does each provide?")
 ```
 
@@ -1341,20 +1300,26 @@ check_question("The chi-square test tells us whether the overall table deviates 
 
 # Reporting Standards {#reporting}
 
-Reporting inferential statistics clearly, completely, and consistently is as important as choosing the right test. This section summarises reporting conventions widely used in linguistics and adjacent fields.
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** APA-style conventions for reporting inferential statistics, and model paragraphs for each test type.
+:::
+
+Reporting inferential statistics clearly and consistently is as important as choosing the right test.
 
 ---
 
-## General Principles {-}
+## General principles {-}
 
 ::: {.callout-note}
-## APA-Style Reporting for Inferential Statistics
+## APA-style reporting for inferential statistics
 
 Following the **APA Publication Manual (7th edition)**:
 
 - Always report the **test statistic**, **degrees of freedom**, and **p-value**: *t*(18) = 2.34, *p* = .031
 - Always report an **effect size** with confidence interval: Cohen's *d* = 0.52, 95% CI [0.09, 0.95]
-- Report exact p-values (e.g., *p* = .031) rather than inequalities (e.g., *p* < .05), except when p < .001
+- Report exact p-values (e.g., *p* = .031) rather than inequalities, except when p < .001
 - Use **italics** for statistical symbols: *t*, *W*, *χ²*, *p*, *d*, *r*, *n*, *N*
 - Report **sample size** for each group
 - Include a statement about whether **assumptions were checked** and met
@@ -1362,25 +1327,25 @@ Following the **APA Publication Manual (7th edition)**:
 
 ---
 
-## Model Reporting Paragraphs {-}
+## Model reporting paragraphs {-}
 
-### t-test
+**Paired t-test**
 
 > A paired t-test was used to examine whether the teaching intervention reduced spelling errors over 8 weeks. The results confirmed a significant reduction (*t*₅ = 4.15, *p* = .009), with a very large effect size (Cohen's *d* = 1.70, 95% CI [0.41, 3.25]). Errors decreased from *M* = 69.5 (*SD* = 7.3) pre-intervention to *M* = 62.8 (*SD* = 8.6) post-intervention.
 
-### Mann-Whitney U test
+**Mann-Whitney U test**
 
-> A Mann-Whitney U test was used to compare phoneme inventory sizes across two language families, given that the rank data violated parametric assumptions. No significant difference was found (W = 34, *p* = .247). However, the rank-biserial correlation suggested a moderate effect size (*r* = −0.32, 95% CI [−0.69, 0.18]), indicating that the study may have been underpowered.
+> A Mann-Whitney U test was used to compare phoneme inventory sizes across two language families, given that the rank data violated parametric assumptions. No significant difference was found (W = 34, *p* = .247). However, the rank-biserial correlation suggested a moderate effect size (*r* = −0.32, 95% CI [−0.69, 0.18]).
 
-### Chi-square test
+**Chi-square test**
 
 > A Pearson's χ² test of independence was conducted to examine whether variety of English (BrE vs. AmE) was associated with hedge choice (*kind of* vs. *sort of*). The association was highly significant (χ²(1) = 220.73, *p* < .001) and of moderate size (φ = .45), with BrE showing a preference for *sort of* and AmE for *kind of*.
 
 ---
 
-## Quick Reference: Test Selection {-}
+## Quick reference: test selection {-}
 
-```{r test_selection, echo=FALSE, message=FALSE, warning=FALSE}
+```{r test-selection, echo=FALSE, message=FALSE, warning=FALSE}
 test_table <- data.frame(
   Design = c(
     "Compare 2 means, same participants",
@@ -1392,7 +1357,7 @@ test_table <- data.frame(
     "Compare 3+ conditions, same participants (non-normal)",
     "Test association between 2 categorical variables",
     "Test association: small N or small cells",
-    "Identify which cells drive a χ² result"
+    "Identify which cells drive a chi-square result"
   ),
   Test = c(
     "Paired t-test",
@@ -1402,7 +1367,7 @@ test_table <- data.frame(
     "One-way ANOVA",
     "Kruskal-Wallis test",
     "Friedman test",
-    "Pearson's χ²",
+    "Pearson's chi-square",
     "Fisher's Exact Test",
     "CFA / HCFA"
   ),
@@ -1423,48 +1388,78 @@ test_table <- data.frame(
     "Cohen's d (effectsize::cohens_d)",
     "Rank-biserial r",
     "Rank-biserial r",
-    "η² (effectsize::eta_squared)",
-    "η² or ε²",
+    "eta-squared (effectsize::eta_squared)",
+    "eta-squared or epsilon-squared",
     "Kendall's W",
-    "φ or Cramér's V",
+    "phi or Cramer's V",
     "Odds Ratio",
     "—"
   )
 )
 colnames(test_table) <- c("Research design", "Appropriate test", "R function", "Effect size")
 
-test_table %>%
-  flextable() %>%
-  flextable::set_table_properties(width = .99, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 11) %>%
-  flextable::fontsize(size = 11, part = "header") %>%
-  flextable::align_text_col(align = "left") %>%
-  flextable::set_caption(caption = "Quick reference guide to test selection and R implementation.") %>%
+test_table |>
+  flextable() |>
+  flextable::set_table_properties(width = .99, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "left") |>
+  flextable::set_caption(caption = "Quick reference guide to test selection and R implementation.") |>
   flextable::border_outer()
 ```
 
 ---
 
-# Citation & Session Info {-}
+# Citation & Session Info {.unnumbered}
 
-Schweinberger, Martin. 2026. *Basic Inferential Statistics with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/basicstatz/basicstatz.html (Version 2026.02.18).
 
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
 ```
-@manual{schweinberger2026basicstatz,
-  author       = {Schweinberger, Martin},
-  title        = {Basic Inferential Statistics using R},
-  note         = {tutorials/basicstatz/basicstatz.html},
-  year         = {2026},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address      = {Brisbane},
-  edition      = {2026.02.18}
-}
-```
 
-```{r fin}
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
+```
+:::
+
+
+
+```{r session-info}
 sessionInfo()
 ```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was revised and restyled with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. All substantive content — code, statistical explanations, exercises, and reporting conventions — was retained from the original. All changes were reviewed and approved by Martin Schweinberger, who takes full responsibility for the tutorial's accuracy.
+:::
 
 ---
 
@@ -1474,4 +1469,4 @@ sessionInfo()
 
 ---
 
-# References {-}
+# References {.unnumbered}

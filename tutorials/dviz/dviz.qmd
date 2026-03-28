@@ -1,140 +1,146 @@
 ---
 title: "Mastering Data Visualization with R"
 author: "Martin Schweinberger"
-format: 
+date: "2026"
+params:
+  title:       "Mastering Data Visualization with R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:     "2026.05.01"
+  url:         "https://ladal.edu.au/tutorials/dviz/dviz.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  doi:         ""
+format:
   html:
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     code-fold: show
     code-tools: true
     theme: cosmo
 ---
 
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options(scipen = 999)
+library(checkdown)
+```
+
 ![](/images/uq1.jpg){ width=100% }
 
-# Welcome! {.unnumbered}
+# Introduction {#intro}
 
-::: {.callout-tip}
-## What You'll Learn
-By the end of this tutorial, you will be able to:
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-- Choose the right visualization type for your data and research question
-- Create publication-quality plots using ggplot2
-- Customize visualizations to tell compelling data stories
-- Apply best practices for effective data communication
-- Build complex, multi-layered visualizations step-by-step
-:::
+This tutorial introduces data visualisation with R, focusing on the `ggplot2` package. It covers a wide range of plot types suited to different data structures and research questions — from scatter plots and distribution plots to Likert scale visualisations, heatmaps, time series, and publication-ready figures. Throughout, the emphasis is on choosing the right visualisation for a given question, understanding the grammar of graphics that underlies `ggplot2`, and developing the habits that lead to clear, reproducible, and honest data communication.
 
-## Who This Tutorial Is For
-
-This tutorial is designed for:
-
-- **Beginners** who want to learn data visualization from scratch
-- **Intermediate R users** looking to enhance their plotting skills
-- **Researchers** who need to create professional visualizations for publications
-- Anyone interested in telling stories with data
-
-## Prerequisites
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-**Before starting, make sure you're familiar with:**<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-  <li>[Handling Tables in R](/tutorials/table/table.html) </li>
-</ul>
-</p>
-</span>
-</div>
-
-## Tutorial Structure
-
-This tutorial follows a **learn-by-doing** approach with three main components:
-
-1. **Concept explanations** - Understanding when and why to use each visualization
-2. **Step-by-step examples** - Building plots from simple to complex
-3. **Hands-on exercises** - Practice what you've learned immediately
+The tutorial works through a concrete dataset on preposition frequencies in historical English texts, providing a continuous research narrative that connects the individual examples. Exercises at the end of each section consolidate understanding.
 
 ::: {.callout-note}
-## Learning Philosophy
-Rather than showing you every possible option at once, we'll build complexity gradually. Each section introduces new concepts that build on what you've learned before.
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain the grammar of graphics and how it structures `ggplot2` code
+2. Choose an appropriate visualisation type for a given data structure and research question
+3. Create scatter plots, density plots, histograms, ridge plots, boxplots, violin plots, bar plots, heatmaps, line graphs, and ribbon plots in `ggplot2`
+4. Visualise Likert scale survey data using grouped bar plots and `gglikert`
+5. Customise plots with themes, colour palettes, labels, and annotations
+6. Apply accessibility principles including redundant encoding and colourblind-safe palettes
+7. Combine multiple plots into a single figure using `patchwork`
+8. Save publication-quality figures in appropriate formats and resolutions
+9. Avoid common visualisation mistakes including truncated axes, chartjunk, and overplotting
 :::
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, you should be familiar with:
+
+- [Getting Started with R](/tutorials/intror/intror.html)
+- [Loading, Saving, and Generating Data in R](/tutorials/load/load.html)
+- [Handling Tables in R](/tutorials/table/table.html)
+:::
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  sep = ""
+)
+```
+
+:::
+
+---
 
 # Setup and Preparation {#setup}
 
-## Installing Required Packages
+::: {.callout-note}
+## Section Overview
 
-First, let's install all the packages we'll need. Run this code once - it may take 3-5 minutes:
+**What you will learn:** Which packages are needed and why; how to load the tutorial dataset; and how to set up a consistent colour palette for use throughout the tutorial
+:::
 
-```{r prep1, echo=T, eval = F}
-# Install core packages
-install.packages("dplyr")      # Data manipulation
-install.packages("stringr")    # String processing
-install.packages("ggplot2")    # Core plotting package
-install.packages("tidyr")      # Data reshaping
-install.packages("scales")     # Scale functions for ggplot2
+## Installing required packages {-}
 
-# Install specialized plotting packages
-install.packages("ggridges")   # Ridge plots
-install.packages("ggstats")    # Statistical plots
-install.packages("ggstatsplot")# Statistical visualizations
-install.packages("EnvStats")   # Environmental statistics
+Run this code once to install all required packages. It may take a few minutes.
 
-# Install packages for specific plot types
-install.packages("likert")     # Likert scale visualizations
-install.packages("vcd")        # Categorical data visualization
-install.packages("hexbin")     # Hexagonal binning
-install.packages("gridExtra")  # Arranging multiple plots
+```{r prep1, echo=TRUE, eval=FALSE}
+install.packages("dplyr")
+install.packages("stringr")
+install.packages("ggplot2")
+install.packages("tidyr")
+install.packages("scales")
+install.packages("ggridges")
+install.packages("ggstats")
+install.packages("ggstatsplot")
+install.packages("EnvStats")
+install.packages("likert")
+install.packages("vcd")
+install.packages("hexbin")
+install.packages("patchwork")    # Combining multiple plots
+install.packages("viridis")      # Colourblind-safe palettes
+install.packages("flextable")
+install.packages("devtools")
 
-# Install utility packages
-install.packages("flextable")  # Pretty tables
-install.packages("devtools")   # For installing from GitHub
-
-# Install ggflags from GitHub (for country flags in plots)
+# Install ggflags from GitHub (country flags in plots)
 devtools::install_github("jimjam-slam/ggflags")
 ```
 
-## Loading Packages
+## Loading packages {-}
 
-Now activate the packages for this session:
-
-```{r prep2, message=FALSE, warning=FALSE, class.source='klippy'}
+```{r prep2, message=FALSE, warning=FALSE}
 library(dplyr)
 library(stringr)
 library(ggplot2)
 library(tidyr)
 library(flextable)
 library(hexbin)
-library(gridExtra)
+library(patchwork)
 library(ggflags)
 library(ggstats)
 library(ggridges)
 library(EnvStats)
 library(scales)
+library(viridis)
 ```
 
-::: {.callout-tip}
-## Pro Tip
-Create a standard R script with these library calls that you can run at the start of each data visualization session!
-:::
+## Loading and inspecting the data {-}
 
-## Loading the Data
-
-We'll work with a dataset about preposition usage in historical English texts:
+We work throughout this tutorial with a dataset on preposition frequencies in historical English texts from the Penn Parsed Corpora of Historical English (PPCME, PPCEME, PPCMBE). Each row represents one text, and the key variables are described below.
 
 ```{r prep4}
-# Load data
 pdat <- base::readRDS("tutorials/dviz/data/pvd.rda", "rb")
 ```
 
-Let's examine the structure of our data:
-
-```{r prep5, echo = F}
-# Display first 15 rows
+```{r prep5, echo=FALSE}
 pdat |>
   as.data.frame() |>
   head(15) |>
@@ -144,654 +150,500 @@ pdat |>
   flextable::fontsize(size = 12) |>
   flextable::fontsize(size = 12, part = "header") |>
   flextable::align_text_col(align = "center") |>
-  flextable::set_caption(caption = "First 15 rows of the pdat data.") |>
+  flextable::set_caption(caption = "First 15 rows of the pdat dataset.") |>
   flextable::border_outer()
 ```
 
-### Understanding Our Data
+**Variable descriptions:**
 
-Our dataset contains:
+- `Date` — year the text was written (continuous)
+- `Genre` — text genre (Fiction, Legal, Religious, etc.)
+- `Text` — source text identifier
+- `Prepositions` — relative frequency of prepositions per 1,000 words
+- `Region` — geographic origin of the text (North/South)
+- `GenreRedux` — simplified genre categories (5 levels)
+- `DateRedux` — time period categories (1150--1499, 1500--1599, etc.)
 
-- **Date**: When the text was written
-- **Genre**: Type of text (Fiction, Legal, Religious, etc.)
-- **Text**: Name of the source text
-- **Prepositions**: Relative frequency of prepositions (per 1,000 words)
-- **Region**: Geographic location (North/South)
-- **GenreRedux**: Simplified genre categories
-- **DateRedux**: Time periods (1150-1499, 1500-1599, etc.)
+## Setting up a colour palette {-}
 
-## Setting Up a Color Palette
-
-Let's create a consistent color scheme for our visualizations:
+Using a consistent colour palette across all visualisations creates a coherent, professional look and reduces the cognitive load of switching between colour schemes. We define five colours here that we will reuse throughout.
 
 ```{r prep6}
-# Define custom colors
 clrs <- c("purple", "gray80", "lightblue", "orange", "gray30")
 ```
 
-::: {.callout-note}
-## Why Custom Colors?
-Using a consistent color palette across all your visualizations:  
-- Creates a professional, cohesive look  
-- Makes your work more recognizable  
-- Ensures color accessibility  
-- Saves time (no need to specify colors each time)  
+::: {.callout-tip}
+## Colour resources
 
-Explore more color options:  
-- [R Color Reference](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf)  
-- [R Color Palettes](https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/)  
+- [R Color Reference](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf) — all named colours in R
+- [ColorBrewer](https://colorbrewer2.org/) — palettes designed for maps and data visualisation, many colourblind-safe
+- [Viridis](https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html) — perceptually uniform, colourblind-safe palettes
+
+For accessibility, prefer palettes from the `viridis` package or `scale_color_brewer()` with `"Set2"` or `"Dark2"`.
 :::
 
 ---
 
-# Part 1: Exploring Relationships {#part1}
-
-In this section, we'll learn to visualize relationships between variables. We'll start simple and gradually add complexity.
-
-## Scatter Plots: The Foundation {#scatter}
-
-**When to use scatter plots:** To show the relationship between two continuous (numeric) variables.
-
-**Research questions answered:**  
-- Is there a relationship between X and Y?  
-- Does the relationship vary by group?  
-- Are there outliers or unusual patterns?  
-
-### Building Your First Scatter Plot
-
-Let's create a basic scatter plot step by step:
-
-```{r scatter_basic, results = 'asis', message=FALSE, warning=FALSE}
-# Step 1: Most basic scatter plot
-ggplot(data = pdat,                    # Our dataset
-       aes(x = Date,                   # X-axis variable
-           y = Prepositions)) +        # Y-axis variable
-  geom_point()                         # Add points
-```
+# Part 1: The Grammar of Graphics {#grammar}
 
 ::: {.callout-note}
-## Understanding the Code  
-- `ggplot()`: Initialize the plot  
-- `aes()`: Define "aesthetics" (what goes where)  
-- `geom_point()`: Add a layer of points  
-- `+`: Add layers together (like building blocks!)  
+## Section Overview
+
+**What you will learn:** The conceptual framework underlying `ggplot2`; the seven components of every plot; and how to read and write `ggplot2` code systematically
 :::
 
-### Exercise 1.1: Your First Plot {.exercise}
+## Why ggplot2? {-}
 
-::: {.callout-warning icon=false}
-## Try It Yourself!
+`ggplot2` is the dominant data visualisation package in R for good reason. It is based on a coherent theoretical framework — the **grammar of graphics** — that makes it possible to construct any plot from a small set of building blocks. Rather than memorising individual plot functions, you learn a system: once you understand the grammar, you can build plots you have never seen before by composing components in new ways.
 
-Create a scatter plot showing the relationship between `Date` (x-axis) and `Prepositions` (y-axis) using the code above. 
+The grammar of graphics, formalised by Wilkinson (2005) and implemented in `ggplot2` by Wickham (2010), describes a plot as the result of mapping **data** to **aesthetics** through **geometric objects**, with additional components controlling scales, coordinate systems, facets, and themes.
 
-**Questions to consider:**  
-1. What pattern do you see?  
-2. Are prepositions becoming more or less frequent over time?  
-3. Is the relationship linear or does it curve?  
-:::
+## The seven components {-}
 
-### Adding Color: Visualizing Groups
+Every `ggplot2` plot is built from up to seven components:
 
-Now let's add color to distinguish between genres:
+**1. Data** — the data frame containing the variables to be visualised. Passed as the first argument to `ggplot()`.
 
-```{r scatter_color, eval = T}
-ggplot(pdat,
-       aes(x = Date,
-           y = Prepositions,
-           color = GenreRedux)) +        # Color by genre
-  geom_point() +
-  theme_bw()                             # Clean black & white theme
+**2. Aesthetics** (`aes()`) — the mapping from data variables to visual properties: which variable goes on the x-axis, which on the y-axis, which controls colour, size, shape, transparency, and so on. Aesthetics defined inside `ggplot()` apply to all layers; aesthetics inside a specific `geom_*()` apply only to that layer.
+
+**3. Geometries** (`geom_*()`) — the geometric objects used to represent the data. Points, lines, bars, boxes, ribbons, tiles, and text are all geometries. Each `geom_*()` call adds a new layer to the plot.
+
+**4. Scales** (`scale_*()`) — control how aesthetic mappings are translated into visual properties. For example, `scale_color_manual()` specifies exact colours; `scale_x_log10()` log-transforms the x-axis; `scale_y_continuous(labels = scales::percent)` formats y-axis labels as percentages.
+
+**5. Facets** (`facet_wrap()`, `facet_grid()`) — split the data into subplots by the values of one or more categorical variables. Faceting is one of the most powerful features of `ggplot2` for comparing patterns across groups.
+
+**6. Coordinate system** (`coord_*()`) — controls the space in which the plot is drawn. `coord_flip()` swaps x and y; `coord_polar()` creates polar (circular) coordinates; `coord_cartesian()` sets axis limits without dropping data points.
+
+**7. Theme** (`theme_*()`, `theme()`) — controls all non-data visual elements: background colour, gridlines, font sizes, axis tick marks, legend position, and so on. `theme_bw()` and `theme_minimal()` are good defaults for publication work.
+
+## The ggplot2 template {-}
+
+Every `ggplot2` call follows this template:
+
+```{r grammar-template, eval=FALSE}
+ggplot(data = <DATA>, aes(x = <X>, y = <Y>, color = <GROUP>)) +
+  geom_<TYPE>(<PARAMETERS>) +
+  scale_<AESTHETIC>_<TYPE>(<PARAMETERS>) +
+  facet_<TYPE>(vars(<VARIABLE>)) +
+  coord_<TYPE>() +
+  theme_<STYLE>() +
+  labs(title = "<TITLE>", x = "<X LABEL>", y = "<Y LABEL>")
 ```
 
-**What changed?**  
-- `color = GenreRedux` inside `aes()` colors points by genre  
-- `theme_bw()` gives us a cleaner, professional look  
-- ggplot2 automatically creates a legend!  
-
-### Customizing Colors and Shapes
-
-Let's make our plot publication-ready:
-
-```{r scatter_custom, eval = T}
-ggplot(pdat, 
-       aes(Date, Prepositions, 
-           color = GenreRedux, 
-           shape = GenreRedux)) +          # Different shapes for genres
-  geom_point(size = 2) +                   # Larger points
-  scale_shape_manual(
-    name = "Genre",
-    values = 1:5                           # Different point shapes
-  ) +
-  scale_color_manual(
-    name = "Genre",
-    values = clrs                          # Our custom colors
-  ) +
-  theme_bw() +
-  theme(legend.position = "top")           # Move legend to top
-```
+The `+` operator adds layers and components to the plot. The order generally does not matter for the final result, but it is conventional to put data layers first, then scales, then facets, then theme, then labels.
 
 ::: {.callout-tip}
-## Design Principle: Redundant Encoding
-Using both color AND shape to show genre makes your plot more accessible:  
-- People with color blindness can use shapes  
-- Black & white printing preserves information  
-- Easier to distinguish groups when many overlap  
+## Reading existing ggplot2 code
+
+When you encounter unfamiliar `ggplot2` code, read it layer by layer. Ask: what data is being used? What is mapped to x, y, colour, and other aesthetics? What geometric objects are being drawn? What scales and themes have been applied? This decomposition makes even complex plots understandable.
 :::
 
-### Exercise 1.2: Customize Your Plot {.exercise}
-
-::: {.callout-warning icon=false}
-## Challenge
-
-Modify the plot above to:  
-1. Change the theme to `theme_minimal()` or `theme_classic()`  
-2. Move the legend to the bottom  
-3. Try different point sizes (hint: change the `size` parameter)  
-
-**Bonus:** Try `theme_void()` - what happens? Why might this be useful (or not)?
-:::
-
-## Adding Statistical Layers
-
-### Trend Lines: Seeing Patterns
-
-Let's add trend lines to see patterns more clearly:
-
-```{r scatter_trends, message=F, warning=F}
-ggplot(pdat, aes(Date, Prepositions, color = Genre)) +
-  facet_wrap(vars(Genre), ncol = 4) +    # Separate panel per genre
-  geom_point(alpha = 0.5) +              # Semi-transparent points
-  geom_smooth(method = "lm", se = FALSE) + # Linear trend line
-  theme_bw() +
-  theme(
-    legend.position = "none",             # No legend needed (titles show genre)
-    axis.text.x = element_text(size = 8, angle = 90)
-  )
+```{r check-grammar, echo=FALSE}
+check_question(
+  answer = "It controls all non-data visual elements of the plot, such as background colour, gridlines, font sizes, axis labels, and legend position.",
+  options = c(
+    "It controls which variables are mapped to which axes.",
+    "It specifies the type of geometric object used to represent the data.",
+    "It controls all non-data visual elements of the plot, such as background colour, gridlines, font sizes, axis labels, and legend position.",
+    "It determines how data values are transformed before plotting."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "grammar_q1",
+  right = "Correct! The theme controls the appearance of all non-data elements. Functions like theme_bw() or theme_minimal() set a base style, and theme() lets you override individual elements such as legend.position, axis.text.x, or plot.title.",
+  wrong = "Not quite. Axis mappings are controlled by aes(); geometric objects by geom_*(); and data transformations by scale_*() or stat_*(). The theme controls visual appearance elements that are not derived from the data itself."
+)
 ```
 
-**New concepts:**  
-- `facet_wrap()`: Create separate panels for each group  
-- `alpha = 0.5`: Make points semi-transparent (50% opacity)  
-- `geom_smooth()`: Add a smoothed trend line  
-- `method = "lm"`: Use linear regression  
-- `se = FALSE`: Don't show confidence interval  
+---
+
+# Part 2: Exploring Relationships {#part2}
 
 ::: {.callout-note}
-## When to Use Facets  
-Facets (separate panels) work best when:  
-- You have 3-8 groups to compare  
-- Patterns within groups are important  
-- Overlapping points make one plot hard to read  
+## Section Overview
 
-Avoid facets when:  
-- You need to directly compare values across groups  
-- You have too many groups (>10)  
+**What you will learn:** Scatter plots as the foundation for showing relationships between two continuous variables; adding colour, shape, and trend lines; using facets; managing overplotting with transparency, density contours, and hex plots
 :::
 
-### Exercise 1.3: Exploring Trends {.exercise}
+## Scatter plots {#scatter}
 
-::: {.callout-warning icon=false}
-## Analysis Task
+Scatter plots are the most direct way to visualise the relationship between two continuous variables. Each point represents one observation.
 
-Using the faceted plot above:  
-1. Which genre shows the strongest trend over time?  
-2. Which genres have increasing vs. decreasing preposition use?  
-3. Try changing `method = "lm"` to `method = "loess"` - what's different?  
+**When to use:** Two continuous variables; sample size small enough that individual points can be seen (roughly < 5,000 without overplotting strategies).
 
-**Discussion:** When might a curved line (loess) be more appropriate than a straight line (lm)?
+### Basic scatter plot {-}
+
+```{r scatter-basic, message=FALSE, warning=FALSE}
+ggplot(data = pdat,
+       aes(x = Date,
+           y = Prepositions)) +
+  geom_point() +
+  theme_bw() +
+  labs(x = "Year",
+       y = "Prepositions per 1,000 words")
+```
+
+::: {.callout-note}
+## Reading the code
+
+- `ggplot()` initialises the plot and sets the default data and aesthetics
+- `aes(x = Date, y = Prepositions)` maps the variable `Date` to the x-axis and `Prepositions` to the y-axis
+- `geom_point()` adds a layer of points — one per row in the data
+- `theme_bw()` applies a clean black-and-white theme
+- `labs()` sets axis labels
 :::
 
-## Density Overlays: Alternative to Points
+### Adding colour and shape {-}
 
-Sometimes you have too many overlapping points. Here's an alternative:
+Using both colour and shape to encode the same variable is called **redundant encoding**. It makes plots more accessible: readers who cannot distinguish colours (about 8% of men have some form of colour vision deficiency) can still use the shapes, and the plot retains its meaning when printed in greyscale.
 
-```{r scatter_density, eval = T}
-ggplot(pdat, aes(x = Date, y = Prepositions, color = GenreRedux)) +
-  facet_wrap(vars(GenreRedux), ncol = 5) +
-  geom_density_2d() +                    # 2D density contours
+```{r scatter-custom, message=FALSE, warning=FALSE}
+ggplot(pdat,
+       aes(Date, Prepositions,
+           color = GenreRedux,
+           shape = GenreRedux)) +
+  geom_point(size = 2) +
+  scale_shape_manual(name = "Genre", values = 1:5) +
+  scale_color_manual(name = "Genre", values = clrs) +
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(x = "Year", y = "Prepositions per 1,000 words")
+```
+
+### Faceted scatter plots with trend lines {-}
+
+When points from multiple groups overlap, faceting into separate panels makes individual group patterns visible. Adding a trend line with `geom_smooth()` makes the overall direction of change within each group explicit.
+
+```{r scatter-facets, message=FALSE, warning=FALSE}
+ggplot(pdat, aes(Date, Prepositions, color = Genre)) +
+  facet_wrap(vars(Genre), ncol = 4) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
   theme_bw() +
   theme(
     legend.position = "none",
     axis.text.x = element_text(size = 8, angle = 90)
-  )
+  ) +
+  labs(x = "Year", y = "Prepositions per 1,000 words")
 ```
 
-**What are density contours?**
-Think of them like topographic map lines - they show where data points are concentrated.
+::: {.callout-note}
+## Facets: when to use them
 
-### Quick Comparison Table
+Facets work best when you have 3--8 groups whose within-group patterns are the focus, and when direct across-group value comparison is less important than seeing each group's trend clearly. Avoid facets when groups need to be directly overlaid for comparison, or when you have more than about 10 groups.
+:::
 
-| Visualization | Best For | Limitations |
-|--------------|----------|-------------|
-| Points | Small-medium datasets, seeing all data | Gets messy with many points |
-| Trend lines | Showing overall patterns | Hides individual variation |
-| Density contours | Large datasets, concentration patterns | Harder to interpret |
-| Hex bins (next!) | Very large datasets | Requires uniform X-Y scales |
+### Managing overplotting {-}
 
-## Hex Plots: Handling Big Data
+When many points occupy the same region, individual points become invisible. Three strategies address this:
 
-When you have thousands of points, hex plots show density efficiently:
+**Transparency** (`alpha`) — making points semi-transparent so density is visible as colour intensity.
 
-```{r hex_plot, results = 'asis', message=FALSE, warning=FALSE}
+**2D density contours** (`geom_density_2d`) — contour lines showing where data is concentrated, like a topographic map.
+
+**Hex plots** (`geom_hex`) — the plotting region is divided into hexagonal bins; each bin is coloured by the number of points it contains. Effective for very large datasets.
+
+```{r scatter-density, message=FALSE, warning=FALSE}
+ggplot(pdat, aes(x = Date, y = Prepositions, color = GenreRedux)) +
+  facet_wrap(vars(GenreRedux), ncol = 5) +
+  geom_density_2d() +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 8, angle = 90)
+  ) +
+  labs(x = "Year", y = "Prepositions per 1,000 words")
+```
+
+```{r hex-plot, message=FALSE, warning=FALSE}
 pdat |>
   ggplot(aes(x = Date, y = Prepositions)) +
-  geom_hex() +                          # Hexagonal binning
-  scale_fill_gradient(low = "lightblue", high = "darkblue") +
-  theme_bw()
+  geom_hex() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue",
+                      name = "Count") +
+  theme_bw() +
+  labs(x = "Year", y = "Prepositions per 1,000 words",
+       title = "Hex plot: point density")
 ```
 
-Darker hexagons = more data points in that region.
-
-### Exercise 1.4: Comparing Approaches {.exercise}
-
-::: {.callout-warning icon=false}
-## Synthesis Challenge
-
-Create three plots of the same data:  
-1. A scatter plot with `geom_point()`  
-2. A density plot with `geom_density_2d()`  
-3. A hex plot with `geom_hex()`  
-
-**Reflect:**  
-- What different insights does each provide?  
-- Which would you use in a paper? A presentation? An exploratory analysis?  
-:::
+| Approach | Best for | Limitation |
+|---|---|---|
+| Points | Small--medium datasets, seeing all data | Gets cluttered with many points |
+| Transparency | Moderate overplotting | Still unclear at very high density |
+| Density contours | Showing concentration patterns | Harder to interpret than points |
+| Hex bins | Very large datasets | Requires comparable x--y scales |
 
 ---
 
-# Part 2: Showing Distributions {#part2}
+# Part 3: Showing Distributions {#part3}
 
-Understanding distributions helps us see patterns, outliers, and the "shape" of our data.
+::: {.callout-note}
+## Section Overview
 
-## Density Plots: Smooth Distribution Curves {#density}
+**What you will learn:** Density plots, histograms, ridge plots, boxplots, and violin plots — when each is appropriate and what each reveals that the others do not
+:::
 
-**When to use:** To show how values are distributed, especially comparing groups.
+## Density plots {#density}
 
-```{r density_basic, results = 'asis', message=FALSE, warning=FALSE}
+Density plots show the estimated probability density of a continuous variable as a smooth curve. They are particularly useful for comparing the shape of a distribution across groups.
+
+```{r density-basic, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(Date, fill = Region)) +
-  geom_density(alpha = 0.5) +           # Semi-transparent densities
+  geom_density(alpha = 0.5) +
   scale_fill_manual(values = clrs[1:2]) +
   theme_bw() +
-  theme(legend.position = c(0.1, 0.9))  # Position inside plot area
+  theme(legend.position = c(0.1, 0.9)) +
+  labs(x = "Year", y = "Density",
+       title = "Temporal distribution of texts by region")
 ```
 
-**Reading density plots:**  
-- X-axis: Values of the variable (Date)  
-- Y-axis: Density (higher = more data points)  
-- Peaks: Most common values  
-- Width: Spread of the data  
+The plot shows that southern texts continue into the 1800s while northern texts end around 1700, with a period of overlap in between.
 
-::: {.callout-tip}
-## Interpreting This Plot
-The plot shows that:  
-- Southern texts continue into the 1800s  
-- Northern texts end around 1700  
-- There's an overlap period where both regions produced texts  
-:::
+## Histograms {#histograms}
 
-### Exercise 2.1: Distribution Detective {.exercise}
+Histograms divide a continuous variable into equal-width bins and count how many observations fall in each. Unlike density plots, they show actual counts and make the discretisation of the data explicit.
 
-::: {.callout-warning icon=false}
-## Investigation
-
-Create a density plot of `Prepositions` (not `Date`), colored by `GenreRedux`.
-
-**Questions:**  
-1. Which genre has the highest average preposition frequency?  
-2. Which genre shows the most variation (widest distribution)?  
-3. Do any genres have unusual distributions (multiple peaks, asymmetry)?  
-:::
-
-## Histograms: Counting in Bins {#histograms}
-
-Histograms are similar to density plots but show actual counts:
-
-```{r hist_basic, message=F, warning=F}
+```{r hist-basic, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(Prepositions)) +
-  geom_histogram(bins = 30,              # Number of bins
-                 fill = "steelblue",
-                 color = "white") +      # Outline color
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
   theme_bw() +
-  labs(title = "Distribution of Preposition Frequencies",
+  labs(title = "Distribution of preposition frequencies",
        x = "Prepositions per 1,000 words",
        y = "Count")
 ```
 
-### Comparing Groups with Histograms
-
-```{r hist_groups, message=F, warning=F}
-ggplot(pdat, aes(Prepositions, fill = Region)) +
-  geom_histogram(bins = 30, alpha = 0.6, position = "identity") +
-  scale_fill_manual(values = clrs[1:2]) +
-  theme_bw() +
-  theme(legend.position = "top")
-```
-
 ::: {.callout-important}
-## Histogram vs. Bar Plot
-**Don't confuse these!**  
-- **Histogram**: Shows distribution of ONE continuous variable (bins are ranges)  
-- **Bar plot**: Shows counts/values for CATEGORIES (bars are discrete groups)  
+## Histogram vs. bar plot
+
+A **histogram** shows the distribution of one continuous variable. The bins are ranges of values, and there are no gaps between bars (the variable is continuous).
+
+A **bar plot** shows counts or values for discrete categories. Bars are separated by gaps to reflect the categorical (not continuous) nature of the x-axis.
+
+Confusing the two is one of the most common plotting mistakes in student work.
 :::
 
-### Exercise 2.2: Finding the Right Bin Width {.exercise}
+## Ridge plots {#ridges}
 
-::: {.callout-warning icon=false}
-## Experiment
+Ridge plots (also called joy plots) show offset density curves for multiple groups, making it easy to compare shapes across many groups simultaneously. They are particularly effective when you have more groups than can comfortably be shown in overlapping densities.
 
-Create three histograms of `Prepositions` with different numbers of bins:  
-1. `bins = 10`  
-2. `bins = 30`  
-3. `bins = 100`  
-
-**Discuss:**  
-- Too few bins: What information is lost?  
-- Too many bins: What problems arise?  
-- How do you choose the "right" number?  
-
-**Hint:** Try the Freedman-Diaconis rule: `bins = 30` is often a good starting point.
-:::
-
-## Ridge Plots: Beautiful Distribution Comparisons {#ridges}
-
-Ridge plots elegantly show multiple distributions:
-
-```{r ridge_basic, results = 'asis', message=FALSE, warning=FALSE}
-library(ggridges)
-
+```{r ridge-basic, message=FALSE, warning=FALSE}
 pdat |>
   ggplot(aes(x = Prepositions, y = GenreRedux, fill = GenreRedux)) +
   geom_density_ridges() +
   theme_ridges() +
   theme(legend.position = "none") +
-  labs(y = "", 
-       x = "Relative frequency of prepositions")
+  labs(y = "", x = "Relative frequency of prepositions per 1,000 words",
+       title = "Preposition frequency distributions by genre")
 ```
 
-**Why ridge plots are great:**  
-- Easy to compare shapes across many groups  
-- Aesthetically pleasing  
-- Popular in modern data visualization  
+## Boxplots {#boxplots}
 
-### Exercise 2.3: Ridge Plot Exploration {.exercise}
+Boxplots display five summary statistics simultaneously: the median (line inside the box), the first and third quartiles (the box edges, enclosing the interquartile range, IQR), and the whiskers extending to 1.5 times the IQR beyond each box edge. Points beyond the whiskers are plotted individually as potential outliers.
 
-::: {.callout-warning icon=false}
-## Create and Customize
+```{r box-anatomy, echo=FALSE, message=FALSE, warning=FALSE}
+# Illustrative boxplot with annotations
+set.seed(42)
+demo_data <- data.frame(
+  group = "Example",
+  value = c(rnorm(40, mean = 120, sd = 15), 165, 170, 80)
+)
 
-1. Create a ridge plot of `Prepositions` by `DateRedux` (instead of `GenreRedux`)  
-2. Add color with `scale_fill_manual(values = clrs)`  
-3. Try `geom_density_ridges(alpha = 0.6, stat = "binline", bins = 20)` - what changes?  
+bp <- ggplot(demo_data, aes(x = group, y = value)) +
+  geom_boxplot(fill = "lightblue", width = 0.4, outlier.colour = "red",
+               outlier.shape = 16, outlier.size = 3) +
+  ggplot2::annotate("text", x = 1.3, y = median(demo_data$value), label = "Median", size = 3.5) +
+  ggplot2::annotate("text", x = 1.3, y = quantile(demo_data$value, 0.25), label = "Q1 (25th percentile)", size = 3.5) +
+  ggplot2::annotate("text", x = 1.3, y = quantile(demo_data$value, 0.75), label = "Q3 (75th percentile)", size = 3.5) +
+  ggplot2::annotate("text", x = 1.3, y = 165, label = "Outlier", size = 3.5, color = "red") +
+  theme_bw() +
+  labs(x = "", y = "Value", title = "Anatomy of a boxplot")
+bp
+```
 
-**Bonus:** Research what `stat = "binline"` does. Why might you choose this over smooth densities?
-:::
-
-## Boxplots: The Statistical Summary {#boxplots}
-
-Boxplots show five key statistics at once:
-
-```{r box_basic, results = 'asis', message=FALSE, warning=FALSE}
+```{r box-basic, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux)) +
   geom_boxplot() +
   scale_fill_manual(values = clrs) +
   theme_bw() +
   theme(legend.position = "none") +
-  labs(x = "Time Period", 
-       y = "Prepositions (per 1,000 words)")
+  labs(x = "Time period", y = "Prepositions per 1,000 words")
 ```
 
-### Reading a Boxplot
+### Notched boxplots {-}
 
-![Anatomy of a boxplot - showing median, quartiles, whiskers, and outliers]
+Adding `notch = TRUE` draws notches around the median. If notches of two boxes do not overlap, there is strong visual evidence that the medians differ significantly. This is a useful quick check, though it is not a substitute for formal statistical testing.
 
-- **Line in box**: Median (50th percentile)  
-- **Box**: Interquartile range (IQR) - middle 50% of data  
-- **Whiskers**: Extend to 1.5 × IQR  
-- **Dots**: Outliers beyond whiskers  
-
-### Notched Boxplots: Testing Differences
-
-```{r box_notched, results = 'asis', message=FALSE, warning=FALSE}
+```{r box-notched, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux)) +
-  geom_boxplot(notch = TRUE,             # Add notches
+  geom_boxplot(notch = TRUE,
                outlier.colour = "red",
                outlier.shape = 2,
                outlier.size = 3) +
   scale_fill_manual(values = clrs) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  labs(x = "Time period", y = "Prepositions per 1,000 words",
+       title = "Notched boxplots: overlapping notches suggest similar medians")
 ```
 
-::: {.callout-important}
-## The Notch Test
-If notches of two boxes don't overlap → strong evidence groups differ significantly.
+### Enhanced boxplots with jittered points {-}
 
-This is a visual "rough test" - not a replacement for proper statistics!
-:::
+Overlaying the individual data points on the boxplot reveals the sample size and distribution simultaneously.
 
-### Enhanced Boxplots with Individual Points
-
-```{r box_enhanced, results = 'asis', message=FALSE, warning=FALSE}
-library(EnvStats)
-
+```{r box-enhanced, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux, color = DateRedux)) +
-  geom_boxplot(varwidth = TRUE,          # Width proportional to sample size
-               color = "black", 
-               alpha = 0.3) +
-  geom_jitter(alpha = 0.3,               # Add individual points
-              height = 0,                 # Don't jitter vertically
-              width = 0.2) +              # Small horizontal spread
+  geom_boxplot(varwidth = TRUE, color = "black", alpha = 0.3) +
+  geom_jitter(alpha = 0.3, height = 0, width = 0.2) +
   facet_grid(~Region) +
-  EnvStats::stat_n_text(y.pos = 65) +    # Add sample sizes
+  EnvStats::stat_n_text(y.pos = 65) +
   theme_bw() +
   theme(legend.position = "none") +
-  labs(x = "", 
-       y = "Frequency (per 1,000 words)",
-       title = "Preposition Use Across Time and Regions")
+  labs(x = "", y = "Frequency per 1,000 words",
+       title = "Preposition use across time and regions",
+       subtitle = "Box width proportional to sample size; n shown below each box")
 ```
 
-### Exercise 2.4: Boxplot Mastery {.exercise}
+## Violin plots {#violin}
 
-::: {.callout-warning icon=false}
-## Advanced Challenge
+Violin plots mirror a density plot on both sides of a central axis, giving them their characteristic shape. They show the full distribution shape — including multimodality — while remaining compact enough to compare across groups.
 
-1. Create a boxplot of `Prepositions` by `GenreRedux`  
-2. Add notches  
-3. Add jittered points  
-4. Color by genre  
-5. Add appropriate labels  
-
-**Analysis questions:**  
-- Which genres show the most variation?  
-- Are there any outliers? What might they represent?  
-- Do any genre pairs show non-overlapping notches?  
-:::
-
-## Violin Plots: Best of Both Worlds
-
-Violin plots combine boxplot statistics with density shapes:
-
-```{r violin_basic, results = 'asis', message=FALSE, warning=FALSE}
+```{r violin-basic, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux)) +
   geom_violin(trim = FALSE, alpha = 0.5) +
   scale_fill_manual(values = clrs) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  labs(x = "Time period", y = "Prepositions per 1,000 words",
+       title = "Violin plots reveal distribution shape")
 ```
 
-**Violin plots show:**  
-- Distribution shape (like density plots)  
-- Median and quartiles (like boxplots)  
-- Multimodal distributions (multiple peaks)  
+## Choosing between distribution plot types {-}
 
-### When to Choose Each Plot Type
+| Plot type | Reveals | Best for | Avoid when |
+|---|---|---|---|
+| Histogram | Counts in bins | Single variable, showing counts | Comparing many groups |
+| Density | Smooth shape | Comparisons, overlapping groups | Exact counts needed |
+| Ridge | Multiple shapes | Many groups (> 4) | Fewer than 3 groups |
+| Boxplot | Five-number summary + outliers | Statistical summaries | Distribution shape matters |
+| Violin | Shape + summary | Detecting multimodality | Very small samples |
 
-| Plot Type | Best For | Avoid When |
-|-----------|----------|-----------|
-| Histogram | Single variable, showing counts | Comparing many groups |
-| Density | Smooth distributions, comparisons | Need exact counts |
-| Ridge | Many groups, emphasis on shapes | <3 groups |
-| Boxplot | Statistical summary, outliers | Distribution shape matters |
-| Violin | Shape + summary, detecting multimodality | Small sample sizes |
-
-### Exercise 2.5: Distribution Showdown {.exercise}
-
-::: {.callout-warning icon=false}
-## Comparative Analysis
-
-For the variable `Prepositions` grouped by `GenreRedux`, create:  
-1. A ridge plot  
-2. A boxplot  
-3. A violin plot  
-
-**Reflection:**  
-- What does each reveal that the others don't?  
-- If you could only show ONE plot in a paper, which would you choose and why?  
-- How does sample size affect each plot type?  
-:::
+```{r check-distributions, echo=FALSE}
+check_question(
+  answer = "A violin plot, because it shows both the distribution shape (like a density plot) and summary statistics, and can reveal multimodal distributions that a boxplot would hide.",
+  options = c(
+    "A histogram, because it shows exact counts and is the most familiar plot type.",
+    "A boxplot, because it always shows outliers clearly.",
+    "A violin plot, because it shows both the distribution shape (like a density plot) and summary statistics, and can reveal multimodal distributions that a boxplot would hide.",
+    "A ridge plot, because it handles multiple groups better than any other option."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "dist_q1",
+  right = "Correct! Violin plots are the best choice here because the research question is specifically about distribution shape — are there multiple peaks (bimodality) indicating two distinct groups within a genre? A boxplot would reduce the distribution to five statistics and completely hide any bimodality. A histogram or density plot for a single group would work, but cannot easily show multiple genres side by side. A ridge plot is also a reasonable alternative.",
+  wrong = "Not quite. The key issue is that you specifically want to see distribution shape, including whether there are multiple peaks. Boxplots compress the distribution into five statistics and cannot show bimodality. Histograms work for a single group but are harder to compare across many groups. Violin plots show both the full shape (including multimodality) and a compact summary, making them ideal for this question."
+)
+```
 
 ---
 
-# Part 3: Categorical Data {#part3}
+# Part 4: Categorical Data {#part4}
 
-Working with categorical variables requires different approaches. Let's explore the options!
+::: {.callout-note}
+## Section Overview
 
-## Bar Plots: The Workhorse of Categories {#barplots}
+**What you will learn:** Bar plots in their basic, grouped, stacked, and normalised forms; Likert scale visualisation; and the case against pie charts
+:::
 
-First, let's create summary data:
+## Bar plots {#barplots}
 
-```{r bar_data, message=F, warning=F}
+Bar plots show counts, frequencies, or summary values for categorical groups. They are the workhorse of categorical data visualisation.
+
+First, we create summary data:
+
+```{r bar-data, message=FALSE, warning=FALSE}
 bdat <- pdat |>
   dplyr::mutate(DateRedux = factor(DateRedux)) |>
   group_by(DateRedux) |>
   dplyr::summarise(Frequency = n()) |>
   dplyr::mutate(Percent = round(Frequency / sum(Frequency) * 100, 1))
 
-# View the data
 bdat
 ```
 
-### Basic Bar Plot
+### Basic bar plot {-}
 
-```{r bar_basic, results='hide', message=FALSE, warning=FALSE}
+```{r bar-basic, message=FALSE, warning=FALSE}
 ggplot(bdat, aes(DateRedux, Percent, fill = DateRedux)) +
-  geom_bar(stat = "identity") +          # Use actual values
-  geom_text(aes(y = Percent - 3,         # Position labels
-                label = paste0(Percent, "%")), 
-            color = "white", 
-            size = 4) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = Percent - 3,
+                label = paste0(Percent, "%")),
+            color = "white", size = 4) +
   scale_fill_manual(values = clrs) +
   theme_bw() +
   theme(legend.position = "none") +
-  labs(x = "Time Period",
-       y = "Percentage of Documents",
-       title = "Distribution of Texts Across Time Periods")
+  labs(x = "Time period",
+       y = "Percentage of documents",
+       title = "Distribution of texts across time periods")
 ```
 
 ::: {.callout-note}
-## `stat = "identity"` Explained  
-- `geom_bar()` by default counts occurrences (`stat = "count"`)  
-- Use `stat = "identity"` when your data already contains the values to plot  
-- Think: "plot the values AS IS (their identity)"  
+## `stat = "identity"` explained
+
+`geom_bar()` defaults to `stat = "count"`, which counts the number of rows per group. When your data already contains the values to plot — as `bdat$Percent` does here — use `stat = "identity"` to plot the values as given without any additional aggregation.
 :::
 
-### Grouped Bar Plots
+### Grouped and stacked bar plots {-}
 
-```{r bar_grouped, results='hide', message=FALSE, warning=FALSE}
+```{r bar-grouped, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(Region, fill = DateRedux)) +
-  geom_bar(position = position_dodge(),  # Side-by-side bars
-           stat = "count") +
+  geom_bar(position = position_dodge(), stat = "count") +
   scale_fill_manual(values = clrs) +
   theme_bw() +
-  labs(x = "Region",
-       y = "Number of Documents",
-       fill = "Time Period")
+  labs(x = "Region", y = "Number of documents", fill = "Time period",
+       title = "Document counts by region and time period (grouped)")
 ```
 
-**When to use grouped bars:**  
-- Comparing sub-categories within main categories  
-- 2-3 sub-groups work best  
-- Direct comparison between groups is important  
-
-### Stacked Bar Plots
-
-```{r bar_stacked, results='hide', message=FALSE, warning=FALSE}
+```{r bar-stacked, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, fill = GenreRedux)) +
   geom_bar(stat = "count") +
   scale_fill_manual(values = clrs) +
   theme_bw() +
-  labs(x = "Time Period",
-       y = "Number of Documents",
-       fill = "Genre",
-       title = "Genre Composition Across Time Periods")
+  labs(x = "Time period", y = "Number of documents", fill = "Genre",
+       title = "Genre composition across time periods (stacked)")
 ```
 
-### Normalized Stacked Bars (100%)
-
-```{r bar_normalized, results='hide', message=FALSE, warning=FALSE}
+```{r bar-normalised, message=FALSE, warning=FALSE}
 ggplot(pdat, aes(DateRedux, fill = GenreRedux)) +
   geom_bar(stat = "count", position = "fill") +
   scale_fill_manual(values = clrs) +
-  scale_y_continuous(labels = scales::percent) +  # Format as percentages
+  scale_y_continuous(labels = scales::percent) +
   theme_bw() +
-  labs(x = "Time Period",
-       y = "Proportion of Documents",
-       fill = "Genre",
-       title = "Relative Genre Composition Over Time")
+  labs(x = "Time period", y = "Proportion of documents", fill = "Genre",
+       title = "Relative genre composition over time (100% stacked)")
 ```
 
-::: {.callout-tip}
-## Choosing Bar Plot Types
+| Bar type | Use when |
+|---|---|
+| Basic / grouped | Comparing absolute counts across groups |
+| Stacked | Showing composition and total simultaneously |
+| 100% normalised | Only proportions matter, not absolute counts |
 
-**Grouped bars** when:  
-- Comparing specific values across groups  
-- You have 2-3 subgroups  
-- Actual counts matter  
+## Likert scale visualisations {#likert}
 
-**Stacked bars** when:  
-- Showing composition (parts of a whole)  
-- Total amount is important  
-- You have 3-6 subgroups  
+Survey data recorded on Likert scales (e.g. Strongly Disagree to Strongly Agree) requires careful visualisation because the response categories are ordered, the neutral midpoint is meaningful, and the visual emphasis should reflect valence.
 
-**100% stacked** when:  
-- Only proportions matter (not absolute values)  
-- Emphasizing compositional changes  
-:::
-
-### Exercise 3.1: Bar Plot Practice {.exercise}
-
-::: {.callout-warning icon=false}
-## Build Your Skills
-
-1. Create a grouped bar plot showing `GenreRedux` by `Region`  
-2. Create a stacked bar plot of the same data  
-3. Create a 100% stacked version  
-
-**Questions:**
-- Which plot makes it easiest to compare genre frequencies between regions?  
-- Which shows total document counts best?  
-- What story does the 100% stacked version tell?  
-:::
-
-## Likert Scale Visualizations {#likert}
-
-Survey data with Likert scales (Strongly Disagree → Strongly Agree) needs special treatment.
-
-First, let's load some survey data:
-
-```{r likert_data}
+```{r likert-data, message=FALSE, warning=FALSE}
 ldat <- base::readRDS("tutorials/dviz/data/lid.rda", "rb")
 head(ldat)
 ```
 
-### Method 1: Grouped Bar Plot
+### Grouped bar plot {-}
 
-```{r likert_grouped, echo=T, message=FALSE, warning=FALSE}
-# Summarize the data
+```{r likert-grouped, message=FALSE, warning=FALSE}
 nlik <- ldat |>
   dplyr::group_by(Course, Satisfaction) |>
-  dplyr::summarize(Frequency = n())
+  dplyr::summarize(Frequency = n(), .groups = "drop")
 
-# Create grouped bar plot
 ggplot(nlik, aes(Satisfaction, Frequency, fill = Course)) +
   geom_bar(stat = "identity", position = position_dodge()) +
   scale_fill_manual(values = clrs[1:3]) +
@@ -800,47 +652,43 @@ ggplot(nlik, aes(Satisfaction, Frequency, fill = Course)) +
             position = position_dodge(0.9), size = 3.5) +
   scale_x_discrete(
     limits = 1:5,
-    labels = c("Very\nDissatisfied", "Dissatisfied", 
+    labels = c("Very\nDissatisfied", "Dissatisfied",
                "Neutral", "Satisfied", "Very\nSatisfied")
   ) +
   theme_bw() +
-  labs(title = "Student Satisfaction by Course",
-       x = "Satisfaction Level",
-       y = "Number of Students")
+  labs(title = "Student satisfaction by course",
+       x = "Satisfaction level", y = "Number of students")
 ```
 
-### Method 2: Cumulative Line Graph
+### Cumulative distribution plot {-}
 
-```{r likert_cumulative, warning=F, message=F}
+```{r likert-cumulative, message=FALSE, warning=FALSE}
 ggplot(ldat, aes(x = Satisfaction, color = Course)) +
-  geom_step(aes(y = ..y..), stat = "ecdf", size = 1.5) +
+  geom_step(aes(y = after_stat(y)), stat = "ecdf", linewidth = 1.5) +
   scale_colour_manual(values = clrs[1:3]) +
   scale_x_discrete(
     limits = 1:5,
-    labels = c("Very\nDissatisfied", "Dissatisfied", 
+    labels = c("Very\nDissatisfied", "Dissatisfied",
                "Neutral", "Satisfied", "Very\nSatisfied")
   ) +
   theme_bw() +
-  labs(title = "Cumulative Satisfaction Distribution",
-       y = "Cumulative Proportion",
-       x = "Satisfaction Level")
+  labs(title = "Cumulative satisfaction distribution",
+       y = "Cumulative proportion", x = "Satisfaction level")
 ```
 
 ::: {.callout-note}
-## Reading Cumulative Plots
-- Steeper lines = responses concentrated in that range  
-- Higher line at left = more dissatisfied responses  
-- Lines that cross = different distribution patterns  
-- Gap between lines = difference in satisfaction  
+## Reading cumulative distribution plots
+
+A steeper slope at any point means responses are concentrated in that range. A line that runs high on the left means many dissatisfied respondents. When two lines cross, it means the distributions have different shapes — one group may have more extreme responses in both directions.
 :::
 
-### Method 3: gglikert (Modern Approach)
+### gglikert: diverging bar chart {-}
 
-```{r likert_gglikert, warning=F, message=F}
-# Load survey data with multiple questions
+The `gglikert()` function from the `ggstats` package creates diverging stacked bar charts that place negative responses on the left and positive responses on the right, with neutral in the middle. This is currently considered the most effective visualisation for Likert data.
+
+```{r likert-gglikert, message=FALSE, warning=FALSE}
 sdat <- base::readRDS("tutorials/dviz/data/sdd.rda", "rb")
 
-# Clean column names
 colnames(sdat)[3:ncol(sdat)] <- paste0(
   "Q", str_pad(1:10, 2, "left", "0"), ": ",
   colnames(sdat)[3:ncol(sdat)]
@@ -849,8 +697,7 @@ colnames(sdat)[3:ncol(sdat)] <- paste0(
   stringr::str_squish() |>
   stringr::str_replace_all("$", "?")
 
-# Convert to factors with labels
-lbs <- c("Disagree", "Somewhat\nDisagree", "Neutral", 
+lbs <- c("Disagree", "Somewhat\nDisagree", "Neutral",
          "Somewhat\nAgree", "Agree")
 
 survey <- sdat |>
@@ -859,229 +706,169 @@ survey <- sdat |>
   drop_na() |>
   as.data.frame()
 
-# Create gglikert plot
 survey |>
   dplyr::select(matches("01|02|03|04")) |>
-  gglikert(labels_size = 2.5,
-           add_labels = FALSE) +
-  ggtitle("Survey Responses to Selected Questions") +
+  gglikert(labels_size = 2.5, add_labels = FALSE) +
+  ggtitle("Survey responses: selected questions") +
   scale_fill_brewer(palette = "RdBu")
 ```
 
 ::: {.callout-tip}
-## Likert Best Practices
-1. **Order matters**: Keep response scales in order (don't sort by frequency)  
-2. **Neutral center**: Place neutral/midpoint in the middle  
-3. **Diverging colors**: Use colors that diverge from center (e.g., Red-Blue)  
-4. **Group facets**: Use for comparing sub-groups  
-5. **Consider n**: Show sample sizes when comparing groups  
+## Likert visualisation best practices
+
+- Keep response categories in their natural order — never sort by frequency
+- Use a diverging colour palette (e.g. red--blue) centred on the neutral midpoint
+- Show the neutral category separately in the middle of the bar
+- Include sample sizes when comparing groups
+- Prefer diverging bar charts over plain stacked bars for communication
 :::
 
-### Exercise 3.2: Survey Visualization Challenge {.exercise}
-
-::: {.callout-warning icon=false}
-## Real-World Application
-
-Imagine you've surveyed 100 students about their experience in an online course. Create visualizations to show:
-
-1. Overall satisfaction distribution (use `ldat` as an example)  
-2. Comparison between different courses  
-3. Which visualization would you use in:  
-   - An academic paper?  
-   - A presentation to administrators?  
-   - A quick report to instructors?  
-
-**Reflect:** How does your choice of visualization affect the "story" the data tells?
-:::
-
-## Pie Charts: Use With Caution {#piecharts}
+## Pie charts: use with caution {#piecharts}
 
 ::: {.callout-warning}
-## Design Warning
-Pie charts are popular but problematic:  
-- Hard to compare slice sizes  
-- Difficult to estimate percentages  
-- Problematic with many categories  
-- Bar plots almost always work better  
+## The case against pie charts
 
-**When pies might be okay:**  
-- Very few categories (2-3)  
-- One category is dominant (~50%+)  
-- Showing parts of a whole is crucial  
+Human visual perception is much better at comparing lengths (bar plot) than angles or areas (pie chart). Research consistently shows that people make more accurate judgements from bar charts than from pie charts, especially when slices are of similar size or when there are more than three categories.
+
+Pie charts may be acceptable when there are only two or three categories and one clearly dominates. In most other situations, a bar chart communicates more accurately.
 :::
 
-Here's how to make one anyway (for comparison):
-
-```{r pie_comparison, message=F, warning=F}
-# Create data for pie chart
+```{r pie-comparison, message=FALSE, warning=FALSE}
 piedata <- bdat |>
   dplyr::arrange(desc(DateRedux)) |>
   dplyr::mutate(Position = cumsum(Percent) - 0.5 * Percent)
 
-# Create side-by-side comparison
-p1 <- ggplot(bdat, aes("", Percent, fill = DateRedux)) +
+p_bar <- ggplot(bdat, aes("", Percent, fill = DateRedux)) +
   geom_bar(stat = "identity", position = position_dodge(), width = 0.7) +
   scale_fill_manual(values = clrs) +
   theme_minimal() +
-  labs(title = "Bar Plot", y = "Percent")
+  labs(title = "Bar plot", y = "Percent", x = "")
 
-p2 <- ggplot(piedata, aes("", Percent, fill = DateRedux)) +
+p_pie <- ggplot(piedata, aes("", Percent, fill = DateRedux)) +
   geom_bar(stat = "identity", width = 1, color = "white") +
   coord_polar("y", start = 0) +
   scale_fill_manual(values = clrs) +
   theme_void() +
-  geom_text(aes(y = Position, label = paste0(Percent, "%")), 
+  geom_text(aes(y = Position, label = paste0(Percent, "%")),
             color = "white", size = 4) +
-  labs(title = "Pie Chart")
+  labs(title = "Pie chart")
 
-gridExtra::grid.arrange(p1, p2, nrow = 1)
+p_bar + p_pie
 ```
 
-**Which is easier to interpret? Why?**
+Without looking at the percentage labels, try to identify the second-largest category in each plot. The bar plot makes this easy; the pie chart makes it difficult.
 
-### Exercise 3.3: Pie vs. Bar Debate {.exercise}
-
-::: {.callout-warning icon=false}
-## Critical Thinking
-
-Look at the comparison above.
-
-1. Without looking at the numbers, which time period has the highest percentage in the pie chart?  
-2. Try the same question with the bar plot.  
-3. Which differences are easier to see?  
-
-**Challenge:** Find a situation where a pie chart might actually be the better choice. Share your reasoning!
-:::
+```{r check-categorical, echo=FALSE}
+check_question(
+  answer = "A 100% normalised stacked bar plot, because it directly shows how the proportions of each genre changed across periods while maintaining the correct total of 100% for each period.",
+  options = c(
+    "A grouped bar plot, because it is the most common plot type for categorical data.",
+    "A pie chart for each time period, because pie charts are best for showing parts of a whole.",
+    "A 100% normalised stacked bar plot, because it directly shows how the proportions of each genre changed across periods while maintaining the correct total of 100% for each period.",
+    "A scatter plot, because it can show change over time on the x-axis."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "cat_q1",
+  right = "Correct! When the research question is about how proportions (not absolute counts) change across a categorical variable like time period, the 100% normalised stacked bar plot is ideal. Each bar sums to 100%, making the proportional composition of each period directly comparable. A grouped bar plot would show absolute counts, which conflates changes in composition with changes in total document numbers. Multiple pie charts would make cross-period comparison very difficult.",
+  wrong = "Not quite. The key is that the question asks about proportional composition — how the mix of genres changed — not about absolute counts. A 100% normalised stacked bar plot (position = 'fill' in ggplot2) addresses this directly: each bar represents one time period and the segments show what proportion of that period's documents were in each genre. This makes it easy to compare how genre proportions shifted across time periods."
+)
+```
 
 ---
 
-# Part 4: Advanced Visualizations {#part4}
+# Part 5: Advanced Visualisations {#part5}
 
-Now that you've mastered the basics, let's explore some specialized and advanced plot types.
+::: {.callout-note}
+## Section Overview
 
-## Heatmaps: Visualizing Matrices {#heatmaps}
+**What you will learn:** Heatmaps and association plots for matrix data; word clouds for text data; flag plots for international comparisons; dot plots with error bars; and diverging bar plots
+:::
 
-Heatmaps use color to represent values in a matrix or table.
+## Heatmaps {#heatmaps}
 
-```{r heatmap_prep, results = 'asis', message=FALSE, warning=FALSE}
-# Create and scale data
+Heatmaps use colour intensity to represent values in a two-dimensional matrix. They are effective for showing patterns across many combinations of two categorical variables.
+
+```{r heatmap-prep, message=FALSE, warning=FALSE}
 heatdata <- pdat |>
   dplyr::group_by(DateRedux, GenreRedux) |>
-  dplyr::summarise(Prepositions = mean(Prepositions)) |>
+  dplyr::summarise(Prepositions = mean(Prepositions), .groups = "drop") |>
   tidyr::spread(DateRedux, Prepositions)
 
 heatmx <- as.matrix(heatdata[, 2:5])
 rownames(heatmx) <- heatdata$GenreRedux
-heatmx <- scale(heatmx)  # Standardize
+heatmx_scaled <- scale(heatmx)
 ```
 
-```{r heatmap_plot, message=FALSE, warning=FALSE}
-heatmap(heatmx, 
-        scale = "none",           # Already scaled
-        col = colorRampPalette(c("blue", "white", "red"))(50),
-        margins = c(7, 10))       # Adjust label margins
+```{r heatmap-plot, message=FALSE, warning=FALSE}
+heatmap(heatmx_scaled,
+        scale  = "none",
+        col    = colorRampPalette(c("blue", "white", "red"))(50),
+        margins = c(7, 10),
+        main   = "Preposition frequency: standardised mean by genre and period")
 ```
 
-**Reading heatmaps:**  
-- **Color intensity**: Magnitude of value  
-- **Dendrograms** (tree diagrams): Show clustering/similarity  
-- **Rows/columns**: Can be reordered to reveal patterns  
+The dendrograms show which genres (rows) and time periods (columns) cluster together based on their preposition frequency profiles. Blue indicates below-average frequency; red indicates above-average frequency.
 
-::: {.callout-tip}
-## When to Use Heatmaps
-- Showing patterns in large matrices  
-- Gene expression data  
-- Correlation matrices  
-- Time-series across categories  
-- Survey responses across questions  
+## Association and mosaic plots {-}
 
-**Avoid when:**
-- Data is sparse (many missing values)  
-- Categories don't have natural ordering  
-- Precise values matter more than patterns  
-:::
+Association plots and mosaic plots from the `vcd` package visualise the relationship between two categorical variables, showing deviations from statistical independence.
 
-## Association Plots: Expected vs. Observed
-
-Association plots show deviations from expected frequencies:
-
-```{r assoc_prep, results = 'asis', message=FALSE, warning=FALSE}
+```{r assoc-prep, message=FALSE, warning=FALSE}
 library(vcd)
 
-# Prepare data
 assocdata <- pdat |>
   dplyr::mutate(
     GenreRedux = dplyr::case_when(
       GenreRedux == "Conversational" ~ "Conv.",
-      GenreRedux == "Religious" ~ "Relig.",
+      GenreRedux == "Religious"      ~ "Relig.",
       TRUE ~ GenreRedux
     )
   ) |>
   dplyr::group_by(GenreRedux, DateRedux) |>
-  dplyr::summarise(Prepositions = round(mean(Prepositions), 0)) |>
+  dplyr::summarise(Prepositions = round(mean(Prepositions), 0),
+                   .groups = "drop") |>
   tidyr::spread(DateRedux, Prepositions)
 
 assocmx <- as.matrix(assocdata[, 2:6])
 rownames(assocmx) <- assocdata$GenreRedux
 ```
 
-```{r assoc_plot, results = 'asis', message=FALSE, warning=FALSE}
+```{r assoc-plot, message=FALSE, warning=FALSE}
 assoc(assocmx, shade = TRUE,
-      main = "Association Plot: Genre × Time Period")
+      main = "Association plot: genre by time period")
 ```
 
-**Interpreting association plots:**  
-- **Above the line**: More than expected  
-- **Below the line**: Less than expected  
-- **Blue shading**: Significantly more than expected  
-- **Red shading**: Significantly less than expected  
-- **Bar width**: Contribution to chi-square statistic  
-
-## Mosaic Plots: Proportional Rectangles
-
-```{r mosaic_plot, results = 'asis', message=FALSE, warning=FALSE}
+```{r mosaic-plot, message=FALSE, warning=FALSE}
 mosaic(assocmx, shade = TRUE, legend = TRUE,
-       main = "Mosaic Plot: Genre Composition Over Time")
+       main = "Mosaic plot: genre composition over time")
 ```
 
-**Reading mosaic plots:**  
-- **Rectangle size**: Proportion of total  
-- **Color**: Deviation from expected (like association plots)  
-- **Position**: Shows conditional relationships  
+**Interpreting these plots:**
 
-::: {.callout-note}
-## Mosaic vs. Association Plots
-**Mosaic plots:**  
-- Show proportions visually through rectangle size  
-- Better for understanding composition  
-- Good for presentations  
+- Bars or tiles **above the baseline**: more than expected under independence
+- Bars or tiles **below the baseline**: less than expected
+- **Blue shading**: significantly more than expected (p < 0.05)
+- **Red shading**: significantly less than expected (p < 0.05)
+- **Bar width** in the association plot: contribution to the chi-square statistic
 
-**Association plots:**  
-- Emphasize statistical significance  
-- Better for identifying specific deviations  
-- Good for detailed analysis  
-:::
+## Word clouds {#wordclouds}
 
-## Word Clouds: Visualizing Text {#wordclouds}
+Word clouds represent term frequencies visually, with word size proportional to frequency. They are visually engaging but imprecise — word sizes are difficult to compare accurately. Use them for exploratory purposes or presentations, not as primary evidence in a paper.
 
-Word clouds show word frequencies. Let's analyze political speeches:
-
-```{r wordcloud_prep, message=FALSE, warning=FALSE}
+```{r wordcloud-prep, message=FALSE, warning=FALSE}
 library(quanteda)
 library(quanteda.textplots)
 
-# Load speeches
-clinton <- base::readRDS("tutorials/dviz/data/Clinton.rda", "rb") |> 
+clinton <- base::readRDS("tutorials/dviz/data/Clinton.rda", "rb") |>
   paste0(collapse = " ")
-trump <- base::readRDS("tutorials/dviz/data/Trump.rda", "rb") |> 
+trump   <- base::readRDS("tutorials/dviz/data/Trump.rda", "rb") |>
   paste0(collapse = " ")
 
-# Create corpus
 corp_dom <- quanteda::corpus(c(clinton, trump))
 attr(corp_dom, "docvars")$Author <- c("Clinton", "Trump")
 
-# Process text
-corp_dom <- corp_dom |>
+dfm_dom <- corp_dom |>
   quanteda::tokens(remove_punct = TRUE) |>
   quanteda::tokens_remove(stopwords("english")) |>
   quanteda::dfm() |>
@@ -1089,74 +876,34 @@ corp_dom <- corp_dom |>
   quanteda::dfm_trim(min_termfreq = 200, verbose = FALSE)
 ```
 
-### Simple Word Cloud
-
-```{r wordcloud_simple, message=FALSE, warning=FALSE}
-corp_dom |>
-  quanteda.textplots::textplot_wordcloud(comparison = FALSE,
-                                         max_words = 50)
-```
-
-### Comparison Cloud
-
-```{r wordcloud_comparison, message=FALSE, warning=FALSE}
-corp_dom |>
+```{r wordcloud-comparison, message=FALSE, warning=FALSE}
+dfm_dom |>
   quanteda.textplots::textplot_wordcloud(
     comparison = TRUE,
-    max_words = 50,
-    color = c("blue", "red")
+    max_words  = 50,
+    color      = c("blue", "red")
   )
 ```
 
-::: {.callout-warning}
-## Word Cloud Limitations
-**Problems:**  
-- Words sizes are hard to compare precisely  
-- Common words dominate even after removing stop words  
-- No context (meaning can be misleading)  
-- Can misrepresent emphasis  
+## Country flags in visualisations {#flags}
 
-**Better for:**  
-- Initial exploration  
-- Public presentations (engaging but not precise)  
-- Showing overall themes  
-- Complementing (not replacing) quantitative analysis  
-:::
+The `ggflags` package allows country flags to be used as data point markers, making international comparisons more immediately readable.
 
-### Exercise 4.1: Text Analysis {.exercise}
-
-::: {.callout-warning icon=false}
-## Interpretation Challenge
-
-Looking at the comparison cloud above:
-
-1. What themes differentiate Clinton from Trump?  
-2. What do the largest words in each color suggest about their campaign focus?  
-3. What are the limitations of this visualization?  
-4. What additional analyses would you want to do?  
-
-**Bonus:** Research "topic modeling" - how might this provide deeper insights than word clouds?
-:::
-
-## Flags in Visualizations {#flags}
-
-Adding country flags can make international comparisons more engaging:
-
-```{r flags_data}
+```{r flags-data, message=FALSE, warning=FALSE}
 flagsdf <- data.frame(
-  Region = c("Australia", "Canada", "Great Britain", "India", 
-             "Ireland", "New Zealand", "United States"),
+  Region  = c("Australia", "Canada", "Great Britain", "India",
+               "Ireland", "New Zealand", "United States"),
   Percent = c(0.022, 0.017, 0.025, 0.010, 0.019, 0.020, 0.036),
-  Kachru = c("Inner circle", "Inner circle", "Inner circle", "Outer circle",
-             "Inner circle", "Inner circle", "Inner circle"),
+  Kachru  = c("Inner circle", "Inner circle", "Inner circle", "Outer circle",
+               "Inner circle", "Inner circle", "Inner circle"),
   country = c("au", "ca", "gb", "in", "ie", "nz", "us")
 )
 ```
 
-```{r flags_plot, warning=F, message=F}
+```{r flags-plot, message=FALSE, warning=FALSE}
 flagsdf |>
-  ggplot(aes(x = reorder(Region, Percent), 
-             y = Percent, 
+  ggplot(aes(x = reorder(Region, Percent),
+             y = Percent,
              country = country,
              fill = Kachru)) +
   geom_bar(stat = "identity") +
@@ -1167,248 +914,39 @@ flagsdf |>
   scale_fill_manual(values = c("lightblue", "coral")) +
   scale_y_continuous(labels = scales::percent) +
   theme_minimal() +
-  labs(x = "", 
-       y = "Vulgar Language Percentage",
-       title = "Vulgar Language Use by English-Speaking Region",
-       fill = "English Type") +
+  labs(x = "", y = "Vulgar language percentage",
+       title = "Vulgar language use by English-speaking region",
+       fill = "English type") +
   theme(legend.position = c(0.8, 0.3),
         panel.grid.major = element_blank())
 ```
 
-::: {.callout-tip}
-## When to Use Flags
-**Good for:**  
-- International comparisons  
-- Making data more accessible to general audiences  
-- Adding visual interest to country-level data  
+## Dot plots with error bars {-}
 
-**Requirements:**  
-- Need ISO country codes (e.g., "us", "gb", "au")  
-- Works best with horizontal bar plots  
-- Don't overuse - can look unprofessional in some contexts  
-:::
+Dot plots showing means with confidence intervals are often preferable to bar plots for continuous outcomes because they avoid the visual distortion caused by showing the mean as the height of a bar that starts at zero.
 
----
-
-# Part 5: Time Series and Lines {#part5}
-
-Time series data shows how things change over time. Line graphs are the go-to visualization.
-
-## Basic Line Graphs {#linegraphs}
-
-```{r line_basic, warning=F, message=F}
-pdat |>
-  dplyr::group_by(DateRedux, GenreRedux) |>
-  dplyr::summarise(Frequency = mean(Prepositions)) |>
-  ggplot(aes(x = DateRedux, y = Frequency, 
-             group = GenreRedux, 
-             color = GenreRedux)) +
-  geom_line(size = 1.2) +
-  geom_point(size = 3) +               # Add points at data locations
-  scale_color_manual(values = clrs) +
-  theme_minimal() +
-  labs(title = "Preposition Frequency Over Time by Genre",
-       x = "Time Period",
-       y = "Mean Frequency (per 1,000 words)",
-       color = "Genre")
-```
-
-::: {.callout-note}
-## Line Graph Essentials  
-- **Points**: Show actual data locations  
-- **Lines**: Show trends/connections  
-- **Group aesthetic**: Tells ggplot which points to connect  
-- **Color**: Distinguishes different series  
-:::
-
-## Smoothed Line Graphs
-
-For continuous time variables, smoothing reveals trends:
-
-```{r line_smoothed, warning = F, message = F}
-ggplot(pdat, aes(x = Date, y = Prepositions, 
-                 color = GenreRedux, 
-                 linetype = GenreRedux)) +
-  geom_smooth(se = FALSE, size = 1.2) +
-  scale_linetype_manual(
-    values = c("solid", "dashed", "dotted", "dotdash", "longdash"),
-    name = "Genre"
-  ) +
-  scale_colour_manual(values = clrs, name = "Genre") +
-  theme_bw() +
-  theme(legend.position = "top") +
-  labs(x = "Year", 
-       y = "Relative Frequency\n(per 1,000 words)",
-       title = "Smoothed Trends in Preposition Use")
-```
-
-**Why smooth?**  
-- Reduces noise from individual data points  
-- Shows overall trends more clearly  
-- Uses LOESS (locally weighted smoothing) by default  
-- Helpful when you have many data points  
-
-### Exercise 5.1: Trends Over Time {.exercise}
-
-::: {.callout-warning icon=false}
-## Time Series Analysis
-
-Using the smoothed line graph:
-
-1. Which genre shows the strongest increasing trend?  
-2. Which genre appears most stable over time?  
-3. Are there any periods of rapid change?  
-4. Try adding `se = TRUE` to show confidence intervals - what does this add?  
-
-**Bonus:** Create the same plot but facet by `Region` - do regional patterns differ?
-:::
-
-## Ribbon Plots: Showing Uncertainty
-
-Ribbon plots display ranges (like min/max or confidence intervals):
-
-```{r ribbon_plot, results = 'asis', message=FALSE, warning=FALSE}
-pdat |>
-  dplyr::mutate(DateRedux = as.numeric(DateRedux)) |>
-  dplyr::group_by(DateRedux) |>
-  dplyr::summarise(
-    Mean = mean(Prepositions),
-    Min = min(Prepositions),
-    Max = max(Prepositions),
-    SD = sd(Prepositions)
-  ) |>
-  ggplot(aes(x = DateRedux, y = Mean)) +
-  geom_ribbon(aes(ymin = Mean - SD,     # ±1 SD ribbon
-                  ymax = Mean + SD), 
-              fill = "lightblue", 
-              alpha = 0.4) +
-  geom_ribbon(aes(ymin = Min,           # Min-max ribbon
-                  ymax = Max), 
-              fill = "gray80", 
-              alpha = 0.3) +
-  geom_line(size = 1.2, color = "darkblue") +
-  scale_x_continuous(labels = names(table(pdat$DateRedux))) +
-  theme_minimal() +
-  labs(title = "Preposition Frequency: Mean with Variation",
-       x = "Time Period",
-       y = "Frequency (per 1,000 words)") +
-  ggplot2::annotate("text", x = 2.5, y = 180, 
-           label = "Gray = Min-Max range", size = 3) +
-  ggplot2::annotate("text", x = 2.5, y = 170, 
-           label = "Blue = ±1 SD", size = 3)
-```
-
-**Ribbon plots are excellent for:**  
-- Showing uncertainty  
-- Displaying confidence intervals  
-- Visualizing ranges in forecasts  
-- Comparing variability across time  
-
----
-
-# Part 6: Specialized Plots {#part6}
-
-Let's explore some specialized plot types for specific scenarios.
-
-## Balloon Plots {#balloonplots}
-
-Balloon plots show three variables: two categorical and one continuous.
-
-```{r balloon_plot, results = 'asis', message=FALSE, warning=FALSE}
-pdat |>
-  dplyr::mutate(DateRedux = factor(DateRedux)) |>
-  dplyr::group_by(DateRedux, GenreRedux) |>
-  dplyr::summarise(Prepositions = mean(Prepositions)) |>
-  ggplot(aes(DateRedux, GenreRedux,
-             size = Prepositions,
-             fill = GenreRedux)) +
-  geom_point(shape = 21, alpha = 0.7) +
-  scale_size_area(max_size = 20) +
-  scale_fill_manual(values = clrs) +
-  theme_minimal() +
-  theme(legend.position = "none",
-        panel.grid.major = element_line(color = "gray90")) +
-  labs(title = "Preposition Frequency: Genre × Time Period",
-       x = "Time Period",
-       y = "Genre",
-       size = "Frequency")
-```
-
-**When to use balloon plots:**  
-- Showing three variables simultaneously  
-- Matrix-style comparisons  
-- When circle size is intuitive for your audience  
-
-**Limitations:**  
-- Hard to compare sizes precisely  
-- Can get crowded with many categories  
-- Consider a heatmap as an alternative  
-
-## Dot Plots with Error Bars
-
-Showing means with confidence intervals:
-
-```{r dotplot_error, message=F, warning=F}
-ggplot(pdat, aes(x = reorder(Genre, Prepositions, mean), 
+```{r dotplot-error, message=FALSE, warning=FALSE}
+ggplot(pdat, aes(x = reorder(Genre, Prepositions, mean),
                  y = Prepositions,
                  group = Genre)) +
-  stat_summary(fun = mean,               # Plot means
-               geom = "point", 
-               size = 4,
+  stat_summary(fun = mean, geom = "point", size = 4,
                aes(color = Genre)) +
-  stat_summary(fun.data = mean_cl_boot,  # Bootstrap CI
-               geom = "errorbar", 
-               width = 0.2,
-               size = 1) +
+  stat_summary(fun.data = mean_cl_boot, geom = "errorbar",
+               width = 0.2, linewidth = 1) +
   coord_cartesian(ylim = c(80, 200)) +
-  #scale_color_manual(values = clrs) +
   theme_bw(base_size = 12) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none"
-  ) +
-  labs(x = "", 
-       y = "Prepositions (per 1,000 words)",
-       title = "Mean Preposition Frequency by Genre",
-       subtitle = "Error bars show 95% confidence intervals")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none") +
+  labs(x = "", y = "Prepositions per 1,000 words",
+       title = "Mean preposition frequency by genre",
+       subtitle = "Error bars show 95% bootstrap confidence intervals")
 ```
 
-::: {.callout-important}
-## Error Bars vs. Boxplots
+## Diverging bar plots {-}
 
-**Error bars** show:  
-- Specific statistic (mean, median)  
-- Specific uncertainty measure (SE, CI, SD)  
-- Cleaner look for publications  
+Diverging bar plots show deviation from a reference value, with positive deviations extending in one direction and negative in the other. They are useful for comparing group profiles against a baseline.
 
-**Boxplots** show:  
-- More distributional information  
-- Quartiles and outliers  
-- Better for detecting skewness  
-:::
-
-### Exercise 6.1: Comparison Challenge {.exercise}
-
-::: {.callout-warning icon=false}
-## Statistical Visualization
-
-Create two plots of `Prepositions` by `GenreRedux`:  
-1. A dot plot with error bars (use code above)  
-2. A boxplot  
-
-**Compare:**  
-- What does each tell you?  
-- Which shows outliers better?  
-- Which would you use to claim "Genre X has higher frequency than Genre Y"?  
-- When would you choose each?  
-:::
-
-## Comparative Bar Plots with Negatives
-
-Sometimes you want to show deviation from a reference:
-
-```{r negative_bars, message=FALSE, warning=FALSE}
-# Create example data
+```{r negative-bars, message=FALSE, warning=FALSE}
 Test1 <- c(11.2, 13.5, 200, 185, 1.3, 3.5)
 Test2 <- c(12.2, 14.7, 210, 175, 1.9, 3.0)
 Test3 <- c(13.2, 15.1, 177, 173, 2.4, 2.9)
@@ -1420,18 +958,14 @@ rownames(testdata) <- c(
   "Feature3_Student", "Feature3_Reference"
 )
 
-# Calculate deviations
-FeatureA <- t(testdata[1, ] - testdata[2, ])
-FeatureB <- t(testdata[3, ] - testdata[4, ])
-FeatureC <- t(testdata[5, ] - testdata[6, ])
-
 plottable <- data.frame(
-  Test = rep(rownames(FeatureA), 3),
-  Value = c(FeatureA, FeatureB, FeatureC),
-  Feature = rep(c("FeatureA", "FeatureB", "FeatureC"), each = 3)
+  Test    = rep(rownames(t(testdata[1,] - testdata[2,])), 3),
+  Value   = c(t(testdata[1,] - testdata[2,]),
+              t(testdata[3,] - testdata[4,]),
+              t(testdata[5,] - testdata[6,])),
+  Feature = rep(c("Feature A", "Feature B", "Feature C"), each = 3)
 )
 
-# Plot divergence
 ggplot(plottable, aes(Test, Value, fill = Test)) +
   facet_grid(vars(Feature), scales = "free_y") +
   geom_bar(stat = "identity") +
@@ -1439,679 +973,582 @@ ggplot(plottable, aes(Test, Value, fill = Test)) +
   scale_fill_manual(values = clrs[1:3]) +
   theme_bw() +
   theme(legend.position = "none") +
-  labs(x = "Test",
-       y = "Deviation from Reference",
-       title = "Learner Performance: Deviation from Native Speakers",
-       subtitle = "Positive = Above reference, Negative = Below reference")
+  labs(x = "Test", y = "Deviation from reference",
+       title = "Learner performance relative to native speaker reference",
+       subtitle = "Positive = above reference; negative = below reference")
 ```
-
-**Use cases:**  
-- Language learner vs. native speaker comparisons  
-- Treatment vs. control groups  
-- Actual vs. expected values  
-- Change from baseline  
 
 ---
 
-# Part 7: Publication-Ready Plots {#part7}
+# Part 6: Time Series and Line Graphs {#part6}
 
-Let's pull everything together to create publication-quality visualizations.
+::: {.callout-note}
+## Section Overview
 
-## The Anatomy of a Perfect Plot
+**What you will learn:** Line graphs for discrete and continuous time variables; smoothed trend lines; ribbon plots for displaying uncertainty; and how to choose between these approaches
+:::
 
-A publication-ready plot needs:
+## Basic line graphs {#linegraphs}
 
-1. **Clear title and subtitle**
-2. **Axis labels with units**
-3. **Legend (when needed)**
-4. **Appropriate theme**
-5. **Readable fonts**
-6. **Colorblind-friendly palette**
-7. **Proper sizing**
-8. **Citation/source (when relevant)**
+Line graphs connect data points in temporal order, making trends and trajectories visible. The `group` aesthetic tells `ggplot2` which points to connect.
 
-### Example: Building a Complete Plot
+```{r line-basic, message=FALSE, warning=FALSE}
+pdat |>
+  dplyr::group_by(DateRedux, GenreRedux) |>
+  dplyr::summarise(Frequency = mean(Prepositions), .groups = "drop") |>
+  ggplot(aes(x = DateRedux, y = Frequency,
+             group = GenreRedux,
+             color = GenreRedux)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = clrs) +
+  theme_minimal() +
+  labs(title = "Preposition frequency over time by genre",
+       x = "Time period",
+       y = "Mean frequency per 1,000 words",
+       color = "Genre")
+```
 
-```{r publication_plot, warning=F, message=F, fig.width=10, fig.height=6}
+## Smoothed line graphs {-}
+
+For continuous time variables with many data points, LOESS smoothing (locally estimated scatterplot smoothing) reveals the underlying trend while absorbing noise from individual observations.
+
+```{r line-smoothed, message=FALSE, warning=FALSE}
+ggplot(pdat, aes(x = Date, y = Prepositions,
+                 color = GenreRedux,
+                 linetype = GenreRedux)) +
+  geom_smooth(se = FALSE, linewidth = 1.2) +
+  scale_linetype_manual(
+    values = c("solid", "dashed", "dotted", "dotdash", "longdash"),
+    name = "Genre"
+  ) +
+  scale_colour_manual(values = clrs, name = "Genre") +
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(x = "Year", y = "Relative frequency\nper 1,000 words",
+       title = "Smoothed trends in preposition use (LOESS)")
+```
+
+Using both colour and line type (redundant encoding) keeps the lines distinguishable in greyscale and for readers with colour vision deficiency.
+
+## Ribbon plots: showing uncertainty {-}
+
+Ribbon plots (`geom_ribbon`) display ranges or intervals as shaded bands around a central line. They are effective for communicating uncertainty, variability, or the full range of observed values.
+
+```{r ribbon-plot, message=FALSE, warning=FALSE}
+pdat |>
+  dplyr::mutate(DateRedux = as.numeric(DateRedux)) |>
+  dplyr::group_by(DateRedux) |>
+  dplyr::summarise(
+    Mean = mean(Prepositions),
+    Min  = min(Prepositions),
+    Max  = max(Prepositions),
+    SD   = sd(Prepositions),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = DateRedux, y = Mean)) +
+  geom_ribbon(aes(ymin = Min, ymax = Max),
+              fill = "gray80", alpha = 0.3) +
+  geom_ribbon(aes(ymin = Mean - SD, ymax = Mean + SD),
+              fill = "lightblue", alpha = 0.4) +
+  geom_line(linewidth = 1.2, color = "darkblue") +
+  scale_x_continuous(labels = names(table(pdat$DateRedux))) +
+  theme_minimal() +
+  labs(title = "Preposition frequency: mean with variability",
+       subtitle = "Dark blue = mean; light blue = ±1 SD; grey = full range",
+       x = "Time period",
+       y = "Frequency per 1,000 words")
+```
+
+```{r check-timeseries, echo=FALSE}
+check_question(
+  answer = "geom_smooth() uses statistical smoothing (LOESS or linear regression) to draw a trend curve, which reduces noise but does not show the actual data points. geom_line() connects the actual data points in order, showing every measured value but potentially hiding the overall trend in noisy data.",
+  options = c(
+    "geom_smooth() and geom_line() are interchangeable and produce identical results.",
+    "geom_smooth() uses statistical smoothing (LOESS or linear regression) to draw a trend curve, which reduces noise but does not show the actual data points. geom_line() connects the actual data points in order, showing every measured value but potentially hiding the overall trend in noisy data.",
+    "geom_smooth() is only for scatter plots; geom_line() is only for time series.",
+    "geom_line() shows uncertainty intervals automatically, while geom_smooth() does not."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "ts_q1",
+  right = "Correct! The key distinction is between showing the actual measured values (geom_line) versus showing a smoothed model of the trend (geom_smooth). For time series with noisy individual measurements, geom_smooth() is useful for revealing the overall direction of change. For discrete time points that represent means (as in the basic line graph above), geom_line() directly connects those means and is appropriate. For continuous time with many individual observations, combining both — points with geom_smooth — is often the best approach.",
+  wrong = "Not quite. The key difference is whether the line represents the actual data values or a statistical model of the trend. geom_line() connects observed values in order; geom_smooth() fits a smoothed curve (LOESS by default, or a linear model with method = 'lm'). The smooth reduces noise but hides individual variation. geom_line() preserves every data point but can look jagged with noisy data. Use geom_smooth() when you have many noisy observations and want to emphasise the trend; use geom_line() when the data points themselves (e.g., period means) are the thing you want to display."
+)
+```
+
+---
+
+# Part 7: Combining Plots with patchwork {#patchwork}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to combine multiple `ggplot2` plots into a single figure using the `patchwork` package; layout operators; adding shared titles, subtitles, and labels; and when combining plots is appropriate
+:::
+
+## Why combine plots? {-}
+
+A multi-panel figure is often more effective than a series of separate plots when:
+
+- You want readers to compare related results side by side
+- A single visualisation cannot show all the relevant aspects of the data
+- You are preparing a figure for a publication that expects one figure file per result
+
+The `patchwork` package provides a simple and powerful syntax for combining `ggplot2` plots.
+
+## Basic patchwork syntax {-}
+
+The three main operators are:
+
+- `|` — place plots side by side (horizontal)
+- `/` — place plots one above the other (vertical)
+- `+` — add to the current layout (follows row-by-row order)
+- `()` — group plots for nested layouts
+
+```{r patchwork-basic, message=FALSE, warning=FALSE}
+# Create three component plots
+p1 <- ggplot(pdat, aes(x = DateRedux, y = Prepositions, fill = DateRedux)) +
+  geom_boxplot() +
+  scale_fill_manual(values = clrs) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Time period", y = "Prepositions per 1,000 words",
+       title = "A: Boxplots")
+
+p2 <- ggplot(pdat, aes(x = Prepositions, y = GenreRedux, fill = GenreRedux)) +
+  geom_density_ridges() +
+  theme_ridges() +
+  theme(legend.position = "none") +
+  labs(x = "Prepositions per 1,000 words", y = "",
+       title = "B: Ridge plot")
+
+p3 <- pdat |>
+  dplyr::group_by(DateRedux, GenreRedux) |>
+  dplyr::summarise(Mean = mean(Prepositions), .groups = "drop") |>
+  ggplot(aes(x = DateRedux, y = Mean,
+             group = GenreRedux, color = GenreRedux)) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2.5) +
+  scale_color_manual(values = clrs) +
+  theme_minimal() +
+  labs(x = "Time period", y = "Mean frequency",
+       color = "Genre", title = "C: Line graph")
+
+# Combine: p1 and p2 side by side, with p3 below
+(p1 | p2) / p3
+```
+
+## Shared labels and annotations {-}
+
+`patchwork` provides `plot_annotation()` for adding overall titles, subtitles, and captions, and `plot_layout()` for controlling spacing and shared legends.
+
+```{r patchwork-annotated, message=FALSE, warning=FALSE}
+(p1 | p2) / p3 +
+  plot_annotation(
+    title    = "Preposition frequency in historical English texts",
+    subtitle = "Three complementary views of the same dataset",
+    caption  = "Source: Penn Parsed Corpora of Historical English",
+    tag_levels = "A"
+  )
+```
+
+## Collecting legends {-}
+
+When multiple plots share the same colour mapping, you can collect the legends into a single shared legend with `plot_layout(guides = "collect")`.
+
+```{r patchwork-legends, message=FALSE, warning=FALSE}
+pa <- ggplot(pdat, aes(DateRedux, Prepositions, fill = GenreRedux)) +
+  geom_boxplot() +
+  scale_fill_manual(values = clrs) +
+  theme_bw() +
+  labs(x = "Time period", y = "Prepositions", fill = "Genre")
+
+pb <- ggplot(pdat, aes(DateRedux, fill = GenreRedux)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = clrs) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  labs(x = "Time period", y = "Proportion", fill = "Genre")
+
+pa2 <- pa + theme(legend.position = "bottom")
+pb2 <- pb + theme(legend.position = "bottom")
+
+pa2 | pb2
+```
+
+```{r check-patchwork, echo=FALSE}
+check_question(
+  answer = "Use (p1 | p2) / p3, which places p1 and p2 side by side in the top row and p3 spanning the full width in the bottom row.",
+  options = c(
+    "Use p1 + p2 + p3, which always arranges three plots in a single row.",
+    "patchwork cannot create layouts where one plot spans a full row below two side-by-side plots.",
+    "Use (p1 | p2) / p3, which places p1 and p2 side by side in the top row and p3 spanning the full width in the bottom row.",
+    "Use p1 / (p2 | p3), which places p3 below and p1 and p2 above — the same result."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "patchwork_q1",
+  right = "Correct! The patchwork operators work like arithmetic precedence. | combines plots horizontally; / stacks vertically. Parentheses group operations. So (p1 | p2) / p3 first combines p1 and p2 side by side, then places that combined row above p3, which spans the full width. p1 / (p2 | p3) would give the mirror image: p1 on top spanning full width, with p2 and p3 side by side below.",
+  wrong = "Not quite. In patchwork, | places plots side by side and / stacks them. p1 + p2 + p3 fills left-to-right and wraps automatically — it does not guarantee a 2+1 layout. To achieve two plots on top and one below spanning the full width, you need (p1 | p2) / p3. The parentheses are essential: they group the horizontal combination before the vertical stacking is applied."
+)
+```
+
+---
+
+# Part 8: Publication-Ready Plots and Choosing Wisely {#part8}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What makes a plot publication-ready; saving figures in the right format and resolution; colour accessibility; a decision framework for choosing plot types; and the most common visualisation mistakes to avoid
+:::
+
+## The anatomy of a publication-ready plot {-}
+
+A plot ready for a journal article or conference proceedings should have:
+
+- A clear, informative title and (where appropriate) a subtitle
+- Axis labels that name the variable and include units
+- A legend that is necessary and clearly positioned
+- A theme appropriate to the publication context (usually `theme_bw()` or `theme_minimal()` rather than the default grey background)
+- Font sizes large enough to be legible at the final printed size
+- A colourblind-accessible colour palette
+- A caption noting the data source and what error bars or ribbons represent
+
+### Complete example {-}
+
+```{r publication-plot, message=FALSE, warning=FALSE, fig.width=10, fig.height=6}
 pdat |>
   dplyr::group_by(DateRedux, GenreRedux) |>
   dplyr::summarise(
     Mean = mean(Prepositions),
-    SE = sd(Prepositions) / sqrt(n()),
-    N = n()
+    SE   = sd(Prepositions) / sqrt(n()),
+    N    = n(),
+    .groups = "drop"
   ) |>
-  ggplot(aes(x = DateRedux, y = Mean, 
-             color = GenreRedux, 
-             group = GenreRedux)) +
-  # Data layers
-  geom_line(size = 1.2) +
+  ggplot(aes(x = DateRedux, y = Mean,
+             color = GenreRedux, group = GenreRedux)) +
+  geom_line(linewidth = 1.2) +
   geom_point(size = 3) +
   geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE),
-                width = 0.2, size = 0.8) +
-  # Scales
+                width = 0.2, linewidth = 0.8) +
   scale_color_manual(
-    name = "Text Genre",
+    name   = "Text genre",
     values = clrs,
-    labels = c("Conversational", "Fiction", "Legal", 
-               "Non-fiction", "Religious")
+    labels = c("Conversational", "Fiction", "Legal", "Non-fiction", "Religious")
   ) +
-  scale_y_continuous(
-    breaks = seq(100, 200, 20),
-    limits = c(100, 200)
-  ) +
-  # Theme and labels
+  scale_y_continuous(breaks = seq(100, 200, 20), limits = c(100, 200)) +
   theme_bw(base_size = 14) +
   theme(
-    legend.position = c(0.15, 0.65),
-    legend.background = element_rect(fill = "white", color = "black"),
-    panel.grid.minor = element_blank(),
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 12, color = "gray30"),
-    plot.caption = element_text(size = 10, hjust = 0)
+    legend.position       = c(0.15, 0.65),
+    legend.background     = element_rect(fill = "white", color = "black"),
+    panel.grid.minor      = element_blank(),
+    plot.title            = element_text(face = "bold", size = 16),
+    plot.subtitle         = element_text(size = 12, color = "gray30"),
+    plot.caption          = element_text(size = 10, hjust = 0)
   ) +
   labs(
-    title = "Historical Trends in Preposition Usage",
-    subtitle = "Analysis of English texts from 1150-1913",
-    x = "Time Period",
-    y = "Mean Frequency (per 1,000 words)",
-    caption = "Source: Penn Parsed Corpora of Historical English (PPC)\nError bars show ±1 SE"
+    title    = "Historical trends in preposition usage",
+    subtitle = "Analysis of English texts from 1150 to 1913",
+    x        = "Time period",
+    y        = "Mean frequency (per 1,000 words)",
+    caption  = "Source: Penn Parsed Corpora of Historical English (PPC)\nError bars show ±1 SE"
   )
 ```
 
-### Saving High-Quality Figures
+## Saving figures {-}
 
-```{r save_plot, eval=F}
-# Save for publication
-ggsave("preposition_trends.png",
-       width = 10, height = 6, dpi = 300)
+```{r save-plot, eval=FALSE}
+# For journal submission (300 dpi minimum)
+ggsave("preposition_trends.png",  width = 10, height = 6, dpi = 300)
 
-# Save for presentation
-ggsave("preposition_trends.pdf",
-       width = 10, height = 6)
+# For vector graphics (no resolution limit — scales to any size)
+ggsave("preposition_trends.pdf",  width = 10, height = 6)
 
-# Save for web
-ggsave("preposition_trends_web.png",
-       width = 10, height = 6, dpi = 150)
+# For web use
+ggsave("preposition_trends_web.png", width = 10, height = 6, dpi = 150)
 ```
 
 ::: {.callout-tip}
-## File Format Guide
+## Format guide
 
-**PNG** - Best for:  
-- Web use  
-- Presentations  
-- Figures with photos or complex gradients  
-- When file size matters  
+**PNG** — raster format; use for web, slides, and figures containing photographs. Specify `dpi = 300` for print.
 
-**PDF** - Best for:  
-- Publications (journals often require vector)  
-- Posters  
-- When scaling is needed  
-- Print materials  
+**PDF** — vector format; use for journal submission where possible. Scales to any size without loss of quality. Best for plots containing text and sharp geometric elements.
 
-**TIFF** - Best for:  
-- Some journal requirements  
-- Archival purposes  
+**TIFF** — some journals require TIFF. Use `dpi = 600` for posters.
 
-**DPI (resolution):**  
-- Web: 72-150 dpi  
-- Presentations: 150 dpi  
-- Print: 300 dpi  
-- Posters: 600 dpi  
+**SVG** — vector format; useful for web and for figures you may need to edit further in Inkscape or Illustrator.
 :::
 
-## Color Accessibility
+## Colour accessibility {-}
 
-Making plots accessible to colorblind readers:
+Approximately 8% of men and 0.5% of women have some form of colour vision deficiency. Designing accessible plots benefits all readers, not only those with colour vision differences.
 
-```{r colorblind_demo, message=F, warning=F}
-library(viridis)
-
-# Original plot with problematic colors
-p1 <- pdat |>
+```{r colourblind-demo, message=FALSE, warning=FALSE, fig.width=10, fig.height=4}
+p_problem <- pdat |>
   dplyr::group_by(DateRedux, GenreRedux) |>
-  dplyr::summarise(Mean = mean(Prepositions)) |>
+  dplyr::summarise(Mean = mean(Prepositions), .groups = "drop") |>
   ggplot(aes(DateRedux, Mean, fill = GenreRedux)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_fill_manual(values = c("red", "green", "blue", "yellow", "purple")) +
-  ggtitle("Problematic Colors") +
+  ggtitle("Problematic colours") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "none")
 
-# Improved with viridis palette
-p2 <- pdat |>
+p_better <- pdat |>
   dplyr::group_by(DateRedux, GenreRedux) |>
-  dplyr::summarise(Mean = mean(Prepositions)) |>
+  dplyr::summarise(Mean = mean(Prepositions), .groups = "drop") |>
   ggplot(aes(DateRedux, Mean, fill = GenreRedux)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_fill_viridis_d() +
-  ggtitle("Colorblind-Friendly") +
+  ggtitle("Colourblind-friendly (viridis)") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "none")
 
-gridExtra::grid.arrange(p1, p2, nrow = 1)
+p_problem | p_better
 ```
 
-**Colorblind-friendly palettes:**  
-- `scale_color_viridis_d()` / `scale_fill_viridis_d()`  
-- `scale_color_brewer()` with "Set2", "Dark2", or "Paired"  
-- ColorBrewer palettes (many are colorblind-safe)  
+Colourblind-safe options in `ggplot2`:
 
-### Exercise 7.1: Publication Polish {.exercise}
+- `scale_color_viridis_d()` / `scale_fill_viridis_d()` — for discrete variables
+- `scale_color_viridis_c()` / `scale_fill_viridis_c()` — for continuous variables
+- `scale_color_brewer(palette = "Set2")` or `"Dark2"` — ColorBrewer palettes, many colourblind-safe
+- Redundant encoding (colour + shape, or colour + line type) as a complement
 
-::: {.callout-warning icon=false}
-## Final Project
+## Choosing the right plot: a decision framework {-}
 
-Create a publication-ready visualization:
+### By data structure {-}
 
-1. Choose any relationship in the data
-2. Create a complete plot with:
-   - Informative title and subtitle
-   - Proper axis labels with units
-   - A colorblind-friendly palette
-   - Appropriate theme
-   - Source citation
-   - Legend if needed
+**One continuous variable** — show distribution:
 
-3. Save it in three formats (PNG, PDF, web-optimized PNG)
+- Small samples (< 50): dot plot, strip plot
+- Medium samples (50--500): histogram, density plot
+- Large samples (500+): density plot, violin plot
+- Summary statistics: boxplot
 
-4. Write a 2-3 sentence caption that could accompany the figure in a paper
+**One continuous + one categorical** — compare groups:
 
-**Peer review:** Exchange with a colleague - is your plot self-explanatory?
-:::
+- Distributions: boxplot, violin plot, ridge plot
+- Means with uncertainty: dot plot with error bars
+- Show all data: jittered points
 
----
+**Two continuous variables** — show relationship:
 
-# Part 8: Choosing the Right Plot {#part8}
+- Basic: scatter plot
+- Overplotting: hex plot, 2D density
+- With trend: add `geom_smooth()`
+- Groups: colour, shape, or facets
 
-The hardest part of data visualization is choosing which plot to make. Let's develop a decision framework.
+**Two categorical variables** — show association:
 
-## Decision Tree
+- Frequencies: grouped or stacked bar plot
+- Proportions: 100% normalised bar, mosaic plot
+- Statistical deviations: association plot
 
-```{r decision_tree, echo=FALSE, eval=FALSE}
-# This would be a visual decision tree - described in text below
+**Time series** — show change:
+
+- Discrete time points: line graph with points
+- Continuous time: smoothed line, ribbon plot
+- Multiple series: coloured lines or small multiples
+
+**Three or more variables** — multivariate:
+
+- Third variable categorical: colour + facets
+- Third variable continuous: colour gradient or bubble size
+- Many variables: heatmap
+
+## Common mistakes to avoid {-}
+
+**3D charts** — almost never appropriate. They distort values through perspective effects and make precise comparison impossible. Use 2D plots with grouping, colour, or facets instead.
+
+**Dual y-axes** — can be used to misrepresent relationships between variables by independently scaling each axis. Prefer faceted plots or normalising both variables to the same scale.
+
+**Truncated y-axis on bar plots** — bar heights encode values by length from zero. Cutting the axis at a non-zero value exaggerates differences. Bar plots must start at zero. Dot plots with error bars can use a truncated axis because they do not encode values by length from a baseline.
+
+**Too many colours** — more than about six colours becomes difficult to distinguish. Consider reducing categories, using facets, or highlighting one group while greying the rest.
+
+**Chartjunk** — decorative elements (unnecessary gridlines, 3D shadows, background images, clipart) distract from the data and add no information. Start with `theme_minimal()` or `theme_bw()` and add only what is needed.
+
+**Sorting bars randomly** — unless the categories have a natural order (time periods, scale levels), sort bars by value to make rank comparisons easy.
+
+```{r check-publication, echo=FALSE}
+check_question(
+  answer = "No. Bar plots encode values as heights measured from zero. Cutting the y-axis at 150 makes a difference of 20 units (160 vs 180) appear as a much larger proportion of the bar than it would if the axis started at zero. This visually exaggerates the difference and could mislead readers. The y-axis on a bar plot must start at zero. A dot plot with error bars could legitimately use a truncated axis because it does not encode values by distance from a baseline.",
+  options = c(
+    "Yes, because the differences are real and the truncated axis makes them easier to see.",
+    "Yes, as long as the axis break is clearly labelled.",
+    "No. Bar plots encode values as heights measured from zero. Cutting the y-axis at 150 makes a difference of 20 units (160 vs 180) appear as a much larger proportion of the bar than it would if the axis started at zero. This visually exaggerates the difference and could mislead readers. The y-axis on a bar plot must start at zero. A dot plot with error bars could legitimately use a truncated axis because it does not encode values by distance from a baseline.",
+    "It depends on the journal's guidelines."
+  ),
+  type = "radio",
+  button_label = "Check answer",
+  q_id = "pub_q1",
+  right = "Correct! The principle is about how bar plots encode values. A bar's height represents a quantity measured from zero — cutting the axis at a non-zero value means the visible bar height no longer accurately represents the value. A bar twice as tall should represent a value twice as large, but with a truncated axis this correspondence breaks. The same caveat does not apply to dot plots with error bars or line graphs, because those plot types do not encode values by distance from a baseline.",
+  wrong = "Not quite. The issue with truncated y-axes on bar plots is more fundamental than labelling. Bar plots encode values through bar height measured from zero. If you start the axis at 150 instead of 0, a bar for a value of 180 is six times taller than a bar for 160, even though 180 is only 12.5% larger than 160. This is visually misleading regardless of labelling. The rule is: bar plots always start at zero. If the meaningful variation only occurs far from zero, use a dot plot instead."
+)
 ```
-
-### Start Here: What's Your Data Structure?
-
-#### 1. One Continuous Variable
-**Goal:** Show distribution
-
-- **Few data points (<50):** Dot plot, strip plot
-- **Medium data (50-500):** Histogram, density plot
-- **Many data (500+):** Density plot, violin plot
-- **Want statistics:** Boxplot
-
-#### 2. One Continuous + One Categorical
-**Goal:** Compare groups
-
-- **Compare distributions:** Boxplot, violin plot, ridge plot
-- **Compare means:** Dot plot with error bars
-- **Show all data:** Jittered points, beeswarm plot
-
-#### 3. Two Continuous Variables
-**Goal:** Show relationship
-
-- **Basic relationship:** Scatter plot
-- **Many points (overlap):** Hex plot, 2D density
-- **Add trend:** Add `geom_smooth()`
-- **Compare groups:** Color by group, facet by group
-
-#### 4. Two Categorical Variables
-**Goal:** Show associations
-
-- **Frequencies:** Bar plot (grouped or stacked)
-- **Proportions:** 100% stacked bar, mosaic plot
-- **Statistical test:** Association plot
-
-#### 5. Time Series
-**Goal:** Show change over time
-
-- **Discrete time points:** Line graph with points
-- **Continuous time:** Smoothed line, ribbon plot
-- **Multiple series:** Colored lines, small multiples
-- **Uncertainty:** Ribbon plot, error bars
-
-#### 6. Three+ Variables
-**Goal:** Show multivariate relationships
-
-- **Third variable categorical:** Color/shape, facets
-- **Third variable continuous:** Color gradient, bubble size
-- **Many variables:** Heatmap, parallel coordinates
-
-## Common Scenarios and Solutions
-
-### Scenario 1: Survey Results
-
-**Data:** Likert scale responses from 5 groups
-
-**Options:**  
-1. **gglikert plot** (best for multiple questions)  
-2. Stacked bar chart (100% for proportions)  
-3. Faceted bar charts (best for comparing specific responses)  
-
-**Choose based on:**  
-- Number of questions (many → gglikert)  
-- Focus on specific categories (faceted bars)  
-- Showing overall sentiment (stacked bars)  
-
-### Scenario 2: Experimental Results
-
-**Data:** Measurements from treatment and control groups
-
-**Options:**  
-1. **Boxplots** (show distributions + outliers)  
-2. Violin plots (show distribution shape)  
-3. Bar plot with error bars (show means + uncertainty)  
-
-**Choose based on:**  
-- Sample size (small → dot plot, large → violin)  
-- Presence of outliers (boxplot shows these)  
-- Simplicity needed (bar + error = simplest)  
-
-### Scenario 3: Geographic Data
-
-**Data:** Values across countries/regions
-
-**Options:**  
-1. **Map** (when geography matters)  
-2. Bar plot with flags (when ranking matters)  
-3. Dot plot (when precision matters)  
-
-**Choose based on:**  
-- Audience familiarity with geography  
-- Whether spatial patterns matter  
-- Number of regions (too many for map)  
-
-### Exercise 8.1: Plot Selection Challenge {.exercise}
-
-::: {.callout-warning icon=false}
-## Real-World Scenarios
-
-For each scenario, choose the best plot type and explain why:
-
-**Scenario A:**
-You have test scores (0-100) for students in 4 different teaching methods. You want to know if methods differ significantly.
-
-**Scenario B:**
-You've measured reaction times (milliseconds) in 20 trials for each of 50 participants.
-
-**Scenario C:**
-You surveyed 200 people about their agreement (5-point scale) with 10 statements about climate change.
-
-**Scenario D:**
-You have daily temperature readings for 5 cities over one year.
-
-For each:  
-1. What plot type would you use?  
-2. What alternatives did you consider?  
-3. What would make you change your choice?  
-:::
-
-## Common Mistakes to Avoid
-
-### ❌ Mistake 1: 3D Charts
-**Problem:** Hard to read, distort data
-
-```{r bad_3d, eval=FALSE}
-# DON'T DO THIS
-# 3D plots are almost never appropriate for data visualization
-```
-
-**Instead:** Use 2D charts with proper grouping/faceting
-
-### ❌ Mistake 2: Dual Y-Axes
-**Problem:** Can be misleading, hard to interpret
-
-**Instead:**   
-- Facet plots (separate panels)  
-- Normalize to same scale  
-- Use secondary metric only if essential  
-
-### ❌ Mistake 3: Too Many Colors
-**Problem:** Confusing, hard to distinguish
-
-**Instead:**  
-- Limit to 5-7 colors  
-- Use ColorBrewer palettes  
-- Consider faceting instead  
-
-### ❌ Mistake 4: Truncated Y-Axis (Bar Plots)
-**Problem:** Exaggerates differences
-
-**Rule:** Bar plots should always start at zero
-
-**Exception:** Dot plots with error bars can use truncated axes
-
-### ❌ Mistake 5: Chartjunk
-**Problem:** Decoration distracts from data
-
-**Avoid:**  
-- Unnecessary grid lines  
-- Decorative backgrounds  
-- 3D effects  
-- Shadows and gradients (usually)  
-
-**Instead:** Use `theme_minimal()` or `theme_bw()` as starting points
-
-## The Grammar of Graphics Framework
-
-ggplot2 is based on "The Grammar of Graphics" - understanding this helps you think about plots systematically.
-
-**Every plot has:**
-1. **Data** - What you're visualizing
-2. **Aesthetics** (aes) - What goes where (x, y, color, size, etc.)
-3. **Geometries** (geom) - How to display it (points, lines, bars, etc.)
-4. **Scales** - How aesthetics map to visual properties
-5. **Facets** - Subplots
-6. **Themes** - Non-data visual elements
-
-**Building blocks:**
-```{r grammar_example, eval=FALSE}
-ggplot(data = <DATA>) +
-  aes(x = <X>, y = <Y>, color = <GROUP>) +  # Aesthetics
-  geom_<TYPE>() +                            # Geometry
-  scale_<AESTHETIC>_<TYPE>() +               # Scales
-  facet_<TYPE>(vars(<VARIABLE>)) +           # Facets
-  theme_<STYLE>() +                          # Theme
-  labs(title = <TITLE>, ...)                 # Labels
-```
-
-This modular approach lets you build any plot by combining these components!
 
 ---
 
 # Final Challenge: Capstone Project {#capstone}
 
-::: {.callout-warning icon=false}
-## Comprehensive Data Visualization Project
+::: {.callout-note}
+## Comprehensive data visualisation project
 
-You've learned all the essential techniques. Now put them together!
+You have learned all the core techniques. The capstone is to create a coherent data story using the `pdat` dataset (or your own data).
 
-### Your Task
+**Required components:**
 
-Create a complete data story using the `pdat` dataset (or your own data). Your project should include:
+1. At least three different plot types from different sections — one showing distributions, one showing relationships, and one showing categorical comparisons
+2. Publication-ready quality: proper titles, labels and captions; a colourblind-friendly palette; appropriate themes; clear legends
+3. At least one combined figure using `patchwork` with a shared annotation
+4. A written narrative: a short introduction explaining your research question; brief transition text between plots explaining what each shows; and a conclusion summarising what the visualisations reveal
 
-**Required Components:**
+**Example research questions to explore:**
 
-1. **At least 3 different plot types** from different sections:  
-   - One showing distributions  
-   - One showing relationships  
-   - One showing categorical comparisons  
+- How has genre composition changed across the historical periods covered in the corpus?
+- Are there regional differences in preposition frequency, and do they interact with time period?
+- Which genres show the greatest variability in preposition use, and what might this reflect about genre norms?
 
-2. **Publication-ready quality:**  
-   - Proper titles, labels, and captions  
-   - Colorblind-friendly palette  
-   - Appropriate themes  
-   - Clear legends  
-
-3. **A narrative:**  
-   - 2-3 paragraph introduction explaining your question  
-   - Transition text between plots explaining what each shows  
-   - 2-3 paragraph conclusion summarizing findings  
-
-4. **Technical elements:**  
-   - At least one faceted plot  
-   - At least one customized plot (colors, themes, labels)  
-   - Proper use of aesthetics (color, shape, size)  
-
-### Example Questions to Explore
-
-- How has language use evolved across different genres over time?  
-- Are there regional differences in writing styles?  
-- What patterns exist in the data that might surprise a linguist?  
-- Can you predict time period based on linguistic features?  
-
-### Deliverables
-
-1. **R Markdown document** with all code and narrative  
-2. **3-5 high-quality figures** saved as PNG (300 dpi)  
-3. **One "highlight figure"** that tells your main story  
-
-### Evaluation Criteria
-
-Your project will be strong if it:  
-- ✅ Chooses appropriate plot types for each question  
-- ✅ Uses visualization best practices (clear labels, readable fonts, etc.)   
-- ✅ Tells a coherent story with the data  
-- ✅ Shows technical mastery of ggplot2  
-- ✅ Includes thoughtful interpretation of results  
-- ✅ Is reproducible (all code runs without errors)  
-
-**Bonus points for:**  
-- Creative combinations of techniques  
-- Particularly insightful findings  
-- Exceptional visual design  
-- Going beyond the tutorial examples  
+**Suggested deliverables:** A fully ggplot2::annotated `.qmd` document with all code, at least three saved publication-quality figures (PNG, 300 dpi), and a brief 2--3 sentence caption for each figure as it would appear in a paper.
 :::
-
----
-
-# Resources and Next Steps {#resources}
-
-## Recommended Books
-
-1. **"ggplot2: Elegant Graphics for Data Analysis"** by Hadley Wickham
-   - The definitive ggplot2 guide
-   - [Online version](https://ggplot2-book.org/)
-
-2. **"Data Visualization: A Practical Introduction"** by Kieran Healy
-   - Excellent for understanding principles
-   - Sociology focus but broadly applicable
-
-3. **"Fundamentals of Data Visualization"** by Claus Wilke
-   - Free online: https://clauswilke.com/dataviz/
-   - Best for understanding when to use each plot type
-
-## Online Resources
-
-**Interactive Learning:**  
-- [R Graph Gallery](https://r-graph-gallery.com/) - Hundreds of examples with code  
-- [Data to Viz](https://www.data-to-viz.com/) - Decision tree for choosing plots  
-- [From Data to Viz](https://www.data-to-viz.com/#explore) - Interactive explorer  
-
-**Reference:**  
-- [ggplot2 documentation](https://ggplot2.tidyverse.org/)  
-- [R Color Reference](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf)  
-- [ColorBrewer](https://colorbrewer2.org/) - Choose palettes  
-
-**Advanced Topics:**  
-- [Patchwork](https://patchwork.data-imaginist.com/) - Combining multiple plots  
-- [gganimate](https://gganimate.com/) - Animated visualizations  
-- [plotly](https://plotly.com/r/) - Interactive plots  
-- [rayshader](https://www.rayshader.com/) - 3D visualizations (when appropriate!)  
-
-## Cheat Sheets
-
-Download and print these:  
-- [ggplot2 cheat sheet](https://github.com/rstudio/cheatsheets/blob/main/data-visualization.pdf)  
-- [RStudio IDE cheat sheet](https://github.com/rstudio/cheatsheets/)  
-
-## Common Problems and Solutions
-
-### "My plot is too crowded"  
-**Solutions:**  
-- Facet into multiple panels  
-- Filter to top N categories  
-- Use color to highlight key groups  
-- Try a different plot type (e.g., heatmap instead of scatter)  
-
-### "Colors look different in different programs"
-**Solutions:**  
-- Use colorblind-safe palettes  
-- Test in target environment  
-- Save as PDF (preserves colors better)  
-- Specify colors explicitly with hex codes  
-
-### "Text overlaps in my plot"
-**Solutions:**  
-- Rotate labels: `theme(axis.text.x = element_text(angle = 45, hjust = 1))`  
-- Use `ggrepel::geom_text_repel()`  
-- Reduce number of labels  
-- Increase plot size  
-- Abbreviate labels  
-
-### "Error: object not found"
-**Solutions:**  
-- Check spelling of variable names  
-- Ensure data is loaded  
-- Check if library is loaded  
-- Use `str(data)` to see variable names  
-
-### "Plot looks pixelated"
-**Solutions:**  
-- Increase DPI: `ggsave(..., dpi = 300)`  
-- Save as PDF (vector format)  
-- Increase figure size  
-- Avoid resizing after saving  
-
-## Where to Get Help
-
-1. **Stack Overflow:** Tag your question with `[r]` and `[ggplot2]`  
-2. **RStudio Community:** https://community.rstudio.com/  
-3. **R for Data Science Slack:** https://www.rfordatasci.com/  
-4. **Twitter #rstats:** Active, helpful community  
-
-## Practice Datasets
-
-To continue learning, try these datasets:
-
-**Built into R:**  
-- `mpg` - Fuel economy data  
-- `diamonds` - Diamond prices and properties  
-- `economics` - US economic time series  
-- `midwest` - Demographic data  
-
-**From packages:**  
-- `gapminder` - Global health and wealth  
-- `nycflights13` - Flight data  
-- `fivethirtyeight` - Data from news articles  
-- `palmerpenguins` - Alternative to iris dataset  
-
-## Your Learning Path
-
-**Beginner → Intermediate:**  
-1. ✅ Master basic geoms (point, line, bar, box)  
-2. ✅ Understand aesthetics and mapping  
-3. ✅ Learn faceting  
-4. ✅ Customize themes  
-5. ⬜ Combine multiple plots (patchwork)  
-6. ⬜ Create custom themes  
-7. ⬜ Build functions for repeated plots  
-
-**Intermediate → Advanced:**  
-1. ⬜ Master scales and coordinates  
-2. ⬜ Custom annotations  
-3. ⬜ Statistical transformations  
-4. ⬜ Extension packages (gganimate, ggraph, etc.)  
-5. ⬜ Interactive visualizations (plotly)  
-6. ⬜ Creating your own geoms  
-7. ⬜ Publication-ready figure workflows  
 
 ---
 
 # Citation & Session Info {.unnumbered}
 
-Schweinberger, Martin. 2025. *Mastering Data Visualization with R*. Brisbane: The University of Queensland. url: https://ladal.edu.au/tutorials/dviz/dviz.html (Version 2025.02.07).
 
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
 ```
-@manual{schweinberger2026dviz,
-  author = {Schweinberger, Martin},
-  title = {Mastering Data Visualization with R},
-  note = {https://ladal.edu.au/tutorials/dviz/dviz.html},
-  year = {2026},
-  organization = {The University of Queensland, School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2026.02.07}
-}
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
 ```
+:::
 
-## Session Information
+::: {.callout-note}
+## AI Transparency Statement
 
-```{r sessioninfo}
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+:::
+
+```{r session-info}
 sessionInfo()
 ```
 
 ---
 
-::: {.callout-note}
-## AI Transparency Statement
+[Back to top](#intro)
 
-This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, write the quiz questions, and write detailed answer explanations. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for its accuracy.
-:::
-    
----  
-
-## Acknowledgments
-
-This tutorial builds on the excellent work of the R and tidyverse communities. Special thanks to:
-
-- Hadley Wickham for creating ggplot2
-- The RStudio team for tools and resources
-- All package authors cited throughout
-- The LADAL team for supporting this tutorial
+[Back to LADAL home](/)
 
 ---
 
-**[Back to top](#welcome)**
+# Resources and Further Reading {.unnumbered}
 
-**[Back to HOME](/)**
+**Books**
+
+- Wickham, H. (2016). *ggplot2: Elegant Graphics for Data Analysis* (2nd ed.). Springer. Free online: [ggplot2-book.org](https://ggplot2-book.org/)
+- Healy, K. (2018). *Data Visualization: A Practical Introduction*. Princeton University Press. Free online: [socviz.co](https://socviz.co/)
+- Wilke, C. O. (2019). *Fundamentals of Data Visualization*. O'Reilly. Free online: [clauswilke.com/dataviz](https://clauswilke.com/dataviz/)
+
+**Online tools and references**
+
+- [R Graph Gallery](https://r-graph-gallery.com/) — hundreds of examples with reproducible code
+- [Data to Viz](https://www.data-to-viz.com/) — decision tree for choosing plot types
+- [ggplot2 documentation](https://ggplot2.tidyverse.org/) — full function reference
+- [ColorBrewer](https://colorbrewer2.org/) — palette design tool
+- [patchwork documentation](https://patchwork.data-imaginist.com/) — combining plots
+
+**Practice datasets**
+
+Built into R: `mpg`, `diamonds`, `economics`, `midwest`
+
+From packages: `palmerpenguins` (`palmerpenguins`), `gapminder` (`gapminder`), `nycflights13` (`nycflights13`)
 
 ---
 
-# Quick Reference Tables {.unnumbered}
+# Quick Reference {.unnumbered}
 
-## Common Geoms Reference
+## Common geoms
 
-| Geom | Use For | Example |
-|------|---------|---------|
-| `geom_point()` | Scatter plots | Relationship between 2 continuous variables |
-| `geom_line()` | Line graphs | Time series, trends |
-| `geom_bar()` | Bar plots | Categorical frequencies |
-| `geom_boxplot()` | Boxplots | Distribution summaries |
-| `geom_violin()` | Violin plots | Distribution shapes |
-| `geom_histogram()` | Histograms | Single variable distributions |
-| `geom_density()` | Density plots | Smooth distributions |
-| `geom_smooth()` | Trend lines | Adding regression/smoothing |
-| `geom_errorbar()` | Error bars | Showing uncertainty |
-| `geom_tile()` | Heatmaps | Matrix visualizations |
-| `geom_hex()` | Hex bins | Large scatter plots |
-| `geom_density_2d()` | 2D density | Concentration in 2D |
+| Geom | Use for |
+|---|---|
+| `geom_point()` | Scatter plots, dot plots |
+| `geom_line()` | Line graphs, time series |
+| `geom_bar()` | Bar plots (counts or values) |
+| `geom_boxplot()` | Distribution summaries with outliers |
+| `geom_violin()` | Distribution shapes |
+| `geom_histogram()` | Single variable distribution (counts) |
+| `geom_density()` | Smooth distribution curves |
+| `geom_smooth()` | Trend lines and regression curves |
+| `geom_errorbar()` | Confidence intervals, error bars |
+| `geom_ribbon()` | Ranges, uncertainty bands |
+| `geom_tile()` | Heatmaps (ggplot2 version) |
+| `geom_hex()` | Hex bins for large scatter data |
+| `geom_density_2d()` | 2D concentration contours |
 
-## Common Aesthetics
+## Common aesthetics
 
-| Aesthetic | Controls | Example Variables |
-|-----------|----------|-------------------|
-| `x` | X-axis position | Continuous or categorical |
-| `y` | Y-axis position | Continuous or categorical |
-| `color` | Border/line color | Groups, categories |
-| `fill` | Fill color | Groups (for bars, boxes, etc.) |
-| `size` | Point/line size | Continuous variables |
-| `shape` | Point shape | Categories (max ~6) |
-| `alpha` | Transparency | Continuous (0-1) |
-| `linetype` | Line type | Categories |
+| Aesthetic | Controls |
+|---|---|
+| `x`, `y` | Axis position |
+| `color` / `colour` | Border or line colour |
+| `fill` | Interior fill colour |
+| `size` | Point size or text size |
+| `linewidth` | Line thickness (replaces `size` for lines) |
+| `shape` | Point shape |
+| `alpha` | Transparency (0 = invisible, 1 = opaque) |
+| `linetype` | Line style (solid, dashed, dotted, etc.) |
+| `group` | Which observations to connect (lines) |
 
-## Common Themes
+## Common themes
 
-| Theme | Description |
-|-------|-------------|
-| `theme_bw()` | Black and white, minimal |
-| `theme_minimal()` | Minimal theme, no background |
-| `theme_classic()` | Classic look, axis lines |
-| `theme_void()` | Empty theme |
-| `theme_dark()` | Dark background |
-| `theme_grey()` | Default ggplot2 theme |
+| Theme | Character |
+|---|---|
+| `theme_bw()` | White background, black borders — good for publication |
+| `theme_minimal()` | Minimal; no background panel |
+| `theme_classic()` | Classic axis lines, no gridlines |
+| `theme_void()` | No axes or gridlines — for maps, etc. |
+| `theme_ridges()` | Optimised for ridge plots |
 
-## Position Adjustments
+## Position adjustments
 
-| Position | Use For |
-|----------|---------|
+| Position | Use for |
+|---|---|
 | `position_dodge()` | Side-by-side bars |
-| `position_stack()` | Stacked bars/areas |
-| `position_fill()` | 100% stacked |
-| `position_jitter()` | Avoid overplotting |
-| `position_identity()` | Use exact values |
-
----
-
-**Remember:** The best visualization is the one that clearly communicates your message to your audience! 📊
+| `position_stack()` | Stacked bars |
+| `position_fill()` | 100% normalised stacked bars |
+| `position_jitter()` | Spread overlapping points |
+| `position_identity()` | Plot values exactly as given |
