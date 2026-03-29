@@ -1,44 +1,95 @@
 ---
-title: "Introduction to Dimension Reduction Methods with R"
+title: "Dimension Reduction Methods with R"
 author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:       "Dimension Reduction Methods with R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:     "2026.03.27"
+  url:         "https://ladal.edu.au/tutorials/dimred/dimred.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  description: "This tutorial covers dimension reduction methods in R, including Principal Component Analysis (PCA), factor analysis, and Multidimensional Scaling (MDS), with guidance on when to use each method, how to interpret components and factors, and how to visualise results. It is aimed at researchers in linguistics and the humanities who work with complex multivariate datasets."
+  doi:         ""
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
 ---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
 
 ![](/images/uq1.jpg){ width=100% }
 
-# Introduction{-}
-
-This tutorial introduces dimension reduction methods with R with the aim of showcasing how these methods work, how to prepare data and how to implement selected dimension reduction methods (Principal Component Analysis, Factor Analysis, and Multidimensional Scaling). Unfortunately, we cannot deal with other, more complex dimension reduction methods such as Uniform Manifold Approximation and Projection (UMAP) or t-Distributed Stochastic Neighbor Embedding (t-SNE) in this tutorial (but we plan on adding a separate tutorial for these methods in the future). The reduction of multiple variables is useful for many things, e.g., for visualization, noise reduction, and simplifying complex data sets. However, it's essential to note that interpretability of the principal components may not always be straightforward, as they are linear combinations of the original features.
+# Introduction {#intro}
 
 ![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
 
-This tutorial is aimed at beginners and intermediate users of R. The aim is not to provide a fully-fledged guide but rather to show and exemplify some common dimension reduction methods with R.
+This tutorial introduces dimension reduction methods with R. The aim is to show how these methods work, how to prepare data for them, and how to implement three of the most widely used techniques in linguistics and the social sciences: **Principal Component Analysis (PCA)**, **Multidimensional Scaling (MDS)**, and **Exploratory Factor Analysis (EFA)**. Reducing many variables to a smaller number of meaningful dimensions is useful for visualisation, noise reduction, identifying latent structure, and simplifying complex data sets for further analysis.
 
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-To be able to follow this tutorial, we suggest you check out and familiarize yourself with the content of the following **R Basics** tutorials:<br>
-</p>
-<p style='margin-top:1em; text-align:left'>
-<ul>
-  <li>[Introduction to Quantitative Reasoning](/tutorials/introquant/introquant.html) </li>
-  <li>[Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html) </li>
-  <li>[Getting started with R](/tutorials/intror/intror.html) </li>
-  <li>[Loading, saving, and generating data in R](/tutorials/load/load.html) </li>
-</ul>
-</p>
-</span>
-</div>
-<br>
+This tutorial is aimed at beginners and intermediate users of R. The goal is not to provide an exhaustive statistical treatment but to give a solid conceptual grounding and practical hands-on experience with each method.
 
-**Preparation and session set up**
+::: {.callout-note}
+## Prerequisite Tutorials
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](/tutorials/intror/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+Before working through this tutorial, you should be comfortable with the content of the following tutorials:
 
-```{r prep1, echo=T, eval = F}
-# install packages
+- [Introduction to Quantitative Reasoning](/tutorials/introquant/introquant.html)
+- [Basic Concepts in Quantitative Research](/tutorials/basicquant/basicquant.html)
+- [Getting Started with R](/tutorials/intror/intror.html)
+- [Loading and Saving Data in R](/tutorials/load/load.html)
+- [Descriptive Statistics](/tutorials/dstats/dstats.html)
+- [Basic Inferential Statistics](/tutorials/basicstatz/basicstatz.html)
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain what dimension reduction is and why it is useful in linguistic and social science research
+2. Distinguish between PCA, MDS, and EFA and understand when each method is appropriate
+3. Understand the key concepts underlying PCA: eigenvectors, eigenvalues, principal components, loading scores, and explained variance
+4. Implement PCA in R using `prcomp()` and `princomp()`, interpret scree plots and biplots, and extract loading scores
+5. Implement MDS in R using `cmdscale()`, compute a distance matrix, and interpret an MDS plot
+6. Implement EFA in R using `factanal()`, determine the number of factors using scree plots and the Kaiser criterion, and interpret factor loadings and uniqueness scores
+7. Choose the most appropriate dimension reduction method for a given research question and data structure
+:::
+
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+:::
+
+---
+
+## Preparation and session set up {-}
+
+This tutorial requires several R packages. Run the installation code below if you have not yet installed them (you only need to do this once).
+
+```{r prep1, echo=TRUE, eval=FALSE}
 install.packages("dplyr")
 install.packages("stringr")
-install.packages("writexl")
 install.packages("flextable")
 install.packages("tidyr")
 install.packages("MASS")
@@ -46,16 +97,13 @@ install.packages("factoextra")
 install.packages("ggplot2")
 install.packages("report")
 install.packages("psych")
+install.packages("checkdown")
 ```
 
+Once installed, load the packages for this session:
 
-Now that we have installed the packages, we activate them as shown below.
-
-
-After installing these packages, we fetch them from the library to activate the packages.
-
-```{r activate, message=F, warning=F}
-options(scipen = 999) # supress math. notation
+```{r activate, message=FALSE, warning=FALSE}
+options(scipen = 999)  # suppress scientific notation
 library(dplyr)
 library(flextable)
 library(stringr)
@@ -67,686 +115,335 @@ library(report)
 library(psych)
 ```
 
+---
 
-# What are dimension reduction methods? {-}
+# What Are Dimension Reduction Methods? {#overview}
 
-Dimension reduction methods such as Principal Component Analysis (PCA), Multidimensional Scaling (MDS), and Factor Analysis are techniques used to *reduce the number of variables or dimensions in a data set while preserving as much relevant information as possible*. 
+::: {.callout-note}
+## Section Overview
 
-The choice of method depends on the specific goals of the analysis and the nature of the data being analyzed. Each method addresses different aspects of dimension reduction:
+**What you will learn:** What dimension reduction is; why it is useful; the three main methods covered in this tutorial (PCA, MDS, FA); and the key difference between each
+:::
 
-+ PCA emphasizes variance
+Dimension reduction methods such as Principal Component Analysis (PCA), Multidimensional Scaling (MDS), and Factor Analysis (FA) are techniques used to **reduce the number of variables or dimensions in a data set while preserving as much relevant information as possible** [@jolliffe2002principal; @field2012discovering].
 
-+ MDS emphasizes pairwise distances
+The need for dimension reduction arises because:
 
-+ Factor Analysis emphasizes the underlying latent factors.
+- High-dimensional data is difficult to visualise directly — humans can intuitively perceive two or three dimensions, not fifty
+- Many variables in a real data set are correlated and therefore contain redundant information
+- Reducing dimensions removes noise and makes patterns more visible
+- Downstream statistical models often perform better on a smaller set of meaningful dimensions
 
-Below are brief explanations of the three commonly used dimension reduction methods.
+Below are brief explanations of the three methods covered in this tutorial.
 
-**Principal Component Analysis (PCA)**
+## Principal Component Analysis (PCA) {-}
 
-Principal Component Analysis is a statistical technique that transforms a data set into a new coordinate system where the variables (features) are linearly uncorrelated.
+PCA transforms a data set into a new coordinate system where the new variables (principal components) are linearly uncorrelated. It finds a set of orthogonal axes such that the **first principal component captures the maximum variance in the data**, the second captures the second maximum variance, and so on. By selecting only the top components, you achieve dimension reduction while retaining the most important information.
 
-It aims to find a set of orthogonal axes (principal components) in such a way that the first principal component accounts for the maximum variance in the data, the second principal component for the second maximum variance, and so on. By selecting a subset of these principal components, you can achieve dimension reduction while retaining the most significant information in the data.
+PCA is **driven by the covariance matrix** of the data. It is most effective when the dominant structure in the data can be captured by a small number of linear combinations of the original variables.
 
-Unfortunately, PCA only works really well when the number of features (or variables) isn't too big and when the majority of the variance is explained by 2 or 3 principal components. If you are dealing with a very large data set with many features, UMAP is a better alternative.
+## Multidimensional Scaling (MDS) {-}
 
-**Multidimensional Scaling (MDS)**
+MDS represents high-dimensional data in a lower-dimensional space — usually 2D or 3D — **while preserving pairwise distances or similarities between data points**. Rather than starting from correlations between variables (as PCA does), MDS starts from a **distance matrix** between observations.
 
-Multidimensional Scaling is a method used to represent high-dimensional data in a lower-dimensional space (usually 2D or 3D) while maintaining pairwise distances or similarities between data points. MDS attempts to preserve the relationships among data points as much as possible. It's often used in visualization to represent complex data in a way that makes it easier to interpret or analyze.
+MDS is particularly useful for visualising the similarity structure of a set of items — for example, how similar a set of languages are to each other based on a profile of typological features, or how different survey respondents are from each other.
 
-Like PCA, MDS only works really well when the number of variables isn't too big and when the majority of the variance is explained by 2 or 3 dimensions.
+## Factor Analysis (FA) {-}
 
-**Factor Analysis**
+Factor Analysis aims to uncover **underlying latent factors** that explain the observed correlations among variables. It assumes that the observed variables are imperfect reflections of a smaller number of hidden (latent) constructs — for example, that responses to twenty survey items about language attitudes actually reflect three underlying attitude dimensions.
 
-Factor Analysis is a statistical technique that aims to uncover underlying latent factors that contribute to the observed variables in a data set. It's particularly useful when dealing with data where variables may be correlated, and you want to identify common factors that explain the shared variance. Factor Analysis assumes that observed variables are influenced by both the common factors and unique factors specific to each variable.
+FA is **driven by the correlation matrix** of the variables. Unlike PCA (which is a mathematical transformation with no model assumptions), FA explicitly models each observed variable as a combination of common factors and a variable-specific unique component.
 
-# Principal Component Analysis{-}
+## Key comparison {-}
 
-Principal Component Analysis (PCA) [see, e.g., @clark2011introduction] is  used for dimensionality reduction and data compression while preserving as much variance as possible in the data. It achieves this by transforming the original data into a new coordinate system defined by a set of orthogonal axes called *principal components*. The first principal component captures the maximum variance in the data, the second captures the second maximum variance, and so on.
+| | PCA | MDS | Factor Analysis |
+|---|---|---|---|
+| **Starting point** | Covariance matrix | Distance matrix | Correlation matrix |
+| **Goal** | Maximise captured variance | Preserve pairwise distances | Identify latent factors |
+| **Assumptions** | None (pure transformation) | None (pure transformation) | Explicit factor model |
+| **Output** | Principal components | Coordinates in reduced space | Factor loadings + uniqueness |
+| **Typical use** | Data reduction, visualisation | Similarity mapping | Construct validation, surveys |
 
->"Imagine you have just opened a cider shop. You have 50 varieties of cider and you want to work out how to allocate them onto shelves, so that similar-tasting ciders are put on the same shelf. There are lots of different tastes and textures in cider - sweetness, tartness, bitterness, yeastiness, fruitiness, clarity, fizziness etc etc. So what you need to do to put the bottles into categories is answer two questions:
->
->1) What qualities are most important for identifying groups of ciders? e.g. does classifying based on sweetness make it easier to cluster your ciders into similar-tasting groups than classifying based on fruitiness?
->
->2) Can we reduce our list of variables by combining some of them? e.g. is there actually a variable that is some combination of "yeastiness and clarity and fizziness" and which makes a really good scale for classifying varieties?
->
->This is essentially what PCA does. Principal components are variables that usefully explain variation in a data set - in this case, that usefully differentiate between groups. Each principal component is one of your original explanatory variables, or a combination of some of your original explanatory variables." 
->`r tufte::quote_footer('Freya Harrison')`
+::: {.callout-tip}
+## Exercises: Overview
+:::
 
+**Q1. A researcher has collected measurements of 30 grammatical features across 50 languages and wants to visualise which languages are most similar to each other. Which dimension reduction method is most appropriate and why?**
 
-Let's delve into an easy example to get a better understanding of the theoretical underpinnings of PCA and to see how it works [this section is based on @stackpca3] and a very brief, nice, and easy to understand explanation of PCA is available [here](https://stats.stackexchange.com/questions/2691/making-sense-of-principal-component-analysis-eigenvectors-eigenvalues/2700#2700) [@stackpca4]... 
-
-**Primer: Why should I use a PCA and what does PCA tell us?**
-
-Imagine we have a data set representing measurements of 4 features across a sample of 6 languages. We now want to see if the languages from groups based on the frequencies of these features.
-
-```{r echo=FALSE, message=F, warning=F}
-pcadat <- data.frame(
-  Language = c(
-    "Lang1", "Lang2", "Lang3",
-    "Lang4", "Lang5", "Lang6"
+```{r}
+#| echo: false
+#| label: "overview_q1"
+check_question(
+  "Multidimensional Scaling (MDS), because the researcher's goal is to visualise pairwise similarities (or distances) between the languages, not to reduce the variables or identify latent constructs. MDS starts from a distance matrix between observations (here, languages) and projects them into a 2D or 3D space while preserving those distances as accurately as possible. PCA would instead work on the covariance structure of the 30 features across languages, and FA would look for latent factors underlying the features — neither directly addresses the goal of mapping pairwise language similarity.",
+  options = c(
+    "PCA, because it can reduce 30 variables to 2 or 3 principal components",
+    "Factor Analysis, because 30 features probably reflect a smaller number of latent typological dimensions",
+    "Multidimensional Scaling (MDS), because the researcher's goal is to visualise pairwise similarities (or distances) between the languages, not to reduce the variables or identify latent constructs. MDS starts from a distance matrix between observations (here, languages) and projects them into a 2D or 3D space while preserving those distances as accurately as possible. PCA would instead work on the covariance structure of the 30 features across languages, and FA would look for latent factors underlying the features — neither directly addresses the goal of mapping pairwise language similarity.",
+    "All three methods are equally appropriate for this task"
   ),
-  Feat1 = c(10, 11, 8, 3, 1, 2),
-  Feat2 = c(6, 4, 5, 3, 2.8, 1),
-  Feat3 = c(12, 9, 10, 2.5, 1.3, 2),
-  Feat4 = c(5, 7, 6, 2, 4, 7)
-) %>%
+  type = "radio",
+  q_id = "overview_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! MDS is the right choice here because the research goal is explicitly about pairwise similarity between languages. The input to MDS is a distance (or dissimilarity) matrix — you would compute linguistic distances between the 50 languages based on their feature profiles, then pass that matrix to cmdscale() in R. The resulting plot places similar languages close together and dissimilar languages far apart. PCA and FA work on the variables (features), not on the distances between cases (languages).",
+  wrong = "Not quite. The key is to match the method to the research goal. The researcher wants to know which *languages* are similar to each other — that is a pairwise-distance question between cases, not a variable-reduction or latent-factor question. MDS is specifically designed to map pairwise distances or similarities into a low-dimensional visual space. PCA would reduce the 30 feature variables to components, and FA would find latent factors among the features, but neither directly produces the similarity map between languages that the researcher wants."
+)
+```
+
+---
+
+# Principal Component Analysis {#pca}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The conceptual foundations of PCA — centering and scaling, eigenvectors and eigenvalues, variance explained, loading scores; how PCA differs from ordinary least squares regression; and three worked examples in R
+:::
+
+Principal Component Analysis (PCA) is used for dimensionality reduction and data compression while preserving as much variance as possible [@jolliffe2002principal]. It achieves this by transforming the original data into a new coordinate system defined by a set of orthogonal axes called *principal components*. The first principal component captures the maximum variance in the data, the second captures the second maximum variance, and so on.
+
+## A conceptual introduction to PCA {-}
+
+To make PCA tangible, consider a classic analogy. Imagine you have just opened a cider shop with 50 varieties of cider. You want to arrange them on shelves so that similar-tasting ciders are grouped together. There are many taste dimensions: sweetness, tartness, bitterness, yeastiness, fruitiness, fizziness, and so on. PCA helps you answer:
+
+1. Which combination of taste qualities is most useful for distinguishing groups of ciders?
+2. Can some taste variables be combined — because they tend to go together — into a single summary dimension?
+
+This is essentially what PCA does: it finds new axes (principal components) that are combinations of the original variables and that explain the maximum amount of variation in the data. The first component is the single axis along which the data varies most; the second (orthogonal to the first) is the next most variable direction; and so on.
+
+> **PCA can tell us if and how many groups there are in our data, and it can tell us what features are responsible for the division into groups.**
+
+## Step-by-step: how PCA works {-}
+
+Let us work through a minimal example with just two features and six language observations to build intuition.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pcadat <- data.frame(
+  Language = c("Lang1", "Lang2", "Lang3", "Lang4", "Lang5", "Lang6"),
+  Feat1    = c(10, 11, 8, 3, 1, 2),
+  Feat2    = c(6,  4,  5, 3, 2.8, 1),
+  Feat3    = c(12, 9, 10, 2.5, 1.3, 2),
+  Feat4    = c(5,  7,  6, 2, 4, 7)
+) |>
   as.data.frame()
 flextable::flextable(pcadat)
 ```
 
-To understand how PCA works, let us start by plotting the first feature (Feat1).
+When we plot Feat1 alone, we can already see two clusters:
 
-```{r echo = F, message=F, warning=F}
-pcadat %>%
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pcadat |>
   ggplot(aes(x = Feat1, y = rep(0, 6))) +
   geom_point(size = 5) +
   theme_bw() +
-  theme(
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    aspect.ratio = 1
-  ) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), aspect.ratio = 1) +
   scale_x_discrete(name = "Feat1", limits = seq(1, 11, 1)) +
-  scale_y_discrete(name = "", limits = seq(-.5, .5, .5))
+  scale_y_discrete(name = "", limits = seq(-0.5, 0.5, 0.5))
 ```
 
-When we check the visualization of the first feature, we see that there appear to be two groups in our data!
+Adding Feat2 on the y-axis:
 
-We now add the second feature (Feat2) to check if the second feature adds information and supports our hypothesis that there are two types of languages in our data based on the features we collected.
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  dplyr::mutate(col = ifelse(Feat1 > 5, "1", "0")) %>%
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pcadat |>
+  dplyr::mutate(col = ifelse(Feat1 > 5, "1", "0")) |>
   ggplot(aes(x = Feat1, y = Feat2)) +
   geom_point(size = 5) +
   theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
+  theme(legend.position = "none", aspect.ratio = 1) +
   scale_x_discrete(name = "Feat1", limits = seq(1, 11, 1)) +
   scale_y_discrete(name = "Feat2", limits = seq(1, 6, 1))
 ```
 
-While adding the second feature has not added much information (in that sense, Feat2 not as distinctive), there still appear to be two groups. However, we continue by adding the third feature (Feat3) by adding size as a way to show the third feature.
+Two groups are visible. The PCA procedure now finds the *best line* through these data points — but "best" here means something different from regression.
 
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2, group = Feat2, size = Feat3)) +
-  geom_point() +
-  theme_bw() +
-  theme(aspect.ratio = 1) +
-  scale_x_discrete(name = "Feat1", limits = seq(1, 11, 1)) +
-  scale_y_discrete(name = "Feat2", limits = seq(1, 6, 1))
-```
+### Why PCA differs from regression {-}
 
-Feat3 supports the two group hypothesis as small dots have values below 5 and big dots have values above 5 on the first feature scale. Finally, we add the fourth feature (Feat4) and use color to visualize this 4^th^ dimension.
+In Ordinary Least Squares (OLS) regression, residuals are measured **perpendicular to the x-axis**. In PCA, residuals are measured **perpendicular to the line itself**. This is a crucial difference: PCA treats all variables symmetrically — there is no dependent variable — and finds the direction that minimises the orthogonal distances from points to the line.
 
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2, size = Feat3, color = Feat4)) +
-  geom_point() +
-  theme_bw() +
-  theme(aspect.ratio = 1) +
-  scale_x_discrete(name = "Feat1", limits = seq(1, 11, 1)) +
-  scale_y_discrete(name = "Feat2", limits = seq(1, 6, 1)) +
-  scale_color_viridis_b()
-```
-
-Like the second feature, Feat4 has not added much information.
-
-Now, what would we use a PCA for in this context?
-
-> **PCA can tell us if and how many groups there are in our data and it can tell use what features are responsible for the division into groups!**
-
-
-Let's now go through a PCA step-by-step. Also, we only consider Feat1 and Feat2 to keep things very simple.
-
-```{r echo = F}
-pcadat2 <- pcadat %>%
-  dplyr::select(-Feat3, -Feat4)
-# inspect
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+pcadat2 <- pcadat |> dplyr::select(-Feat3, -Feat4)
 flextable::flextable(pcadat2)
 ```
 
-We start by calculating the center of the data.
+### Step 1: Centre and scale {-}
 
-```{r echo = F, message=F, warning=F}
-pcadat2 %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  scale_x_discrete(name = "Feat1", limits = seq(1, 11, 1)) +
-  scale_y_discrete(name = "Feat2", limits = seq(1, 11, 1)) +
-  ggplot2::annotate(geom = "text", label = "+", x = mean(pcadat$Feat1), y = mean(pcadat$Feat2), size = 10, color = "red")
-```
+::: {.callout-warning}
+## Always centre and scale your data before PCA
 
-Next we scale and center the data so that the center is at (0,0).
+If you do not scale your variables, components will be driven by whichever variable has the largest raw scale — not because it is more important, but simply because its numbers are bigger. Centering sets the mean to zero; scaling sets each variable's standard deviation to one. The relationship between data points is unchanged by this transformation.
+:::
 
-
-```{r echo = F, message=F, warning=F}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 pcadat_norm <- scale(as.matrix(pcadat[, 2:3]))
+pcadat_scaled <- as.data.frame(pcadat_norm)
 
-pcadat <- as.data.frame(pcadat_norm)
-
-pcadat %>%
+pcadat_scaled |>
   ggplot(aes(x = Feat1, y = Feat2)) +
   geom_point(size = 2) +
   theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
+  theme(legend.position = "none", aspect.ratio = 1) +
   ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10, color = "red") +
   geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
   geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
   coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
 ```
 
-The relationship between data points is unchanged!
+After centering and scaling, the origin (0, 0) sits at the mean of the data.
 
-> Important: **always center and scale your data** as the scales will impact the magnitude of variance!
-> In other words, if you do not center and scale, components can be deemed important simply because the scale of the variables is bigger (not because they are more important)!
+### Step 2: Find PC1 {-}
 
-Now, we fit a line through the data.
+PC1 is the line through the origin that maximises the spread of the projected data points — equivalently, it minimises the sum of squared orthogonal distances between each point and the line. The direction of this line is the **eigenvector** of PC1; the amount of variance it captures is the **eigenvalue**.
 
-```{r echo = F, message=F, warning=F}
-reg <- lm(
-  formula = Feat2 ~ Feat1,
-  data = pcadat
-)
-
-# get intercept and slope value
-coeff <- coefficients(reg)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+reg  <- lm(Feat2 ~ Feat1, data = pcadat_scaled)
+coeff    <- coefficients(reg)
 intercept <- coeff[1]
-slope <- coeff[2]
+slope     <- coeff[2]
 
-pred <- predict(reg, newdata = pcadat)
-```
-
-```{r echo = F, message=F, warning=F}
 perp.segment.coord <- function(x0, y0, a = 0, b = 1) {
-  # finds endpoint for a perpendicular segment from the point (x0,y0) to the line
-  # defined by lm as y=a+b*x
   x1 <- (x0 + b * y0 - a * b) / (1 + b^2)
   y1 <- a + b * x1
   list(x0 = x0, y0 = y0, x1 = x1, y1 = y1)
 }
-# calculate correlation, must be spearman b/c of measurement
-corre <- cor(x = pcadat$Feat1, y = pcadat$Feat2, method = "spearman")
-# make this into a matrix
+corre  <- cor(x = pcadat_scaled$Feat1, y = pcadat_scaled$Feat2, method = "spearman")
 matrix <- matrix(c(1, corre, corre, 1), nrow = 2)
-# calculate eigenvectors and values
-eigen <- eigen(matrix)
-eigen$vectors.scaled <- eigen$vectors %*% diag(sqrt(eigen$values))
-ss <- perp.segment.coord(pcadat$Feat1, pcadat$Feat2, 0, eigen$vectors.scaled[1, 1])
-```
+eigen_res  <- eigen(matrix)
+eigen_res$vectors.scaled <- eigen_res$vectors %*% diag(sqrt(eigen_res$values))
+ss <- perp.segment.coord(pcadat_scaled$Feat1, pcadat_scaled$Feat2, 0,
+                         eigen_res$vectors.scaled[1, 1])
 
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
+pcadat_scaled |>
   ggplot(aes(x = Feat1, y = Feat2)) +
   geom_point(size = 2) +
   theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
+  theme(legend.position = "none", aspect.ratio = 1) +
   ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10, color = "red") +
   geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
   geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  # geom_segment(data=as.data.frame(ss), aes(x = x0, y = y0, xend = x1, yend = y1), colour = "blue") +
-  geom_abline(
-    intercept = 0, slope = eigen$vectors.scaled[1, 1], colour = "orange",
-    linetype = "dashed", size = 1
-  ) +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) # +
-# geom_point(data = as.data.frame(ss), aes(x = x1, y = y1), color = "green", size = 2)
-```
-
-
-<div class="warning">
-<span>
-<p style='margin-top:1em; text-align:center'>
-<b>IMPORTANT!</b></p>
-<p style='margin-left:1em;'>
-
-But how do we arrive at this line and what is there always talk about "orthogonal" when talking about PCA?
-
-Let's have a look at simple the Ordinary Least Squared (OLS) procedure that underlies regression:
-</p>
-<p style='margin-top:1em; text-align:center'>
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10, color = "red") +
-  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  geom_abline(
-    intercept = intercept, slope = slope, color = "orange",
-    linetype = "dashed", size = 1
-  ) +
-  geom_segment(aes(xend = Feat1, yend = predict(lm(Feat2 ~ Feat1))), color = "blue") +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
-```
-</p>
-<p style='margin-left:1em;'>
-
-In OLS, the lines that represent variance (or residuals) are perpendicular to the x-axis.
-
-However, in PCA, the line are perpendicular to the regression line as shown below!
-</p>
-<p style='margin-top:1em; text-align:center'>
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10, color = "red") +
-  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  geom_segment(data = as.data.frame(ss), aes(x = x0, y = y0, xend = x1, yend = y1), colour = "blue") +
-  geom_abline(
-    intercept = 0, slope = eigen$vectors.scaled[1, 1], colour = "orange",
-    linetype = "dashed", size = 1
-  ) +
+  geom_segment(data = as.data.frame(ss),
+               aes(x = x0, y = y0, xend = x1, yend = y1), colour = "blue") +
+  geom_abline(intercept = 0, slope = eigen_res$vectors.scaled[1, 1],
+              colour = "orange", linetype = "dashed", linewidth = 1) +
   geom_point(data = as.data.frame(ss), aes(x = x1, y = y1), color = "green", size = 2) +
   coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
 ```
 
-</p>
-</span>
-</div>
+The orange dashed line is PC1. The blue lines are the orthogonal distances from each point to PC1; the green points are the projections. PCA minimises the sum of squared blue line lengths — equivalently, it maximises the spread of the green projection points.
 
+### Step 3: Find PC2 {-}
 
+PC2 is simply the line perpendicular to PC1 that also passes through the origin. In 2D there is only one such direction; in higher dimensions, PC2 is the direction orthogonal to PC1 that captures the most remaining variance.
 
-The line that minimizes variance is called **Principal Component 1** (PC1) and it is different from a regression line. The PC1 can be found by minimizing the orthogonal distances (blue lines above) between data points and their projections (green points above)!. 
+### Eigenvectors and eigenvalues {-}
 
-An alternative way to find PC1 is actually not to try and minimize the distance between the data point and its projection but to maximize the distance between the projection (the green points on the line) and the origin (the center of the coordinate system). We can then square the distances between projections and the origin and add these squared distances, which gives us the *sum of squared distances* or *SS(distances)*.
+::: {.callout-note}
+## Eigenvector vs. Eigenvalue — two different things
 
+**Eigenvector:** The direction of a principal component. For a 2-variable PCA, the eigenvector for PC1 specifies the proportion of each original variable that contributes to PC1. These proportions are the **loading scores**. For example, if the eigenvector is (0.728, 0.685), then PC1 is composed of 72.8% of Feat1 and 68.5% of Feat2.
 
+**Eigenvalue:** The *amount* of variance captured by a principal component. Eigenvalues for PC1 are always larger than for PC2, PC2 larger than PC3, and so on. The proportion of total variance explained by PCk is its eigenvalue divided by the sum of all eigenvalues.
+:::
 
+### Step 4: Visualise — rotate to PC axes {-}
 
-PC1 has a slope of `r eigen$vectors.scaled[1,1]` - this already shows us that the data is spread much more along PC1 that along PC2!
+The final PCA plot is simply the data projected onto the PC axes. Rotating so that PC1 is horizontal and PC2 is vertical gives the familiar PCA scatter plot:
 
-We go about `r 1 / eigen$vectors.scaled[1,1]` units (1 / `r round(eigen$vectors.scaled[1,1], 4)`) to the right and 1 unit up.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+angle_rad     <- atan(eigen_res$vectors.scaled[1, 1])
+angle_deg     <- angle_rad * (180 / pi)
+degree        <- 0 - angle_deg
+radians       <- degree * (pi / 180)
 
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10, color = "red") +
-  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  geom_abline(
-    intercept = 0, slope = eigen$vectors.scaled[1, 1], colour = "orange",
-    linetype = "dashed", size = 1
-  ) +
-  geom_segment(aes(x = 0, y = 0, xend = 1 / eigen$vectors.scaled[1, 1], yend = 0),
-    arrow = arrow(length = unit(0.25, "cm")), color = "blue"
-  ) +
-  geom_segment(aes(x = 1 / eigen$vectors.scaled[1, 1], y = 0, xend = 1 / eigen$vectors.scaled[1, 1], yend = 1),
-    arrow = arrow(length = unit(0.25, "cm")), color = "blue"
-  ) +
-  geom_segment(aes(x = 0, y = 0, xend = 1 / eigen$vectors.scaled[1, 1], yend = 1),
-    size = 1.5, arrow = arrow(length = unit(0.25, "cm")), color = "red"
-  ) +
-  ggplot2::annotate(geom = "text", label = "a", x = 0.6, y = 0.8, color = "red") +
-  ggplot2::annotate(geom = "text", label = "b", x = 0.6, y = -0.25, color = "blue") +
-  ggplot2::annotate(geom = "text", label = "c", x = 1.25, y = 0.5, color = "blue") +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
-```
-
-Now, we find the value for a (square root of b^2^ + c^2^) =  `r sqrt(1 + (1 / eigen$vectors.scaled[1,1])^2)`. 
-
-Next, we scale b and c so that a is 1.
-
-a^2^ = b^2^ + c^2^
-
-b = 1.0625593 / 1.4591204 = 0.7282191
-
-c = 1 / 1.4591204 = 0.6853444
-
-
-To make PC1, we need 0.738 of Feat1 and 0.685 of Feat2.
-
-This 1 unit long vector (a) is called the Eigenvector for PC1.
-
-> Eigenvector and Eigenvalue are not the same! 
-> Eigenvector represent the factor loadings for each observed variable on a specific factor.
-> Eigenvalue represents the amount of variance explained by an entire factor.
-
-The proportions (0.738 and 0.685) are called the loading scores.
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10) +
-  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  geom_abline(
-    intercept = 0, slope = eigen$vectors.scaled[1, 1], colour = "orange",
-    linetype = "dashed", size = 1
-  ) +
-  geom_segment(aes(x = 0, y = 0, xend = 0.7282191, yend = 0.6853444),
-    size = 1.5,
-    arrow = arrow(length = unit(0.25, "cm")), color = "red"
-  ) +
-  ggplot2::annotate(geom = "text", label = "Eigenvector of PC1", x = -0.6, y = 0.5, color = "red") +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
-```
-
-
-PC2 is simply the perpendicular line to PC1 that goes through 0,0.
-
-```{r echo = F, message=F, warning=F}
-pcadat %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  ggplot2::annotate(geom = "text", label = "+", x = 0, y = 0, size = 10) +
-  geom_vline(xintercept = 0, color = "red", linetype = "dotted") +
-  geom_hline(yintercept = 0, color = "red", linetype = "dotted") +
-  geom_abline(
-    intercept = 0, slope = eigen$vectors.scaled[1, 1], colour = "orange",
-    linetype = "dashed", size = 1
-  ) +
-  geom_abline(
-    intercept = 0, slope = -1 / eigen$vectors.scaled[1, 1], colour = "blue",
-    linetype = "dashed", size = 1
-  ) +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
-```
-
-As PC1 and PC2 are perpendicular, the Eigenvector of PC2 is -0.685 of Feat1 and 0.728 of Feat2.
-
-
-```{r echo = F, message=F, warning=F}
-angle_rad <- atan(eigen$vectors.scaled[1, 1])
-angle_deg <- angle_rad * (180 / pi)
-# angle_deg
-
-degree <- 0 - angle_deg # Rotation angle in degrees
-radians <- degree * (pi / 180) # Convert degrees to radians
-
-# Rotate the coordinates
 pcadat_rotated <- data.frame(
-  Feat1 = pcadat$Feat1 * cos(radians) - pcadat$Feat2 * sin(radians),
-  Feat2 = pcadat$Feat1 * sin(radians) + pcadat$Feat2 * cos(radians)
-)
-
-pcadat_rotated %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point(size = 2) +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  geom_vline(xintercept = 0, color = "blue", linetype = "dotted", size = 1.5) +
-  geom_hline(yintercept = 0, color = "orange", linetype = "dotted", size = 1.5) +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2))
-```
-
-We can (but have to) rotate the PC1 and make the points smaller (so that our plot looks more like a proper PCA plot).
-
-```{r echo = F, message=F, warning=F}
-# Rotate the coordinates
-pcadat_rotated <- pcadat_rotated %>%
+  Feat1 = pcadat_scaled$Feat1 * cos(radians) - pcadat_scaled$Feat2 * sin(radians),
+  Feat2 = pcadat_scaled$Feat1 * sin(radians) + pcadat_scaled$Feat2 * cos(radians)
+) |>
   dplyr::mutate(Feat1 = -Feat1)
 
-pcadat_rotated %>%
+pcadat_rotated |>
   ggplot(aes(x = Feat1, y = Feat2)) +
   geom_point() +
   theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  geom_vline(xintercept = 0, linetype = "dotted", size = 1) +
-  geom_hline(yintercept = 0, linetype = "dotted", size = 1) +
+  theme(legend.position = "none", aspect.ratio = 1) +
+  geom_vline(xintercept = 0, linetype = "dotted", linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dotted", linewidth = 1) +
   coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) +
   labs(x = "PC1", y = "PC2")
 ```
 
-To plot the results of a PCA, we simply rotate the plot so that the PCs reflect the axes and we project the points onto the PCs.
+We can verify this against `prcomp()`:
 
 ```{r}
-# generate data
-df <- data.frame(
-  pcadat$Feat1,
-  pcadat$Feat2
-)
-colnames(df) <- c("Feat1", "Feat2")
-# perform PCA
-pcaex <- prcomp(df, center = T, scale = T)
-# visualize PCA results
+df <- data.frame(Feat1 = pcadat_scaled$Feat1,
+                 Feat2 = pcadat_scaled$Feat2)
+pcaex <- prcomp(df, center = TRUE, scale = TRUE)
 fviz_pca_ind(pcaex, label = "") +
   coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) +
   ggtitle("PCA plot") +
   theme(aspect.ratio = 1)
 ```
 
+### How is explained variance calculated? {-}
 
-Now we have an understanding of how we arrive at the visual representation of a PCA. But how do we arrive at the explained variance?
+Each PC has an associated **eigenvalue** representing the variance it captures. The **proportion of variance explained** by PCk is simply its eigenvalue divided by the total sum of all eigenvalues.
 
-In the context of PCA, variance refers to summative variance or overall/total variability. 
+In the covariance matrix of the PCA-rotated data, the off-diagonal elements are all zero (the components are uncorrelated by construction), and the diagonal elements are the eigenvalues of the components. The total variance is preserved:
 
-To get a better grasp of what this means, let's consider a covariance matrix of some 3 variables (rather than just 2 variables as above). Their variances are on the diagonal, and the sum of the 3 values (`r round(sum(1.343730519, -.160152268, .186470243, -.160152268, .619205620, -.126684273, .186470243 , -.126684273,  1.485549631), 3)`) is the overall variability.
-
-```{r echo=FALSE, message=F, warning=F}
-mx1 <- matrix(c(
-  1.343730519, -.160152268, .186470243,
-  -.160152268, .619205620, -.126684273,
-  .186470243, -.126684273, 1.485549631
-), nrow = 3)
-rownames(mx1) <- NULL
-colnames(mx1) <- NULL
-flextable::flextable(as.data.frame(mx1))
-```
-
-
-Now, PCA replaces original variables with new variables, called principal components, which are orthogonal (i.e. they have zero covariation!) and have variances (called eigenvalues) in decreasing order. So, the covariance matrix between the principal components extracted from the above data is this:
-
-```{r echo=FALSE, message=F, warning=F}
-mx2 <- matrix(c(
-  1.651354285, .000000000, .000000000,
-  .000000000, 1.220288343, .000000000,
-  .000000000, .000000000, .576843142
-), nrow = 3)
-rownames(mx2) <- NULL
-colnames(mx2) <- NULL
-flextable::flextable(as.data.frame(mx2))
-```
-
-Note that the diagonal sum is still `r round(sum(1.651354285, .000000000, .000000000, .000000000, 1.220288343, .000000000, .000000000, .000000000, .576843142), 3)`, which says that all 3 components account for all the multivariate variability. The PC1 accounts for or "explains" 1.651/3.448 = 47.9% of the overall variability; the PC2 explains 1.220/3.448 = 35.4% of it; the 3rd one explains .577/3.448 = 16.7% of it.
-
-So, what do they mean when they say that PCA explains maximal variance? That is not, of course, that it finds the largest variance among three values 1.343730519 .619205620 1.485549631. PCA finds, in the data space, the dimension (direction) with the largest variance out of the overall variance 1.343730519+.619205620+1.485549631 = 3.448. That largest variance would be 1.651354285. Then it finds the dimension of the second largest variance, orthogonal to the first one, out of the remaining 3.448-1.651354285 overall variance. That 2nd dimension would be 1.220288343 variance. And so on. The last remaining dimension is .576843142 variance. 
-
-For our example, we can extract the amount of variance accounted for as shown below:
-
-Step 1: get loading scores
-
-```{r message=F, warning=F}
-pcaex$x
-```
-
-```{r echo = F, message=F, warning=F}
-# Rotate the coordinates
-pcadat_rotated <- pcadat_rotated %>%
-  dplyr::mutate(Feat1 = -Feat1)
-
-pcadat_rotated %>%
-  ggplot(aes(x = Feat1, y = Feat2)) +
-  geom_point() +
-  theme_bw() +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 1
-  ) +
-  geom_vline(xintercept = 0, linetype = "dotted", size = 1) +
-  geom_hline(yintercept = 0, linetype = "dotted", size = 1) +
-  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) +
-  labs(x = "PC1", y = "PC2") +
-  geom_segment(aes(y = 0, xend = Feat1, yend = Feat2), color = "blue") +
-  geom_segment(aes(x = 0, xend = Feat1, yend = Feat2), color = "red") +
-  ggplot2::annotate(geom = "text", label = "PC2 \nloadings", x = -1.0, y = -.3, color = "blue") +
-  ggplot2::annotate(geom = "text", label = "PC1 loadings", x = -0.6, y = 0.6, color = "red")
-```
-
-
-Step 2: calculate standard deviations of PC1 and PC2
-
-```{r message=F, warning=F}
+```{r message=FALSE, warning=FALSE}
 sdpc1 <- sd(pcaex$x[, 1])
 sdpc2 <- sd(pcaex$x[, 2])
-sdpc1
-sdpc2
-```
-
-Step 3: use standard deviations to calculate the amount of variance explained by each component 
-
-
-```{r message=F, warning=F}
-# Proportion of Variance PC1 = sd PC1 squared / (sd PC1 squared + sd PC2 squared)
+# Proportion of variance explained by PC1
 sdpc1^2 / (sdpc1^2 + sdpc2^2)
-# Proportion of Variance PC2 = sd PC2 squared / (sd PC1 squared + sd PC2 squared)
+# Proportion of variance explained by PC2
 sdpc2^2 / (sdpc1^2 + sdpc2^2)
 ```
 
-According to our manual calculation, PC1 explains `r round(sdpc1^2 / (sdpc1^2 + sdpc2^2) , 4)` % of the variation while PC2 explains `r round(sdpc2^2 / (sdpc1^2 + sdpc2^2) , 4)` % of the variation. To check if this is correct, we check our results against the results provided by the `prcomp` function.
+Cross-check against `prcomp`:
 
-```{r echo=FALSE, message=F, warning=F}
-# results PCA example
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 summary(pcaex)
 ```
 
-But how do we arrive at the standard deviations of the PCs? The standard deviations of the PCs are the covariance matrix values for the respective PCs! So let's have a look at the covariance matrices of the raw data, the scales data, and  the rotated, final data. 
+## Example 1: PCA on simulated language data {-}
 
-```{r echo=FALSE, message=F, warning=F}
-# covariance matrix of raw data
-cov(pcadat2[, 2:3])
-# covariance matrix of scaled data
-cov(pcadat)
-# covariance matrix of pca
-cov(pcaex$x)
-```
+This example shows how to use `prcomp()`, generate a scree plot, create a PCA scatter plot, and extract the features that contribute most to PC1.
 
-We see that the standard deviation of PC1 is equal to the sum of the first row (or column) of the scaled covariance matrix. But more importantly, we see that the **squared standard deviations of the PCs are equal to the variances (eigenvalues) of the PCs in the covariance matrix**. 
-
-```{r  message=F, warning=F}
-sdpc1^2 # sd of PC1 squared
-# which is equal to
-sum(cov(pcaex$x)[1, ])
-```
-
-
-```{r  message=F, warning=F}
-sdpc2^2 # sd of PC2 squared
-# which is equal to
-sum(cov(pcaex$x)[2, ])
-```
-
-Now that we have worked through one example of a PCA manually, we turn to several examples to show how one can implement PCA in R to showcase what PCA can be used for.
-
-### Example 1 {-} 
-
-Here, we will show
-
-+ how to use the `prcomp()` function to perform PCA  
-
-+ how to draw a PCA plot using ggplot2  
-
-+ how to determine how much variation each component accounts for  
-
-+ how to examine the loading scores to determine what variables have the largest effect on the graph
-
-In this example, the data is in a matrix called `pcadat` where columns are individual samples (i.e. languages) and rows are measurements taken for all the samples (i.e. features).
-
+We simulate data representing 100 features measured across 10 languages (5 Indo-European, 5 Austronesian). Languages within each family are expected to be more similar to each other.
 
 ```{r}
+set.seed(123)
 pcadat <- matrix(nrow = 100, ncol = 10)
-colnames(pcadat) <- c(
-  paste("indoeu", 1:5, sep = ""), # Indo-European languages
-  paste("austro", 1:5, sep = "")
-) # Austronesian languages
-rownames(pcadat) <- paste("feature", 1:100, sep = "")
-for (i in 1:100) {
-  indoeu.values <- rpois(5, lambda = sample(x = 10:1000, size = 1))
-  austro.values <- rpois(5, lambda = sample(x = 10:1000, size = 1))
+colnames(pcadat) <- c(paste0("indoeu", 1:5), paste0("austro", 1:5))
+rownames(pcadat) <- paste0("feature", 1:100)
 
-  pcadat[i, ] <- c(indoeu.values, austro.values)
+for (i in 1:100) {
+  indoeu.values <- rpois(5, lambda = sample(10:1000, 1))
+  austro.values <- rpois(5, lambda = sample(10:1000, 1))
+  pcadat[i, ]   <- c(indoeu.values, austro.values)
 }
-# inspect data
+
 head(pcadat)
-dim(pcadat)
 ```
 
-We now implement the PCA using the `prcomp` function from the `stats` package. In our case, we specify that we want to transpose the data (using the `t` function) because **we need features to represent columns (not rows!)** and we set the argument `scale` to TRUE as the data has to be normalised for a PCA to provide reliable results. 
+We transpose the matrix (features must be columns) and run PCA with scaling:
 
 ```{r}
 pca <- prcomp(t(pcadat), scale = TRUE)
 ```
 
-Now, we generate a scree plot to show how much variance is accounted for by each component. We start by preparing the data.
+**Scree plot** — how much variance does each component explain?
 
 ```{r}
-# prepare data
-pca.var <- pca$sdev^2
-# extract percentage of contribution
+pca.var     <- pca$sdev^2
 pca.var.per <- round(pca.var / sum(pca.var) * 100, 1)
-# generate data frame for visualization
-pcascreedat <- data.frame(
-  Component = paste0("PC", 1:10),
-  Percent = round(pca.var / sum(pca.var) * 100, 2)
-) %>%
-  dplyr::mutate(
-    Text = paste0(Percent, "%"),
-    Component = factor(Component,
-      levels = c("PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10")
-    )
-  )
-# inspect
-pcascreedat
-```
 
-Now that the dtaa is formatted appropriately, we generate the scree plot.
-
-```{r}
-ggplot(pcascreedat, aes(x = Component, y = Percent, label = Text)) +
-  geom_bar(stat = "identity") +
+data.frame(
+  Component = factor(paste0("PC", 1:10), levels = paste0("PC", 1:10)),
+  Percent   = round(pca.var / sum(pca.var) * 100, 2)
+) |>
+  dplyr::mutate(Text = paste0(Percent, "%")) |>
+  ggplot(aes(x = Component, y = Percent, label = Text)) +
+  geom_bar(stat = "identity", fill = "gray60") +
   geom_text(vjust = -1.6, size = 3) +
   ggtitle("Scree Plot") +
   labs(x = "Principal Components", y = "Percent Variation") +
@@ -754,341 +451,337 @@ ggplot(pcascreedat, aes(x = Component, y = Percent, label = Text)) +
   coord_cartesian(ylim = c(0, 100))
 ```
 
-The scree plots shows that the PC1 accounts for 87.69% of the variability while the PC2 only accounts for 3.52% of the variability. This means that one component suffices to differentiate the data. 
-
-Now we make a fancy looking plot that shows the PCs and the variation.
-
+PC1 dominates, explaining the large majority of variance — one component is enough to separate the two language families. The PCA plot confirms this:
 
 ```{r}
 data.frame(
   Sample = rownames(pca$x),
-  X = pca$x[, 1],
-  Y = pca$x[, 2]
-) %>%
+  X      = pca$x[, 1],
+  Y      = pca$x[, 2]
+) |>
   ggplot(aes(x = X, y = Y, label = Sample)) +
   geom_text() +
-  xlab(paste("PC1 (", pca.var.per[1], "%)", sep = "")) +
-  ylab(paste("PC2 (", pca.var.per[2], "%)", sep = "")) +
+  xlab(paste0("PC1 (", pca.var.per[1], "%)")) +
+  ylab(paste0("PC2 (", pca.var.per[2], "%)")) +
   theme_bw() +
-  ggtitle("PCA Graph") +
+  ggtitle("PCA: Indo-European vs. Austronesian") +
   coord_cartesian(xlim = c(-11, 11))
 ```
 
-Next, we get the names of the most important 5 features that contribute most to PC1.
+Which features drive PC1? Extract the five features with the highest (absolute) loadings:
 
-```{r} 
-loading_scores <- pca$rotation[, 1]
-# extract the magnitudes of the scores
-feature_scores <- abs(loading_scores)
-# extract the 5 highest scores
+```{r}
+loading_scores      <- pca$rotation[, 1]
+feature_scores      <- abs(loading_scores)
 feature_score_ranked <- sort(feature_scores, decreasing = TRUE)
-top_5_features <- names(feature_score_ranked[1:5])
-# show the names of the top 5 features
+top_5_features      <- names(feature_score_ranked[1:5])
 top_5_features
-```
-
-Now, we show the scores (and +/- sign)
-
-```{r} 
+# Show signed scores (direction matters: positive vs. negative loading)
 pca$rotation[top_5_features, 1]
 ```
 
-### Example 2{-} 
+## Example 2: PCA for survey item validation {-}
 
-In this example, we explore the use of PCA for survey data. Specifically, we want to use PCA to check if 5 items reflect the underlying factor appropriately or if one of the items needs to be replaced.
+Here we use PCA to check whether 5 Likert-scale items all capture the same underlying construct (outgoingness / extraversion). If they do, PC1 should explain a very large proportion of variance, and all five items should load similarly on PC1.
 
 ```{r}
-surveydata <- base::readRDS("tutorials/dimred/data/sud.rda", "rb")
-# inspect
+surveydata <- base::readRDS("tutorials/dimensionredux_tutorial/data/sud.rda", "rb")
 flextable::flextable(head(surveydata, 10))
 ```
 
-We now implement the PCA.
-
 ```{r}
-# entering raw data and extracting PCs  from the correlation matrix
 pca_res2 <- princomp(surveydata[c(
-  "Q01_Outgoing",
-  "Q02_Outgoing",
-  "Q03_Outgoing",
-  "Q04_Outgoing",
-  "Q05_Outgoing"
+  "Q01_Outgoing", "Q02_Outgoing", "Q03_Outgoing",
+  "Q04_Outgoing", "Q05_Outgoing"
 )])
-# print variance accounted for
 summary(pca_res2)
 ```
 
-The cumulative proportion of variance already shows that the five items represent a single underlying factor as 91.5% of the variance is explained by PC1 alone!
-
-The loading scores for PC1 are very similar for all items and thus show that none of the items under performs. In such a case, it might make sense to remove items, not because they do not capture the underlying concept but to reduce the items for participants.
-
+PC1 alone explains over 91% of the variance — a very strong result suggesting the five items reliably reflect a single underlying dimension. The scree plot makes this visual:
 
 ```{r}
-# prepare data
 pca2.var <- pca_res2$sdev^2
-# extract percentage of contribution
-pca2.var.per <- round(pca.var / sum(pca.var) * 100, 1)
-# generate data frame for visualization
+
 data.frame(
-  Component = paste0("PC", 1:5),
-  Percent = round(pca2.var / sum(pca2.var) * 100, 2)
-) %>%
-  dplyr::mutate(
-    Text = paste0(Percent, "%"),
-    Component = factor(Component,
-      levels = c("PC1", "PC2", "PC3", "PC4", "PC5")
-    )
-  ) %>%
+  Component = factor(paste0("PC", 1:5), levels = paste0("PC", 1:5)),
+  Percent   = round(pca2.var / sum(pca2.var) * 100, 2)
+) |>
+  dplyr::mutate(Text = paste0(Percent, "%")) |>
   ggplot(aes(x = Component, y = Percent, label = Text)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", fill = "gray60") +
   geom_text(vjust = -1.6, size = 3) +
-  ggtitle("Scree Plot") +
+  ggtitle("Scree Plot: Outgoingness items") +
   labs(x = "Principal Components", y = "Percent Variation") +
   theme_bw() +
   coord_cartesian(ylim = c(0, 100))
 ```
 
-We now plot the loading scores for each participant to see if we can see groups among the participants based on outgoingness.
-
+We can now visualise individual respondents' scores to see who is more or less outgoing:
 
 ```{r}
-pca_res2$scores %>%
-  as.data.frame() %>%
-  dplyr::rename(
-    PC1 = 1,
-    PC2 = 2,
-    PC3 = 3,
-    PC4 = 4,
-    PC5 = 5
-  ) %>%
+pca_res2$scores |>
+  as.data.frame() |>
+  dplyr::rename(PC1 = 1, PC2 = 2, PC3 = 3, PC4 = 4, PC5 = 5) |>
   dplyr::mutate(
     Participants = paste0("P", 1:20),
-    clr = ifelse(PC1 > 0, 1, 0)
-  ) %>%
+    clr          = ifelse(PC1 > 0, 1, 0)
+  ) |>
   ggplot(aes(x = PC1, y = PC2, color = clr, label = Participants)) +
   geom_point(size = 2) +
-  geom_text(size = 3, nudge_x = -.2, check_overlap = T) +
+  geom_text(size = 3, nudge_x = -0.2, check_overlap = TRUE) +
   theme_bw() +
   scale_color_viridis_b() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  ggtitle("PC1 distinguishes more outgoing from less outgoing participants")
 ```
 
-The figure shows that based on PC1, we can distinguish between subjects who are very outgoign and subjects that are not very outgoing.
+## Example 3: PCA on biopsy data {-}
 
-### Example 3 {-}
+This example applies PCA to the `biopsy` dataset from the `MASS` package. The data contains 9 cytological measurements for biopsy samples, each labelled as either benign or malignant. PCA can reveal whether the measurements naturally separate the two classes.
 
-
-In this example, we use the `biopsy` data to see what variables can be used to predict malignant melanomas.
-
-In a first step, we remove any data points with missing values and add meaningful variable names.
-
-```{r removeNA1, message=F, warning=F}
+```{r removeNA1, message=FALSE, warning=FALSE}
 data(biopsy)
-biopsy_nona <- biopsy %>%
-  tidyr::drop_na() %>%
-  # add meaningful variable names
+biopsy_nona <- biopsy |>
+  tidyr::drop_na() |>
   dplyr::rename(
-    ClumpSize = V1,
-    CellSize = V2,
-    CellShape = V3,
-    Adhesion = V4,
-    EpithelialSize = V5,
-    Nuclei = V6,
-    Chromatin = V7,
-    Nucleoli = V8,
-    Mitoses = V9
+    ClumpSize     = V1, CellSize     = V2, CellShape  = V3,
+    Adhesion      = V4, EpithelialSize = V5, Nuclei   = V6,
+    Chromatin     = V7, Nucleoli     = V8, Mitoses    = V9
   )
-# inspect data
 flextable::flextable(head(biopsy_nona, 10))
 ```
 
-Next, we remove non-numeric variables.
-
-```{r reteinnum, message=F, warning=F}
-biopsy_num <- biopsy_nona %>%
-  dplyr::select_if(is.numeric)
-# inspect data
-flextable::flextable(head(biopsy_num, 10))
-```
-
-We can  perform the PCA.
-
 ```{r}
-biopsy_pca <- prcomp(biopsy_num,
-  scale = T
-)
-# summary
+biopsy_num <- biopsy_nona |> dplyr::select_if(is.numeric)
+biopsy_pca <- prcomp(biopsy_num, scale = TRUE)
 summary(biopsy_pca)
 ```
 
-
-First, we create a scree plot of the variance captured by each component.
+The scree plot shows that PC1 alone explains approximately 65% of the variance:
 
 ```{r}
 factoextra::fviz_eig(biopsy_pca,
-  addlabels = T,
-  ylim = c(0, 80),
-  barfill = "gray50",
-  barcolor = "gray20"
+  addlabels = TRUE, ylim = c(0, 80),
+  barfill = "gray50", barcolor = "gray20"
 )
 ```
 
-
-We now create a pretty biplot to show the results of the PCA. 
-
+The biplot overlays both data points (coloured by diagnosis) and variable arrows, allowing us to see simultaneously how samples cluster and which variables drive the separation:
 
 ```{r}
 fviz_pca_biplot(biopsy_pca,
-  geom = "point",
-  # no data point labels
-  label = "var",
-  # color by class
+  geom    = "point",
+  label   = "var",
   habillage = biopsy_nona$class,
-  # change variable color
   col.var = "black"
 ) +
-  # adapt data point color
   ggplot2::scale_color_manual(values = c("orange", "purple")) +
-  # add title
-  ggtitle("A pretty biplot")
+  ggtitle("Biplot: biopsy data coloured by class")
 ```
 
-The plot above is also known as variable correlation plot or biplot. A biplot overlays a score plot with a loading plot and thus shows individual data points as well as the relationships between all variables (in the form of arrows). It can be interpreted as follow:
+The biplot can be interpreted as follows:
 
-+ Positively correlated variables are grouped together.  
-+ Negatively correlated variables would be positioned on opposite sides of the plot origin (opposed quadrants).  
-+ The distance between variables and the origin measures the quality of the variables on the factor map.  
-+ Variables that are away from the origin are well represented on the factor map.
+- **Positively correlated variables** cluster together (their arrows point in the same direction)
+- **Negatively correlated variables** point in opposite directions from the origin
+- Variables further from the origin are better represented on the plot (higher quality of representation)
+- The two classes (benign in orange, malignant in purple) separate clearly along PC1
 
-But why are all variables cluster together?
+Why do nearly all variable arrows cluster together? Because almost all variables are positively correlated — samples with larger cell sizes tend to have larger nuclei, more adhesion, etc. The correlation matrix confirms this:
 
-Let's have a look at the correlations between variables.
-
-```{r echo = F}
-flextable::flextable(as.data.frame(cor(scale(biopsy_num))))
+```{r echo=FALSE}
+flextable::flextable(as.data.frame(round(cor(scale(biopsy_num)), 2)))
 ```
 
-The correlation matrix shows that all variables are positively correlated which explains why all variables cluster together. The low correlations between the other variables and *Mitosis* explain why it stands out.
+Mitoses stands out with lower correlations to the other variables, which is why its arrow diverges from the main cluster in the biplot.
 
-# Multidimensional Scaling {-}
+::: {.callout-tip}
+## Exercises: PCA
+:::
 
-Multidimensional Scaling (MDS, see @davison1983introduction or @jacoby2018multidimensional) is used for visualizing high-dimensional data in a lower-dimensional space **while preserving pairwise distances** or similarities between data points. MDS aims to represent the data in a way that maintains the relationships among data points as much as possible. 
-
-There are two types of MDS:
-
-+ **metric or classical MDS**: metric MDS aims to represent the distances between objects in a way that preserves the original dissimilarity/similarity relationships as accurately as possible. It assumes that the input data reflects actual distances or dissimilarities and it uses algorithms such as *Principal Coordinate Analysis* (PCoA) to transform the data into a lower-dimensional space while trying to maintain the original pairwise distances.
-
-+ **non-metric MDS**: non-metric MDS aims to represent the rank order of the distances or dissimilarities between objects, rather than the actual distances. It is more suitable when the input data does not have a direct metric interpretation or when the distances are only known in terms of ordinal rankings.
-
-MDS works exactly like PCA with one important difference: **while PCA starts off with correlations between variables (the covariance matrix), MDS start of with distances (and thus relies on a distance matrix)!**
-
-### Example 1 {-}
-
-We begin by loading data. This fictitious data set represents responses to 15 items by 20 participants. The 15 items aim to assess 3 different psychological constructs:
-
-+ outgoingness (extroversion)  
-
-+ intelligence  
-
-+ attitude
+**Q2. After running a PCA on a corpus of 500 texts described by 50 frequency-based features, a researcher finds that PC1 explains 72% of the variance and PC2 explains 11%. She decides to retain only PC1 for downstream analysis. Is this decision justified? What information does she lose?**
 
 ```{r}
-surveydata <- base::readRDS("tutorials/dimred/data/sud.rda", "rb")
-# inspect
+#| echo: false
+#| label: "pca_q2"
+check_question(
+  "Retaining only PC1 is reasonable given that it explains 72% of the variance — it captures the dominant structure in the data. However, PC2 explains a further 11%, bringing the cumulative total to 83%. Depending on the research question, discarding PC2 means ignoring a potentially meaningful secondary dimension of variation. The researcher should inspect PC2's loading scores to decide whether it reflects a theoretically interpretable dimension worth retaining. If PC2 is interpretable and theoretically relevant, she should retain both PC1 and PC2.",
+  options = c(
+    "No, the researcher must always retain components until at least 95% of variance is explained",
+    "Yes, retaining PC1 is always sufficient if it explains more than 50% of variance",
+    "Retaining only PC1 is reasonable given that it explains 72% of the variance — it captures the dominant structure in the data. However, PC2 explains a further 11%, bringing the cumulative total to 83%. Depending on the research question, discarding PC2 means ignoring a potentially meaningful secondary dimension of variation. The researcher should inspect PC2's loading scores to decide whether it reflects a theoretically interpretable dimension worth retaining. If PC2 is interpretable and theoretically relevant, she should retain both PC1 and PC2.",
+    "She should not retain any components because PCA cannot be used on corpus frequency data"
+  ),
+  type = "radio",
+  q_id = "pca_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! There is no absolute rule about how many components to retain. The decision depends on (a) how much cumulative variance is explained, (b) whether the retained components are interpretable, and (c) the research question. A common rule of thumb is to retain components that together explain 70–80% or more of the variance, but this is a guideline not a law. The researcher should use a combination of the scree plot (look for an 'elbow'), the cumulative variance, and theoretical interpretability of the components to make the decision. Inspecting the loading scores for PC2 is a useful next step.",
+  wrong = "Not quite. There is no fixed threshold for how many components to retain. The decision should combine quantitative criteria (cumulative variance, scree plot elbow) with theoretical criteria (are the components interpretable?). PC2 explaining 11% may represent a meaningful secondary dimension — or it may represent noise. The researcher should inspect the PC2 loading scores before deciding whether to discard it."
+)
+```
+
+---
+
+# Multidimensional Scaling {#mds}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What MDS is and how it differs from PCA; metric vs. non-metric MDS; how to compute a distance matrix and run MDS in R; and how to interpret an MDS plot
+:::
+
+Multidimensional Scaling (MDS) is used to visualise high-dimensional data in a lower-dimensional space — usually 2D or 3D — **while preserving pairwise distances or similarities between data points** [@davison1983multidimensional]. MDS aims to represent the similarity structure of a set of items as accurately as possible.
+
+## How MDS differs from PCA {-}
+
+MDS and PCA both result in a low-dimensional plot, but they start from different inputs:
+
+- **PCA** starts from the **covariance matrix** of the *variables* and finds linear combinations that maximise variance
+- **MDS** starts from a **distance matrix** between *observations* and finds a configuration in low-dimensional space where the distances between points match the original distances as closely as possible
+
+MDS is often used when:
+
+- You have a precomputed distance or dissimilarity matrix (rather than raw variable measurements)
+- Your research question is explicitly about similarities between cases (e.g. "which languages are most similar to each other?")
+- You want to visualise the proximity structure without assuming linear structure in the data
+
+## Metric vs. non-metric MDS {-}
+
+**Metric (classical) MDS** — also known as Principal Coordinate Analysis (PCoA) — assumes that the distance matrix reflects true metric distances and aims to reproduce those distances exactly. This is implemented in R via `cmdscale()`.
+
+**Non-metric MDS** — preserves the *rank order* of distances rather than the distances themselves. It is appropriate when your distances are ordinal (e.g. similarity ratings) rather than true numerical distances. This is implemented via `isoMDS()` in the `MASS` package.
+
+For most corpus linguistics and survey applications, metric MDS is the natural starting point.
+
+## Example: MDS on survey data {-}
+
+We continue with the same survey data set (15 items assessing three constructs: outgoingness, intelligence, and attitude across 20 participants). MDS will reveal whether the 15 items group into three interpretable clusters.
+
+```{r}
+surveydata <- base::readRDS("tutorials/dimensionredux_tutorial/data/sud.rda", "rb")
 report(surveydata)
 ```
 
-As MDS, like PCA and FA, works only on numeric data, we remove non-numeric variables from the data.
+Remove the non-numeric respondent identifier:
 
 ```{r}
-surveydata <- surveydata %>%
-  dplyr::select(-Respondent)
-# inspect
+surveydata <- surveydata |> dplyr::select(-Respondent)
 str(surveydata)
 ```
 
-For MDS, we first calculate the distance matrix using the Euclidian distance. Note that we are transposing, scaling and centering the data just like for PCA.
+Compute the Euclidean distance matrix. We transpose, scale, and centre for the same reasons as in PCA — to ensure all items are on a comparable scale before computing distances:
 
 ```{r}
-survey_dist <- dist(scale(t(surveydata), center = TRUE, scale = TRUE),
+survey_dist <- dist(
+  scale(t(surveydata), center = TRUE, scale = TRUE),
   method = "euclidean"
 )
 ```
 
-Now, we generate an MDS object (this is basically eigenvalue decomposition)
+Run classical MDS (eigenvalue decomposition of the distance matrix):
 
 ```{r}
-mds.obj <- cmdscale(survey_dist,
-  eig = TRUE, # adds a matrix of eignevalues to the mds object
-  x.ret = TRUE
-) # adds a symmetric distance matrix to the mds object
+mds.obj <- cmdscale(
+  survey_dist,
+  eig    = TRUE,  # include eigenvalues
+  x.ret  = TRUE   # include the distance matrix
+)
 ```
 
-Now, we calculate the percentage of variation that each MDS axis accounts for...
+Calculate the percentage of variation explained by each MDS axis:
 
 ```{r}
 mds.var.per <- round(mds.obj$eig / sum(mds.obj$eig) * 100, 1)
-# inspect
 mds.var.per
 ```
 
-We  make a fancy looking plot that shows the MDS axes and the variation:
+Build and plot the MDS map:
 
 ```{r}
 mds.values <- mds.obj$points
-mds.data <- data.frame(
+mds.data   <- data.frame(
   Sample = rownames(mds.values),
-  X = mds.values[, 1],
-  Y = mds.values[, 2]
+  X      = mds.values[, 1],
+  Y      = mds.values[, 2]
 )
-# inspect
-mds.data
-```
 
-
-
-```{r}
 ggplot(data = mds.data, aes(x = X, y = Y, label = Sample)) +
   geom_text() +
   theme_bw() +
-  xlab(paste("MDS1 - ", mds.var.per[1], "%", sep = "")) +
-  ylab(paste("MDS2 - ", mds.var.per[2], "%", sep = "")) +
+  xlab(paste0("MDS1 — ", mds.var.per[1], "%")) +
+  ylab(paste0("MDS2 — ", mds.var.per[2], "%")) +
   ggtitle("MDS plot using Euclidean distance") +
   coord_cartesian(xlim = c(-7, 7), ylim = c(-4, 4))
 ```
 
-The plot shows that we are dealing with 3 groups that are neatly separated along 2 dimensions. We also see that Q10 behaves different from the other items aiming to assess IQ. We could use this to optimize the item set of our survey. 
+The plot shows three well-separated clusters, corresponding to the three constructs assessed by the survey. Items within each construct are placed close together; items from different constructs are far apart. Notably, *Q10_Intelligence* sits apart from the other intelligence items, suggesting it may not measure the same construct as the others — a potentially important finding for survey refinement.
 
-# Factor Analysis {-}
+::: {.callout-tip}
+## Exercises: MDS
+:::
 
-Factor Analysis is used to identify underlying latent factors that explain the observed correlations among variables in a data set [@kim1978introduction; @field2012discovering, 749-811]. It aims to reduce the complexity of high-dimensional data by identifying a smaller number of factors (latent variables) that contribute to the variance and covariance among (observed) variables. Ideally those observed variables that represent an underlying factor should be highly correlated with each other but not correlated with (observed) variables that represent other factors (underlying variables). Like PCA and MDS, we find factors by aiming to reduce variability in the data but unlike PCA, which is based on a co-variance matrix, or MDS, which is based on a distance matrix, EFA is based on a correlation matrix. 
-
-There are two types of factor analysis:  
-
-+ exploratory factor analysis (EFA)  
-
-+ confirmatory factor analysis (CFA)
-
-
-Here, we are only going to look at EFA which is used to identify how many latent variables (factors) are present in a data set. In contrast to CFA, EFA allows factors to be correlated with each other and it uses a rotation step to transform the initial factor structure into a more interpretable form. The rotation aims to maximize the loadings of variables on only a single factor  and it thereby maximizes the separation between factors. Common rotation methods include *Varimax*, *Oblimin*, and *Promax*. The *Varimax* rotation is an orthogonal rotation and it is the most common rotation method. It assumes that the factors are not correlated; another type of rotation are *oblique* rotations, such as *Oblimin* and *Promax*, which do not assume that the factors are not correlated [@field2012discovering, 755].
-
-CFA is used for hypothesis testing to confirm structures assumed to be present in the data. In R, we can use the `sem` or `lavaan` packages that implement Structural Equation Models (SEM)) to implement CFA and test specific hypothesis about the existence and interactions of latent factors.  
-
-
-### Example 1 {-}
-
-We continue with the survey data set and we can now implement the EFA using the `factanal` function from the base `stats` package. Although `factanal` implements a EFA, we need to provide it with the number of factors (latent variables) it should look for (commonly, you need to vary this to find the optimal number of factors).
-
-As a first step, we generate a scree plot to assess how many factors are in our data. There are different approaches to interpret the output: (a) we choose the number of factors where there is a noticeable bend in the eigenvalues of the factors or, if there is no noticeable bend (the so-called *point of inflexion* [@field2012discovering, 763]), (b) select the last value above 1 (following @kaiser1960application - however, @jolliffe1987rotation suggests using .7 as 1 is too strict) [see @field2012discovering, 763 for more details on this discussion]. Alternatively, we perform the analysis with different numbers of factors and then check if the `SS loadings` (the sum-of-squared loadings) of each factor has a value greater than 1.
-
+**Q3. In the MDS plot above, Q10_Intelligence is placed noticeably further from the other intelligence items than any item is from its own group. What does this tell us, and what should the researcher do?**
 
 ```{r}
-# extract eigenvalues
-eigenvalues <- eigen(cor(surveydata))
-# inspect
-# eigenvalues
+#| echo: false
+#| label: "mds_q3"
+check_question(
+  "Q10_Intelligence is further from the other intelligence items because it is less similar to them (in terms of Euclidean distance in the high-dimensional response space) than the other intelligence items are to each other. This suggests that Q10 does not behave like the other items that are supposed to measure intelligence — it may be tapping a different construct, may be ambiguously worded, or may have unusually high or low variance. The researcher should examine Q10's wording critically, inspect its correlations with the other intelligence items, and consider whether to revise or remove it from the scale.",
+  options = c(
+    "MDS cannot detect item quality problems; a different method is needed",
+    "Q10_Intelligence is further from the other intelligence items because it is less similar to them (in terms of Euclidean distance in the high-dimensional response space) than the other intelligence items are to each other. This suggests that Q10 does not behave like the other items that are supposed to measure intelligence — it may be tapping a different construct, may be ambiguously worded, or may have unusually high or low variance. The researcher should examine Q10's wording critically, inspect its correlations with the other intelligence items, and consider whether to revise or remove it from the scale.",
+    "Q10 should always be removed from any intelligence survey",
+    "The position of Q10 in the MDS plot simply means it was answered correctly by more participants"
+  ),
+  type = "radio",
+  q_id = "mds_q3",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! In MDS, spatial distance directly represents dissimilarity. An item that sits away from its intended cluster is not behaving like the other items in that cluster — participants' responses to it do not pattern with their responses to the other items measuring the same construct. This is a useful diagnostic signal. Next steps would include (a) inspecting the item's correlation with each other intelligence item and with items from the other constructs, (b) checking whether it has a different mean or variance from the other items, and (c) reviewing the wording for potential ambiguity. The Factor Analysis in the next section will provide additional evidence.",
+  wrong = "Not quite. The spatial distance in an MDS plot is a direct representation of dissimilarity — items that are closer together are more similar in terms of participants' response patterns. An item that sits away from its intended cluster suggests that it does not co-vary with the other items in that cluster as expected. This is a useful psychometric signal about potential item quality problems."
+)
+```
 
-# create scree plot
+---
+
+# Factor Analysis {#fa}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What Factor Analysis is and how it differs from PCA; exploratory (EFA) vs. confirmatory (CFA) factor analysis; how to determine the number of factors using scree plots and the Kaiser criterion; how to implement EFA in R with `factanal()`; and how to interpret uniqueness scores, factor loadings, and the significance test
+:::
+
+Factor Analysis is used to identify **underlying latent factors** that explain the observed correlations among variables in a data set [@kim1978introduction; @field2012discovering]. It reduces complexity by identifying a smaller number of latent variables (factors) that account for the shared variance among observed variables. Ideally, variables representing the same underlying factor should be highly correlated with each other and uncorrelated with variables representing other factors.
+
+## EFA vs. CFA {-}
+
+**Exploratory Factor Analysis (EFA)** — used when you do not know in advance how many factors are present or which variables load on which factors. EFA lets the data determine the factor structure. This is what we cover in this tutorial.
+
+**Confirmatory Factor Analysis (CFA)** — used when you have a *prior hypothesis* about the factor structure and want to test whether your data are consistent with that structure. CFA is implemented using Structural Equation Modelling (SEM) in R via the `lavaan` package. See the [Structural Equation Modelling tutorial](/tutorials/sem/sem.html) for details.
+
+## Rotation in EFA {-}
+
+After extracting an initial factor solution, EFA applies a **rotation** step to transform the factor structure into a more interpretable form. Rotation aims to achieve *simple structure*: each variable loads highly on only one factor, and each factor is defined by a distinct subset of variables.
+
+- **Varimax** — an orthogonal rotation that assumes the factors are uncorrelated. It maximises the variance of squared loadings within each factor, pushing loadings toward 0 or ±1. This is the default and most widely used rotation method [@field2012discovering, p. 755].
+- **Oblimin / Promax** — oblique rotations that allow factors to be correlated. More appropriate when you expect the underlying constructs to be related to each other (e.g. different aspects of language proficiency).
+
+## Determining the number of factors {-}
+
+Before running EFA, you need to decide how many factors to extract. Two common approaches:
+
+1. **Scree plot** — plot eigenvalues in descending order and look for a "point of inflexion" (elbow) where the slope flattens. The number of factors is the number of eigenvalues above the elbow.
+
+2. **Kaiser criterion** [@kaiser1960application] — retain all factors with eigenvalues greater than 1. The rationale is that a factor should explain at least as much variance as a single variable. Note that @field2012discovering (p. 763) and others caution that the Kaiser criterion can over-extract factors; use it alongside the scree plot.
+
+## Example: EFA on survey data {-}
+
+We continue with the same 15-item survey data set. The scree plot helps us decide how many factors to extract:
+
+```{r}
+eigenvalues <- eigen(cor(surveydata))
+
 eigenvalues$values |>
   as.data.frame() |>
   dplyr::rename(Eigenvalues = 1) |>
@@ -1104,86 +797,238 @@ eigenvalues$values |>
   ggtitle("Scree plot: 15-item survey")
 ```
 
-As there is a noticeable bend in the Eigenvalues of the factors at 3 factors, we are justified by assuming that there are 3 factors (latent or hidden variables) in our data. We can now perform the factor analysis and set the number of expected factors to 3.
-
+There is a clear elbow at 3 factors — eigenvalues drop sharply after the third. The blue dotted line shows the Kaiser criterion (eigenvalue = 1): again suggesting 3 factors. We proceed with 3.
 
 ```{r}
-factoranalysis <- factanal(
-  surveydata, # data
-  3
-) # number of factors
+factoranalysis <- factanal(surveydata, 3)
 print(factoranalysis,
-  digits = 2, # round to x decimals
-  cutoff = .2, # do not show loadings smaller than .2
-  sort = TRUE
-) # show items sorted
+  digits = 2,
+  cutoff = 0.2,  # suppress loadings below .2 for readability
+  sort   = TRUE
+)
 ```
 
-Let us examine the output.
+### Interpreting the output {-}
 
-We start with the *function call*, followed by *uniqueness* scores. Uniqueness refers to the portion of the variance in an observed variable that is not explained by the underlying factors extracted from the data. It represents the variability in a variable that is unique to that variable and cannot be accounted for by the common factors identified in the analysis (uniqueness is the variance that is unique to that variable whereas commonness is the variance it shares with other variables or factors) [see @field2012discovering, 759]. This means that items that do not capture or represent a latent variable well, will have high uniqueness scores (see, e.g., *Q10_Intelligence*).
+**Uniqueness scores** — the proportion of each variable's variance *not* explained by the common factors. A high uniqueness score (close to 1) means the variable shares little variance with any of the factors and may be a poor indicator of any latent construct. Note that *Q10_Intelligence* has a high uniqueness score, consistent with what the MDS plot showed.
 
-Next, the output shows a table with factor loadings. *Loadings* are correlations between an observed variable and a latent factor. Loadings indicate how strongly each observed variable is associated with each extracted factor. They provide insights into which factors influence the variation in each observed variable. Factor loadings can be categorized as low (<0.4), acceptable (0.4–0.6), or high [>0.6  @stevens1992applied; @tabachnick2007using; @kline2014easy]. The fact that Q10_Intelligence loads across factors shows that it does not represent its intended factor (IQ) not very well.  
+**Factor loadings** — correlations between each observed variable and each latent factor. Loadings indicate how strongly each variable is associated with each factor. Conventional thresholds [@field2012discovering, p. 762]:
 
+| Loading magnitude | Interpretation |
+|---|---|
+| < 0.4 | Low — weak association |
+| 0.4 – 0.6 | Acceptable |
+| > 0.6 | High — strong association |
 
-We then get a table showing the sum-of-squares loadings with the amount of variance explained by each latent variable which can help identify the optimal or necessary number of latent variables (factors) that we should or need to look for. As stated above, all factors should have a value greater than 1 - if there is a value below 1 for the `SS loadings`, then  this could mean that at least one factor could be removed.
+**SS loadings** — the sum-of-squared loadings for each factor, which represents the variance the factor explains across all variables. Each factor should ideally have SS loadings > 1. If a factor falls below 1, it may not be contributing meaningfully and could be removed.
 
-The p-value should not be significant (if it is significant, then you have missed factors). In our case,  2 factors would also report a non significant result due to the low number of data points (but p is highest for 3 factors). If this test is significant, then this suggests that you may need more factors than you currently have in your PA (but be careful: more factors can also lead to situations where you get factors that are more difficult to interpret. So make sure that the factors you include *make sense*).
+**The p-value** — tests whether the current factor solution fits the data. A non-significant p-value (p > .05) suggests the number of factors is sufficient. A significant p-value suggests you may need more factors — though with small samples this test has low power.
 
-We can now plot the results to see if and how the different items group together. We start by created a data frame from the FA results containing the information we need for the visualization.
+### Visualising the factor structure {-}
 
 ```{r}
 fadat <- data.frame(
   Factor1 = factoranalysis$loadings[, 1],
   Factor2 = factoranalysis$loadings[, 2],
-  Items = names(surveydata)
+  Items   = names(surveydata)
 )
-# inspect
-head(fadat)
-```
 
-Now, that the data is formatted appropriately, we can plot it.
-
-```{r}
-fadat %>%
+fadat |>
   ggplot(aes(x = Factor1, y = Factor2, label = Items, color = Factor1)) +
   geom_text() +
   theme_bw() +
   coord_cartesian(xlim = c(-1.5, 1.5), ylim = c(-1, 1.5)) +
   scale_color_viridis_b() +
-  labs(x = "Factor 1 (49 %)", y = "Factor 2 (32 %)")
+  labs(
+    x     = "Factor 1 (49%)",
+    y     = "Factor 2 (32%)",
+    title = "EFA: Factor 1 vs. Factor 2 loadings"
+  )
 ```
 
-As we can see, there are 3 groups (factors) with *Q10_Intelligence* not aligning well with the other elements in that group. This could suggest that *Q10_Intelligence* is not an optimal item / variable for reflecting (or capturing) the latent intelligence factor.
+Three groups are clearly visible, corresponding to the three constructs. *Q10_Intelligence* sits apart from the other intelligence items, further confirming that it is a problematic item that does not reliably reflect the intelligence construct.
+
+::: {.callout-tip}
+## Exercises: Factor Analysis
+:::
+
+**Q4. In the EFA output above, Q05_Outgoing has a uniqueness score of 0.08. Q10_Intelligence has a uniqueness score of 0.61. What does this difference mean for the measurement quality of each item?**
+
+```{r}
+#| echo: false
+#| label: "fa_q4"
+check_question(
+  "A uniqueness score of 0.08 for Q05_Outgoing means that 92% of its variance is shared with the common factors — it is an excellent indicator of its latent construct (outgoingness). A uniqueness score of 0.61 for Q10_Intelligence means that only 39% of its variance is shared with the common factors — most of its variance is unique to itself and not explained by any of the three factors. This makes Q10_Intelligence a poor item: it is not reliably measuring any of the three constructs the survey is designed to assess, and it may be capturing construct-irrelevant noise instead.",
+  options = c(
+    "Q10_Intelligence is a better item because higher uniqueness means more information",
+    "Both items are equally good; uniqueness scores are only relevant for CFA",
+    "A uniqueness score of 0.08 for Q05_Outgoing means that 92% of its variance is shared with the common factors — it is an excellent indicator of its latent construct (outgoingness). A uniqueness score of 0.61 for Q10_Intelligence means that only 39% of its variance is shared with the common factors — most of its variance is unique to itself and not explained by any of the three factors. This makes Q10_Intelligence a poor item: it is not reliably measuring any of the three constructs the survey is designed to assess, and it may be capturing construct-irrelevant noise instead.",
+    "Uniqueness scores above 0.5 are always acceptable and do not indicate item problems"
+  ),
+  type = "radio",
+  q_id = "fa_q4",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Uniqueness (sometimes called uniqueness or specific variance) is the complement of communality — communality is the proportion of variance explained by the common factors, uniqueness is what remains. Low uniqueness = high communality = good item. Q05_Outgoing, with uniqueness 0.08, shares nearly all its variance with the outgoingness factor — exactly what we want from a well-designed item. Q10_Intelligence, with uniqueness 0.61, is largely independent of all three factors, which means it is not measuring what it is supposed to measure. It should be revised or replaced.",
+  wrong = "Not quite. In Factor Analysis, uniqueness is the variance that is *not* explained by the common factors — it is specific to that item alone. Low uniqueness is desirable because it means the item shares most of its variance with the latent construct. Q05_Outgoing's low uniqueness (0.08) makes it an excellent item; Q10_Intelligence's high uniqueness (0.61) makes it a poor item that should be reviewed."
+)
+```
+
+---
+
+# When to Use Which Method? {#comparison}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** A structured decision guide for choosing between PCA, MDS, and FA based on your research question, data structure, and goals
+:::
+
+Choosing the right dimension reduction method requires thinking carefully about what you want to achieve and what your data look like. The following questions guide the decision:
+
+## Decision framework {-}
+
+**1. What is your primary goal?**
+
+- *Reducing many variables to a smaller set for downstream analysis (regression, clustering, visualisation)* → **PCA** is usually the first choice. It is computationally efficient, makes no model assumptions, and the components are well-defined mathematically.
+
+- *Visualising which observations (not variables) are most similar to each other* → **MDS** is the right tool. You need a distance or dissimilarity matrix between cases.
+
+- *Identifying hidden latent constructs that explain shared variance among variables* → **FA** is appropriate. It explicitly models each variable as a function of common factors plus unique variance.
+
+**2. What is your starting point?**
+
+- Raw variable measurements → PCA or FA (compute covariance or correlation matrix internally)
+- A pre-computed distance or dissimilarity matrix → MDS
+
+**3. Are your variables correlated?**
+
+- Highly correlated variables suggest a small number of underlying dimensions → FA or PCA will work well
+- Variables with low mutual correlations → dimension reduction may not be appropriate; each variable may capture unique information
+
+**4. Do you have a theoretical model?**
+
+- No prior hypothesis about factor structure → EFA
+- Prior hypothesis to test → CFA (via `lavaan`)
+- No model, just want to compress data → PCA
+
+## Summary decision table {-}
+
+| Situation | Recommended method |
+|---|---|
+| 50 frequency features, want to find dominant patterns | PCA |
+| 20 languages described by typological features, want to map similarity | MDS |
+| 30 survey items, want to find underlying attitude dimensions | EFA |
+| Hypothesis: survey items reflect 4 specific factors | CFA (`lavaan`) |
+| Want to reduce features before running a regression | PCA |
+| Have raw similarity ratings between texts | MDS |
+| Want to validate a measurement instrument | EFA → CFA |
+
+::: {.callout-tip}
+## Exercises: Method choice
+:::
+
+**Q5. A researcher has collected responses to 40 Likert-scale items from 300 university students as part of a study on language learning motivation. She suspects that the items reflect 5 underlying motivational dimensions but is not certain. Which method should she use, and why?**
+
+```{r}
+#| echo: false
+#| label: "comparison_q5"
+check_question(
+  "Exploratory Factor Analysis (EFA), because she suspects a specific factor structure (5 dimensions) but has not confirmed it empirically and is not certain. EFA is appropriate when there is a theoretical expectation about the number and nature of latent factors but no prior confirmatory evidence. It will reveal whether 5 factors emerge naturally from the data, how many items load on each, and whether any items are problematic (high uniqueness, cross-loading). If EFA supports a 5-factor structure, she can subsequently use CFA to test whether this structure replicates in an independent sample.",
+  options = c(
+    "PCA, because it works best with Likert-scale data",
+    "MDS, because she has 300 participants and wants to visualise their similarity",
+    "Exploratory Factor Analysis (EFA), because she suspects a specific factor structure (5 dimensions) but has not confirmed it empirically and is not certain. EFA is appropriate when there is a theoretical expectation about the number and nature of latent factors but no prior confirmatory evidence. It will reveal whether 5 factors emerge naturally from the data, how many items load on each, and whether any items are problematic (high uniqueness, cross-loading). If EFA supports a 5-factor structure, she can subsequently use CFA to test whether this structure replicates in an independent sample.",
+    "Confirmatory Factor Analysis (CFA), because she already knows the number of factors"
+  ),
+  type = "radio",
+  q_id = "comparison_q5",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! EFA is the right starting point when you have a theoretical expectation about the number of latent factors but no prior empirical confirmation. The researcher 'suspects' 5 dimensions — that is a hypothesis, not a confirmed structure. EFA will test whether 5 factors (or a different number) emerge from the data, and will identify which items load on which factors and which items are problematic. The scree plot and Kaiser criterion will help determine the appropriate number of factors. CFA would be premature at this stage because it requires the factor structure to be specified in advance. Once EFA has been conducted and a structure supported, CFA can be used in a follow-up study to confirm it.",
+  wrong = "Not quite. CFA requires a pre-specified, theoretically motivated factor structure that you are testing against data — it is appropriate only when prior evidence (from EFA or theory) has already established what the factor structure should look like. The researcher here has a suspicion but not a confirmed structure, so EFA is the right starting point. MDS would not be appropriate because the goal is to identify latent constructs among variables, not to map similarity between participants."
+)
+```
+
+---
+
+# Summary {#summary}
+
+This tutorial has introduced three fundamental dimension reduction methods — PCA, MDS, and Factor Analysis — and shown how to implement each in R.
+
+**PCA** transforms data into a new set of orthogonal axes (principal components) that capture decreasing proportions of variance. It is the workhorse method for data reduction and visualisation. Key steps: centre and scale the data, run `prcomp()`, inspect the scree plot, extract loading scores, and plot the first two PCs. The first PC captures the most variance; subsequent PCs each capture less. Eigenvalues quantify variance captured; eigenvectors define the direction of each component.
+
+**MDS** maps pairwise distances between observations into a low-dimensional visual space. It starts from a distance matrix rather than raw measurements. Classical MDS via `cmdscale()` is equivalent to PCA on the distance matrix. MDS is the right choice when your research question is about which observations are most similar to each other.
+
+**Factor Analysis** models observed variables as noisy reflections of underlying latent factors. EFA via `factanal()` extracts factors, applies rotation (Varimax by default) to maximise interpretability, and reports factor loadings (the correlations between observed variables and latent factors) and uniqueness scores (the proportion of variance not explained by any factor). The scree plot and Kaiser criterion help determine the number of factors. Items with high uniqueness scores are poor indicators of any latent construct and should be reviewed.
+
+**Choosing between methods** comes down to your research goal: data reduction and visualisation → PCA; mapping observation similarity → MDS; identifying latent constructs → EFA → CFA.
+
+::: {.callout-note}
+## Where to go next
+
+- [Cluster and Correspondence Analysis](/tutorials/clust/clust.html) — grouping observations and variables using distance-based methods
+- [Structural Equation Modelling](/tutorials/sem/sem.html) — confirmatory factor analysis and path models with `lavaan`
+- [Regression Analysis in R](/tutorials/regression/regression.html) — using PCA scores as predictors in regression models
+- [Introduction to Text Analysis: Practical Overview](/tutorials/textanalysis/textanalysis.html) — applying dimension reduction to corpus data
+:::
+
+---
 
 # Citation & Session Info {-}
 
-Schweinberger, Martin. 2025. *Introduction to Dimension Reduction Methods with R*. The University of Queensland, Australia. School of Languages and Culture. url: www.ladal.edu.au/tutorials/dimred/dimred.html  (Version 2025.04.01).
 
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
 ```
-@manual{schweinberger2025dimred,
-  author = {Schweinberger, Martin},
-  title = {Introduction to Dimension Reduction Methods with R},
-  note = {www.ladal.edu.au/tutorials/dimred/dimred.html},
-    year = {2025},
-  organization = {The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {2025.04.01}
-}
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
 ```
+:::
 
 
 ```{r fin}
 sessionInfo()
 ```
 
-***
+::: {.callout-note}
+## AI Transparency Statement
 
-[Back to top](#introduction)
+This tutorial was substantially revised and expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the tutorial into Quarto format, write the expanded theoretical introduction (distributional hypothesis, count-based vs. neural embeddings), add the TF-IDF section, add the `text2vec` GloVe training section, produce all new visualisation sections (cosine heatmap, silhouette plot, conceptual map, t-SNE, UMAP), write all callouts, write the quiz questions and detailed answers, and produce the reporting checklist and summary table. All content was reviewed and is the responsibility of the named author (Martin Schweinberger).
+:::
 
 
-***
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
 
 # References {-}
-
-

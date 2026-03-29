@@ -9,6 +9,7 @@ params:
   version:     "2026.03.28"
   url:         "https://ladal.edu.au/tutorials/spellcheck/spellcheck.html"
   institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  description: "This tutorial introduces spell checking and spelling correction in R, covering the implementation of spell checkers, the handling of OCR errors in digitised texts, the creation of custom dictionaries for domain-specific vocabulary, and batch processing of text collections. It is aimed at researchers in corpus linguistics and digital humanities who work with noisy or digitised text data."
   doi:         ""
 format:
   html:
@@ -49,6 +50,24 @@ Spell checking of textual data consists of the following steps:
 The `hunspell` package provides access to Hunspell which is a spell checker library used in various software applications such as OpenOffice, Mozilla Firefox, or RStudio. In addition to simple spell checking, the `hunspell` package also provides additional funtionalities like tokenization or stemming and and its spell checking capabilities encompass almost any language or alphabet. Tokenization and stemming are part of the `hunspell` package in order to split texts into individual words but also to extract text from several file formats such as basic text, html, pdf, or xml.
 
 The `hunspell` package checks if words occur in a given dictionary with  the (default) dictionary being "en_US". However each function can be used in another language by setting a custom dictionary in the `dict` parameter. 
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+:::
+
 
 **Preparation and session set up**
 
@@ -146,36 +165,37 @@ The `hunspell_stem` function can be very useful when trying to find the stems of
 It is quite common that we work with texts rather than individual  word vectors. As such, in the following, we will go through a workflow that resembles what one might use spell checking for in their research. 
 
 ```{r sp15}
-texttable <- quanteda::tokens("Noam said he loves to analyze langauge and collors.") %>%
-    unlist() %>%
-    as.data.frame() %>%
-    dplyr::rename(words = 1) %>%
+texttable_words <- quanteda::tokens("Noam said he loves to analyze langauge and collors.") |>
+    unlist() |>
+    as.data.frame() |>
+    dplyr::rename(words = 1)
+texttable <- texttable_words |>
     dplyr::mutate(
-        id = 1:nrow(.),
+        id    = 1:nrow(texttable_words),
         error = hunspell::hunspell_check(words)
-    ) %>%
+    ) |>
     dplyr::relocate(id)
 ```
 
 
 ```{r prep5, echo = F}
 # inspect data
-texttable %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "") %>%
+texttable |>
+    as.data.frame() |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "") |>
     flextable::border_outer()
 ```
 
 The output shows the original word and if it was identified as an errors (i.e., it did not occur in the dictionary). Next, we extract suggestions for the words that were identified as errors.
 
 ```{r sp17}
-texttable2 <- texttable %>%
+texttable2 <- texttable |>
     # add suggestions
     dplyr::mutate(
         suggestions = ifelse(error == F,
@@ -191,15 +211,15 @@ texttable2 <- texttable %>%
 
 ```{r prep6, echo = F}
 # inspect data
-texttable2 %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "") %>%
+texttable2 |>
+    as.data.frame() |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "") |>
     flextable::border_outer()
 ```
 
@@ -207,15 +227,15 @@ We now want to replace the errors with the correct words but aso retain words th
 
 
 ```{r sp19}
-texttable3 <- texttable2 %>%
+texttable3 <- texttable2 |>
     # replace errors with the first suggestion
     dplyr::mutate(corrected = dplyr::case_when(
         error == T ~ words,
         error == F ~ stringr::str_remove_all(suggestions, '\\", .*'),
         T ~ words
-    )) %>%
+    )) |>
     # clean the corrected words
-    dplyr::mutate(corrected = stringr::str_remove_all(corrected, '^\\"')) %>%
+    dplyr::mutate(corrected = stringr::str_remove_all(corrected, '^\\"')) |>
     # insert words where we do not want the suggestions but the original word
     dplyr::mutate(corrected = dplyr::case_when(
         words == "Noam" ~ words,
@@ -225,24 +245,24 @@ texttable3 <- texttable2 %>%
 
 ```{r prep7, echo = F}
 # inspect data
-texttable3 %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "") %>%
+texttable3 |>
+    as.data.frame() |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "") |>
     flextable::border_outer()
 ```
 
 We can now check how many errors there are in our text.
 
 ```{r sp21}
-texttable4 <- texttable3 %>%
+texttable4 <- texttable3 |>
     dplyr::summarise(
-        tokens = nrow(.),
+        tokens = dplyr::n(),
         types = length(names(table(tolower(words)))),
         errors_n = sum(ifelse(corrected == words, 0, 1)),
         errors_percent = errors_n / tokens * 100
@@ -251,22 +271,22 @@ texttable4 <- texttable3 %>%
 
 ```{r prep9, echo = F}
 # inspect data
-texttable4 %>%
-    as.data.frame() %>%
-    flextable::flextable() %>%
-    flextable::set_table_properties(width = .95, layout = "autofit") %>%
-    flextable::theme_zebra() %>%
-    flextable::fontsize(size = 12) %>%
-    flextable::fontsize(size = 12, part = "header") %>%
-    flextable::align_text_col(align = "center") %>%
-    flextable::set_caption(caption = "") %>%
+texttable4 |>
+    as.data.frame() |>
+    flextable::flextable() |>
+    flextable::set_table_properties(width = .95, layout = "autofit") |>
+    flextable::theme_zebra() |>
+    flextable::fontsize(size = 12) |>
+    flextable::fontsize(size = 12, part = "header") |>
+    flextable::align_text_col(align = "center") |>
+    flextable::set_caption(caption = "") |>
     flextable::border_outer()
 ```
 
 Finally, we can put the corrected text back together. 
 
 ```{r sp23}
-correctedtext <- paste0(texttable3$corrected, collapse = " ") %>%
+correctedtext <- paste0(texttable3$corrected, collapse = " ") |>
     stringr::str_replace_all(" \\.", ".")
 correctedtext
 ```
@@ -353,15 +373,11 @@ sessionInfo()
 
 This tutorial was re-developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the `checkdown` quiz questions and feedback strings. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.
 :::
-  
 
----
 
 [Back to top](#introduction)
 
 [Back to HOME](/)
-
----
 
 
 # References{-}
