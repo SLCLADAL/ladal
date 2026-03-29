@@ -30,7 +30,7 @@ library(here)
 # Paste your Zenodo API token here, or set it as an environment variable:
 #   Sys.setenv(ZENODO_TOKEN = "your_token_here")
 # Then the line below will pick it up automatically.
-ZENODO_TOKEN <- Sys.getenv("ZENODO_TOKEN")
+ZENODO_TOKEN <- Sys.getenv("EXhDvtJTDC0BDWbndFNcXV6DgYHFIs0yl8h20bJUq3N8E0z06gb94EV4rDU3")
 
 # If you haven't set the environment variable, uncomment and fill in:
 # ZENODO_TOKEN <- "paste_your_token_here"
@@ -51,6 +51,12 @@ TUTORIALS_DIR <- here("tutorials")
 
 # Zenodo community ID (your LADAL community)
 COMMUNITY_ID <- "ladal"
+
+# Maximum number of NEW draft records to create in this run.
+# Tutorials that already have a DOI do not count toward this limit.
+# Set to Inf to process all tutorials with no DOI in one run.
+# Recommended: start with 5 to test the full workflow before running at scale.
+LIMIT <- 5
 
 # Fixed metadata applied to every record — update as needed
 FIXED_KEYWORDS <- c(
@@ -77,14 +83,14 @@ FIXED_DESCRIPTION_SUFFIX <- paste0(
 # Extract the params block from a .qmd file
 extract_params <- function(qmd_path) {
   lines <- readLines(qmd_path, warn = FALSE)
-
+  
   # Find YAML front matter boundaries (between --- delimiters)
   yaml_delimiters <- which(trimws(lines) == "---")
   if (length(yaml_delimiters) < 2) {
     message("  ⚠ No valid YAML front matter found in: ", basename(qmd_path))
     return(NULL)
   }
-
+  
   yaml_block <- lines[(yaml_delimiters[1] + 1):(yaml_delimiters[2] - 1)]
   parsed <- tryCatch(
     yaml::yaml.load(paste(yaml_block, collapse = "\n")),
@@ -93,21 +99,21 @@ extract_params <- function(qmd_path) {
       NULL
     }
   )
-
+  
   if (is.null(parsed)) return(NULL)
   parsed$params
 }
 
 # Build the Zenodo metadata payload for one tutorial
 build_metadata <- function(params, qmd_path) {
-
+  
   title       <- params$title       %||% basename(dirname(qmd_path))
   author      <- params$author      %||% "Martin Schweinberger"
   year        <- params$year        %||% format(Sys.Date(), "%Y")
   version     <- params$version     %||% format(Sys.Date(), "%Y.%m.%d")
   url         <- params$url         %||% ""
   institution <- params$institution %||% "The University of Queensland, School of Languages and Cultures"
-
+  
   # Build description from available fields
   description <- paste0(
     title, ". ",
@@ -116,12 +122,12 @@ build_metadata <- function(params, qmd_path) {
     if (nchar(url) > 0) paste0("Available at: ", url, ".") else "",
     FIXED_DESCRIPTION_SUFFIX
   )
-
+  
   # Parse author name (assumes "Firstname Lastname" format)
   name_parts  <- strsplit(trimws(author), " ")[[1]]
   family_name <- tail(name_parts, 1)
   given_name  <- paste(head(name_parts, -1), collapse = " ")
-
+  
   # Assemble the Zenodo metadata object
   metadata <- list(
     title       = title,
@@ -170,7 +176,7 @@ build_metadata <- function(params, qmd_path) {
       list(id = "10.13039/501100001779::DP200101863")  # ARDC NCRIS grant
     )
   )
-
+  
   metadata
 }
 
@@ -188,10 +194,10 @@ create_zenodo_draft <- function(metadata, token, base_url) {
     body   = jsonlite::toJSON(list(metadata = metadata), auto_unbox = TRUE),
     encode = "raw"
   )
-
+  
   status <- httr::status_code(response)
   content <- httr::content(response, as = "parsed")
-
+  
   if (status == 201) {
     list(
       success    = TRUE,
@@ -232,7 +238,8 @@ qmd_files <- list.files(
   full.names = TRUE
 )
 
-cat("Found", length(qmd_files), "tutorial .qmd files\n\n")
+cat("Found", length(qmd_files), "tutorial .qmd files\n")
+cat("Limit: will create at most", LIMIT, "new draft(s) this run\n\n")
 
 # Results log
 results <- data.frame(
@@ -244,15 +251,25 @@ results <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# Counter for newly created drafts
+drafts_created <- 0
+
 # Process each tutorial
 for (qmd_path in qmd_files) {
-
+  
+  # Stop if we've hit the limit for new drafts
+  if (drafts_created >= LIMIT) {
+    cat("── Limit of", LIMIT, "draft(s) reached — stopping here.\n")
+    cat("   Run the script again to continue with the next batch.\n\n")
+    break
+  }
+  
   rel_path <- gsub(paste0(here(), "/"), "", qmd_path)
   cat("Processing:", rel_path, "\n")
-
+  
   # Extract params
   params <- extract_params(qmd_path)
-
+  
   if (is.null(params)) {
     cat("  → Skipped (could not parse params)\n\n")
     results <- rbind(results, data.frame(
@@ -261,7 +278,7 @@ for (qmd_path in qmd_files) {
     ))
     next
   }
-
+  
   # Skip if DOI already exists
   existing_doi <- trimws(as.character(params$doi %||% ""))
   if (nchar(existing_doi) > 0) {
@@ -273,18 +290,19 @@ for (qmd_path in qmd_files) {
     ))
     next
   }
-
+  
   # Build metadata
   metadata <- build_metadata(params, qmd_path)
   cat("  Title:", metadata$title, "\n")
-
+  
   # Create draft on Zenodo
   result <- create_zenodo_draft(metadata, ZENODO_TOKEN, ZENODO_BASE)
-
+  
   if (result$success) {
     cat("  ✓ Draft created\n")
     cat("  Reserved DOI:", result$doi, "\n")
     cat("  Edit at:", result$edit_url, "\n\n")
+    drafts_created <- drafts_created + 1
     results <- rbind(results, data.frame(
       file = rel_path, title = metadata$title,
       status = "DRAFT CREATED", doi = result$doi,
@@ -298,7 +316,7 @@ for (qmd_path in qmd_files) {
       doi = "", edit_url = "", stringsAsFactors = FALSE
     ))
   }
-
+  
   # Brief pause to avoid hitting API rate limits
   Sys.sleep(1)
 }
@@ -312,7 +330,16 @@ cat("Total files scanned:  ", nrow(results), "\n")
 cat("Drafts created:       ", sum(results$status == "DRAFT CREATED"), "\n")
 cat("Already had DOI:      ", sum(grepl("DOI exists", results$status)), "\n")
 cat("Skipped (parse error):", sum(grepl("parse error", results$status)), "\n")
-cat("Failed:               ", sum(grepl("FAILED", results$status)), "\n\n")
+cat("Failed:               ", sum(grepl("FAILED", results$status)), "\n")
+
+remaining <- sum(results$status != "DRAFT CREATED" &
+                   !grepl("DOI exists|parse error|FAILED", results$status))
+still_needed <- length(qmd_files) - nrow(results)
+if (still_needed > 0) {
+  cat("\nNot yet processed (hit limit):", still_needed, "tutorial(s)\n")
+  cat("Run the script again to continue with the next batch.\n")
+}
+cat("\n")
 
 # Save results log
 log_path <- here("helpers", "zenodo_draft_log.csv")
