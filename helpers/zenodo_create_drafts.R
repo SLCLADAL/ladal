@@ -30,7 +30,7 @@ library(here)
 # Paste your Zenodo API token here, or set it as an environment variable:
 #   Sys.setenv(ZENODO_TOKEN = "your_token_here")
 # Then the line below will pick it up automatically.
-ZENODO_TOKEN <- Sys.getenv("EXhDvtJTDC0BDWbndFNcXV6DgYHFIs0yl8h20bJUq3N8E0z06gb94EV4rDU3")
+ZENODO_TOKEN <- Sys.getenv("ZENODO_TOKEN")
 
 # If you haven't set the environment variable, uncomment and fill in:
 # ZENODO_TOKEN <- "paste_your_token_here"
@@ -38,7 +38,7 @@ ZENODO_TOKEN <- Sys.getenv("EXhDvtJTDC0BDWbndFNcXV6DgYHFIs0yl8h20bJUq3N8E0z06gb9
 # Use sandbox for testing (recommended first run):
 #   sandbox.zenodo.org — records are not public and don't mint real DOIs
 # Switch to FALSE when you're ready to create real records:
-USE_SANDBOX <- TRUE
+USE_SANDBOX <- FALSE
 
 ZENODO_BASE <- if (USE_SANDBOX) {
   "https://sandbox.zenodo.org/api"
@@ -56,7 +56,20 @@ COMMUNITY_ID <- "ladal"
 # Tutorials that already have a DOI do not count toward this limit.
 # Set to Inf to process all tutorials with no DOI in one run.
 # Recommended: start with 5 to test the full workflow before running at scale.
-LIMIT <- 5
+LIMIT <- 80
+
+# Mapping of old slcladal.github.io slugs for tutorials that were RENAMED.
+# For tutorials whose folder name matches the old slug, the old URL is derived
+# automatically. Only add entries here for tutorials where the name changed.
+# Format: "new_folder_name" = "old_slug"
+RENAMED_TUTORIALS <- list(
+  "vowelchart"                       = "vc",
+  "collocation_tutorial"             = "coll",
+  "semanticvectors_tutorial"         = "svm",
+  "workingwithcomputers_tutorial"    = "comp",
+  "descriptivestats_tutorial"        = "dstats",
+  "corpuslinguistics_showcase"       = "corplingr"
+)
 
 # Fixed metadata applied to every record — update as needed
 FIXED_KEYWORDS <- c(
@@ -83,14 +96,14 @@ FIXED_DESCRIPTION_SUFFIX <- paste0(
 # Extract the params block from a .qmd file
 extract_params <- function(qmd_path) {
   lines <- readLines(qmd_path, warn = FALSE)
-  
+
   # Find YAML front matter boundaries (between --- delimiters)
   yaml_delimiters <- which(trimws(lines) == "---")
   if (length(yaml_delimiters) < 2) {
     message("  ⚠ No valid YAML front matter found in: ", basename(qmd_path))
     return(NULL)
   }
-  
+
   yaml_block <- lines[(yaml_delimiters[1] + 1):(yaml_delimiters[2] - 1)]
   parsed <- tryCatch(
     yaml::yaml.load(paste(yaml_block, collapse = "\n")),
@@ -99,35 +112,65 @@ extract_params <- function(qmd_path) {
       NULL
     }
   )
-  
+
   if (is.null(parsed)) return(NULL)
   parsed$params
 }
 
 # Build the Zenodo metadata payload for one tutorial
 build_metadata <- function(params, qmd_path) {
-  
+
   title       <- params$title       %||% basename(dirname(qmd_path))
   author      <- params$author      %||% "Martin Schweinberger"
   year        <- params$year        %||% format(Sys.Date(), "%Y")
   version     <- params$version     %||% format(Sys.Date(), "%Y.%m.%d")
   url         <- params$url         %||% ""
   institution <- params$institution %||% "The University of Queensland, School of Languages and Cultures"
-  
-  # Build description from available fields
-  description <- paste0(
-    title, ". ",
-    "Version ", version, ". ",
-    institution, ". ",
-    if (nchar(url) > 0) paste0("Available at: ", url, ".") else "",
-    FIXED_DESCRIPTION_SUFFIX
-  )
-  
+
+  # Derive the old slcladal.github.io URL for this tutorial
+  # The folder name is used as the old slug unless it appears in RENAMED_TUTORIALS
+  folder_name <- basename(dirname(qmd_path))
+  old_slug    <- RENAMED_TUTORIALS[[folder_name]] %||% folder_name
+  old_url     <- paste0("https://slcladal.github.io/", old_slug, ".html")
+
+  # Build keywords — merge tutorial-specific keywords with fixed LADAL keywords
+  # params$keywords should be a comma-separated string e.g.
+  # "corpus linguistics, KWIC, concordancing, text analysis"
+  custom_kw_string <- trimws(as.character(params$keywords %||% ""))
+  custom_keywords  <- if (nchar(custom_kw_string) > 0) {
+    # Split on commas, trim whitespace from each keyword, remove empty strings
+    kw <- trimws(strsplit(custom_kw_string, ",")[[1]])
+    kw[nchar(kw) > 0]
+  } else {
+    character(0)
+  }
+  # Combine tutorial-specific keywords with fixed LADAL keywords
+  # Tutorial-specific keywords come first, fixed ones appended
+  # Duplicates removed (case-insensitive)
+  all_keywords <- c(custom_keywords, FIXED_KEYWORDS)
+  all_keywords <- all_keywords[!duplicated(tolower(all_keywords))]
+
+  # Build description — use params$description if present, otherwise auto-generate
+  custom_desc <- trimws(as.character(params$description %||% ""))
+  description <- if (nchar(custom_desc) > 0) {
+    # Use the author-supplied description, append the standard LADAL suffix
+    paste0(custom_desc, FIXED_DESCRIPTION_SUFFIX)
+  } else {
+    # Fall back to auto-generated description from title/version/url
+    paste0(
+      title, ". ",
+      "Version ", version, ". ",
+      institution, ". ",
+      if (nchar(url) > 0) paste0("Available at: ", url, ".") else "",
+      FIXED_DESCRIPTION_SUFFIX
+    )
+  }
+
   # Parse author name (assumes "Firstname Lastname" format)
   name_parts  <- strsplit(trimws(author), " ")[[1]]
   family_name <- tail(name_parts, 1)
   given_name  <- paste(head(name_parts, -1), collapse = " ")
-  
+
   # Assemble the Zenodo metadata object
   metadata <- list(
     title       = title,
@@ -144,39 +187,47 @@ build_metadata <- function(params, qmd_path) {
     publication_date = paste0(year, "-01-01"),
     version     = version,
     license     = "cc-by-4.0",
-    keywords    = FIXED_KEYWORDS,
+    keywords    = as.list(all_keywords),
     communities = list(list(identifier = COMMUNITY_ID)),
     related_identifiers = Filter(Negate(is.null), list(
+      # Current tutorial page on ladal.edu.au
       if (nchar(url) > 0) list(
-        identifier = url,
-        relation   = "isSupplementTo",
-        scheme     = "url",
+        identifier    = url,
+        relation      = "isSupplementTo",
+        scheme        = "url",
+        resource_type = "other"
+      ) else NULL,
+      # Predecessor on slcladal.github.io (isNewVersionOf)
+      if (nchar(old_url) > 0) list(
+        identifier    = old_url,
+        relation      = "isNewVersionOf",
+        scheme        = "url",
         resource_type = "other"
       ) else NULL,
       list(
-        identifier = "https://ladal.edu.au",
-        relation   = "isPartOf",
-        scheme     = "url",
+        identifier    = "https://ladal.edu.au",
+        relation      = "isPartOf",
+        scheme        = "url",
         resource_type = "other"
       ),
       list(
-        identifier = "https://github.com/SLCLADAL/ladal",
-        relation   = "isSupplementTo",
-        scheme     = "url",
+        identifier    = "https://github.com/SLCLADAL/ladal",
+        relation      = "isSupplementTo",
+        scheme        = "url",
         resource_type = "software"
       ),
       list(
-        identifier = "https://www.ldaca.edu.au",
-        relation   = "isPartOf",
-        scheme     = "url",
+        identifier    = "https://www.ldaca.edu.au",
+        relation      = "isPartOf",
+        scheme        = "url",
         resource_type = "other"
       )
     )),
-    grants = list(
-      list(id = "10.13039/501100001779::DP200101863")  # ARDC NCRIS grant
-    )
+    access_right = "open"
+    # Note: grants field removed — Zenodo requires a specific internal grant ID
+    # format. Add funding information manually in the Zenodo UI if needed.
   )
-  
+
   metadata
 }
 
@@ -185,33 +236,91 @@ build_metadata <- function(params, qmd_path) {
 
 # Create a Zenodo draft record via the API
 create_zenodo_draft <- function(metadata, token, base_url) {
+
+  # Remove communities from metadata — we submit to community separately
+  # after creation using a dedicated API call (Zenodo API v2 requirement)
+  metadata_no_community        <- metadata
+  metadata_no_community$communities <- NULL
+
+  # Serialize metadata to JSON manually
+  body_json <- jsonlite::toJSON(
+    list(metadata = metadata_no_community),
+    auto_unbox = TRUE
+  )
+
   response <- httr::POST(
-    url   = paste0(base_url, "/deposit/depositions"),
-    httr::add_headers(
-      Authorization  = paste("Bearer", token),
-      `Content-Type` = "application/json"
+    url    = paste0(base_url, "/deposit/depositions"),
+    config = httr::add_headers(
+      "Authorization"  = paste("Bearer", token),
+      "Content-Type"   = "application/json",
+      "Accept"         = "application/json"
     ),
-    body   = jsonlite::toJSON(list(metadata = metadata), auto_unbox = TRUE),
+    body   = body_json,
     encode = "raw"
   )
-  
-  status <- httr::status_code(response)
-  content <- httr::content(response, as = "parsed")
-  
-  if (status == 201) {
-    list(
-      success    = TRUE,
-      deposit_id = content$id,
-      doi        = content$metadata$prereserve_doi$doi,
-      edit_url   = content$links$html
-    )
-  } else {
-    list(
+
+  status  <- httr::status_code(response)
+  content <- tryCatch(
+    httr::content(response, as = "parsed", type = "application/json"),
+    error = function(e) list(message = "Could not parse response")
+  )
+
+  if (status != 201) {
+    message("  Full API response: ",
+            jsonlite::toJSON(content, auto_unbox = TRUE, pretty = TRUE))
+    return(list(
       success = FALSE,
       status  = status,
-      message = content$message %||% "Unknown error"
-    )
+      message = content$message %||% content$errors[[1]]$message %||% "Unknown error"
+    ))
   }
+
+  deposit_id <- content$id
+  doi        <- content$metadata$prereserve_doi$doi
+  edit_url   <- content$links$html
+
+  # Submit to LADAL community via separate API call
+  # This is required for Zenodo API v2 — communities cannot be set at creation
+  community_submitted <- FALSE
+  community_id        <- metadata$communities[[1]]$identifier
+
+  if (!is.null(community_id) && nchar(community_id) > 0) {
+    comm_body <- jsonlite::toJSON(
+      list(communities = list(list(identifier = community_id))),
+      auto_unbox = TRUE
+    )
+    comm_response <- httr::POST(
+      url    = paste0(base_url, "/deposit/depositions/", deposit_id, "/actions/community"),
+      config = httr::add_headers(
+        "Authorization" = paste("Bearer", token),
+        "Content-Type"  = "application/json",
+        "Accept"        = "application/json"
+      ),
+      body   = comm_body,
+      encode = "raw"
+    )
+    comm_status <- httr::status_code(comm_response)
+
+    if (comm_status %in% c(200, 201, 204)) {
+      community_submitted <- TRUE
+      cat("  ✓ Submitted to community:", community_id, "\n")
+    } else {
+      comm_content <- tryCatch(
+        httr::content(comm_response, as = "parsed", type = "application/json"),
+        error = function(e) list(message = "Could not parse response")
+      )
+      cat("  ⚠ Community submission failed (HTTP", comm_status, ")\n")
+      cat("    You can add it manually via the Zenodo record page.\n")
+    }
+  }
+
+  list(
+    success             = TRUE,
+    deposit_id          = deposit_id,
+    doi                 = doi,
+    edit_url            = edit_url,
+    community_submitted = community_submitted
+  )
 }
 
 # ── Main script ───────────────────────────────────────────────────────────────
@@ -226,9 +335,13 @@ if (nchar(ZENODO_TOKEN) == 0) {
   stop(
     "No Zenodo API token found.\n",
     "Set it with: Sys.setenv(ZENODO_TOKEN = 'your_token_here')\n",
-    "Or paste it directly into the ZENODO_TOKEN variable at the top of this script."
+    "Or add ZENODO_TOKEN=your_token to ~/.Renviron and restart R."
   )
 }
+
+# Show first 6 characters of token as confirmation (safe — does not expose full token)
+cat("Token loaded — first 6 characters:", substr(ZENODO_TOKEN, 1, 6), "...\n")
+cat("Token length:", nchar(ZENODO_TOKEN), "characters\n\n")
 
 # Find all .qmd files in tutorials/ subfolders
 qmd_files <- list.files(
@@ -256,20 +369,20 @@ drafts_created <- 0
 
 # Process each tutorial
 for (qmd_path in qmd_files) {
-  
+
   # Stop if we've hit the limit for new drafts
   if (drafts_created >= LIMIT) {
     cat("── Limit of", LIMIT, "draft(s) reached — stopping here.\n")
     cat("   Run the script again to continue with the next batch.\n\n")
     break
   }
-  
+
   rel_path <- gsub(paste0(here(), "/"), "", qmd_path)
   cat("Processing:", rel_path, "\n")
-  
+
   # Extract params
   params <- extract_params(qmd_path)
-  
+
   if (is.null(params)) {
     cat("  → Skipped (could not parse params)\n\n")
     results <- rbind(results, data.frame(
@@ -278,7 +391,7 @@ for (qmd_path in qmd_files) {
     ))
     next
   }
-  
+
   # Skip if DOI already exists
   existing_doi <- trimws(as.character(params$doi %||% ""))
   if (nchar(existing_doi) > 0) {
@@ -290,14 +403,14 @@ for (qmd_path in qmd_files) {
     ))
     next
   }
-  
+
   # Build metadata
   metadata <- build_metadata(params, qmd_path)
   cat("  Title:", metadata$title, "\n")
-  
+
   # Create draft on Zenodo
   result <- create_zenodo_draft(metadata, ZENODO_TOKEN, ZENODO_BASE)
-  
+
   if (result$success) {
     cat("  ✓ Draft created\n")
     cat("  Reserved DOI:", result$doi, "\n")
@@ -316,7 +429,7 @@ for (qmd_path in qmd_files) {
       doi = "", edit_url = "", stringsAsFactors = FALSE
     ))
   }
-  
+
   # Brief pause to avoid hitting API rate limits
   Sys.sleep(1)
 }
@@ -333,7 +446,7 @@ cat("Skipped (parse error):", sum(grepl("parse error", results$status)), "\n")
 cat("Failed:               ", sum(grepl("FAILED", results$status)), "\n")
 
 remaining <- sum(results$status != "DRAFT CREATED" &
-                   !grepl("DOI exists|parse error|FAILED", results$status))
+                 !grepl("DOI exists|parse error|FAILED", results$status))
 still_needed <- length(qmd_files) - nrow(results)
 if (still_needed > 0) {
   cat("\nNot yet processed (hit limit):", still_needed, "tutorial(s)\n")
