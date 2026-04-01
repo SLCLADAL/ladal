@@ -38,7 +38,7 @@ ZENODO_TOKEN <- Sys.getenv("ZENODO_TOKEN")
 # Use sandbox for testing (recommended first run):
 #   sandbox.zenodo.org — records are not public and don't mint real DOIs
 # Switch to FALSE when you're ready to create real records:
-USE_SANDBOX <- FALSE
+USE_SANDBOX <- TRUE
 
 ZENODO_BASE <- if (USE_SANDBOX) {
   "https://sandbox.zenodo.org/api"
@@ -56,19 +56,68 @@ COMMUNITY_ID <- "ladal"
 # Tutorials that already have a DOI do not count toward this limit.
 # Set to Inf to process all tutorials with no DOI in one run.
 # Recommended: start with 5 to test the full workflow before running at scale.
-LIMIT <- 80
+LIMIT <- 5
 
 # Mapping of old slcladal.github.io slugs for tutorials that were RENAMED.
 # For tutorials whose folder name matches the old slug, the old URL is derived
 # automatically. Only add entries here for tutorials where the name changed.
-# Format: "new_folder_name" = "old_slug"
+#
+# This list has TWO layers of renaming:
+#   Layer 1 — original slcladal.github.io slug -> intermediate LADAL name
+#   Layer 2 — intermediate LADAL name -> new coherent name (post-2026 rename)
+#
+# The script derives old_url from the FINAL new folder name, so all entries
+# here map new_folder_name -> original slcladal.github.io slug.
+#
+# Format: "new_folder_name" = "old_slcladal_slug"
 RENAMED_TUTORIALS <- list(
-  "vowelchart"                       = "vc",
-  "collocation_tutorial"             = "coll",
-  "semanticvectors_tutorial"         = "svm",
-  "workingwithcomputers_tutorial"    = "comp",
-  "descriptivestats_tutorial"        = "dstats",
-  "corpuslinguistics_showcase"       = "corplingr"
+  # ── Originally renamed on migration from slcladal.github.io ──────────────
+  "vowelchart"                  = "vc",
+  "collocations"                = "coll",       # was collocation_tutorial
+  "semantic_vectors"            = "svm",        # was semanticvectors_tutorial
+  "working_with_computers"      = "comp",       # was workingwithcomputers_tutorial
+  "descriptive_stats"           = "dstats",     # was descriptivestats_tutorial
+  "corpus_linguistics"          = "corplingr",  # was corpuslinguistics_showcase
+
+  # ── Post-2026 coherence renames (old intermediate -> slcladal slug) ───────
+  # These tutorials had no slcladal predecessor; the old ladal.edu.au URL
+  # (intermediate name) is used as the isNewVersionOf identifier instead.
+  # Format: "new_folder_name" = "intermediate_ladal_slug"
+  "learner_language"            = "llr",
+  "lexicography"                = "lex",
+  "keywords"                    = "key",
+  "network_analysis"            = "net",
+  "structural_equations"        = "sem",
+  "tree_models"                 = "tree",
+  "cluster_analysis"            = "clust",
+  "reproducibility"             = "repro",
+  "data_loading"                = "load",
+  "regular_expressions"         = "regex",
+  "data_simulation"             = "simulate",
+  "data_viz_advanced"           = "dviz",
+  "interactive_viz"             = "motion",
+  "power_analysis"              = "power",
+  "why_r"                       = "whyr",
+  "corpus_compilation"          = "corpuscompilation_tutorial",
+  "concordancing"               = "concordancing_tutorial",
+  "dimension_reduction"         = "dimensionredux_tutorial",
+  "conceptual_maps_comparison"  = "conceptualmaps_showcase",
+  "phylogenetic_methods"        = "phylogenetic_showcase",
+  "llm_privacy"                 = "localllm_showcase",
+  "topic_modelling_dickens"     = "topicmodel_showcase",
+  "quant_intro"                 = "introquant",
+  "quant_basics"                = "basicquant",
+  "r_intro"                     = "intror",
+  "viz_intro"                   = "introviz",
+  "text_analysis_intro"         = "introta",
+  "inferential_stats"           = "basicstatz",
+  "pdf_to_text"                 = "pdf2txt",
+  "text_summarisation"          = "txtsum",
+  "pos_tagging"                 = "postag",
+  "bert_roberta"                = "rbert",
+  "reinforcement_nlp"           = "reinfnlp",
+  "lexical_similarity"          = "lexsim",
+  "deep_learning"               = "deeplearning_tutorial"
 )
 
 # Fixed metadata applied to every record — update as needed
@@ -127,11 +176,23 @@ build_metadata <- function(params, qmd_path) {
   url         <- params$url         %||% ""
   institution <- params$institution %||% "The University of Queensland, School of Languages and Cultures"
 
-  # Derive the old slcladal.github.io URL for this tutorial
-  # The folder name is used as the old slug unless it appears in RENAMED_TUTORIALS
+  # Derive the predecessor URL for this tutorial.
+  # If the folder name is in RENAMED_TUTORIALS, the value is used as the
+  # old slug. For post-2026 renames the value is the intermediate ladal.edu.au
+  # slug, so we check whether it looks like a slcladal.github.io slug (no
+  # underscores, short) or a ladal.edu.au slug and build the URL accordingly.
   folder_name <- basename(dirname(qmd_path))
   old_slug    <- RENAMED_TUTORIALS[[folder_name]] %||% folder_name
-  old_url     <- paste0("https://slcladal.github.io/", old_slug, ".html")
+
+  # Determine whether old_slug is a slcladal.github.io slug or a ladal.edu.au
+  # intermediate folder name. Intermediate names contain underscores or are
+  # longer than typical slcladal slugs (>12 chars with underscore).
+  is_ladal_intermediate <- grepl("_", old_slug) && nchar(old_slug) > 5
+  old_url <- if (is_ladal_intermediate) {
+    paste0("https://ladal.edu.au/tutorials/", old_slug, "/", old_slug, ".html")
+  } else {
+    paste0("https://slcladal.github.io/", old_slug, ".html")
+  }
 
   # Build keywords — merge tutorial-specific keywords with fixed LADAL keywords
   # params$keywords should be a comma-separated string e.g.
