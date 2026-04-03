@@ -15,131 +15,228 @@ write_redirect <- function(output_path, destination_url) {
   cat(content, file = output_path)
 }
 
-# ── Section 1: Standard tutorial redirects ───────────────────────────────────
-# Flat docs/[name].html → https://ladal.edu.au/tutorials/[name]/[name].html
-# Assumes folder name and file name are identical.
-# Note: tutorials also in the renamed list below are excluded here to avoid
-# redundancy (the renamed version takes precedence).
+BASE <- "https://ladal.edu.au/tutorials"
 
-to_redirect <- c(
-  "atap_docclass",
-  "gutenberg",
-  "key",
-  "litsty",
-  "pdf2txt",
-  "reinfnlp",
-  "surveys",
-  "tree",
-  "basicquant",
-  "introquant",
-  "kwics",
-  "llr",
-  "postag",
-  "repro",
-  "txtsum",
-  "basicstatz",
-  "dimred",
-  "intror",
-  "laegs",
-  "load",
-  "pwr",
-  "sentiment",
-  "table",
-  "clust",
-  "introta",
-  "lex",
-  "motion",
-  "regex",
-  "spellcheck",
-  "textanalysis",
-  "whyr",
-  "dviz",
-  "introviz",
-  "lexsim",
-  "net",
-  "regression",
-  "string",
-  "topic"
-  # Note: "vc", "coll", "svm", "comp", "dstats", "corplingr" removed here
-  # — handled below in renamed_tutorials
+# ── Master mapping: every known old name → current canonical folder/file ─────
+#
+# Format: "old_name" = "new_folder/new_file"
+# Covers ALL tutorials that have ever had a public URL, including:
+#   - tutorials whose folder name is unchanged (old flat URL still needs redirect)
+#   - tutorials renamed once or multiple times
+#   - showcase and how-to tutorials with old names
+#
+# speechprocessing is deliberately excluded (not yet published).
+
+all_tutorials <- list(
+  
+  # ── Data Science Basics ────────────────────────────────────────────────────
+  "working_with_computers"              = "working_with_computers/working_with_computers",
+  "workingwithcomputers_tutorial"       = "working_with_computers/working_with_computers",
+  "comp"                                = "working_with_computers/working_with_computers",
+  "datamanage"                          = "datamanagement/datamanagement",
+  "datamanagement"                      = "datamanagement/datamanagement",
+  "reproducibility"                     = "reproducibility/reproducibility",
+  "repro"                               = "reproducibility/reproducibility",
+  "quant_intro"                         = "quant_intro/quant_intro",
+  "introquant"                          = "quant_intro/quant_intro",
+  "quant_basics"                        = "quant_basics/quant_basics",
+  "basicquant"                          = "quant_basics/quant_basics",
+  
+  # ── R Basics ──────────────────────────────────────────────────────────────
+  "r_intro"                             = "r_intro/r_intro",
+  "intror"                              = "r_intro/r_intro",
+  "data_loading"                        = "data_loading/data_loading",
+  "load"                                = "data_loading/data_loading",
+  "string"                              = "string/string",
+  "regular_expressions"                 = "regular_expressions/regular_expressions",
+  "regex"                               = "regular_expressions/regular_expressions",
+  "table"                               = "table/table",
+  "workingwithr"                        = "workingwithr/workingwithr",
+  "r_reproducibility"                   = "r_reproducibility/r_reproducibility",
+  "notebooks"                           = "notebooks/notebooks",
+  "publish"                             = "publish/publish",
+  "jupyter"                             = "jupyter/jupyter",
+  "why_r"                               = "why_r/why_r",
+  "whyr"                                = "why_r/why_r",
+  
+  # ── Data Collection and Acquisition ───────────────────────────────────────
+  "corpus_compilation"                  = "corpus_compilation/corpus_compilation",
+  "corpuscompilation_tutorial"          = "corpus_compilation/corpus_compilation",
+  "gutenberg"                           = "gutenberg/gutenberg",
+  "webscraping"                         = "webscraping/webscraping",
+  "data_simulation"                     = "data_simulation/data_simulation",
+  "simulate"                            = "data_simulation/data_simulation",
+  "pdf_to_text"                         = "pdf_to_text/pdf_to_text",
+  "pdf2txt"                             = "pdf_to_text/pdf_to_text",
+  
+  # ── Data Visualization ────────────────────────────────────────────────────
+  "data_viz_intro"                      = "data_viz_intro/data_viz_intro",
+  "viz_intro"                           = "data_viz_intro/data_viz_intro",
+  "introviz"                            = "data_viz_intro/data_viz_intro",
+  "data_viz_advanced"                   = "data_viz_advanced/data_viz_advanced",
+  "dviz"                                = "data_viz_advanced/data_viz_advanced",
+  "interactive_viz"                     = "interactive_viz/interactive_viz",
+  "motion"                              = "interactive_viz/interactive_viz",
+  "conceptmaps"                         = "conceptmaps/conceptmaps",
+  "leaflet"                             = "leaflet/leaflet",
+  "conceptual_maps_comparison"          = "conceptual_maps_comparison/conceptual_maps_comparison",
+  "conceptualmaps_showcase"             = "conceptual_maps_comparison/conceptual_maps_comparison",
+  "conceptualmaps_showcase2"            = "conceptual_maps_comparison/conceptual_maps_comparison",
+  "vowelchart"                          = "vowelchart/vowelchart",
+  "vc"                                  = "vowelchart/vowelchart",
+  
+  # ── Statistics ────────────────────────────────────────────────────────────
+  "descriptive_stats"                   = "descriptive_stats/descriptive_stats",
+  "descriptivestats_tutorial"           = "descriptive_stats/descriptive_stats",
+  "dstats"                              = "descriptive_stats/descriptive_stats",
+  "basicstatz"                          = "inferential_stats/inferential_stats",
+  "inferential_stats"                   = "inferential_stats/inferential_stats",
+  "anova"                               = "anova/anova",
+  "regression_concepts"                 = "regression_concepts/regression_concepts",
+  "regression"                          = "regression/regression",
+  "mixedmodel"                          = "mixedmodel/mixedmodel",
+  "structural_equations"                = "structural_equations/structural_equations",
+  "sem"                                 = "structural_equations/structural_equations",
+  "tree_models"                         = "tree_models/tree_models",
+  "tree"                                = "tree_models/tree_models",
+  "cluster_analysis"                    = "cluster_analysis/cluster_analysis",
+  "clust"                               = "cluster_analysis/cluster_analysis",
+  "phylogenetic_methods"                = "phylogenetic_methods/phylogenetic_methods",
+  "phylogenetic_showcase"               = "phylogenetic_methods/phylogenetic_methods",
+  "reinforcement_nlp"                   = "reinforcement_nlp/reinforcement_nlp",
+  "reinfnlp"                            = "reinforcement_nlp/reinforcement_nlp",
+  "lexical_similarity"                  = "lexical_similarity/lexical_similarity",
+  "lexsim"                              = "lexical_similarity/lexical_similarity",
+  "semantic_vectors"                    = "semantic_vectors/semantic_vectors",
+  "semanticvectors_tutorial"            = "semantic_vectors/semantic_vectors",
+  "svm"                                 = "semantic_vectors/semantic_vectors",
+  "dimension_reduction"                 = "dimension_reduction/dimension_reduction",
+  "dimensionredux_tutorial"             = "dimension_reduction/dimension_reduction",
+  "dimred"                              = "dimension_reduction/dimension_reduction",
+  "power_analysis"                      = "power_analysis/power_analysis",
+  "power"                               = "power_analysis/power_analysis",
+  "pwr"                                 = "power_analysis/power_analysis",
+  "surveys"                             = "surveys/surveys",
+  "eyetracking"                         = "eyetracking/eyetracking",
+  
+  # ── Text Analytics ────────────────────────────────────────────────────────
+  "text_analysis_intro"                 = "text_analysis_intro/text_analysis_intro",
+  "introta"                             = "text_analysis_intro/text_analysis_intro",
+  "textanalysis"                        = "textanalysis/textanalysis",
+  "concordancing"                       = "concordancing/concordancing",
+  "concordancing_tutorial"              = "concordancing/concordancing",
+  "kwics"                               = "concordancing/concordancing",
+  "collocations"                        = "collocations/collocations",
+  "collocation_tutorial"                = "collocations/collocations",
+  "coll"                                = "collocations/collocations",
+  "keywords"                            = "keywords/keywords",
+  "key"                                 = "keywords/keywords",
+  "pos_tagging"                         = "pos_tagging/pos_tagging",
+  "postag"                              = "pos_tagging/pos_tagging",
+  "network_analysis"                    = "network_analysis/network_analysis",
+  "net"                                 = "network_analysis/network_analysis",
+  "topic"                               = "topic/topic",
+  "sentiment"                           = "sentiment/sentiment",
+  "text_summarisation"                  = "text_summarisation/text_summarisation",
+  "txtsum"                              = "text_summarisation/text_summarisation",
+  "spellcheck"                          = "spellcheck/spellcheck",
+  "embeddings"                          = "embeddings/embeddings",
+  "bert_roberta"                        = "bert_roberta/bert_roberta",
+  "rbert"                               = "bert_roberta/bert_roberta",
+  "deep_learning"                       = "deep_learning/deep_learning",
+  "deeplearning_tutorial"               = "deep_learning/deep_learning",
+  "ollamar"                             = "ollamar/ollamar",
+  "llm_privacy"                         = "llm_privacy/llm_privacy",
+  "localllm_showcase"                   = "llm_privacy/llm_privacy",
+  "document_classification"             = "document_classification/document_classification",
+  "atap_docclass"                       = "document_classification/document_classification",
+  "topic_modelling_dickens"             = "topic_modelling_dickens/topic_modelling_dickens",
+  "topicmodel_showcase"                 = "topic_modelling_dickens/topic_modelling_dickens",
+  "corpus_linguistics"                  = "corpus_linguistics/corpus_linguistics",
+  "corpuslinguistics_showcase"          = "corpus_linguistics/corpus_linguistics",
+  "corplingr"                           = "corpus_linguistics/corpus_linguistics",
+  "learner_language"                    = "learner_language/learner_language",
+  "llr"                                 = "learner_language/learner_language",
+  "laegs"                               = "learner_language/learner_language",
+  "litsty"                              = "litsty/litsty",
+  "lexicography"                        = "lexicography/lexicography",
+  "lex"                                 = "lexicography/lexicography"
 )
 
-for (folder in to_redirect) {
+# ── Section 1: Flat redirects ─────────────────────────────────────────────────
+# docs/[old_name].html → https://ladal.edu.au/tutorials/[new]/[new].html
+# Catches old bookmarked or linked flat URLs.
+
+message("Writing flat redirects...")
+for (old_name in names(all_tutorials)) {
   write_redirect(
-    output_path     = paste0("docs/", folder, ".html"),
-    destination_url = paste0("https://ladal.edu.au/tutorials/", folder, "/", folder, ".html")
+    output_path     = paste0("docs/", old_name, ".html"),
+    destination_url = paste0(BASE, "/", all_tutorials[[old_name]], ".html")
   )
 }
 
-# ── Section 2: Renamed tutorial redirects ────────────────────────────────────
-# docs/[old_name].html → https://ladal.edu.au/tutorials/[new_folder]/[new_file].html
+# ── Section 2: Deep-path redirects ───────────────────────────────────────────
+# docs/tutorials/[old_name]/[old_name].html → https://ladal.edu.au/tutorials/[new]/[new].html
+# Catches links to old subfolder structure (e.g. from Google, external sites).
 
-renamed_tutorials <- list(
-  "vc"        = "vowelchart/vowelchart",
-  "coll"      = "collocation_tutorial/collocation_tutorial",
-  "svm"       = "semanticvectors_tutorial/semanticvectors_tutorial",
-  "comp"      = "workingwithcomputers_tutorial/workingwithcomputers_tutorial",
-  "dstats"    = "descriptivestats_tutorial/descriptivestats_tutorial",
-  "corplingr" = "corpuslinguistics_showcase/corpuslinguistics_showcase"
-)
-
-for (old_name in names(renamed_tutorials)) {
+message("Writing deep-path redirects...")
+for (old_name in names(all_tutorials)) {
   write_redirect(
-    output_path     = paste0("docs/", old_name, ".html"),
-    destination_url = paste0("https://ladal.edu.au/tutorials/", renamed_tutorials[[old_name]], ".html")
+    output_path     = paste0("docs/tutorials/", old_name, "/", old_name, ".html"),
+    destination_url = paste0(BASE, "/", all_tutorials[[old_name]], ".html")
   )
 }
 
 # ── Section 3: 404 fixes ─────────────────────────────────────────────────────
-# These address URLs that Google has indexed but no longer exist.
-# Each entry is: output path (relative to repo root) = destination URL
+# Specific URLs indexed by Google or linked externally that don't fit the
+# standard flat/deep-path pattern above.
 
 fixes_404 <- list(
   
-  # Old flat tutorial URLs that moved to subfolders
-  "docs/tutorials/ngrams/ngrams.html"              = "https://ladal.edu.au/tutorials/coll/coll.html",
-  "docs/tutorials/textanalysis/textanalysis2.html" = "https://ladal.edu.au/tutorials/textanalysis/textanalysis.html",
-  "docs/tutorials/keywords/keywords.html"          = "https://ladal.edu.au/tutorials/key/key.html",
-  "docs/tutorials/statistics/statistics.html"      = "https://ladal.edu.au/tutorials/basicstatz/basicstatz.html",
-  "docs/tutorials/embeddings.html"                 = "https://ladal.edu.au/tutorials/embeddings/embeddings.html",
-  "docs/tutorials/atap_docclass.html"              = "https://ladal.edu.au/tutorials/atap_docclass/atap_docclass.html",
-  "docs/tutorials/textanalysis.html"               = "https://ladal.edu.au/tutorials/textanalysis/textanalysis.html",
-  "docs/tutorials/svm.html"                        = "https://ladal.edu.au/tutorials/svm/svm.html",
-  "docs/tutorials/reinfnlp.html"                   = "https://ladal.edu.au/tutorials/reinfnlp/reinfnlp.html",
-  "docs/tutorials/repro.html"                       = "https://ladal.edu.au/tutorials/repro/repro.html",
-  "docs/tutorials/txtsum.html"                     = "https://ladal.edu.au/tutorials/txtsum/txtsum.html",
-  "docs/tutorials/clust.html"                      = "https://ladal.edu.au/tutorials/clust/clust.html",
-  "docs/tutorials/tree.html"                       = "https://ladal.edu.au/tutorials/tree/tree.html",
-  "docs/tutorials/regression.html"                 = "https://ladal.edu.au/tutorials/regression/regression.html",
-  "docs/tutorials/comp.html"                       = "https://ladal.edu.au/tutorials/comp/comp.html",
-  "docs/tutorials/reinfnlp/intror.html"            = "https://ladal.edu.au/tutorials/intror/intror.html",
+  # Old URLs with non-standard paths or filenames
+  "docs/tutorials/ngrams/ngrams.html"              = paste0(BASE, "/collocations/collocations.html"),
+  "docs/tutorials/textanalysis/textanalysis2.html" = paste0(BASE, "/textanalysis/textanalysis.html"),
+  "docs/tutorials/statistics/statistics.html"      = paste0(BASE, "/inferential_stats/inferential_stats.html"),
+  "docs/tutorials/embeddings.html"                 = paste0(BASE, "/embeddings/embeddings.html"),
+  "docs/tutorials/atap_docclass.html"              = paste0(BASE, "/document_classification/document_classification.html"),
+  "docs/tutorials/textanalysis.html"               = paste0(BASE, "/textanalysis/textanalysis.html"),
+  "docs/tutorials/svm.html"                        = paste0(BASE, "/semantic_vectors/semantic_vectors.html"),
+  "docs/tutorials/reinfnlp.html"                   = paste0(BASE, "/reinforcement_nlp/reinforcement_nlp.html"),
+  "docs/tutorials/repro.html"                      = paste0(BASE, "/reproducibility/reproducibility.html"),
+  "docs/tutorials/txtsum.html"                     = paste0(BASE, "/text_summarisation/text_summarisation.html"),
+  "docs/tutorials/clust.html"                      = paste0(BASE, "/cluster_analysis/cluster_analysis.html"),
+  "docs/tutorials/tree.html"                       = paste0(BASE, "/tree_models/tree_models.html"),
+  "docs/tutorials/regression.html"                 = paste0(BASE, "/regression/regression.html"),
+  "docs/tutorials/comp.html"                       = paste0(BASE, "/working_with_computers/working_with_computers.html"),
+  "docs/tutorials/reinfnlp/intror.html"            = paste0(BASE, "/r_intro/r_intro.html"),
   
-  # Old .Rmd and content file URLs → corresponding HTML tutorial page
-  "docs/tutorials/surveys/surveys.Rmd"             = "https://ladal.edu.au/tutorials/surveys/surveys.html",
-  "docs/content/introviz.Rmd"                      = "https://ladal.edu.au/tutorials/introviz/introviz.html",
-  "docs/content/kwics.Rmd"                         = "https://ladal.edu.au/tutorials/kwics/kwics.html",
-  "docs/content/dviz.Rmd"                          = "https://ladal.edu.au/tutorials/dviz/dviz.html",
-  "docs/content/clust.Rmd"                         = "https://ladal.edu.au/tutorials/clust/clust.html",
+  # Old .Rmd and content file URLs
+  "docs/tutorials/surveys/surveys.Rmd"             = paste0(BASE, "/surveys/surveys.html"),
+  "docs/content/introviz.Rmd"                      = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
+  "docs/content/kwics.Rmd"                         = paste0(BASE, "/concordancing/concordancing.html"),
+  "docs/content/dviz.Rmd"                          = paste0(BASE, "/data_viz_advanced/data_viz_advanced.html"),
+  "docs/content/clust.Rmd"                         = paste0(BASE, "/cluster_analysis/cluster_analysis.html"),
   
-  # Retired or renamed top-level pages → best current equivalent
-  "docs/topicmodels.html"                          = "https://ladal.edu.au/tutorials/topic/topic.html",
+  # Retired or renamed top-level pages
+  "docs/topicmodels.html"                          = paste0(BASE, "/topic/topic.html"),
   "docs/news.html"                                 = "https://ladal.edu.au/events.html",
   "docs/phylo.html"                                = "https://ladal.edu.au/tutorials.html",
-  "docs/gviz.html"                                 = "https://ladal.edu.au/tutorials/introviz/introviz.html",
-  "docs/tagging.html"                              = "https://ladal.edu.au/tutorials/postag/postag.html",
+  "docs/gviz.html"                                 = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
+  "docs/tagging.html"                              = paste0(BASE, "/pos_tagging/pos_tagging.html"),
   "docs/webcrawling.html"                          = "https://ladal.edu.au/tutorials.html",
-  "docs/compthink.html"                            = "https://ladal.edu.au/tutorials/introquant/introquant.html",
-  "docs/compthinking.html"                         = "https://ladal.edu.au/tutorials/introquant/introquant.html",
+  "docs/compthink.html"                            = paste0(BASE, "/quant_intro/quant_intro.html"),
+  "docs/compthinking.html"                         = paste0(BASE, "/quant_intro/quant_intro.html"),
   
-  # Data and resource files → closest relevant tutorial
-  "docs/data/PDFs/pdf3.pdf"                        = "https://ladal.edu.au/tutorials/pdf2txt/pdf2txt.html",
+  # Data and resource files
+  "docs/data/PDFs/pdf3.pdf"                        = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/assets/bibliography.bib"                   = "https://ladal.edu.au/about.html",
-  "docs/resources/stopwords_en.txt"                = "https://ladal.edu.au/tutorials/topic/topic.html",
+  "docs/resources/stopwords_en.txt"                = paste0(BASE, "/topic/topic.html"),
   
   # Malformed URL
   "docs/www.ladal.edu.au"                          = "https://ladal.edu.au"
 )
 
+message("Writing 404 fixes...")
 for (output_path in names(fixes_404)) {
   write_redirect(
     output_path     = output_path,
@@ -148,8 +245,9 @@ for (output_path in names(fixes_404)) {
 }
 
 message(
-  "Redirects written: ",
-  length(to_redirect), " standard + ",
-  length(renamed_tutorials), " renamed + ",
-  length(fixes_404), " 404 fixes"
+  "Done. Redirects written:\n",
+  "  Flat:      ", length(all_tutorials), "\n",
+  "  Deep-path: ", length(all_tutorials), "\n",
+  "  404 fixes: ", length(fixes_404), "\n",
+  "  TOTAL:     ", length(all_tutorials) * 2 + length(fixes_404)
 )

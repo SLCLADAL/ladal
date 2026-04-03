@@ -1,0 +1,1112 @@
+---
+title: "Automated Text Summarisation with R"
+author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:       "Automated Text Summarisation with R"
+  author:      "Martin Schweinberger"
+  year:        "2026"
+  version:       "3.1.1"
+  date_published:       "2026-03-28"
+  url:         "https://ladal.edu.au/tutorials/text_summarisation/text_summarisation.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  description: "This tutorial covers automated text summarisation in R using extractive methods, including sentence scoring approaches, the TextRank algorithm, the creation of automatic summaries from single documents and document collections, and methods for evaluating summary quality. It is aimed at researchers in digital humanities and computational linguistics who need to condense large volumes of text automatically."
+  keywords:       "text summarisation, extractive summarisation, TextRank, automatic summarisation, sentence scoring, document summarisation"
+  doi:         "10.5281/zenodo.19332985"
+---
+
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+![Great Court, The University of Queensland](/images/uq1.jpg){width="100%" height="200px" loading="lazy"}
+
+# Introduction {#intro}
+
+![](/images/gy_chili.png){ width=15% style="float:right; padding:10px" }
+
+This tutorial introduces **automated text summarisation** in R — a set of methods for condensing texts by extracting or generating their most important content. Text summarisation is increasingly important in corpus linguistics, digital humanities, and applied language research: the volume of textual data available far exceeds what any researcher can read manually, and automated methods provide scalable tools for navigating large collections.
+
+The tutorial covers two broad families of summarisation: **extractive summarisation**, which selects a subset of the original sentences judged to be most representative or central, and **abstractive summarisation**, which generates new sentences that paraphrase the source text. We focus primarily on extractive methods — which are easier to implement, more transparent, and more widely used in linguistic research — and discuss abstractive approaches as an optional extension.
+
+Within extractive summarisation we cover three approaches: the **LexRank** graph-based algorithm (via the `lexRankr` package), a **term-frequency–inverse document frequency (TF-IDF)** scoring approach, and a **sentence-position heuristic**. A worked corpus example applies summarisation to the chapters of a classic text to produce a structured summary.
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, we recommend familiarity with:
+
+- [Getting Started with R](/tutorials/r_intro/r_intro.html) — R objects, basic syntax, RStudio orientation
+- [String Processing in R](/tutorials/string/string.html) — regular expressions, `stringr`
+- [Loading and Saving Data in R](/tutorials/data_loading/data_loading.html) — reading text files into R
+- [Web Scraping with R](/tutorials/scrape/scrape.html) — extracting text from web pages
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Explain the difference between extractive and abstractive summarisation and when each is appropriate
+2. Apply LexRank summarisation to web-scraped and locally loaded texts using `lexRankr`
+3. Implement TF-IDF sentence scoring as a transparent alternative to graph-based methods
+4. Apply a sentence-position heuristic and understand its linguistic rationale
+5. Compare summarisation outputs from different methods and evaluate their strengths
+6. Apply summarisation across the chapters of a multi-section text using a loop
+7. Understand the capabilities and limitations of large language model-based abstractive summarisation
+:::
+
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+:::
+
+# What Is Text Summarisation? {#concepts}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The distinction between extractive and abstractive summarisation; the main algorithmic approaches to extractive summarisation (graph-based, TF-IDF, position-based); where automated summarisation is and is not appropriate for linguistic research; and how to evaluate a summary
+:::
+
+## Extractive vs. Abstractive Summarisation {-}
+
+**Extractive summarisation** selects a subset of sentences (or passages) from the source text and presents them as the summary. No new text is generated: every sentence in the output is a verbatim copy of a sentence from the input. Extractive methods are transparent, reproducible, and appropriate when fidelity to the original wording matters. They are the dominant approach in corpus linguistics and computational text analysis.
+
+**Abstractive summarisation** generates new sentences that paraphrase or compress the source content. The output may contain wording that does not appear anywhere in the original text. Large language models (LLMs) like GPT-4 and Claude are capable of high-quality abstractive summarisation but introduce challenges: the output is not directly traceable to source sentences, models can introduce factual errors or "hallucinate" content, and the process is not fully reproducible. Abstractive summarisation is briefly discussed in the final section of this tutorial.
+
+The key distinction is illustrated in the table below:
+
+| Property | Extractive | Abstractive |
+|---|---|---|
+| Source fidelity | Always verbatim | May paraphrase or fabricate |
+| Transparency | High | Lower |
+| Reproducibility | Deterministic | Stochastic (LLMs) |
+| Language coverage | Language-agnostic | Model-dependent |
+| Typical use in linguistics | Corpus navigation, content extraction | Paraphrase generation, annotation |
+
+## Approaches to Extractive Summarisation {-}
+
+Three main approaches to extractive summarisation are covered in this tutorial:
+
+**Graph-based methods** (LexRank, TextRank) model the text as a graph in which sentences are nodes and edges represent the lexical similarity between them. A sentence's importance is measured by its centrality in the graph — how similar it is to many other sentences. The most central sentences are selected for the summary. This approach rewards sentences that are representative of the main topics discussed across the whole text, rather than locally prominent sentences.
+
+**TF-IDF scoring** computes a relevance score for each sentence based on the term frequency–inverse document frequency weights of the words it contains. A sentence scores highly if it contains many words that are frequent in this text but rare in a reference corpus. This approach rewards sentences that contain the distinctive vocabulary of the document and is particularly transparent: the score of each sentence is a direct function of its word content.
+
+**Position heuristics** exploit the well-established discourse organisation principle that important content tends to appear at the beginning and end of documents and at the beginning of paragraphs. A position score assigns higher weight to sentences appearing earlier in a text. This is the simplest approach and often performs surprisingly well for news articles and academic abstracts, which follow predictable organisational conventions.
+
+## When Is Automated Summarisation Appropriate? {-}
+
+Automated summarisation is appropriate when:
+
+- the text is too long to read in full and an overview is needed
+- a collection of documents needs to be navigated and key passages identified
+- a researcher wants to identify which sentences are most representative of a topic
+- summarisation is used as a preprocessing step for further analysis
+
+It is **not** a substitute for careful reading when:
+
+- the nuance of argument structure matters (summaries flatten hedging, counter-arguments, and qualifications)
+- attribution and quotation accuracy are critical
+- the text has non-standard organisation (e.g., poetry, transcribed conversation, highly technical tables)
+
+## Evaluating a Summary {-}
+
+The standard automatic metric for summarisation evaluation is **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation), which measures the overlap between the candidate summary and a human-written reference summary. The most common variant, ROUGE-1, counts unigram overlaps; ROUGE-2 counts bigram overlaps. For linguistic research purposes, informal inspection is often more appropriate than ROUGE: does the summary cover the main claims? Does it avoid trivial or peripheral sentences?
+
+::: {.callout-tip}
+## Exercises: Concepts
+:::
+
+**Q1. A researcher uses extractive summarisation on a set of newspaper editorials and obtains a three-sentence summary for each article. A colleague argues that because the summaries contain the original sentences verbatim, they are "not really summaries — they are just quotations." Is this a valid criticism?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q1"
+check_question(
+  "Partially — extractive summaries do quote verbatim, but the selection process identifies the most representative sentences, which is the core task of summarisation",
+  options = c(
+    "Yes — only abstractive summaries count as true summarisation",
+    "No — extractive summarisation is always better than abstractive because it never fabricates content",
+    "Partially — extractive summaries do quote verbatim, but the selection process identifies the most representative sentences, which is the core task of summarisation",
+    "No — the criticism confuses summarisation with paraphrase; they are entirely different tasks"
+  ),
+  type = "radio",
+  q_id = "concepts_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The criticism captures something real: extractive summaries do not paraphrase, compress, or synthesise. But the value of extractive summarisation lies in the selection — identifying which of the many sentences in a text are most central or representative is itself a non-trivial task. For research purposes, verbatim extraction is often preferable because it preserves the exact wording of the source.",
+  wrong = "Not quite. Extractive summarisation identifies and selects the most representative sentences from a text — the selection is the summarisation task. The verbatim quality is a feature, not a bug: it ensures fidelity to the source text. Abstractive methods generate new wording but introduce the risk of paraphrase distortion or hallucination."
+)
+```
+
+---
+
+**Q2. Which summarisation approach is most appropriate when you want to identify the sentences in a long academic article that are most representative of its overall content (not just its introduction)?**
+
+```{r}
+#| echo: false
+#| label: "concepts_q2"
+check_question(
+  "A graph-based method like LexRank, which measures each sentence's similarity to all other sentences and selects the most central ones",
+  options = c(
+    "A position heuristic — the most important sentences are always in the introduction",
+    "A graph-based method like LexRank, which measures each sentence's similarity to all other sentences and selects the most central ones",
+    "Abstractive summarisation with an LLM — only language models can understand academic argument structure",
+    "TF-IDF scoring — sentences with the most distinctive words are always the most representative"
+  ),
+  type = "radio",
+  q_id = "concepts_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Graph-based methods like LexRank measure centrality across the whole document — a sentence scores highly if it is lexically similar to many other sentences throughout the text, not just those at the beginning. This makes it well-suited to identifying sentences that reflect the main topics discussed across the whole article rather than just those that happen to appear early.",
+  wrong = "Not quite. A position heuristic would bias toward the introduction, missing representative sentences elsewhere. TF-IDF identifies sentences with distinctive vocabulary, which is related but not identical to centrality. Graph-based methods like LexRank directly measure how central each sentence is relative to all other sentences in the document — making them the most principled choice for this task."
+)
+```
+
+---
+
+# Setup {#setup}
+
+## Installing Packages {-}
+
+```{r prep0, eval=FALSE, message=FALSE, warning=FALSE}
+# Run once — comment out after installation
+install.packages(c(
+  "lexRankr",     # LexRank extractive summarisation
+  "tidytext",     # TF-IDF scoring
+  "dplyr",        # data manipulation
+  "stringr",      # string processing
+  "stringi",      # sentence boundary detection
+  "tidyr",        # data reshaping
+  "ggplot2",      # visualisation
+  "flextable",    # formatted tables
+  "xml2",         # HTML parsing (web scraping)
+  "rvest",        # web scraping
+  "here",         # file paths
+  "purrr",        # functional programming
+  "checkdown"     # interactive exercises
+))
+```
+
+## Loading Packages {-}
+
+```{r prep1, message=FALSE, warning=FALSE}
+library(lexRankr)
+library(tidytext)
+library(dplyr)
+library(stringr)
+library(stringi)
+library(tidyr)
+library(ggplot2)
+library(flextable)
+library(xml2)
+library(rvest)
+library(here)
+library(purrr)
+library(checkdown)
+```
+
+---
+
+# LexRank Summarisation {#lexrank}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How the LexRank algorithm works; how to apply `lexRankr::lexRank()` to a web-scraped article and to a locally loaded text; how to control the number of summary sentences; and how to reorder extracted sentences into chronological order
+:::
+
+## How LexRank Works {-}
+
+LexRank [@erkan2004lexrank] represents a document as a graph in which each sentence is a node. Edges between nodes are weighted by the **cosine similarity** of the sentences' TF-IDF vectors — sentences that share many of the same important words have high-weight edges. The algorithm then applies a variant of Google's **PageRank** to identify which nodes are most central in the graph. Sentences with high centrality scores are selected for the summary.
+
+The key properties of LexRank are:
+
+- It rewards **globally representative** sentences — those that are similar to many other sentences across the whole document
+- It is **unsupervised** — no labelled training data or pre-trained model is needed
+- It is **language-agnostic** — it works for any language with whitespace-delimited words
+- It naturally avoids **redundancy** — the continuous variant (used via `continuous = TRUE`) down-weights sentences that are too similar to already-selected ones
+
+## Applying LexRank to a Web-Scraped Article {-}
+
+We download a Guardian article about the G20 summit and apply LexRank to identify the three most central sentences:
+
+```{r lex_scrape, message=FALSE, warning=FALSE}
+url <- "https://www.theguardian.com/world/2017/jun/26/angela-merkel-and-donald-trump-head-for-clash-at-g20-summit"
+
+page <- xml2::read_html(url)
+
+text <- page |>
+  rvest::html_nodes("p") |>
+  rvest::html_text() |>
+  (\(x) x[nchar(x) > 0])()
+
+# inspect the first few paragraphs
+head(text, 4)
+```
+
+```{r lex_rank1, message=FALSE, warning=FALSE}
+top3 <- lexRankr::lexRank(
+  text,
+  docId      = rep(1, length(text)),  # single document
+  n          = 3,                      # number of sentences to extract
+  continuous = TRUE                    # use continuous centrality scores
+)
+top3
+```
+
+The `sentenceId` column encodes document and sentence positions. We extract and display the sentences in chronological order:
+
+```{r lex_rank2, message=FALSE, warning=FALSE}
+top3 |>
+  dplyr::mutate(
+    sentenceId = as.numeric(stringr::str_remove_all(sentenceId, ".*_"))
+  ) |>
+  dplyr::arrange(sentenceId) |>
+  dplyr::pull(sentence)
+```
+
+## Applying LexRank to a Locally Loaded Text {-}
+
+We now apply LexRank to Charles Darwin's *On the Origin of Species*, stored as an `.rda` file:
+
+```{r lex_darwin_load, message=FALSE, warning=FALSE}
+darwin_raw <- base::readRDS("tutorials/text_summarisation/data/origindarwin.rda", "rb")
+
+# Coerce to UTF-8, replacing any invalid bytes with a space
+darwin <- stringi::stri_enc_toutf8(darwin_raw, is_unknown_8bit = TRUE,
+                                    validate = TRUE)
+darwin <- stringr::str_replace_all(darwin, "[^\u0001-\uFFEF]", " ")
+
+# inspect structure
+length(darwin)
+substr(paste(darwin, collapse = " "), 1, 500)
+```
+
+We split the text into individual sentences using `stringi::stri_split_boundaries()`:
+
+```{r lex_darwin_sentences, message=FALSE, warning=FALSE}
+darwin_text <- paste(darwin, collapse = " ")
+
+darwin_sents <- stringi::stri_split_boundaries(darwin_text,
+                                                type = "sentence")[[1]] |>
+  stringr::str_squish() |>
+  (\(x) x[nchar(x) > 20])()
+
+length(darwin_sents)
+```
+
+```{r lex_darwin_top, message=FALSE, warning=FALSE}
+darwin_top5 <- lexRankr::lexRank(
+  darwin_sents[1:200],
+  docId      = rep("1", 200),   # character, not integer
+  n          = 5,
+  continuous = TRUE
+)
+
+darwin_top5 |>
+  dplyr::mutate(
+    sentenceId = as.numeric(stringr::str_remove_all(sentenceId, ".*_"))
+  ) |>
+  dplyr::arrange(sentenceId) |>
+  dplyr::pull(sentence)
+```
+
+## Controlling the Number of Extracted Sentences {-}
+
+The `n` argument controls how many sentences are extracted. We compare one-sentence, three-sentence, and five-sentence summaries:
+
+::: {.callout-warning}
+## Computational Note: Sentence Subset
+
+LexRank computes pairwise cosine similarities between all sentences — an O(n²) operation. Applied to the full *Origin of Species* (several thousand sentences) this takes hours on a standard laptop. Throughout this section we therefore work with the first 200 sentences. For your own texts, a subset of 200–500 sentences is usually sufficient to produce a representative summary; for longer texts consider splitting by chapter or section first (as demonstrated in the Worked Corpus Example section below).
+:::
+
+```{r lex_n_compare, message=FALSE, warning=FALSE}
+for (n_sents in c(1, 3, 5)) {
+  cat("\n--- Top", n_sents, "sentence(s) ---\n")
+  res <- lexRankr::lexRank(
+    darwin_sents[1:200],
+    docId      = rep("1", 200),
+    n          = n_sents,
+    continuous = TRUE
+  )
+  res |>
+    dplyr::mutate(
+      sentenceId = as.numeric(stringr::str_remove_all(sentenceId, ".*_"))
+    ) |>
+    dplyr::arrange(sentenceId) |>
+    dplyr::pull(sentence) |>
+    cat(sep = "\n")
+}
+```
+
+::: {.callout-tip}
+## Exercises: LexRank
+:::
+
+**Q3. LexRank selects sentences with high centrality in the sentence-similarity graph. What type of sentence tends to score highly, and what type tends to score low?**
+
+```{r}
+#| echo: false
+#| label: "lexrank_q1"
+check_question(
+  "Sentences that use vocabulary common across many other sentences in the document score highly; sentences with unique, specialised, or tangential content score low",
+  options = c(
+    "The first and last sentences of the document always score highest; middle sentences score low",
+    "Short sentences score highly because they are easier to compare; long sentences score low",
+    "Sentences that use vocabulary common across many other sentences in the document score highly; sentences with unique, specialised, or tangential content score low",
+    "Sentences with the most named entities (people, places) score highest; sentences without named entities score low"
+  ),
+  type = "radio",
+  q_id = "lexrank_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LexRank is a graph-based method: a sentence's score reflects its cosine similarity to all other sentences. A sentence that shares key vocabulary with many other sentences — reflecting the central topics of the whole document — will have many high-weight edges and therefore high centrality. A sentence introducing a unique example, a side remark, or a specialist term that appears nowhere else will have low similarity to other sentences and therefore low centrality.",
+  wrong = "Not quite. LexRank's centrality measure is based on similarity to other sentences in the document, not on position, length, or named entity content. Sentences that use vocabulary shared with many other sentences (reflecting the main topics) score highest. Sentences that are lexically unique or peripheral to the main discussion score lowest."
+)
+```
+
+---
+
+**Q4. You run `lexRankr::lexRank()` with `continuous = TRUE` and `continuous = FALSE`. What is the main practical difference between these two options?**
+
+```{r}
+#| echo: false
+#| label: "lexrank_q2"
+check_question(
+  "continuous = TRUE uses a weighted (continuous) graph where edge weights reflect similarity degree; continuous = FALSE binarises edges using a threshold, treating sentences as either similar or not",
+  options = c(
+    "continuous = TRUE returns a continuous score column; continuous = FALSE returns only sentence text",
+    "continuous = TRUE is faster; continuous = FALSE is more accurate",
+    "continuous = TRUE uses a weighted (continuous) graph where edge weights reflect similarity degree; continuous = FALSE binarises edges using a threshold, treating sentences as either similar or not",
+    "There is no difference — the parameter name is misleading and both produce identical output"
+  ),
+  type = "radio",
+  q_id = "lexrank_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! With continuous = TRUE, edge weights between sentences reflect the actual cosine similarity value — a more gradual, nuanced similarity measure. With continuous = FALSE, a threshold is applied: sentence pairs with similarity above the threshold are connected with weight 1, others with weight 0. The continuous variant is generally recommended because it retains more information about similarity degrees and tends to produce less redundant summaries.",
+  wrong = "Not quite. The continuous parameter controls how the sentence-similarity graph is constructed. continuous = TRUE uses the raw cosine similarity scores as edge weights (a weighted, continuous graph). continuous = FALSE applies a threshold and binarises edges — two sentences are either connected (similarity > threshold) or not. The continuous variant is recommended for most uses as it retains more information."
+)
+```
+
+---
+
+# TF-IDF Sentence Scoring {#tfidf}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How TF-IDF weights sentences by the distinctiveness of their vocabulary; how to compute sentence-level TF-IDF scores using `tidytext`; how to select the top-scoring sentences as an extractive summary; and how TF-IDF summarisation compares to LexRank
+:::
+
+## TF-IDF as a Sentence Scoring Method {-}
+
+**Term Frequency–Inverse Document Frequency (TF-IDF)** is a classic information retrieval measure that weights a word by how often it appears in a particular document (term frequency, TF) relative to how often it appears across a collection of documents (inverse document frequency, IDF). Words that are frequent in a document but rare across the collection are given high weight — they are the distinctive vocabulary of that document.
+
+For summarisation, we score each sentence by summing the TF-IDF weights of its constituent words. A sentence that contains many high-TF-IDF words is considered more informative than one filled with common function words. This approach is:
+
+- **transparent**: the score of each sentence is directly traceable to specific words
+- **interpretable**: the top-scoring words reveal what the document is "about"
+- **flexible**: it can be adapted for multi-document summarisation by computing IDF across the full collection
+
+## Computing TF-IDF Scores {-}
+
+We use the `tidytext` package to tokenise the text, compute TF-IDF weights, and score sentences:
+
+```{r tfidf1, message=FALSE, warning=FALSE}
+# Create a sentence-level data frame
+sents_df <- data.frame(
+  sentence_id = seq_along(darwin_sents),
+  text        = darwin_sents,
+  stringsAsFactors = FALSE
+)
+
+# Tokenise to word level
+words_df <- sents_df |>
+  tidytext::unnest_tokens(word, text) |>
+  dplyr::filter(!word %in% tidytext::stop_words$word) |>  # remove stop words
+  dplyr::count(sentence_id, word, name = "n")
+
+# Compute TF-IDF (treating each sentence as a "document")
+tfidf_df <- words_df |>
+  tidytext::bind_tf_idf(word, sentence_id, n)
+
+head(tfidf_df |> dplyr::arrange(desc(tf_idf)), 15)
+```
+
+## Scoring and Ranking Sentences {-}
+
+We aggregate word-level TF-IDF scores to the sentence level by summing:
+
+```{r tfidf2, message=FALSE, warning=FALSE}
+sent_scores <- tfidf_df |>
+  dplyr::group_by(sentence_id) |>
+  dplyr::summarise(tfidf_score = sum(tf_idf), .groups = "drop") |>
+  dplyr::arrange(desc(tfidf_score))
+
+head(sent_scores, 10)
+```
+
+```{r tfidf3, message=FALSE, warning=FALSE}
+# Extract the top 5 sentences and return them in document order
+top5_tfidf <- sent_scores |>
+  dplyr::slice_max(tfidf_score, n = 5) |>
+  dplyr::left_join(sents_df, by = "sentence_id") |>
+  dplyr::arrange(sentence_id)
+
+top5_tfidf |>
+  dplyr::select(sentence_id, tfidf_score, text) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Top 5 sentences by TF-IDF score (Darwin, On the Origin of Species).") |>
+  flextable::border_outer()
+```
+
+## Visualising the Top Words {-}
+
+We visualise the highest-TF-IDF words to understand what vocabulary is driving the sentence scores:
+
+```{r tfidf_plot, message=FALSE, warning=FALSE, fig.cap="Top 20 words by TF-IDF score across the full text. These are the most distinctive non-stop words in the document."}
+tfidf_df |>
+  dplyr::group_by(word) |>
+  dplyr::summarise(mean_tfidf = mean(tf_idf), .groups = "drop") |>
+  dplyr::slice_max(mean_tfidf, n = 20) |>
+  ggplot(aes(x = reorder(word, mean_tfidf), y = mean_tfidf)) +
+  geom_col(fill = "#1f77b4") +
+  coord_flip() +
+  labs(title = "Top 20 Words by Mean TF-IDF",
+       x = NULL, y = "Mean TF-IDF score") +
+  theme_bw()
+```
+
+::: {.callout-tip}
+## Exercises: TF-IDF Summarisation
+:::
+
+**Q5. A sentence contains only the words *the*, *a*, *is*, and *it*. What TF-IDF score would it receive, and why?**
+
+```{r}
+#| echo: false
+#| label: "tfidf_q1"
+check_question(
+  "Close to zero — these are common stop words with very high document frequency, so their IDF weight is near zero",
+  options = c(
+    "A high score — short sentences with common words are easy to process and therefore central",
+    "Close to zero — these are common stop words with very high document frequency, so their IDF weight is near zero",
+    "Exactly zero — stop words are removed before scoring, so the sentence contributes nothing",
+    "An undefined score — sentences with no content words cannot be scored by TF-IDF"
+  ),
+  type = "radio",
+  q_id = "tfidf_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! TF-IDF assigns near-zero weight to words that appear in almost every document (high document frequency → low IDF). Function words like 'the', 'a', 'is', and 'it' appear in essentially all texts, so their IDF is close to zero and their TF-IDF is correspondingly close to zero. After removing stop words (as we do with anti_join(stop_words)), such a sentence would have no scored words and a total TF-IDF score of 0.",
+  wrong = "Not quite. IDF (inverse document frequency) is low for words that appear in almost all documents — words like 'the', 'a', 'is', and 'it'. Low IDF means low TF-IDF regardless of how often the word appears in a single document. In practice, such sentences are either removed during stop word filtering or receive scores very close to zero."
+)
+```
+
+---
+
+**Q6. Compare LexRank and TF-IDF summarisation. For a very short document (5 sentences), which would you expect to work better, and why?**
+
+```{r}
+#| echo: false
+#| label: "tfidf_q2"
+check_question(
+  "TF-IDF is more reliable for very short texts — LexRank needs a sufficiently large sentence graph to produce meaningful centrality scores",
+  options = c(
+    "LexRank always outperforms TF-IDF regardless of document length",
+    "TF-IDF is more reliable for very short texts — LexRank needs a sufficiently large sentence graph to produce meaningful centrality scores",
+    "Both methods will fail on documents shorter than 20 sentences",
+    "Position heuristics are always better than both for short documents"
+  ),
+  type = "radio",
+  q_id = "tfidf_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LexRank's centrality measure is based on the structure of a sentence-similarity graph. With only 5 sentences, the graph has just 10 possible edges — far too sparse for a meaningful centrality ranking. TF-IDF, which scores each sentence independently based on its word content, is more robust in short-document settings. LexRank is best suited to longer texts where the graph has enough structure to differentiate central from peripheral sentences.",
+  wrong = "Not quite. LexRank computes sentence centrality from the structure of a similarity graph. With very few sentences, the graph is too sparse to produce a reliable centrality ranking. TF-IDF scores sentences independently from word content and does not depend on graph structure, making it more suitable for short texts. For long texts with many sentences, LexRank's graph-based approach is generally more powerful."
+)
+```
+
+---
+
+# Position-Based Summarisation {#position}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** The discourse-level rationale for position-based summarisation; how to implement a simple lead-sentence heuristic; how to combine position and TF-IDF scores into a hybrid ranking; and when position-based methods are and are not appropriate
+:::
+
+## The Linguistic Rationale for Position {-}
+
+Many text genres follow predictable organisational conventions that make sentence position an informative cue for importance. In **news articles**, the inverted-pyramid structure places the most newsworthy information in the first paragraph; the classic "Five Ws" (who, what, when, where, why) are typically answered in the lead sentence. In **academic abstracts**, the structure follows Introduction–Methods–Results–Conclusion, with the main claim often in the first or last sentence. In **structured reports**, topic sentences at the beginning of paragraphs signal the main point of each section.
+
+The **lead-sentence heuristic** — simply selecting the first *n* sentences — is a strong baseline that is difficult to beat for news text. For general documents, a more flexible approach assigns a **position score** that decays with distance from the beginning:
+
+$$\text{position\_score}(i) = \frac{1}{\log(i + 1)}$$
+
+This gives the first sentence a high score, the second a somewhat lower score, and so on, with diminishing returns as the sentence index grows.
+
+## Implementing a Position Score {-}
+
+```{r pos1, message=FALSE, warning=FALSE}
+n_sents <- length(darwin_sents)
+
+position_df <- data.frame(
+  sentence_id    = seq_along(darwin_sents),
+  text           = darwin_sents,
+  position_score = 1 / log(seq_along(darwin_sents) + 1),
+  stringsAsFactors = FALSE
+)
+
+head(position_df |> dplyr::select(sentence_id, position_score), 8)
+```
+
+```{r pos2, message=FALSE, warning=FALSE}
+# Top 5 sentences by position (these will simply be the first 5)
+position_df |>
+  dplyr::slice_max(position_score, n = 5) |>
+  dplyr::pull(text)
+```
+
+## Hybrid Position + TF-IDF Scoring {-}
+
+A more powerful approach combines position and TF-IDF scores. We normalise both to the [0, 1] range and average them:
+
+```{r hybrid1, message=FALSE, warning=FALSE}
+# Normalise TF-IDF scores to [0, 1]
+tfidf_norm <- sent_scores |>
+  dplyr::mutate(
+    tfidf_norm = (tfidf_score - min(tfidf_score)) /
+                 (max(tfidf_score) - min(tfidf_score))
+  )
+
+# Join with position scores
+hybrid_df <- position_df |>
+  dplyr::select(sentence_id, text, position_score) |>
+  dplyr::mutate(
+    pos_norm = (position_score - min(position_score)) /
+               (max(position_score) - min(position_score))
+  ) |>
+  dplyr::left_join(tfidf_norm |> dplyr::select(sentence_id, tfidf_norm),
+                   by = "sentence_id") |>
+  dplyr::mutate(hybrid_score = (pos_norm + tfidf_norm) / 2) |>
+  dplyr::arrange(desc(hybrid_score))
+
+# Top 5 hybrid-scored sentences in document order
+hybrid_df |>
+  dplyr::slice_max(hybrid_score, n = 5) |>
+  dplyr::arrange(sentence_id) |>
+  dplyr::select(sentence_id, hybrid_score, text) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Top 5 sentences by hybrid position + TF-IDF score.") |>
+  flextable::border_outer()
+```
+
+::: {.callout-tip}
+## Exercises: Position-Based Summarisation
+:::
+
+**Q7. You apply the lead-sentence heuristic to a mystery novel and find the summaries are poor. You apply it to a collection of newspaper articles and find the summaries are excellent. What explains this difference?**
+
+```{r}
+#| echo: false
+#| label: "pos_q1"
+check_question(
+  "Newspaper articles follow the inverted-pyramid convention, placing key information first; novels deliberately withhold key information and place it later for narrative effect",
+  options = c(
+    "Newspaper articles are shorter, so position-based methods work better on short texts",
+    "Mystery novels use unusual vocabulary that confuses position-based methods",
+    "Newspaper articles follow the inverted-pyramid convention, placing key information first; novels deliberately withhold key information and place it later for narrative effect",
+    "The heuristic works for newspapers because they have paragraph breaks; novels do not"
+  ),
+  type = "radio",
+  q_id = "pos_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The effectiveness of position-based summarisation depends entirely on whether the text follows a convention that front-loads important information. Newspaper articles do — the inverted-pyramid structure places the most newsworthy content in the lead paragraph. Mystery novels deliberately violate this: the key revelation (the identity of the murderer, the resolution of the plot) is withheld until the end for narrative effect. Position heuristics perform well only for text genres with predictable information-structural conventions.",
+  wrong = "Not quite. The issue is genre conventions, not text length or vocabulary. Newspaper articles use the inverted-pyramid structure, placing the most important information first — which is exactly what position heuristics exploit. Mystery novels deliberately structure information differently, withholding key content until later for narrative effect. Always consider genre conventions before choosing a summarisation approach."
+)
+```
+
+---
+
+**Q8. In the hybrid score formula `(pos_norm + tfidf_norm) / 2`, both components are given equal weight. For a scientific research article, would you adjust this weighting, and how?**
+
+```{r}
+#| echo: false
+#| label: "pos_q2"
+check_question(
+  "Increase the TF-IDF weight — scientific articles do not front-load findings; key results and conclusions may appear anywhere in the text",
+  options = c(
+    "Increase the position weight — the abstract always summarises the whole paper",
+    "Increase the TF-IDF weight — scientific articles do not front-load findings; key results and conclusions may appear anywhere in the text",
+    "Keep equal weighting — scientific articles are long enough that both signals are equally reliable",
+    "Remove TF-IDF entirely — scientific vocabulary is too specialised for TF-IDF to work"
+  ),
+  type = "radio",
+  q_id = "pos_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Scientific articles follow an IMRAD structure (Introduction–Methods–Results–Discussion). While the abstract and introduction front-load some key information, the most important findings appear in the Results section, and the main conclusions in the Discussion — neither of which is at the beginning of the document. Increasing the TF-IDF weight (or reducing the position weight) allows the hybrid score to select sentences based on content rather than location, which is more appropriate for this genre.",
+  wrong = "Not quite. Position heuristics work best for genres that front-load key information. Scientific articles follow the IMRAD structure: key results appear in the middle (Results) and key conclusions at the end (Discussion). For such texts, TF-IDF content scoring is more informative than position. A weighting of 0.3 position + 0.7 TF-IDF would better reflect this genre's information structure."
+)
+```
+
+---
+
+# Comparing Summarisation Methods {#compare}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to compare the outputs of LexRank, TF-IDF, and position-based summarisation on the same text; how to visualise sentence score distributions; and how to assess agreement between methods
+:::
+
+## Side-by-Side Comparison {-}
+
+We extract the top 5 sentence IDs under each method and compare which sentences each approach selects:
+
+```{r compare1, message=FALSE, warning=FALSE}
+# LexRank top 5 sentence IDs
+lexrank_ids <- lexRankr::lexRank(
+  darwin_sents[1:200],
+  docId      = rep("1", 200),
+  n          = 5,
+  continuous = TRUE
+) |>
+  dplyr::mutate(
+    sent_num = as.integer(stringr::str_remove_all(sentenceId, ".*_"))
+  ) |>
+  dplyr::pull(sent_num)
+
+# TF-IDF top 5 sentence IDs
+tfidf_ids <- sent_scores |>
+  dplyr::slice_max(tfidf_score, n = 5) |>
+  dplyr::pull(sentence_id)
+
+# Position top 5 sentence IDs (simply the first 5)
+position_ids <- 1:5
+
+# Build comparison table
+all_ids <- sort(unique(c(lexrank_ids, tfidf_ids, position_ids)))
+
+comparison <- data.frame(
+  sentence_id = all_ids,
+  LexRank     = all_ids %in% lexrank_ids,
+  TF_IDF      = all_ids %in% tfidf_ids,
+  Position    = all_ids %in% position_ids,
+  stringsAsFactors = FALSE
+) |>
+  dplyr::mutate(
+    n_methods = LexRank + TF_IDF + Position,
+    text = darwin_sents[all_ids]
+  )
+
+comparison |>
+  dplyr::select(sentence_id, LexRank, TF_IDF, Position, n_methods) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .7, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::set_caption(caption = "Sentences selected by each method (top 5 per method). n_methods = number of methods that selected each sentence.") |>
+  flextable::border_outer()
+```
+
+Sentences selected by all three methods (if any) are the most robust candidates for the summary. Sentences selected by only one method are more method-specific.
+
+## Visualising Score Distributions {-}
+
+```{r compare_plot, message=FALSE, warning=FALSE, fig.cap="Distribution of TF-IDF scores across all sentences. The long right tail shows a small number of highly distinctive sentences."}
+sent_scores |>
+  ggplot(aes(x = tfidf_score)) +
+  geom_histogram(bins = 40, fill = "#1f77b4", colour = "white") +
+  geom_vline(
+    xintercept = sent_scores |> dplyr::slice_max(tfidf_score, n = 5) |>
+                   dplyr::pull(tfidf_score) |> min(),
+    linetype = "dashed", colour = "red", linewidth = 0.8
+  ) +
+  labs(title = "Distribution of TF-IDF Sentence Scores",
+       subtitle = "Red dashed line = threshold for top 5 sentences",
+       x = "TF-IDF score", y = "Count") +
+  theme_bw()
+```
+
+---
+
+# Worked Corpus Example: Chapter-by-Chapter Summarisation {#corpus}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to apply text summarisation to a multi-chapter text using a loop; how to extract and display the top sentences from each chapter; and how to combine the per-chapter summaries into a structured document overview
+:::
+
+## Splitting the Text into Chapters {-}
+
+Darwin's *On the Origin of Species* is divided into chapters. We split the text on the word "CHAPTER" and apply LexRank to each chapter independently:
+
+```{r corp1, message=FALSE, warning=FALSE}
+# Split by chapter marker
+chapters_raw <- darwin_text |>
+  stringr::str_split("CHAPTER") |>
+  unlist() |>
+  (\(x) x[nchar(x) > 200])()  # remove short fragments
+
+length(chapters_raw)
+```
+
+```{r corp2, message=FALSE, warning=FALSE}
+# Function: summarise one chapter
+summarise_chapter <- function(chapter_text, n = 3) {
+  sents <- stringi::stri_split_boundaries(chapter_text,
+                                           type = "sentence")[[1]] |>
+    stringr::str_squish() |>
+    (\(x) x[nchar(x) > 40])()
+
+  if (length(sents) < 5) return(tibble::tibble(sentence = sents))
+
+  lexRankr::lexRank(
+    sents,
+    docId      = rep(1, length(sents)),
+    n          = n,
+    continuous = TRUE
+  ) |>
+    dplyr::mutate(
+      sent_num = as.numeric(stringr::str_remove_all(sentenceId, ".*_"))
+    ) |>
+    dplyr::arrange(sent_num) |>
+    dplyr::select(sentence)
+}
+```
+
+```{r corp3, message=FALSE, warning=FALSE}
+# Apply to all chapters
+chapter_summaries <- purrr::map(chapters_raw, summarise_chapter, n = 3)
+names(chapter_summaries) <- paste0("Chapter_", seq_along(chapter_summaries))
+```
+
+## Displaying Chapter Summaries {-}
+
+```{r corp4, message=FALSE, warning=FALSE}
+# Display summaries for the first 4 chapters
+for (i in 1:min(4, length(chapter_summaries))) {
+  cat("\n=========================================\n")
+  cat("CHAPTER", i, "\n")
+  cat("=========================================\n")
+  cat(chapter_summaries[[i]]$sentence, sep = "\n\n")
+}
+```
+
+## Building a Structured Summary Table {-}
+
+We combine all chapter summaries into a single data frame for easy export:
+
+```{r corp5, message=FALSE, warning=FALSE}
+summary_table <- purrr::imap_dfr(chapter_summaries, function(df, nm) {
+  dplyr::mutate(df, chapter = nm, sentence_rank = dplyr::row_number())
+}) |>
+  dplyr::select(chapter, sentence_rank, sentence)
+
+head(summary_table, 9) |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 10) |>
+  flextable::set_caption(caption = "Structured chapter-by-chapter summary (top 3 sentences per chapter, first 3 chapters shown).") |>
+  flextable::border_outer()
+```
+
+## How Many Sentences per Chapter? {-}
+
+We visualise how many sentences each chapter contributes (as an indicator of chapter length and information density):
+
+```{r corp6, message=FALSE, warning=FALSE, fig.cap="Number of extractable sentences per chapter after sentence boundary detection and filtering."}
+chapter_lengths <- purrr::map_int(chapters_raw, function(ch) {
+  stringi::stri_split_boundaries(ch, type = "sentence")[[1]] |>
+    stringr::str_squish() |>
+    (\(x) x[nchar(x) > 40])() |>
+    length()
+})
+
+data.frame(
+  chapter = paste0("Ch.", seq_along(chapter_lengths)),
+  n_sents = chapter_lengths
+) |>
+  ggplot(aes(x = chapter, y = n_sents)) +
+  geom_col(fill = "#1f77b4") +
+  labs(title = "Sentences per Chapter",
+       x = "Chapter", y = "Number of sentences") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+::: {.callout-tip}
+## Exercises: Worked Corpus Example
+:::
+
+**Q9. You apply `lexRankr::lexRank()` to a very short chapter (8 sentences) and get unexpected results — the function selects sentences that seem peripheral. What is likely causing this, and how would you address it?**
+
+```{r}
+#| echo: false
+#| label: "corpus_q1"
+check_question(
+  "LexRank's graph is too sparse with only 8 sentences to produce reliable centrality scores; use TF-IDF scoring or simply return all sentences for very short chapters",
+  options = c(
+    "The chapter file is probably corrupted; re-download the text",
+    "LexRank requires stop word removal before it can work correctly on short texts",
+    "LexRank's graph is too sparse with only 8 sentences to produce reliable centrality scores; use TF-IDF scoring or simply return all sentences for very short chapters",
+    "The issue is sentence boundary detection; short chapters always have more sentence fragments than long ones"
+  ),
+  type = "radio",
+  q_id = "corpus_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LexRank builds a similarity graph over all sentences. With only 8 sentences, there are at most 28 edges — far too sparse for a reliable centrality ranking. The function may return results that look arbitrary because small differences in similarity produce large rank changes in such a small graph. The workaround used in our summarise_chapter() function — returning all sentences if fewer than 5 are available — is a sensible floor. For chapters with 5–15 sentences, TF-IDF scoring or a simple position heuristic may be more reliable.",
+  wrong = "Not quite. The core issue is graph sparsity. LexRank's centrality measure requires a sufficiently dense similarity graph to differentiate central from peripheral sentences. With very few sentences, the graph structure is essentially noise. The solution is to fall back to a simpler method (TF-IDF, position) or to simply return all sentences when the chapter is short enough that no selection is needed."
+)
+```
+
+---
+
+**Q10. You want to summarise a corpus of 500 Wikipedia articles, each 15–30 paragraphs long. You need to process all 500 in a reasonable time. What practical consideration favours TF-IDF over LexRank for this task?**
+
+```{r}
+#| echo: false
+#| label: "corpus_q2"
+check_question(
+  "TF-IDF scoring is O(n) in the number of sentences; LexRank requires computing pairwise sentence similarities, which is O(n²) and much slower for long documents",
+  options = c(
+    "TF-IDF produces more accurate summaries for encyclopaedic text than graph-based methods",
+    "TF-IDF scoring is O(n) in the number of sentences; LexRank requires computing pairwise sentence similarities, which is O(n²) and much slower for long documents",
+    "LexRank cannot handle multiple documents; TF-IDF is designed for multi-document settings",
+    "TF-IDF is always faster because it uses simpler arithmetic than LexRank's PageRank algorithm"
+  ),
+  type = "radio",
+  q_id = "corpus_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! LexRank must compute the cosine similarity between every pair of sentences to build the graph — an O(n²) operation that grows quadratically with document length. For a document with 200 sentences, that is 20,000 pairwise comparisons. TF-IDF sentence scoring requires only O(n) operations (one score per sentence). For large-scale corpora where summarisation must be applied to hundreds or thousands of documents, TF-IDF is dramatically faster, at some cost to summary quality.",
+  wrong = "Not quite. The key computational issue is the pairwise similarity computation in LexRank. For n sentences, LexRank computes n(n−1)/2 similarity values — scaling as O(n²). TF-IDF sentence scoring is O(n): each sentence is scored independently. For 500 articles of 200+ sentences each, this computational difference is very significant in practice."
+)
+```
+
+---
+
+# Abstractive Summarisation {#abstractive}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** What abstractive summarisation is; how large language models generate abstractive summaries via the Anthropic API; key limitations and risks (hallucination, non-reproducibility, attribution loss); and when abstractive summarisation is appropriate for linguistic research
+:::
+
+## Abstractive Summarisation with Large Language Models {-}
+
+Large language models (LLMs) such as Claude, GPT-4, or Llama can generate abstractive summaries by reading a text and producing a new, condensed paraphrase. Unlike the extractive methods above, LLM summaries:
+
+- may use wording that does not appear in the source text
+- can compress multiple sentences into one or split a single complex sentence into simpler ones
+- can synthesise information from non-adjacent sections of the text
+- adapt the summary style to the specified audience and purpose
+
+The following example calls the Anthropic API with a passage from Darwin to generate a three-sentence abstractive summary:
+
+```{r abstractive_example, eval=FALSE, message=FALSE, warning=FALSE}
+# This chunk requires an Anthropic API key — set eval=TRUE once configured
+library(httr2)
+
+darwin_passage <- paste(darwin_sents[1:30], collapse = " ")
+
+response <- httr2::request("https://api.anthropic.com/v1/messages") |>
+  httr2::req_headers(
+    "x-api-key"         = Sys.getenv("ANTHROPIC_API_KEY"),
+    "anthropic-version" = "2023-06-01",
+    "content-type"      = "application/json"
+  ) |>
+  httr2::req_body_json(list(
+    model      = "claude-sonnet-4-20250514",
+    max_tokens = 256,
+    messages   = list(
+      list(
+        role    = "user",
+        content = paste0(
+          "Please provide a three-sentence summary of the following text. ",
+          "Focus on the main argument and key evidence.\n\n",
+          darwin_passage
+        )
+      )
+    )
+  )) |>
+  httr2::req_perform() |>
+  httr2::resp_body_json()
+
+cat(response$content[[1]]$text)
+```
+
+::: {.callout-warning}
+## Limitations of Abstractive Summarisation for Research
+
+Abstractive summarisation with LLMs introduces several concerns that researchers should weigh carefully:
+
+**Hallucination:** LLMs can generate plausible-sounding but factually incorrect statements, particularly for specialised or technical content. Always verify abstractive summaries against the source text before citing them.
+
+**Non-reproducibility:** LLM outputs are stochastic — the same input will produce different outputs on different runs (and over time as models are updated). Extractive summaries are fully deterministic.
+
+**Attribution loss:** An abstractive summary is not quotable as a source; it is a paraphrase generated by a model. In research contexts requiring traceable evidence, extractive methods are preferable.
+
+**Language and domain bias:** LLMs perform better on languages and genres well-represented in their training data (primarily English, primarily recent web text). Performance on historical texts, minority languages, or highly technical domains may be lower.
+:::
+
+::: {.callout-tip}
+## Exercises: Abstractive Summarisation
+:::
+
+**Q11. A researcher uses an LLM to abstractively summarise 200 historical letters for a corpus study. The summaries will be used as metadata annotations. What is the most serious methodological concern?**
+
+```{r}
+#| echo: false
+#| label: "abstr_q1"
+check_question(
+  "Hallucination — the LLM may generate content that does not appear in the source letters, introducing false claims into the metadata",
+  options = c(
+    "Speed — LLMs are too slow to process 200 letters in a reasonable time",
+    "Hallucination — the LLM may generate content that does not appear in the source letters, introducing false claims into the metadata",
+    "The summaries will be too long to serve as metadata annotations",
+    "LLMs cannot process historical text because the vocabulary has changed too much"
+  ),
+  type = "radio",
+  q_id = "abstr_q1",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! Hallucination is the key risk. LLMs generate fluent text but may insert names, dates, claims, or events that are not present in the source document. In metadata annotation for historical research, a false claim in the annotation could misdirect all downstream uses of that annotation. Extractive summarisation — which copies sentences verbatim — eliminates this risk entirely. If abstractive summarisation is used, each annotation should be verified against the source document.",
+  wrong = "Not quite. The most serious concern with using LLMs for research metadata is hallucination — the generation of plausible-sounding but inaccurate content. For historical letters, the LLM may misattribute quotes, invent recipient names, or incorrectly paraphrase the emotional tone. Any such error would propagate into all downstream analyses that rely on the annotation. Always verify abstractive summaries against their source documents."
+)
+```
+
+---
+
+**Q12. A colleague argues that abstractive summarisation is always inferior to extractive summarisation because "it makes things up." Is this characterisation fair?**
+
+```{r}
+#| echo: false
+#| label: "abstr_q2"
+check_question(
+  "No — abstractive summarisation can be superior when compression, synthesis across sections, or plain-language paraphrase is needed; the risk of hallucination is real but manageable with verification",
+  options = c(
+    "Yes — extractive summarisation is always preferable because it never generates new text",
+    "No — abstractive summarisation can be superior when compression, synthesis across sections, or plain-language paraphrase is needed; the risk of hallucination is real but manageable with verification",
+    "Yes — LLMs are not reliable enough to be used in academic research at all",
+    "No — abstractive summarisation is always superior because it produces more natural-sounding text"
+  ),
+  type = "radio",
+  q_id = "abstr_q2",
+  random_answer_order = FALSE,
+  button_label = "Check answer",
+  right = "Correct! The characterisation is unfair as an absolute claim. Abstractive summarisation has genuine strengths: it can compress multiple scattered sentences into one, paraphrase technical content for a general audience, and synthesise information across non-adjacent sections of a document. These are tasks that extractive methods cannot perform. The risk of hallucination is real but can be mitigated by verification. The appropriate choice depends on the use case: when fidelity and traceability matter, use extractive methods; when natural compression and paraphrase are the goal, abstractive methods may be preferable with appropriate verification.",
+  wrong = "Not quite. While hallucination is a genuine risk, abstractive summarisation also has real strengths. It can compress and synthesise content in ways extractive methods cannot — combining information from multiple sentences, paraphrasing technical content, and producing natural-sounding text. The right choice depends on the task: extractive methods are preferable when verbatim fidelity and traceability matter; abstractive methods may be better when natural compression and paraphrase are the goals."
+)
+```
+
+---
+
+# Summary and Further Reading {#summary}
+
+This tutorial introduced automated text summarisation in R, covering both the conceptual framework and practical implementation of three extractive methods and an overview of abstractive approaches.
+
+We began with the conceptual distinction between **extractive summarisation** (selecting verbatim sentences) and **abstractive summarisation** (generating new paraphrases), and discussed the three main extractive approaches: graph-based (LexRank), TF-IDF scoring, and position heuristics.
+
+**LexRank** was demonstrated using both web-scraped and locally loaded texts. The algorithm identifies sentences that are most central in a sentence-similarity graph — those that share key vocabulary with many other sentences throughout the document. The `continuous = TRUE` option uses a weighted graph and is recommended for most applications.
+
+**TF-IDF sentence scoring** computes a relevance score for each sentence based on the distinctiveness of its vocabulary. It is more transparent than LexRank — the contribution of each word is traceable — and more robust for very short texts or collections where a reference IDF can be computed across multiple documents.
+
+**Position-based summarisation** exploits genre-specific information-structural conventions. The lead-sentence heuristic is a strong baseline for news text; a hybrid position + TF-IDF score combines the two signals and is more appropriate for genres where key content does not consistently front-load.
+
+The worked corpus example applied LexRank chapter-by-chapter to Darwin's *On the Origin of Species*, producing a structured per-chapter summary table. A utility function handled the common edge case of very short chapters.
+
+**Abstractive summarisation** via LLMs was discussed as an extension, with emphasis on the key limitations for research use: hallucination risk, non-reproducibility, and attribution loss. Extractive methods remain the default recommendation for corpus linguistics and text analysis applications where fidelity to source text is important.
+
+**Further reading:** @erkan2004lexrank is the original LexRank paper. @mihalcea2004textrank describes the closely related TextRank algorithm. @jones1999automatic provides a comprehensive early overview of automatic summarisation. For TF-IDF and information retrieval fundamentals, see @manning2008introduction. For the use of LLMs in linguistic research, see @bender2021stochastic for a critical perspective on large language model capabilities and limitations.
+
+
+
+# Citation & Session Info {-}
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
+```
+:::
+
+```{r fin}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, write the new "Creating Surveys in R" section covering `shiny` and `surveydown`, expand the design principles and scale types sections, add the mosaic plot and cumulative density plot examples, expand the ordinal regression section with the Brant test and improved visualisation, write the `checkdown` quiz questions and feedback strings, and revise all callout boxes, section overviews, and the summary section. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material.
+:::
+
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+
+# References {-}
