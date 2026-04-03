@@ -1,8 +1,2651 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<script>
-			window.location.replace("https://ladal.edu.au/tutorials/llm_privacy/llm_privacy.html");
-		</script>
-	</head>
-</html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.41">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Martin Schweinberger">
+<meta name="dcterms.date" content="2026-01-01">
+
+<title>Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies – LADAL</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-48ffa3e5b9d089919c6712c39e5b00f2.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-c0a3c07012df1de2ea393e372509f4c5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-RM0VHZB3CG"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-RM0VHZB3CG', { 'anonymize_ip': true});
+</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script>
+
+    // Wait for the document to be fully loaded
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        // Create a new div element to hold the dynamic content
+
+        var newContainer = document.createElement("div");
+
+        newContainer.classList.add("custom-banner");  // You can assign a class to the new container for styling
+
+        // You can also add content inside the new container
+
+        newContainer.innerHTML = `
+
+          <div class="banner">
+
+              <img src="/images/ladal_icon_white.png" alt="Icon" class="banner-icon">
+
+              <span class="banner-text">Language Technology and Data Analysis Laboratory</span>
+
+          </div>
+
+      `
+
+        // Select the header element
+
+        var header = document.getElementById("quarto-header");
+
+        // Select the nav element inside the header to place the new container just above it
+
+        var navbar = header.querySelector("nav");
+
+        // Insert the new container before the navbar element
+
+        header.insertBefore(newContainer, navbar);
+
+    });
+
+</script>
+
+
+
+<!-- ============================================================
+
+     LADAL — Open Graph & Twitter Card meta tags
+
+     ============================================================ -->
+
+
+
+<!-- Default Open Graph tags (apply to all pages unless overridden) -->
+
+<meta property="og:site_name" content="LADAL">
+
+<meta property="og:type" content="website">
+
+<meta property="og:url" content="https://ladal.edu.au">
+
+<meta property="og:title" content="Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies – LADAL">
+
+<meta property="og:description" content="">
+
+<meta property="og:image" content="https://ladal.edu.au/images/icon.png">
+
+<meta property="og:image:alt" content="LADAL logo">
+
+<meta property="og:locale" content="en_AU">
+
+
+
+<!-- Twitter / X Card tags (used by X, but also picked up by some other platforms) -->
+
+<meta name="twitter:card" content="summary">
+
+<meta name="twitter:title" content="Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies – LADAL">
+
+<meta name="twitter:description" content="">
+
+<meta name="twitter:image" content="https://ladal.edu.au/images/icon.png">
+
+<meta name="twitter:image:alt" content="LADAL logo">
+
+
+
+<!-- General meta description (used by Google in search snippets) -->
+
+<meta name="description" content="Free, open-access tutorials, tools, and courses for language researchers at all levels. Part of the Language Data Commons of Australia (LDaCA) at the University of Queensland.">
+
+
+
+
+
+<link rel="stylesheet" href="../../css/styles.css">
+<link rel="canonical" href="https://ladal.edu.au/tutorials/llm_privacy/llm_privacy.html">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">LADAL</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">HOME</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-about" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">ABOUT</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-about">    
+        <li>
+    <a class="dropdown-item" href="../../about.html">
+ <span class="dropdown-text">About LADAL</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#directors">
+ <span class="dropdown-text">People &amp; Collaborators</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#citing">
+ <span class="dropdown-text">Citing &amp; Licensing</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#faq">
+ <span class="dropdown-text">FAQs</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">TUTORIALS</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">    
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html">
+ <span class="dropdown-text">About Tutorials</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-science-basics">
+ <span class="dropdown-text">Data Science Basics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#r-basics">
+ <span class="dropdown-text">R Basics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-visualisation">
+ <span class="dropdown-text">Data Collection and Acquisition</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-collection">
+ <span class="dropdown-text">Data Visualisation</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#statistics">
+ <span class="dropdown-text">Statistics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#text-analytics">
+ <span class="dropdown-text">Text Analytics</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-courses" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">COURSES</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-courses">    
+        <li>
+    <a class="dropdown-item" href="../../courses.html">
+ <span class="dropdown-text">About Courses</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../courses.html#short-courses">
+ <span class="dropdown-text">Short Courses</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../courses.html#long-courses">
+ <span class="dropdown-text">Long Courses</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tools" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">TOOLS</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tools">    
+        <li>
+    <a class="dropdown-item" href="../../tools.html">
+ <span class="dropdown-text">About Tools</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tools.html#shiny-tools">
+ <span class="dropdown-text">Shiny Tools</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tools.html#jupyter-tools">
+ <span class="dropdown-text">Juypter Notebooks Tools</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../events.html"> 
+<span class="menu-text">EVENTS</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-resources" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">RESOURCES</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-resources">    
+        <li>
+    <a class="dropdown-item" href="../../resources.html">
+ <span class="dropdown-text">Guides &amp; Resources</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../contact.html">
+ <span class="dropdown-text">Contribute to LADAL</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../contact.html"> 
+<span class="menu-text">CONTACT</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#intro" id="toc-intro" class="nav-link active" data-scroll-target="#intro">Introduction</a></li>
+  <li><a href="#problem" id="toc-problem" class="nav-link" data-scroll-target="#problem">The Privacy Problem</a>
+  <ul class="collapse">
+  <li><a href="#why-cloud-ai-services-are-off-limits-for-sensitive-data" id="toc-why-cloud-ai-services-are-off-limits-for-sensitive-data" class="nav-link" data-scroll-target="#why-cloud-ai-services-are-off-limits-for-sensitive-data">Why cloud AI services are off-limits for sensitive data</a></li>
+  <li><a href="#what-the-researcher-actually-needs" id="toc-what-the-researcher-actually-needs" class="nav-link" data-scroll-target="#what-the-researcher-actually-needs">What the researcher actually needs</a></li>
+  <li><a href="#the-synthetic-proxy-solution" id="toc-the-synthetic-proxy-solution" class="nav-link" data-scroll-target="#the-synthetic-proxy-solution">The synthetic proxy solution</a></li>
+  </ul></li>
+  <li><a href="#workflow" id="toc-workflow" class="nav-link" data-scroll-target="#workflow">The Workflow</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#transcripts" id="toc-transcripts" class="nav-link" data-scroll-target="#transcripts">Part 1: Synthetic Conversation Transcripts</a>
+  <ul class="collapse">
+  <li><a href="#the-research-scenario" id="toc-the-research-scenario" class="nav-link" data-scroll-target="#the-research-scenario">The research scenario</a></li>
+  <li><a href="#step-1-describe-the-real-data-structure" id="toc-step-1-describe-the-real-data-structure" class="nav-link" data-scroll-target="#step-1-describe-the-real-data-structure">Step 1: Describe the real data structure</a></li>
+  <li><a href="#step-2-generate-the-synthetic-transcript" id="toc-step-2-generate-the-synthetic-transcript" class="nav-link" data-scroll-target="#step-2-generate-the-synthetic-transcript">Step 2: Generate the synthetic transcript</a></li>
+  <li><a href="#saving-the-synthetic-transcript" id="toc-saving-the-synthetic-transcript" class="nav-link" data-scroll-target="#saving-the-synthetic-transcript">Saving the synthetic transcript</a></li>
+  <li><a href="#generating-multiple-synthetic-transcripts" id="toc-generating-multiple-synthetic-transcripts" class="nav-link" data-scroll-target="#generating-multiple-synthetic-transcripts">Generating multiple synthetic transcripts</a></li>
+  <li><a href="#step-3-getting-analysis-code-from-a-cloud-ai" id="toc-step-3-getting-analysis-code-from-a-cloud-ai" class="nav-link" data-scroll-target="#step-3-getting-analysis-code-from-a-cloud-ai">Step 3: Getting analysis code from a cloud AI</a></li>
+  <li><a href="#step-4-the-code-returned-by-the-cloud-ai" id="toc-step-4-the-code-returned-by-the-cloud-ai" class="nav-link" data-scroll-target="#step-4-the-code-returned-by-the-cloud-ai">Step 4: The code returned by the cloud AI</a></li>
+  <li><a href="#step-5-run-on-real-data" id="toc-step-5-run-on-real-data" class="nav-link" data-scroll-target="#step-5-run-on-real-data">Step 5: Run on real data</a></li>
+  </ul></li>
+  <li><a href="#tabular" id="toc-tabular" class="nav-link" data-scroll-target="#tabular">Part 2: Synthetic Tabular Data</a>
+  <ul class="collapse">
+  <li><a href="#the-research-scenario-1" id="toc-the-research-scenario-1" class="nav-link" data-scroll-target="#the-research-scenario-1">The research scenario</a></li>
+  <li><a href="#step-1-describe-the-data-structure" id="toc-step-1-describe-the-data-structure" class="nav-link" data-scroll-target="#step-1-describe-the-data-structure">Step 1: Describe the data structure</a></li>
+  <li><a href="#step-2-generate-the-synthetic-table" id="toc-step-2-generate-the-synthetic-table" class="nav-link" data-scroll-target="#step-2-generate-the-synthetic-table">Step 2: Generate the synthetic table</a></li>
+  <li><a href="#parsing-and-validating-the-synthetic-table" id="toc-parsing-and-validating-the-synthetic-table" class="nav-link" data-scroll-target="#parsing-and-validating-the-synthetic-table">Parsing and validating the synthetic table</a></li>
+  <li><a href="#saving-the-synthetic-table" id="toc-saving-the-synthetic-table" class="nav-link" data-scroll-target="#saving-the-synthetic-table">Saving the synthetic table</a></li>
+  <li><a href="#step-3-getting-analysis-code-from-a-cloud-ai-1" id="toc-step-3-getting-analysis-code-from-a-cloud-ai-1" class="nav-link" data-scroll-target="#step-3-getting-analysis-code-from-a-cloud-ai-1">Step 3: Getting analysis code from a cloud AI</a></li>
+  <li><a href="#step-4-the-code-returned-by-the-cloud-ai-1" id="toc-step-4-the-code-returned-by-the-cloud-ai-1" class="nav-link" data-scroll-target="#step-4-the-code-returned-by-the-cloud-ai-1">Step 4: The code returned by the cloud AI</a></li>
+  <li><a href="#step-5-run-on-real-data-1" id="toc-step-5-run-on-real-data-1" class="nav-link" data-scroll-target="#step-5-run-on-real-data-1">Step 5: Run on real data</a></li>
+  </ul></li>
+  <li><a href="#iteration" id="toc-iteration" class="nav-link" data-scroll-target="#iteration">Iterating on the Workflow</a>
+  <ul class="collapse">
+  <li><a href="#handling-code-that-does-not-quite-work" id="toc-handling-code-that-does-not-quite-work" class="nav-link" data-scroll-target="#handling-code-that-does-not-quite-work">Handling code that does not quite work</a></li>
+  <li><a href="#asking-for-multiple-scripts-in-one-session" id="toc-asking-for-multiple-scripts-in-one-session" class="nav-link" data-scroll-target="#asking-for-multiple-scripts-in-one-session">Asking for multiple scripts in one session</a></li>
+  </ul></li>
+  <li><a href="#quality" id="toc-quality" class="nav-link" data-scroll-target="#quality">A Note on Data Synthesis Quality</a>
+  <ul class="collapse">
+  <li><a href="#what-makes-a-good-proxy" id="toc-what-makes-a-good-proxy" class="nav-link" data-scroll-target="#what-makes-a-good-proxy">What makes a good proxy?</a></li>
+  <li><a href="#when-llm-synthesis-is-sufficient" id="toc-when-llm-synthesis-is-sufficient" class="nav-link" data-scroll-target="#when-llm-synthesis-is-sufficient">When LLM synthesis is sufficient</a></li>
+  <li><a href="#when-to-use-statistical-synthesis-instead" id="toc-when-to-use-statistical-synthesis-instead" class="nav-link" data-scroll-target="#when-to-use-statistical-synthesis-instead">When to use statistical synthesis instead</a></li>
+  </ul></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
+  <li><a href="#citation-session-info" id="toc-citation-session-info" class="nav-link" data-scroll-target="#citation-session-info">Citation &amp; Session Info</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Download This Notebook</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button" data-quarto-source-url="https://github.com/SLCLADAL/ladal/blob/main/tutorials/llm_privacy/llm_privacy.qmd">View Source</a></li></ul></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Martin Schweinberger </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../..\images/uq1.jpg" style="width:100.0%" loading="lazy" height="200" class="figure-img"></p>
+<figcaption>Great Court, The University of Queensland</figcaption>
+</figure>
+</div>
+<section id="intro" class="level1">
+<h1>Introduction</h1>
+<p><img src="../..\images/gy_chili.png" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
+<p>Researchers working with sensitive data face a persistent dilemma. Modern AI assistants — such as Claude, ChatGPT, and Gemini — are extraordinarily helpful for writing analysis code, reformatting data, and generating R scripts. But using them requires uploading your data to external servers. For many research datasets, this is simply not permitted: institutional ethics approvals, data governance policies, and participant consent agreements routinely prohibit sending identifiable or sensitive information to third-party platforms.</p>
+<p>This showcase presents a practical solution to that dilemma using <strong>local large language models via Ollama</strong>. The core idea is straightforward:</p>
+<ol type="1">
+<li><strong>Describe</strong> the structure of your real, sensitive data to a local LLM running entirely on your own machine</li>
+<li><strong>Generate</strong> a synthetic dataset that mirrors the structure, format, and content of the real data — but contains no real participants or real information</li>
+<li><strong>Upload</strong> the synthetic dataset to a cloud AI assistant (Claude, ChatGPT, etc.) and ask it to write the R analysis code you need</li>
+<li><strong>Run</strong> that code locally on your real data</li>
+</ol>
+<p>At no point does any real participant data leave your machine. The cloud AI sees only synthetic examples; your real data stays local throughout.</p>
+<p>This showcase demonstrates the complete workflow for two types of sensitive data that are common in clinical and language research: <strong>conversation transcripts</strong> from patient interviews, and <strong>tabular data</strong> from clinical assessments. Both examples are drawn from a realistic clinical linguistics research scenario.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Prerequisite Tutorials
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Before working through this showcase, you should be comfortable with:</p>
+<ul>
+<li><a href="../..\tutorials/ollama/ollama.html">Local Large Language Models in R with Ollama</a> — the main <code>ollamar</code> tutorial covering installation, <code>generate()</code>, <code>chat()</code>, and prompt engineering</li>
+<li><a href="../..\tutorials/r_intro/r_intro.html">Getting Started with R</a> — R objects, functions, and the tidyverse</li>
+<li><a href="../..\tutorials/data_loading/data_loading.html">Loading and Saving Data</a> — reading and writing files in R</li>
+</ul>
+<p>You will need Ollama installed and the <code>llama3.2</code> model downloaded before running any code in this showcase. See the <a href="../..\tutorials/ollama/ollama.html#setup">Ollama tutorial</a> for setup instructions.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Learning Objectives
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>By the end of this showcase you will be able to:</p>
+<ol type="1">
+<li>Explain the privacy argument for using local LLMs as a synthetic data generation step before engaging cloud AI assistants</li>
+<li>Craft prompts that instruct a local LLM to reproduce the structure, format, and statistical properties of a sensitive dataset without reproducing any real content</li>
+<li>Generate synthetic conversation transcripts that mirror the linguistic features of real interview data</li>
+<li>Generate synthetic tabular data that mirrors the variable names, data types, and value distributions of a real clinical dataset</li>
+<li>Use a synthetic dataset as a proxy when requesting analysis code from a cloud AI assistant</li>
+<li>Verify that R code generated from synthetic data runs correctly on real data</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Citation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Martin Schweinberger. 2026. <em>Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies</em>. The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia. url: https://ladal.edu.au/tutorials/llm_privacy/llm_privacy.html (Version 3.1.1), doi: 10.5281/zenodo.19332911.</p>
+</div>
+</div>
+</section>
+<section id="problem" class="level1">
+<h1>The Privacy Problem</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> Why sensitive research data cannot be uploaded to cloud AI services; the specific ethics and governance constraints that apply; and why a synthetic proxy approach addresses these constraints without sacrificing analytical capability</p>
+</div>
+</div>
+<section id="why-cloud-ai-services-are-off-limits-for-sensitive-data" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="why-cloud-ai-services-are-off-limits-for-sensitive-data">Why cloud AI services are off-limits for sensitive data</h2>
+<p>Consider a researcher studying language use in patients with mild cognitive impairment. She has collected 80 recorded and transcribed interviews with patients. Each transcript contains:</p>
+<ul>
+<li>The patient’s name (or pseudonym linked to a key file)</li>
+<li>Detailed descriptions of their cognitive difficulties, daily life, and emotional state</li>
+<li>Potentially identifying information about family members and healthcare providers</li>
+</ul>
+<p>She wants to use Claude or ChatGPT to help her write R code that extracts linguistic features from the transcripts — but her ethics approval explicitly states that participant data may only be stored and processed on university-approved infrastructure. Sending the transcripts to Anthropic’s or OpenAI’s servers would breach this condition.</p>
+<p>This is not an unusual situation. Across disciplines, data governance constraints commonly prohibit uploading:</p>
+<ul>
+<li><strong>Clinical data</strong> — patient records, therapy session transcripts, cognitive assessment scores</li>
+<li><strong>Survey data with open-ended responses</strong> — especially when topics are sensitive (mental health, sexuality, immigration status, criminal history)</li>
+<li><strong>Educational data</strong> — student assessment records, learning disability diagnoses</li>
+<li><strong>Legal data</strong> — witness statements, court transcripts, case records</li>
+<li><strong>Sociolinguistic fieldwork data</strong> — recordings and transcripts from vulnerable communities, minority language speakers, or speakers who have given consent for specific uses only</li>
+</ul>
+</section>
+<section id="what-the-researcher-actually-needs" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="what-the-researcher-actually-needs">What the researcher actually needs</h2>
+<p>In most cases, the researcher does not need the AI assistant to <em>analyse</em> the data — she needs it to <em>write code</em> that she will then run locally. The AI’s job is to understand the data structure and produce syntactically correct, well-commented R code. For this task, the AI does not need real data. It needs data that looks like real data.</p>
+</section>
+<section id="the-synthetic-proxy-solution" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="the-synthetic-proxy-solution">The synthetic proxy solution</h2>
+<p>A <strong>synthetic data proxy</strong> is a dataset that:</p>
+<ul>
+<li>Has exactly the same structure as the real dataset (same columns, same variable types, same format)</li>
+<li>Has the same statistical and linguistic properties as the real dataset (similar distributions, similar vocabulary, similar text length)</li>
+<li>Contains no real participants, no real measurements, and no identifying information</li>
+</ul>
+<p>With a good synthetic proxy, a cloud AI assistant can write analysis code that runs on the real data without ever having seen any of it.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Why a local LLM for generation?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>You might ask: why not generate synthetic data manually, or use a statistical package like <code>synthpop</code>? For <strong>tabular data</strong>, statistical synthesis packages are often a good choice — we discuss this below. But for <strong>text data</strong> (transcripts, open-ended responses, narrative descriptions), generating realistic synthetic text manually is time-consuming, and most statistical synthesis methods do not apply. A local LLM can produce realistic synthetic transcripts in seconds, guided by a detailed prompt that describes the real data’s structure and content without exposing any actual participant information.</p>
+<p>The local LLM also handles the generation step with complete privacy: the description of your sensitive data never leaves your machine.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="workflow" class="level1">
+<h1>The Workflow</h1>
+<p>The complete workflow consists of five steps, which we will work through in detail for each data type:</p>
+<pre><code>Step 1: Describe the real data structure to the local LLM
+          (no actual participant data in the prompt)
+              │
+              ▼
+Step 2: Local LLM generates a synthetic proxy dataset
+          (runs entirely on your machine — no data leaves)
+              │
+              ▼
+Step 3: Upload the synthetic proxy to a cloud AI assistant
+          (Claude, ChatGPT, etc.)
+          + describe what analysis you want
+          + ask for R code
+              │
+              ▼
+Step 4: Cloud AI returns R code based on the synthetic data
+              │
+              ▼
+Step 5: Run the R code locally on your real data
+          (the real data never left your machine)</code></pre>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Always verify generated code on synthetic data first
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Before running AI-generated code on your real sensitive dataset, test it on the synthetic data to confirm it runs without errors and produces sensible output. Only then run it on the real data.</p>
+</div>
+</div>
+<hr>
+</section>
+<section id="setup" class="level1">
+<h1>Setup</h1>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Install required packages</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="fu">c</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"ollamar"</span>,    <span class="co"># R interface to Ollama</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"dplyr"</span>,      <span class="co"># data manipulation</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"tibble"</span>,     <span class="co"># tidy data frames</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"stringr"</span>,    <span class="co"># string processing</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"readr"</span>,      <span class="co"># reading and writing CSV files</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"purrr"</span>,      <span class="co"># functional iteration</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"flextable"</span>,  <span class="co"># formatted tables</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">"jsonlite"</span>    <span class="co"># JSON parsing</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ollamar)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(purrr)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(flextable)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(jsonlite)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify Ollama is running before proceeding</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ollamar<span class="sc">::</span><span class="fu">test_connection</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>&lt;httr2_response&gt;
+GET http://localhost:11434/
+Status: 200 OK
+Content-Type: text/plain
+Body: In memory (17 bytes)</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ollamar<span class="sc">::</span><span class="fu">list_models</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>                     name   size parameter_size quantization_level
+1         llama3.2:latest   2 GB           3.2B             Q4_K_M
+2 nomic-embed-text:latest 274 MB           137M                F16
+             modified
+1 2026-03-20T08:40:36
+2 2026-03-20T08:40:37</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Ollama Must Be Running
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>All <code>ollamar</code> calls in this showcase require Ollama to be installed and running as a background service. If you have not yet installed Ollama, see the <a href="../..\tutorials/ollama/ollama.html#setup">setup section of the main Ollama tutorial</a>.</p>
+<p>Pull the model used in this showcase if you have not already done so:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">ollama</span> pull llama3.2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<hr>
+</section>
+<section id="transcripts" class="level1">
+<h1>Part 1: Synthetic Conversation Transcripts</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> How to describe the structure and content of a sensitive interview transcript to a local LLM; how to prompt the model to generate a realistic synthetic version; how to verify the synthetic transcript is structurally equivalent to the real data; and how to use the synthetic transcript to get analysis code from a cloud AI assistant</p>
+</div>
+</div>
+<section id="the-research-scenario" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="the-research-scenario">The research scenario</h2>
+<p>A clinical linguist has collected transcribed interviews with 40 patients diagnosed with early-stage Alzheimer’s disease. Each interview follows a semi-structured format in which the clinician asks a series of standard questions and the patient responds. The transcripts use a simplified CHAT-like notation: speaker turns are marked with <code>*CLI:</code> (clinician) and <code>*PAT:</code> (patient), pauses are marked with <code>(.)</code> for short pauses and <code>(..)</code> for longer ones, and incomplete words are marked with a trailing hyphen.</p>
+<p>The researcher wants to use a cloud AI assistant to write an R script that:</p>
+<ol type="1">
+<li>Reads the transcript files</li>
+<li>Extracts all patient turns</li>
+<li>Calculates mean utterance length per patient</li>
+<li>Identifies and counts filled pauses (<em>uh</em>, <em>um</em>, <em>er</em>)</li>
+<li>Outputs a summary table</li>
+</ol>
+<p>She cannot upload real transcripts to the cloud AI — but she can generate a synthetic transcript that has the same format and similar linguistic properties, and use that as a proxy.</p>
+</section>
+<section id="step-1-describe-the-real-data-structure" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-1-describe-the-real-data-structure">Step 1: Describe the real data structure</h2>
+<p>The first prompt describes the data structure <strong>without including any real participant data</strong>. We tell the model what the format looks like, what linguistic features are present, and what range of language we expect — but we do not paste in any actual transcript.</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1: Describe the data structure to the local LLM</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># No real participant data is included in this prompt</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>structure_description <span class="ot">&lt;-</span> <span class="st">"</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="st">I am working with transcripts of clinical interviews with patients who have</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="st">early-stage Alzheimer's disease. I need you to generate a realistic synthetic</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="st">example transcript that I can use as a proxy when asking a cloud AI assistant</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="st">to write R analysis code. The synthetic transcript must NOT contain any real</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="st">participant information.</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="st">The transcripts use this format:</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="st">- Speaker turns are marked with *CLI: (clinician) or *PAT: (patient)</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="st">- Short pauses within a turn are marked with (.)</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="st">- Longer pauses are marked with (..)</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="st">- Incomplete or abandoned words end with a hyphen, e.g. 'I was go- going'</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a><span class="st">- Filled pauses (uh, um, er) appear in the text as spoken</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a><span class="st">- Each turn is on its own line</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a><span class="st">- The transcript begins with a @Begin marker and ends with @End</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a><span class="st">- Metadata lines at the top use @ notation: @Participants, @Date, @Location</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="st">The interviews typically:</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="st">- Last about 15 minutes (approximately 80-120 speaker turns total)</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="st">- Follow a semi-structured format where the clinician asks standard questions</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="st">  about daily activities, memory, and family</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="st">- Show typical features of MCI/AD language: word-finding pauses, repetitions,</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="st">  incomplete sentences, topic drift, and difficulty with complex constructions</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="st">- The patient turns average about 12-20 words, with considerable variation</span></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a><span class="st">Please generate ONE complete synthetic transcript of approximately 40 turns</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a><span class="st">(roughly 20 exchanges) that realistically mirrors this format and these</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a><span class="st">linguistic features. Use clearly fictional names (e.g. 'Dr Smith' and</span></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a><span class="st">'Patient: Margaret') and fictional details throughout. Do not base the</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="st">content on any real person.</span></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="step-2-generate-the-synthetic-transcript" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-2-generate-the-synthetic-transcript">Step 2: Generate the synthetic transcript</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Generate the synthetic transcript using the local LLM</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Everything runs on your machine — no data leaves</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Generating synthetic transcript...</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Generating synthetic transcript...</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>synthetic_transcript <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">generate</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">model  =</span> <span class="st">"llama3.2"</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">prompt =</span> structure_description,</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">"text"</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(synthetic_transcript)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Here is a synthetic transcript of approximately 40 turns, roughly 20 exchanges:
+
+@Participants
+*Clinician: Dr. Lee
+*Patient: Ms. Johnson
+
+@Date: March 12, 2023
+@Location: Clinic Office
+
+@Begin
+*CLI: Dr. Lee
+Hi Ms. Johnson, thanks for coming in today. Can you tell me a little bit about your daily routine?
+
+*PAT: Um, I wake up... going to the kitchen to make breakfast.
+
+*CLI: Great, can you walk me through that process? What's your favorite thing to have for breakfast?
+
+*PAT: Scrambled egg- s, uh, eggs. 
+
+*CLI: And how do you take them? With or without salt?
+
+*PAT: Salt... I think...
+
+*CLI: Okay, and then what happens after breakfast? Do you have any chores or appointments?
+
+*PAT: (..) Oh, yeah... I need to vacuum the living room.
+
+*CLI: That sounds like a big job. Do you do it on your own or with some help?
+
+*PAT: My daughter comes over... she helps me.
+
+*CLI: That's great! It's wonderful that you have a supportive family member.
+
+*PAT: (Pauses) Oh, and I need to call my sister...
+
+*CLI: Can you tell me more about why you're making those calls? What's going on with your sister?
+
+*PAT: She's... she's having trouble too. Alzheimer's, they said.
+
+*CLI: I'm so sorry to hear that. Have you noticed any changes in her behavior or cognitive abilities?
+
+*PAT: (Pauses) Um, what was the question again?
+
+*CLI: You were telling me about your sister's situation. Can you clarify what you mean by "changes"?
+
+*PAT: Changes... (sighs)
+
+*CLI: Okay, and then there's also your husband. How is he doing? Is he experiencing any difficulties with memory or daily activities?
+
+*PAT: He's... he's okay, I think. (Pauses) What was that question again?
+
+*CLI: Your husband's daily routine. Can you walk me through it from start to finish?
+
+*PAT: (Pauses) Um...
+
+*CLI: It's okay, take your time. We can come back to this later if needed.
+
+*PAT: (Sighs)
+
+@End</code></pre>
+</div>
+</div>
+<p>A well-formed synthetic transcript generated by the model will look something like this (this example was produced by llama3.2 using the prompt above):</p>
+<pre><code>@Begin
+@Participants: CLI Dr_Smith Clinician, PAT Margaret Patient
+@Date: 15-MAR-2024
+@Location: Memory Clinic, City Hospital
+@Comment: Synthetic example transcript — not based on any real participant
+
+*CLI: Good morning Margaret. How are you feeling today?
+*PAT: Oh (.) good morning. I'm (.) I'm feeling alright I think. A bit tired.
+*CLI: Did you sleep well last night?
+*PAT: Well I (.) I tried to. I woke up a few times. I couldn't remember (.)
+      I couldn't remember if I had taken my tablets.
+*CLI: I see. What did you have for breakfast this morning?
+*PAT: Breakfast. Yes. I had (.) um (.) I had some toast I think. Or was it
+      cereal? My daughter usually (..) my daughter usually helps me in the
+      morning. She's very good.
+*CLI: That's lovely. How long has your daughter been helping you?
+*PAT: Oh (.) a long time now. Since my husband. Since George pass- passed.
+      That was (.) that was two years ago I think. Or maybe three.
+*CLI: I'm sorry to hear that. Can you tell me what you did yesterday?
+*PAT: Yesterday. Um (.) I think I watched the television. And I had a
+      a walk I think. In the garden. I like the garden. I used to (.)
+      I used to grow vegetables. Beans and things.
+*CLI: That sounds nice. Do you still do any gardening?
+*PAT: Not so much now. My hands (.) my hands aren't what they were.
+      And I forget (.) I forget what I planted. I started to write things
+      down but then I lose- I lose the notebook.
+*CLI: What day of the week is it today Margaret?
+*PAT: Today? Um (..) it's (.) is it Wednesday? I think Wednesday.
+      No (..) I'm not sure actually. I thought it was Wednesday but
+      my daughter said something about Thursday.
+*CLI: It is Thursday, yes. That's alright. Can you tell me your address?
+*PAT: My address. Yes. I live at (.) um (.) I live at twelve (..)
+      twelve (..) the street name (.) oh I know this. It's (.) it starts
+      with a B. Birch- Birch something.
+*CLI: Take your time.
+*PAT: Birchwood. I think Birchwood Lane. Number twelve. I've lived there
+      thirty years. You'd think I'd know it.
+*CLI: You're doing really well. How would you describe your memory lately?
+*PAT: My memory. Well (.) not very good if I'm honest. I forget words
+      a lot. I know what I want to say but the word (.) the word just
+      doesn't come. It's very (.) it's very frustrating.
+@End</code></pre>
+</section>
+<section id="saving-the-synthetic-transcript" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="saving-the-synthetic-transcript">Saving the synthetic transcript</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save the synthetic transcript to a file</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co"># This is the file you will share with the cloud AI assistant</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">writeLines</span>(</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  synthetic_transcript,</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"tutorials/llm_privacy/data/synthetic_transcript_example.cha"</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="fu">message</span>(<span class="st">"Synthetic transcript saved."</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="generating-multiple-synthetic-transcripts" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="generating-multiple-synthetic-transcripts">Generating multiple synthetic transcripts</h2>
+<p>For analysis code that processes multiple files, it is useful to generate several synthetic transcripts with some variation. We can do this in a loop:</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate three synthetic transcripts with slightly different profiles</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="co"># to give the cloud AI a realistic multi-file example to work with</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>patient_profiles <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">name   =</span> <span class="st">"Margaret"</span>,</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">age    =</span> <span class="dv">74</span>,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">notes  =</span> <span class="st">"shows word-finding pauses, some repetition, generally coherent"</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">name   =</span> <span class="st">"Robert"</span>,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">age    =</span> <span class="dv">81</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">notes  =</span> <span class="st">"more frequent topic drift, longer filled pauses, shorter turns"</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">name   =</span> <span class="st">"Dorothy"</span>,</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">age    =</span> <span class="dv">68</span>,</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">notes  =</span> <span class="st">"earlier stage, mostly fluent but occasional word-finding difficulty"</span></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">"tutorials/llm_privacy/data/synthetic_transcripts"</span>,</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>           <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(patient_profiles)) {</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>  profile <span class="ot">&lt;-</span> patient_profiles[[i]]</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>  prompt_i <span class="ot">&lt;-</span> <span class="fu">paste0</span>(</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Generate a synthetic clinical interview transcript for a patient with</span></span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a><span class="st">    early-stage Alzheimer's disease. Use the CHAT format described below.</span></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a><span class="st">    The patient's name is "</span>, profile<span class="sc">$</span>name, <span class="st">", age "</span>, profile<span class="sc">$</span>age, <span class="st">".</span></span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a><span class="st">    Language profile: "</span>, profile<span class="sc">$</span>notes, <span class="st">".</span></span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a><span class="st">    Format rules:</span></span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a><span class="st">    - Speaker turns marked *CLI: and *PAT:</span></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a><span class="st">    - Short pauses: (.) longer pauses: (..)</span></span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a><span class="st">    - Incomplete words end with hyphen</span></span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a><span class="st">    - Filled pauses (uh, um, er) written as spoken</span></span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a><span class="st">    - Begin with @Begin and metadata; end with @End</span></span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a><span class="st">    - Approximately 30-40 turns total</span></span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a><span class="st">    - Use entirely fictional names, places, and details</span></span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a><span class="st">    - Do NOT base on any real person</span></span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a><span class="st">    Clinician is Dr Chen."</span></span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(i)  <span class="co"># for reproducibility of the prompt framing</span></span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a>  transcript_i <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">generate</span>(</span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">model  =</span> <span class="st">"llama3.2"</span>,</span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">prompt =</span> prompt_i,</span>
+<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">output =</span> <span class="st">"text"</span></span>
+<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>  out_file <span class="ot">&lt;-</span> <span class="fu">paste0</span>(</span>
+<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a>    <span class="st">"tutorials/llm_privacy/data/synthetic_transcripts/synthetic_"</span>,</span>
+<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tolower</span>(profile<span class="sc">$</span>name), <span class="st">".cha"</span></span>
+<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">writeLines</span>(transcript_i, out_file)</span>
+<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">message</span>(<span class="st">"Saved: "</span>, out_file)</span>
+<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="step-3-getting-analysis-code-from-a-cloud-ai" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-3-getting-analysis-code-from-a-cloud-ai">Step 3: Getting analysis code from a cloud AI</h2>
+<p>With synthetic transcripts saved, the researcher can now open Claude (claude.ai), ChatGPT, or any other cloud AI assistant and share:</p>
+<ol type="1">
+<li>One or more synthetic transcript files as attachments</li>
+<li>A request for R code to perform the analysis</li>
+</ol>
+<p>A well-formed request might look like this:</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Example prompt to Claude or ChatGPT
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<blockquote class="blockquote">
+<p>I have attached a synthetic example of the transcript format I am working with. These are clinical interview transcripts in CHAT notation. Please write R code that:</p>
+<ol type="1">
+<li>Reads all <code>.cha</code> files from a folder called <code>data/transcripts/</code></li>
+<li>Extracts all patient turns (lines starting with <code>*PAT:</code>)</li>
+<li>Calculates the mean number of words per patient turn for each file</li>
+<li>Counts the number of filled pauses (<code>uh</code>, <code>um</code>, <code>er</code>) per file</li>
+<li>Counts the number of incomplete words (words ending in <code>-</code>) per file</li>
+<li>Returns a tidy data frame with one row per file and these four summary columns</li>
+</ol>
+<p>Please include comments explaining each step. The real transcripts have the same format as the attached example.</p>
+</blockquote>
+</div>
+</div>
+</section>
+<section id="step-4-the-code-returned-by-the-cloud-ai" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-4-the-code-returned-by-the-cloud-ai">Step 4: The code returned by the cloud AI</h2>
+<p>The cloud AI will return code similar to the following. This code was generated by Claude based on the synthetic transcript above:</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R code generated by Claude from the synthetic transcript proxy</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Run this on your real data locally — the real data never left your machine</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stringr)</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(purrr)</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Helper functions ----</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract all patient turns from a single CHAT transcript</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>extract_patient_turns <span class="ot">&lt;-</span> <span class="cf">function</span>(file_path) {</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>  lines <span class="ot">&lt;-</span> <span class="fu">readLines</span>(file_path, <span class="at">encoding =</span> <span class="st">"UTF-8"</span>, <span class="at">warn =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Patient turns start with *PAT:</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>  pat_lines <span class="ot">&lt;-</span> lines[<span class="fu">str_detect</span>(lines, <span class="st">"^</span><span class="sc">\\</span><span class="st">*PAT:"</span>)]</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Remove the *PAT: prefix and clean whitespace</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">str_remove</span>(pat_lines, <span class="st">"^</span><span class="sc">\\</span><span class="st">*PAT:</span><span class="sc">\\</span><span class="st">s*"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_squish</span>()</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Count words in a vector of utterances</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>count_words <span class="ot">&lt;-</span> <span class="cf">function</span>(utterances) {</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">str_count</span>(utterances, <span class="st">"</span><span class="sc">\\</span><span class="st">S+"</span>)</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Count filled pauses (uh, um, er as whole words)</span></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>count_filled_pauses <span class="ot">&lt;-</span> <span class="cf">function</span>(utterances) {</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">str_count</span>(</span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tolower</span>(<span class="fu">paste</span>(utterances, <span class="at">collapse =</span> <span class="st">" "</span>)),</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\\</span><span class="st">b(uh|um|er)</span><span class="sc">\\</span><span class="st">b"</span></span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Count incomplete words (words ending with a hyphen)</span></span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>count_incomplete_words <span class="ot">&lt;-</span> <span class="cf">function</span>(utterances) {</span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">str_count</span>(</span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste</span>(utterances, <span class="at">collapse =</span> <span class="st">" "</span>),</span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\\</span><span class="st">b</span><span class="sc">\\</span><span class="st">w+-(?=</span><span class="sc">\\</span><span class="st">s|$)"</span></span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Main analysis ----</span></span>
+<span id="cb17-43"><a href="#cb17-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-44"><a href="#cb17-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Get all .cha files in the transcripts folder</span></span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a>transcript_files <span class="ot">&lt;-</span> <span class="fu">list.files</span>(</span>
+<span id="cb17-46"><a href="#cb17-46" aria-hidden="true" tabindex="-1"></a>  <span class="at">path       =</span> <span class="st">"data/transcripts"</span>,</span>
+<span id="cb17-47"><a href="#cb17-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">pattern    =</span> <span class="st">"</span><span class="sc">\\</span><span class="st">.cha$"</span>,</span>
+<span id="cb17-48"><a href="#cb17-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">full.names =</span> <span class="cn">TRUE</span></span>
+<span id="cb17-49"><a href="#cb17-49" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb17-50"><a href="#cb17-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-51"><a href="#cb17-51" aria-hidden="true" tabindex="-1"></a><span class="co"># Process each file and return a summary row</span></span>
+<span id="cb17-52"><a href="#cb17-52" aria-hidden="true" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(transcript_files, <span class="cf">function</span>(f) {</span>
+<span id="cb17-53"><a href="#cb17-53" aria-hidden="true" tabindex="-1"></a>  turns <span class="ot">&lt;-</span> <span class="fu">extract_patient_turns</span>(f)</span>
+<span id="cb17-54"><a href="#cb17-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-55"><a href="#cb17-55" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(turns) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb17-56"><a href="#cb17-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="fu">tibble</span>(</span>
+<span id="cb17-57"><a href="#cb17-57" aria-hidden="true" tabindex="-1"></a>      <span class="at">file              =</span> <span class="fu">basename</span>(f),</span>
+<span id="cb17-58"><a href="#cb17-58" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_turns           =</span> <span class="dv">0</span>L,</span>
+<span id="cb17-59"><a href="#cb17-59" aria-hidden="true" tabindex="-1"></a>      <span class="at">mean_words_per_turn =</span> <span class="cn">NA_real_</span>,</span>
+<span id="cb17-60"><a href="#cb17-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_filled_pauses   =</span> <span class="cn">NA_integer_</span>,</span>
+<span id="cb17-61"><a href="#cb17-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">n_incomplete_words =</span> <span class="cn">NA_integer_</span></span>
+<span id="cb17-62"><a href="#cb17-62" aria-hidden="true" tabindex="-1"></a>    ))</span>
+<span id="cb17-63"><a href="#cb17-63" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb17-64"><a href="#cb17-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-65"><a href="#cb17-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb17-66"><a href="#cb17-66" aria-hidden="true" tabindex="-1"></a>    <span class="at">file                =</span> <span class="fu">basename</span>(f),</span>
+<span id="cb17-67"><a href="#cb17-67" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_turns             =</span> <span class="fu">length</span>(turns),</span>
+<span id="cb17-68"><a href="#cb17-68" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_words_per_turn =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="fu">count_words</span>(turns)), <span class="dv">2</span>),</span>
+<span id="cb17-69"><a href="#cb17-69" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_filled_pauses     =</span> <span class="fu">count_filled_pauses</span>(turns),</span>
+<span id="cb17-70"><a href="#cb17-70" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_incomplete_words  =</span> <span class="fu">count_incomplete_words</span>(turns)</span>
+<span id="cb17-71"><a href="#cb17-71" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb17-72"><a href="#cb17-72" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb17-73"><a href="#cb17-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-74"><a href="#cb17-74" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(results)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 0 × 0</code></pre>
+</div>
+</div>
+</section>
+<section id="step-5-run-on-real-data" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-5-run-on-real-data">Step 5: Run on real data</h2>
+<p>The researcher now runs this code locally against her real transcript files — simply changing <code>"data/transcripts"</code> to the path where her real <code>.cha</code> files are stored. The real data never left her machine at any point in the workflow.</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5: Run the generated code on real data</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Only change needed: point to the real data folder</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>real_transcript_files <span class="ot">&lt;-</span> <span class="fu">list.files</span>(</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">path       =</span> <span class="st">"data/real_transcripts"</span>,  <span class="co"># &lt;-- your real data folder</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pattern    =</span> <span class="st">"</span><span class="sc">\\</span><span class="st">.cha$"</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">full.names =</span> <span class="cn">TRUE</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run the analysis using the same helper functions defined above</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>real_results <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(real_transcript_files, <span class="cf">function</span>(f) {</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>  turns <span class="ot">&lt;-</span> <span class="fu">extract_patient_turns</span>(f)</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">file                =</span> <span class="fu">basename</span>(f),</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_turns             =</span> <span class="fu">length</span>(turns),</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_words_per_turn =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="fu">count_words</span>(turns)), <span class="dv">2</span>),</span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_filled_pauses     =</span> <span class="fu">count_filled_pauses</span>(turns),</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_incomplete_words  =</span> <span class="fu">count_incomplete_words</span>(turns)</span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Save results</span></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a><span class="fu">write_csv</span>(real_results, <span class="st">"output/transcript_summary.csv"</span>)</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(real_results)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 0 × 0</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Verifying the code works before using real data
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Always test the AI-generated code on the synthetic data first:</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test on synthetic data — confirm no errors and sensible output</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>test_files <span class="ot">&lt;-</span> <span class="fu">list.files</span>(</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">path       =</span> <span class="st">"tutorials/llm_privacy/data/synthetic_transcripts"</span>,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">pattern    =</span> <span class="st">"</span><span class="sc">\\</span><span class="st">.cha$"</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">full.names =</span> <span class="cn">TRUE</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>test_results <span class="ot">&lt;-</span> <span class="fu">map_dfr</span>(test_files, <span class="cf">function</span>(f) {</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  turns <span class="ot">&lt;-</span> <span class="fu">extract_patient_turns</span>(f)</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">file                =</span> <span class="fu">basename</span>(f),</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_turns             =</span> <span class="fu">length</span>(turns),</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">mean_words_per_turn =</span> <span class="fu">round</span>(<span class="fu">mean</span>(<span class="fu">count_words</span>(turns)), <span class="dv">2</span>),</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_filled_pauses     =</span> <span class="fu">count_filled_pauses</span>(turns),</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_incomplete_words  =</span> <span class="fu">count_incomplete_words</span>(turns)</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(test_results)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 5
+  file            n_turns mean_words_per_turn n_filled_pauses n_incomplete_words
+  &lt;chr&gt;             &lt;int&gt;               &lt;dbl&gt;           &lt;int&gt;              &lt;int&gt;
+1 synthetic_doro…       8                1                  0                  0
+2 synthetic_marg…       0              NaN                  0                  0
+3 synthetic_robe…       8                4.62               6                  0</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># If this runs without errors and produces plausible numbers,</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="co"># the code is ready to run on the real data.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="tabular" class="level1">
+<h1>Part 2: Synthetic Tabular Data</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> How to describe the structure of a sensitive clinical dataset to a local LLM; how to prompt the model to generate a synthetic tabular dataset as a CSV; how to parse and validate the output; and how to use the synthetic table to obtain analysis code from a cloud AI assistant</p>
+</div>
+</div>
+<section id="the-research-scenario-1" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="the-research-scenario-1">The research scenario</h2>
+<p>The same research team has also collected a structured dataset accompanying the interviews. For each of the 40 participants, a research assistant has recorded demographic information and scores from three standardised cognitive assessments administered at baseline and at a 12-month follow-up. The dataset is stored as a CSV file with the following variables:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variable</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>patient_id</code></td>
+<td>character</td>
+<td>Anonymised ID (e.g.&nbsp;<code>AD_001</code>)</td>
+</tr>
+<tr class="even">
+<td><code>age</code></td>
+<td>integer</td>
+<td>Age in years at baseline</td>
+</tr>
+<tr class="odd">
+<td><code>sex</code></td>
+<td>character</td>
+<td><code>"F"</code> or <code>"M"</code></td>
+</tr>
+<tr class="even">
+<td><code>education_years</code></td>
+<td>integer</td>
+<td>Years of formal education</td>
+</tr>
+<tr class="odd">
+<td><code>diagnosis</code></td>
+<td>character</td>
+<td><code>"MCI"</code> or <code>"AD"</code></td>
+</tr>
+<tr class="even">
+<td><code>mmse_baseline</code></td>
+<td>integer</td>
+<td>MMSE score at baseline (0–30)</td>
+</tr>
+<tr class="odd">
+<td><code>mmse_followup</code></td>
+<td>integer</td>
+<td>MMSE score at 12-month follow-up</td>
+</tr>
+<tr class="even">
+<td><code>fluency_baseline</code></td>
+<td>integer</td>
+<td>Verbal fluency (words in 60 sec)</td>
+</tr>
+<tr class="odd">
+<td><code>fluency_followup</code></td>
+<td>integer</td>
+<td>Verbal fluency at 12-month follow-up</td>
+</tr>
+<tr class="even">
+<td><code>depression_score</code></td>
+<td>integer</td>
+<td>GDS-15 depression screening score (0–15)</td>
+</tr>
+<tr class="odd">
+<td><code>dropout</code></td>
+<td>character</td>
+<td><code>"yes"</code> or <code>"no"</code> — whether participant withdrew before follow-up</td>
+</tr>
+</tbody>
+</table>
+<p>The researcher wants the cloud AI to write R code that:</p>
+<ol type="1">
+<li>Reads the CSV</li>
+<li>Computes change scores for MMSE and fluency (follow-up minus baseline)</li>
+<li>Compares change scores between MCI and AD groups</li>
+<li>Visualises the change scores with a grouped box plot</li>
+</ol>
+</section>
+<section id="step-1-describe-the-data-structure" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-1-describe-the-data-structure">Step 1: Describe the data structure</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1: Describe the table structure to the local LLM</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="co"># No real participant data included</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>tabular_description <span class="ot">&lt;-</span> <span class="st">"</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="st">I need you to generate a synthetic dataset as a CSV that I can use as a proxy</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="st">when asking a cloud AI to write R analysis code. The real dataset is sensitive</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="st">clinical data that I cannot share externally. The synthetic version must:</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="st">1. Have exactly this structure (column names and types must match exactly):</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="st">   - patient_id: character, format 'AD_001' to 'AD_040'</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="st">   - age: integer, range 65-88, approximately normally distributed, mean ~74</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="st">   - sex: character, 'F' or 'M', approximately 60% female</span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="st">   - education_years: integer, range 8-20, mean ~13</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a><span class="st">   - diagnosis: character, 'MCI' or 'AD', approximately 55% MCI</span></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a><span class="st">   - mmse_baseline: integer, range 18-30 for MCI (mean ~26), 12-24 for AD (mean ~20)</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="st">   - mmse_followup: integer, generally 1-4 points lower than baseline;</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a><span class="st">     about 15% of participants show no change or slight improvement;</span></span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="st">     participants who dropped out have NA</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="st">   - fluency_baseline: integer, range 8-22 for MCI (mean ~15), 5-16 for AD (mean ~11)</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a><span class="st">   - fluency_followup: integer, generally 1-3 lower than baseline;</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a><span class="st">     participants who dropped out have NA</span></span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a><span class="st">   - depression_score: integer, range 0-15, mean ~4, right-skewed</span></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a><span class="st">   - dropout: character, 'yes' or 'no'; approximately 20% dropout;</span></span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a><span class="st">     dropout participants have NA for all followup variables</span></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="st">2. Have 40 rows (one per participant)</span></span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a><span class="st">3. Show realistic correlations (e.g. older age and lower education tend to</span></span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a><span class="st">   co-occur with AD rather than MCI; higher depression associated with lower MMSE)</span></span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a><span class="st">4. Contain NO real participant data — all values must be entirely fabricated</span></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a><span class="st">5. Be returned as a valid CSV with a header row and no row numbers</span></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a><span class="st">Return ONLY the CSV content. No explanation, no markdown code blocks,</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a><span class="st">no preamble. Just the raw CSV starting with the header line.</span></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="step-2-generate-the-synthetic-table" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-2-generate-the-synthetic-table">Step 2: Generate the synthetic table</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2: Generate the synthetic CSV using the local LLM</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Generating synthetic dataset...</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Generating synthetic dataset...</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>synthetic_csv_raw <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">generate</span>(</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">model  =</span> <span class="st">"llama3.2"</span>,</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">prompt =</span> tabular_description,</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">"text"</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="co"># The model may wrap output in markdown code blocks — strip them if present</span></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>synthetic_csv_clean <span class="ot">&lt;-</span> synthetic_csv_raw <span class="sc">|&gt;</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">"^```[a-z]*</span><span class="sc">\\</span><span class="st">n?"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">"```</span><span class="sc">\\</span><span class="st">s*$"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>  stringr<span class="sc">::</span><span class="fu">str_trim</span>(<span class="at">side =</span> <span class="st">"both"</span>)</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">substr</span>(synthetic_csv_clean, <span class="dv">1</span>, <span class="dv">500</span>))     <span class="co"># preview first 500 characters</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>patient_id,population_status,age,sex,education_years,disease diagnosis,mms_e_baseline,mms_e_followup,f_luency_baseline,f_luency_followup,d_tension_score,d_tension_status
+AD_001,unknown,77,M,MCI,25,26,14,12,10,4,no
+AD_002,unknown,71,F,MCI,24,27,16,13,9,3,no
+AD_003,unknown,69,M,AD,20,19,11,8,7,5,yes
+AD_004,unknown,76,M,AD,23,21,12,10,8,6,yes
+AD_005,unknown,68,F,MCI,22,26,15,14,11,4,no
+AD_006,unknown,73,M,AD,24,20,13,9,7,5,yes
+AD_007,unknown,67,F,MCI,21,25,17,16,10,3,no
+AD_008,unknown,75,F,AD,26,22</code></pre>
+</div>
+</div>
+</section>
+<section id="parsing-and-validating-the-synthetic-table" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="parsing-and-validating-the-synthetic-table">Parsing and validating the synthetic table</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Parse the CSV string into a data frame</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>synthetic_df <span class="ot">&lt;-</span> readr<span class="sc">::</span><span class="fu">read_csv</span>(</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">I</span>(synthetic_csv_clean),   <span class="co"># I() tells read_csv to treat the string as file content</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">show_col_types =</span> <span class="cn">FALSE</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Validate structure</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Dimensions:"</span>, <span class="fu">nrow</span>(synthetic_df), <span class="st">"rows x"</span>, <span class="fu">ncol</span>(synthetic_df), <span class="st">"columns</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Dimensions: 10 rows x 12 columns</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Column names:"</span>, <span class="fu">paste</span>(<span class="fu">names</span>(synthetic_df), <span class="at">collapse =</span> <span class="st">", "</span>), <span class="st">"</span><span class="sc">\n\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Column names: patient_id, population_status, age, sex, education_years, disease diagnosis, mms_e_baseline, mms_e_followup, f_luency_baseline, f_luency_followup, d_tension_score, d_tension_status </code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Check for expected columns</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>expected_cols <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"patient_id"</span>, <span class="st">"age"</span>, <span class="st">"sex"</span>, <span class="st">"education_years"</span>, <span class="st">"diagnosis"</span>,</span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"mmse_baseline"</span>, <span class="st">"mmse_followup"</span>, <span class="st">"fluency_baseline"</span>,</span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"fluency_followup"</span>, <span class="st">"depression_score"</span>, <span class="st">"dropout"</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>missing_cols <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(expected_cols, <span class="fu">names</span>(synthetic_df))</span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(missing_cols) <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">warning</span>(<span class="st">"Missing columns: "</span>, <span class="fu">paste</span>(missing_cols, <span class="at">collapse =</span> <span class="st">", "</span>))</span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"All expected columns present.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick summary</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(synthetic_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>  patient_id        population_status       age           sex           
+ Length:10          Length:10          Min.   :67.0   Length:10         
+ Class :character   Class :character   1st Qu.:69.5   Class :character  
+ Mode  :character   Mode  :character   Median :71.5   Mode  :character  
+                                       Mean   :71.9                     
+                                       3rd Qu.:74.5                     
+                                       Max.   :77.0                     
+ education_years    disease diagnosis mms_e_baseline mms_e_followup
+ Length:10          Min.   :20.0      Min.   :19.0   Min.   :11.0  
+ Class :character   1st Qu.:22.2      1st Qu.:21.2   1st Qu.:13.2  
+ Mode  :character   Median :24.0      Median :24.0   Median :14.5  
+                    Mean   :23.8      Mean   :23.8   Mean   :14.6  
+                    3rd Qu.:25.0      3rd Qu.:26.0   3rd Qu.:15.8  
+                    Max.   :28.0      Max.   :29.0   Max.   :19.0  
+ f_luency_baseline f_luency_followup d_tension_score d_tension_status  
+ Min.   : 8.0      Min.   : 7.0      Min.   :3.0     Length:10         
+ 1st Qu.:10.2      1st Qu.: 8.0      1st Qu.:4.0     Class :character  
+ Median :12.0      Median : 9.0      Median :4.5     Mode  :character  
+ Mean   :12.3      Mean   : 9.1      Mean   :4.5                       
+ 3rd Qu.:13.8      3rd Qu.:10.0      3rd Qu.:5.0                       
+ Max.   :18.0      Max.   :12.0      Max.   :6.0                       </code></pre>
+</div>
+</div>
+<p>If the model produces malformed CSV or missing columns, a more detailed prompt usually resolves it. See the prompt refinement tip below.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+If the model returns malformed CSV
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Small models occasionally produce slightly malformed output — extra text, misaligned columns, or incorrect NA representation. Two strategies help:</p>
+<p><strong>1. Be more explicit about output format:</strong></p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># More explicit prompt additions to improve CSV quality</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>format_enforcement <span class="ot">&lt;-</span> <span class="st">"</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="st">IMPORTANT OUTPUT RULES:</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="st">- Return ONLY raw CSV text</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="st">- First line must be the header row</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="st">- Use comma as delimiter</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="st">- Use NA (not 'N/A', 'missing', or empty) for missing values</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="st">- Do not include row numbers or an index column</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="st">- Do not wrap in markdown or code blocks</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a><span class="st">- Do not add any text before or after the CSV</span></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="st">"</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a>tabular_description_strict <span class="ot">&lt;-</span> <span class="fu">paste</span>(tabular_description, format_enforcement)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p><strong>2. Use a chat with an explicit system prompt:</strong></p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Alternatively, use chat() with a system prompt enforcing output format</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>messages <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">create_message</span>(</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">role    =</span> <span class="st">"system"</span>,</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">content =</span> <span class="st">"You are a data generation assistant. You return ONLY raw CSV text</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a><span class="st">             with no explanation, no markdown, and no extra text of any kind.</span></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a><span class="st">             The very first character of your response must be the first</span></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a><span class="st">             character of the CSV header row."</span></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>messages <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">append_message</span>(</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">role     =</span> <span class="st">"user"</span>,</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">content  =</span> tabular_description,</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">messages =</span> messages</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a>synthetic_csv_raw2 <span class="ot">&lt;-</span> ollamar<span class="sc">::</span><span class="fu">chat</span>(</span>
+<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">model    =</span> <span class="st">"llama3.2"</span>,</span>
+<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">messages =</span> messages,</span>
+<span id="cb36-18"><a href="#cb36-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">output   =</span> <span class="st">"text"</span></span>
+<span id="cb36-19"><a href="#cb36-19" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</div>
+</div>
+</section>
+<section id="saving-the-synthetic-table" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="saving-the-synthetic-table">Saving the synthetic table</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"tutorials/llm_privacy/data"</span>), <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>readr<span class="sc">::</span><span class="fu">write_csv</span>(</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>  synthetic_df,</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"tutorials/llm_privacy/data/synthetic_clinical_data.csv"</span>)</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="fu">message</span>(<span class="st">"Synthetic dataset saved to tutorials/llm_privacy/data/synthetic_clinical_data.csv"</span>)</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="fu">message</span>(<span class="st">"This file is safe to share with a cloud AI assistant."</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="step-3-getting-analysis-code-from-a-cloud-ai-1" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-3-getting-analysis-code-from-a-cloud-ai-1">Step 3: Getting analysis code from a cloud AI</h2>
+<p>The researcher attaches <code>synthetic_clinical_data.csv</code> to a conversation in Claude or ChatGPT and submits a request like the following:</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Example prompt to Claude or ChatGPT
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<blockquote class="blockquote">
+<p>I have attached a synthetic dataset that has exactly the same structure as the clinical data I need to analyse. Please write R code that:</p>
+<ol type="1">
+<li>Reads a CSV file with the same column structure as the attached file from <code>"data/clinical_data.csv"</code></li>
+<li>Computes change scores: <code>mmse_change = mmse_followup - mmse_baseline</code> and <code>fluency_change = fluency_followup - fluency_baseline</code></li>
+<li>Excludes participants with <code>dropout == "yes"</code> from the change score analysis</li>
+<li>Runs a Wilcoxon rank-sum test comparing <code>mmse_change</code> between <code>"MCI"</code> and <code>"AD"</code> groups</li>
+<li>Runs the same test for <code>fluency_change</code></li>
+<li>Creates a grouped box plot (using ggplot2) showing both change scores side by side, grouped by diagnosis</li>
+<li>Prints a summary table of means and standard deviations for each change score by group</li>
+</ol>
+<p>Please include comments explaining each step.</p>
+</blockquote>
+</div>
+</div>
+</section>
+<section id="step-4-the-code-returned-by-the-cloud-ai-1" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-4-the-code-returned-by-the-cloud-ai-1">Step 4: The code returned by the cloud AI</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># R code generated by Claude from the synthetic dataset proxy</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Run locally on your real data — the real data never left your machine</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(readr)</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Load data ----</span></span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"tutorials/llm_privacy/data/clinical_data.csv"</span>), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Compute change scores ----</span></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> dat <span class="sc">|&gt;</span></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">mmse_change    =</span> mmse_followup <span class="sc">-</span> mmse_baseline,</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">fluency_change =</span> fluency_followup <span class="sc">-</span> fluency_baseline</span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Exclude dropouts for change score analysis ----</span></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a>dat_completers <span class="ot">&lt;-</span> dat <span class="sc">|&gt;</span></span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(dropout <span class="sc">==</span> <span class="st">"no"</span>)</span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Completers:"</span>, <span class="fu">nrow</span>(dat_completers), <span class="st">"of"</span>, <span class="fu">nrow</span>(dat), <span class="st">"participants</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Completers: 35 of 40 participants</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Wilcoxon rank-sum tests ----</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="co"># MMSE change: MCI vs AD</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>mmse_test <span class="ot">&lt;-</span> <span class="fu">wilcox.test</span>(</span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  mmse_change <span class="sc">~</span> diagnosis,</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat_completers,</span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">exact =</span> <span class="cn">FALSE</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">MMSE change — Wilcoxon test:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+MMSE change — Wilcoxon test:</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(mmse_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Wilcoxon rank sum test with continuity correction
+
+data:  mmse_change by diagnosis
+W = 6, p-value = 0.0000003
+alternative hypothesis: true location shift is not equal to 0</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fluency change: MCI vs AD</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>fluency_test <span class="ot">&lt;-</span> <span class="fu">wilcox.test</span>(</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  fluency_change <span class="sc">~</span> diagnosis,</span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat_completers,</span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">exact =</span> <span class="cn">FALSE</span></span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Fluency change — Wilcoxon test:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Fluency change — Wilcoxon test:</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fluency_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Wilcoxon rank sum test with continuity correction
+
+data:  fluency_change by diagnosis
+W = 55, p-value = 0.0002
+alternative hypothesis: true location shift is not equal to 0</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Summary table ----</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>summary_tbl <span class="ot">&lt;-</span> dat_completers <span class="sc">|&gt;</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(diagnosis) <span class="sc">|&gt;</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">n                  =</span> <span class="fu">n</span>(),</span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">mmse_change_mean   =</span> <span class="fu">round</span>(<span class="fu">mean</span>(mmse_change, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">2</span>),</span>
+<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">mmse_change_sd     =</span> <span class="fu">round</span>(<span class="fu">sd</span>(mmse_change, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">2</span>),</span>
+<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">fluency_change_mean =</span> <span class="fu">round</span>(<span class="fu">mean</span>(fluency_change, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">2</span>),</span>
+<span id="cb48-9"><a href="#cb48-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">fluency_change_sd   =</span> <span class="fu">round</span>(<span class="fu">sd</span>(fluency_change, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="dv">2</span>),</span>
+<span id="cb48-10"><a href="#cb48-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb48-11"><a href="#cb48-11" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb48-12"><a href="#cb48-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-13"><a href="#cb48-13" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(summary_tbl)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2 × 6
+  diagnosis     n mmse_change_mean mmse_change_sd fluency_change_mean
+  &lt;chr&gt;     &lt;int&gt;            &lt;dbl&gt;          &lt;dbl&gt;               &lt;dbl&gt;
+1 AD           15            -2.87           0.35               -1.93
+2 MCI          20            -1.3            0.47               -1.3 
+# ℹ 1 more variable: fluency_change_sd &lt;dbl&gt;</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ---- Grouped box plot ----</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Reshape to long format for side-by-side plotting</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>dat_long <span class="ot">&lt;-</span> dat_completers <span class="sc">|&gt;</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(patient_id, diagnosis, mmse_change, fluency_change) <span class="sc">|&gt;</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(</span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">cols      =</span> <span class="fu">c</span>(mmse_change, fluency_change),</span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_to  =</span> <span class="st">"measure"</span>,</span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_to =</span> <span class="st">"change"</span></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">measure =</span> <span class="fu">recode</span>(measure,</span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">mmse_change    =</span> <span class="st">"MMSE change"</span>,</span>
+<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">fluency_change =</span> <span class="st">"Fluency change"</span></span>
+<span id="cb50-14"><a href="#cb50-14" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb50-15"><a href="#cb50-15" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb50-16"><a href="#cb50-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-17"><a href="#cb50-17" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(dat_long, <span class="fu">aes</span>(<span class="at">x =</span> diagnosis, <span class="at">y =</span> change, <span class="at">fill =</span> diagnosis)) <span class="sc">+</span></span>
+<span id="cb50-18"><a href="#cb50-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">outlier.shape =</span> <span class="dv">16</span>, <span class="at">outlier.size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb50-19"><a href="#cb50-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb50-20"><a href="#cb50-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> measure, <span class="at">scales =</span> <span class="st">"free_y"</span>) <span class="sc">+</span></span>
+<span id="cb50-21"><a href="#cb50-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"MCI"</span> <span class="ot">=</span> <span class="st">"#4E79A7"</span>, <span class="st">"AD"</span> <span class="ot">=</span> <span class="st">"#F28E2B"</span>)) <span class="sc">+</span></span>
+<span id="cb50-22"><a href="#cb50-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb50-23"><a href="#cb50-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">title    =</span> <span class="st">"Cognitive change over 12 months by diagnosis group"</span>,</span>
+<span id="cb50-24"><a href="#cb50-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Negative values indicate decline; completers only"</span>,</span>
+<span id="cb50-25"><a href="#cb50-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">x        =</span> <span class="st">"Diagnosis"</span>,</span>
+<span id="cb50-26"><a href="#cb50-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">y        =</span> <span class="st">"Change score (follow-up minus baseline)"</span>,</span>
+<span id="cb50-27"><a href="#cb50-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill     =</span> <span class="st">"Diagnosis"</span>,</span>
+<span id="cb50-28"><a href="#cb50-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption  =</span> <span class="st">"Wilcoxon rank-sum test; box = IQR; dots = individual participants"</span></span>
+<span id="cb50-29"><a href="#cb50-29" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb50-30"><a href="#cb50-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb50-31"><a href="#cb50-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>)</span>
+<span id="cb50-32"><a href="#cb50-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-33"><a href="#cb50-33" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="llm_privacy_files/figure-html/returned-code-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save figure</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"tutorials/llm_privacy/images/change_score_boxplot.png"</span>, p,</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>       <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="dv">5</span>, <span class="at">dpi =</span> <span class="dv">300</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="step-5-run-on-real-data-1" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="step-5-run-on-real-data-1">Step 5: Run on real data</h2>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5: Run the generated code on real data</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Only change needed: the file path</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace the path in the read_csv() call above:</span></span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a><span class="co"># FROM: dat &lt;- read_csv(here::here("tutorials/llm_privacy/data/clinical_data.csv"), ...)</span></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a><span class="co"># TO:   dat &lt;- read_csv(here::here("data/YOUR_confidential_patient_data.csv"), ...)</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a><span class="co"># All other code runs identically — the real data has the same column structure</span></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a><span class="co"># as the synthetic proxy, so every downstream step works without modification.</span></span>
+<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Confirm the real data has the expected structure before running:</span></span>
+<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>real_dat <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"tutorials/llm_privacy/data/clinical_data.csv"</span>),</span>
+<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a>                     <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb52-14"><a href="#cb52-14" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Real data dimensions:"</span>, <span class="fu">nrow</span>(real_dat), <span class="st">"x"</span>, <span class="fu">ncol</span>(real_dat), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Real data dimensions: 40 x 11 </code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Columns:"</span>, <span class="fu">paste</span>(<span class="fu">names</span>(real_dat), <span class="at">collapse =</span> <span class="st">", "</span>), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Columns: patient_id, age, sex, education_years, diagnosis, mmse_baseline, mmse_followup, fluency_baseline, fluency_followup, depression_score, dropout </code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">all</span>(expected_cols <span class="sc">%in%</span> <span class="fu">names</span>(real_dat)))</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Structure verified. Safe to run the full analysis.</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Structure verified. Safe to run the full analysis.</code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="iteration" class="level1">
+<h1>Iterating on the Workflow</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> How to handle the case where the AI-generated code does not quite match your real data; how to iterate without ever exposing real data; and how to manage a multi-step analysis with the local LLM</p>
+</div>
+</div>
+<p>In practice, the code returned by the cloud AI will sometimes need minor adjustments. Perhaps the column names in the real data differ slightly from what you described, or the code makes assumptions about data types that do not hold. The key principle is to <strong>iterate using synthetic data only</strong> — never share the error message if it contains real data values.</p>
+<section id="handling-code-that-does-not-quite-work" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="handling-code-that-does-not-quite-work">Handling code that does not quite work</h2>
+<p>If the code fails on your real data, follow this sequence:</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="co"># If the code fails on real data, debug using synthetic data only</span></span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Reproduce the error on synthetic data</span></span>
+<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a><span class="co">#    (If it does not reproduce, the difference is in the real data structure)</span></span>
+<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. If the error involves a specific column name or value that differs</span></span>
+<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a><span class="co">#    in your real data, describe the difference in abstract terms to the</span></span>
+<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a><span class="co">#    cloud AI — never paste in real values</span></span>
+<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-10"><a href="#cb58-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: "The real data uses 'Male' and 'Female' instead of 'M' and 'F'</span></span>
+<span id="cb58-11"><a href="#cb58-11" aria-hidden="true" tabindex="-1"></a><span class="co">#           for the sex variable. Please update the code accordingly."</span></span>
+<span id="cb58-12"><a href="#cb58-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-13"><a href="#cb58-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Alternatively, fix the discrepancy in a pre-processing step that</span></span>
+<span id="cb58-14"><a href="#cb58-14" aria-hidden="true" tabindex="-1"></a><span class="co">#    runs locally on the real data before the AI-generated code</span></span>
+<span id="cb58-15"><a href="#cb58-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-16"><a href="#cb58-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Pre-processing adapter — runs locally, never seen by cloud AI</span></span>
+<span id="cb58-17"><a href="#cb58-17" aria-hidden="true" tabindex="-1"></a>preprocess_real_data <span class="ot">&lt;-</span> <span class="cf">function</span>(dat) {</span>
+<span id="cb58-18"><a href="#cb58-18" aria-hidden="true" tabindex="-1"></a>  dat <span class="sc">|&gt;</span></span>
+<span id="cb58-19"><a href="#cb58-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb58-20"><a href="#cb58-20" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Harmonise sex coding to match what the AI code expects</span></span>
+<span id="cb58-21"><a href="#cb58-21" aria-hidden="true" tabindex="-1"></a>      <span class="at">sex =</span> <span class="fu">case_when</span>(</span>
+<span id="cb58-22"><a href="#cb58-22" aria-hidden="true" tabindex="-1"></a>        <span class="fu">tolower</span>(sex) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"female"</span>, <span class="st">"f"</span>, <span class="st">"woman"</span>) <span class="sc">~</span> <span class="st">"F"</span>,</span>
+<span id="cb58-23"><a href="#cb58-23" aria-hidden="true" tabindex="-1"></a>        <span class="fu">tolower</span>(sex) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"male"</span>, <span class="st">"m"</span>, <span class="st">"man"</span>)     <span class="sc">~</span> <span class="st">"M"</span>,</span>
+<span id="cb58-24"><a href="#cb58-24" aria-hidden="true" tabindex="-1"></a>        <span class="cn">TRUE</span> <span class="sc">~</span> sex</span>
+<span id="cb58-25"><a href="#cb58-25" aria-hidden="true" tabindex="-1"></a>      ),</span>
+<span id="cb58-26"><a href="#cb58-26" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Harmonise diagnosis coding</span></span>
+<span id="cb58-27"><a href="#cb58-27" aria-hidden="true" tabindex="-1"></a>      <span class="at">diagnosis =</span> <span class="fu">case_when</span>(</span>
+<span id="cb58-28"><a href="#cb58-28" aria-hidden="true" tabindex="-1"></a>        <span class="fu">str_detect</span>(diagnosis, <span class="fu">regex</span>(<span class="st">"mild cognitive"</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>)) <span class="sc">~</span> <span class="st">"MCI"</span>,</span>
+<span id="cb58-29"><a href="#cb58-29" aria-hidden="true" tabindex="-1"></a>        <span class="fu">str_detect</span>(diagnosis, <span class="fu">regex</span>(<span class="st">"alzheimer"</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>))      <span class="sc">~</span> <span class="st">"AD"</span>,</span>
+<span id="cb58-30"><a href="#cb58-30" aria-hidden="true" tabindex="-1"></a>        <span class="cn">TRUE</span> <span class="sc">~</span> diagnosis</span>
+<span id="cb58-31"><a href="#cb58-31" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb58-32"><a href="#cb58-32" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb58-33"><a href="#cb58-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb58-34"><a href="#cb58-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-35"><a href="#cb58-35" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply before running the AI-generated analysis code</span></span>
+<span id="cb58-36"><a href="#cb58-36" aria-hidden="true" tabindex="-1"></a>real_dat_clean <span class="ot">&lt;-</span> <span class="fu">preprocess_real_data</span>(real_dat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="asking-for-multiple-scripts-in-one-session" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="asking-for-multiple-scripts-in-one-session">Asking for multiple scripts in one session</h2>
+<p>Once the synthetic proxy is established, you can use it for multiple analysis requests in the same cloud AI conversation — no need to re-upload:</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Efficient multi-request workflow
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<blockquote class="blockquote">
+<p><strong>First request:</strong> “I’ve attached a synthetic dataset. Please write code to compute change scores and run a Wilcoxon test as described above.”</p>
+<p><em>(Receive code, test on synthetic data, run on real data)</em></p>
+<p><strong>Second request (same conversation):</strong> “Using the same dataset structure, please now write code to run a logistic regression predicting dropout from baseline MMSE, age, education years, and diagnosis. Include model diagnostics.”</p>
+<p><em>(Cloud AI already knows the data structure — no re-upload needed)</em></p>
+</blockquote>
+<p>Each request in the same conversation leverages the cloud AI’s memory of the synthetic data structure. You only upload the synthetic file once per session.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="quality" class="level1">
+<h1>A Note on Data Synthesis Quality</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> How to assess whether a synthetic dataset is a good proxy; when LLM-generated synthesis is and is not appropriate; and how to supplement LLM generation with statistical synthesis tools for tabular data</p>
+</div>
+</div>
+<section id="what-makes-a-good-proxy" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="what-makes-a-good-proxy">What makes a good proxy?</h2>
+<p>A synthetic proxy dataset is fit for purpose when:</p>
+<ol type="1">
+<li><strong>The structure matches exactly</strong> — same column names, same data types, same file format</li>
+<li><strong>The value ranges are realistic</strong> — the AI-generated code should not need to handle edge cases that do not appear in the synthetic data but do in the real data</li>
+<li><strong>The statistical properties are plausible</strong> — if the real data has correlated variables (e.g.&nbsp;older patients have lower MMSE), the synthetic data should too, or the generated analysis code may not handle the patterns correctly</li>
+<li><strong>Missing data patterns are represented</strong> — if the real data has dropouts or missing values, the synthetic data must include them so the code handles them correctly</li>
+</ol>
+</section>
+<section id="when-llm-synthesis-is-sufficient" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="when-llm-synthesis-is-sufficient">When LLM synthesis is sufficient</h2>
+<p>For the purposes of <strong>code generation</strong>, LLM synthesis is usually sufficient. The cloud AI needs to understand the data structure well enough to write correct R syntax — it does not need a statistically precise replica of the real data.</p>
+<p>The main risk is that the generated code makes implicit assumptions based on the synthetic data that do not hold in the real data. For example, if the synthetic data has no missing values in a column that the real data does have missing values in, the generated code may not include <code>na.rm = TRUE</code> in the right places. This is why the validation step before running on real data is important.</p>
+</section>
+<section id="when-to-use-statistical-synthesis-instead" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="when-to-use-statistical-synthesis-instead">When to use statistical synthesis instead</h2>
+<p>For tabular data where statistical fidelity matters — for example, when checking that a proposed analysis has adequate power, or when sharing a dataset for external replication — purpose-built synthesis packages produce more statistically faithful output than LLMs:</p>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="co"># For statistically faithful tabular synthesis, consider synthpop</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a><span class="co"># install.packages("synthpop")</span></span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(synthpop)</span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate a statistically faithful synthetic version of the real dataset</span></span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a><span class="co"># This runs locally — the real data still never leaves your machine</span></span>
+<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a>synth_result <span class="ot">&lt;-</span> synthpop<span class="sc">::</span><span class="fu">syn</span>(</span>
+<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a>  real_dat,           <span class="co"># your real data frame</span></span>
+<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">42</span>           <span class="co"># for reproducibility</span></span>
+<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>CAUTION: Your data set has fewer observations (40) than we advise.
+We suggest that there should be at least 210 observations
+(100 + 10 * no. of variables used in modelling the data).
+Please check your synthetic data carefully with functions
+compare(), utility.tab(), and utility.gen().
+
+
+Variable(s): patient_id, sex, diagnosis, dropout have been changed for synthesis from character to factor.
+
+Synthesis
+-----------
+ patient_id age sex education_years diagnosis mmse_baseline mmse_followup fluency_baseline fluency_followup depression_score
+ dropout</code></pre>
+</div>
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract the synthesised data frame</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>statistical_synthetic <span class="ot">&lt;-</span> synth_result<span class="sc">$</span>syn</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a><span class="co"># This is more statistically faithful than LLM generation,</span></span>
+<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a><span class="co"># but requires access to the real data to run.</span></span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Use for: power analysis, methods validation, external sharing</span></span>
+<span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Use LLM generation for: getting code quickly without loading real data at all</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Combining both approaches
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The two approaches are complementary:</p>
+<ul>
+<li>Use <strong>LLM generation</strong> when you want to describe the data structure without loading the real data (e.g.&nbsp;at the start of a project, or on a different machine)</li>
+<li>Use <strong>statistical synthesis</strong> when you need a statistically faithful copy for quantitative validation or sharing with collaborators</li>
+</ul>
+<p>In both cases, the real data stays local.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="summary" class="level1">
+<h1>Summary</h1>
+<p>This showcase has demonstrated a complete privacy-preserving workflow for using cloud AI assistants to write analysis code for sensitive research data:</p>
+<p><strong>The core idea</strong> is that cloud AI assistants need to understand your data <em>structure</em>, not your data <em>content</em>, in order to write useful code. A synthetic proxy that mirrors the structure is sufficient for this purpose.</p>
+<p><strong>For transcript data</strong>, a local LLM can generate realistic synthetic transcripts from a textual description of the format and linguistic features — no real transcript content is needed in the prompt.</p>
+<p><strong>For tabular data</strong>, a local LLM can generate a synthetic CSV from a description of variable names, types, and value ranges — no real data values are needed in the prompt.</p>
+<p><strong>The five-step workflow</strong> — describe locally, generate locally, upload synthetic, receive code, run locally — ensures that sensitive participant data remains on the researcher’s own machine at every stage.</p>
+<p><strong>The local LLM is the key enabler</strong> of this workflow: it allows the data generation step to happen without any data leaving the machine, even for the synthetic data generation itself. The description of your sensitive data structure is itself information that should be kept local.</p>
+<hr>
+</section>
+<section id="citation-session-info" class="level1 unnumbered">
+<h1 class="unnumbered">Citation &amp; Session Info</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Citation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Martin Schweinberger. 2026. <em>Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies</em>. The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia. url: https://ladal.edu.au/tutorials/llm_privacy/llm_privacy.html (Version 3.1.1), doi: 10.5281/zenodo.19332911.</p>
+<pre><code>@manual{martinschweinberger2026privacypreserving,
+  author       = {Martin Schweinberger},
+  title        = {Privacy-Preserving Analysis with Local LLMs: Generating Synthetic Data Proxies},
+  year         = {2026},
+  note         = {https://ladal.edu.au/tutorials/llm_privacy/llm_privacy.html},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia},
+  edition      = {3.1.1}
+  doi      = {10.5281/zenodo.19332911}
+}</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+AI Transparency Statement
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This showcase was written with the assistance of <strong>Claude</strong> (claude.ai), a large language model created by Anthropic. Claude was used to draft and structure the showcase, including all R code, workflow descriptions, and example outputs. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.</p>
+</div>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.2 (2024-10-31 ucrt)
+Platform: x86_64-w64-mingw32/x64
+Running under: Windows 11 x64 (build 26200)
+
+Matrix products: default
+
+
+locale:
+[1] LC_COLLATE=English_United States.utf8 
+[2] LC_CTYPE=English_United States.utf8   
+[3] LC_MONETARY=English_United States.utf8
+[4] LC_NUMERIC=C                          
+[5] LC_TIME=English_United States.utf8    
+
+time zone: Australia/Brisbane
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices datasets  utils     methods   base     
+
+other attached packages:
+ [1] synthpop_1.9-2   tidyr_1.3.2      ggplot2_4.0.2    jsonlite_2.0.0  
+ [5] flextable_0.9.11 purrr_1.2.1      readr_2.1.5      stringr_1.6.0   
+ [9] tibble_3.3.1     dplyr_1.2.0      ollamar_1.2.2    checkdown_0.0.13
+
+loaded via a namespace (and not attached):
+  [1] cmm_1.0                 httr2_1.2.2             sandwich_3.1-1         
+  [4] rlang_1.1.7             magrittr_2.0.4          multcomp_1.4-28        
+  [7] matrixStats_1.5.0       e1071_1.7-16            polspline_1.1.25       
+ [10] compiler_4.4.2          systemfonts_1.3.1       vctrs_0.7.2            
+ [13] rmutil_1.1.10           pkgconfig_2.0.3         crayon_1.5.3           
+ [16] fastmap_1.2.0           labeling_0.4.3          utf8_1.2.6             
+ [19] rmarkdown_2.30          markdown_2.0            tzdb_0.5.0             
+ [22] ragg_1.5.1              bit_4.6.0               xfun_0.56              
+ [25] modeltools_0.2-23       randomForest_4.7-1.2    uuid_1.2-1             
+ [28] parallel_4.4.2          R6_2.6.1                Rsolnp_2.0.1           
+ [31] coin_1.4-3              stringi_1.8.7           RColorBrewer_1.1-3     
+ [34] ranger_0.17.0           parallelly_1.42.0       rpart_4.1.23           
+ [37] numDeriv_2016.8-1.1     Rcpp_1.1.1              knitr_1.51             
+ [40] future.apply_1.11.3     zoo_1.8-13              Matrix_1.7-2           
+ [43] splines_4.4.2           nnet_7.3-19             tidyselect_1.2.1       
+ [46] rstudioapi_0.17.1       broman_0.92             yaml_2.3.10            
+ [49] codetools_0.2-20        curl_7.0.0              listenv_0.9.1          
+ [52] lattice_0.22-6          plyr_1.8.9              withr_3.0.2            
+ [55] S7_0.2.1                askpass_1.2.1           evaluate_1.0.5         
+ [58] foreign_0.8-87          future_1.34.0           survival_3.7-0         
+ [61] proxy_0.4-27            zip_2.3.2               xml2_1.3.6             
+ [64] pillar_1.11.1           BiocManager_1.30.27     party_1.3-18           
+ [67] KernSmooth_2.23-24      renv_1.1.7              stats4_4.4.2           
+ [70] generics_0.1.4          vroom_1.7.0             rprojroot_2.1.1        
+ [73] truncnorm_1.0-9         hms_1.1.4               scales_1.4.0           
+ [76] globals_0.16.3          class_7.3-22            glue_1.8.0             
+ [79] gdtools_0.5.0           tools_4.4.2             data.table_1.17.0      
+ [82] forcats_1.0.0           mvtnorm_1.3-3           grid_4.4.2             
+ [85] libcoin_1.0-10          mipfp_3.2.1             patchwork_1.3.0        
+ [88] proto_1.0.0             cli_3.6.5               rappdirs_0.3.3         
+ [91] textshaping_1.0.0       officer_0.7.3           fontBitstreamVera_0.1.1
+ [94] strucchange_1.5-4       gtable_0.3.6            digest_0.6.39          
+ [97] fontquiver_0.2.1        classInt_0.4-11         TH.data_1.1-3          
+[100] htmlwidgets_1.6.4       farver_2.1.2            htmltools_0.5.9        
+[103] lifecycle_1.0.5         here_1.0.2              fontLiberation_0.1.0   
+[106] openssl_2.3.2           bit64_4.6.0-1           MASS_7.3-61            </code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+AI Transparency Statement
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This tutorial was re-developed with the assistance of <strong>Claude</strong> (claude.ai), a large language model created by Anthropic. Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the <code>checkdown</code> quiz questions and feedback strings. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.</p>
+</div>
+</div>
+<p><a href="#intro">Back to top</a></p>
+<p><a href="../..">Back to LADAL home</a></p>
+
+
+</section>
+
+</main> <!-- /main -->
+<style>
+
+  /* Pull footer outside the content column */
+
+  .ladal-footer-wrap {
+
+    position: relative;
+
+    left: 50%;
+
+    right: 50%;
+
+    margin-left: -50vw;
+
+    margin-right: -50vw;
+
+    width: 100vw;
+
+    margin-top: 3rem;
+
+  }
+
+
+
+  .ladal-footer {
+
+    background: #3d1a5e;
+
+    color: rgba(255, 255, 255, 0.6);
+
+    font-family: "Roboto", sans-serif;
+
+    font-size: 12px;
+
+    padding: 28px 40px;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    flex-wrap: wrap;
+
+    gap: 12px;
+
+  }
+
+
+
+  .ladal-footer a {
+
+    color: rgba(255, 255, 255, 0.6);
+
+    text-decoration: none;
+
+  }
+
+
+
+  .ladal-footer a:hover {
+
+    color: #00A2C7;
+
+  }
+
+
+
+  .ladal-footer strong {
+
+    color: rgba(255, 255, 255, 0.85);
+
+  }
+
+
+
+  @media (max-width: 640px) {
+
+    .ladal-footer {
+
+      flex-direction: column;
+
+      gap: 16px;
+
+      padding: 24px;
+
+    }
+
+  }
+
+</style>
+
+
+
+<div class="ladal-footer-wrap">
+
+  <footer class="ladal-footer">
+
+    <span>
+
+      <strong>Part of</strong> &nbsp;
+      <a href="https://ldaca.edu.au">LDaCA</a> &nbsp;·&nbsp;
+      <a href="https://ardc.edu.au">ARDC</a> &nbsp;·&nbsp;
+      <a href="https://www.education.gov.au/ncris">NCRIS</a> &nbsp;·&nbsp;
+      <a href="https://www.uq.edu.au">University of Queensland</a>
+
+    </span>
+
+    <span>
+
+      © 2026 LADAL &nbsp;·&nbsp;
+      <a href="../../about.html#citing">Citing LADAL</a> &nbsp;·&nbsp;
+      <a href="../../about.html#licensing">Licensing</a> &nbsp;·&nbsp;
+      <a href="../../about.html#legal-disclaimer">Legal Disclaimer</a>
+
+    </span>
+
+    <span>
+
+      <a href="mailto:ladal@uq.edu.au">ladal@uq.edu.au</a> &nbsp;·&nbsp;
+      <a href="https://www.youtube.com/channel/UCrPUPT8UvOAxUnorC95-F4Q">YouTube</a> &nbsp;·&nbsp;
+      <a href="https://github.com/SLCLADAL/ladal">GitHub</a>
+
+    </span>
+
+  </footer>
+
+</div>
+
+<script src="../../assets/ladal-ga4-tracking.js"></script>
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+  const viewSource = window.document.getElementById('quarto-view-source') ||
+                     window.document.getElementById('quarto-code-tools-source');
+  if (viewSource) {
+    const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+    viewSource.addEventListener("click", function(e) {
+      if (sourceUrl) {
+        // rstudio viewer pane
+        if (/\bcapabilities=\b/.test(window.location)) {
+          window.open(sourceUrl);
+        } else {
+          window.location.href = sourceUrl;
+        }
+      } else {
+        const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+        modal.show();
+      }
+      return false;
+    });
+  }
+  function toggleCodeHandler(show) {
+    return function(e) {
+      const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+      for (let i=0; i<detailsSrc.length; i++) {
+        const details = detailsSrc[i].parentElement;
+        if (show) {
+          details.open = true;
+        } else {
+          details.removeAttribute("open");
+        }
+      }
+      const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+      const fromCls = show ? "hidden" : "unhidden";
+      const toCls = show ? "unhidden" : "hidden";
+      for (let i=0; i<cellCodeDivs.length; i++) {
+        const codeDiv = cellCodeDivs[i];
+        if (codeDiv.classList.contains(fromCls)) {
+          codeDiv.classList.remove(fromCls);
+          codeDiv.classList.add(toCls);
+        } 
+      }
+      return false;
+    }
+  }
+  const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+  if (hideAllCode) {
+    hideAllCode.addEventListener("click", toggleCodeHandler(false));
+  }
+  const showAllCode = window.document.getElementById("quarto-show-all-code");
+  if (showAllCode) {
+    showAllCode.addEventListener("click", toggleCodeHandler(true));
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/ladal\.edu\.au");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>

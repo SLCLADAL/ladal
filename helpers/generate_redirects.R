@@ -178,13 +178,23 @@ for (old_name in names(all_tutorials)) {
 # ── Section 2: Deep-path redirects ───────────────────────────────────────────
 # docs/tutorials/[old_name]/[old_name].html → https://ladal.edu.au/tutorials/[new]/[new].html
 # Catches links to old subfolder structure (e.g. from Google, external sites).
+#
+# IMPORTANT: Only write a deep-path redirect when the old_name differs from
+# the canonical folder name (the first segment of the all_tutorials value).
+# If old_name == canonical folder, writing a redirect would create a loop
+# because the redirect file would overwrite the real rendered tutorial HTML.
 
 message("Writing deep-path redirects...")
 for (old_name in names(all_tutorials)) {
-  write_redirect(
-    output_path     = paste0("docs/tutorials/", old_name, "/", old_name, ".html"),
-    destination_url = paste0(BASE, "/", all_tutorials[[old_name]], ".html")
-  )
+  # Extract canonical folder name from "folder/file" value
+  canonical_folder <- strsplit(all_tutorials[[old_name]], "/")[[1]][1]
+  # Only redirect if the old name is genuinely different from canonical
+  if (old_name != canonical_folder) {
+    write_redirect(
+      output_path     = paste0("docs/tutorials/", old_name, "/", old_name, ".html"),
+      destination_url = paste0(BASE, "/", all_tutorials[[old_name]], ".html")
+    )
+  }
 }
 
 # ── Section 3: 404 fixes ─────────────────────────────────────────────────────
