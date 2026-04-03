@@ -1,0 +1,826 @@
+---
+title: "Topic Modelling of Charles Dickens' Novels"
+author: "Gerold Schneider & Max Lauber"
+date: "2026"
+params:
+  title:       "Topic Modelling of Charles Dickens' Novels"
+  author:      "Gerold Schneider & Max Lauber"
+  year:        "2026"
+  version:       "3.1.1"
+  date_published:       "2026-03-28"
+  url:         "https://ladal.edu.au/tutorials/topic_modelling_dickens/topic_modelling_dickens.html"
+  institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  description:       "This showcase tutorial demonstrates an iterative Structural Topic Model (STM) workflow applied to the complete novels of Charles Dickens, covering corpus compilation from Project Gutenberg, POS tagging with udpipe for proper noun removal, chunk-size experimentation, and the interpretation of topics in relation to social criticism and literary realism. It is aimed at researchers in digital humanities and computational stylistics."
+  doi:         "10.5281/zenodo.19332981"
+---
+
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+options(stringsAsFactors = FALSE)
+options("scipen" = 100, "digits" = 4)
+library(checkdown)
+```
+
+![Great Court, The University of Queensland](/images/uq1.jpg){width="100%" height="200px" loading="lazy"}
+
+# Introduction {#intro}
+
+::: {.callout-warning}
+## Code in This Tutorial Is Not Auto-Executed
+
+The topic modelling steps in this tutorial — particularly the `udpipe` annotation and the `stm()` model fitting — are computationally intensive and are not run automatically during knitting. Work through the tutorial interactively in RStudio. The annotation step can take 10–20 minutes; each model fitting step takes 1–5 minutes. A caching strategy is included to avoid repeating the annotation step.
+:::
+
+This tutorial shows how to perform topic modelling using R. There is an incredible amount of text archived all over the world — probably more text produced on any given day than a single person could ever hope to read. What are linguists and other language-oriented scholars going to do with this embarrassment of riches? If automated language methods are the answer, and you have yet to acquaint yourself with topic modelling, welcome.
+
+Topic modelling helps us engage with large quantities of text by identifying co-occurrence patterns, which, when done right, can yield new perspectives on a set of texts. It is useful to think of it as "a lens that allows researchers working on a problem to view a relevant textual corpus in a different light and at a different scale" [@mohr2013introduction 560].
+
+::: {.callout-note}
+## Prerequisite Tutorials
+
+Before working through this tutorial, we recommend familiarity with:
+
+- [Getting Started with R](/tutorials/r_intro/r_intro.html) — R objects, basic syntax, RStudio orientation
+- [Loading and Saving Data](/tutorials/data_loading/data_loading.html) — reading files into R
+- [Topic Modelling](/tutorials/topic/topic.html) — LADAL's main topic modelling tutorial covers LDA foundations
+:::
+
+::: {.callout-note}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+1. Construct a corpus from Project Gutenberg using the `gutenbergr` package
+2. Use `udpipe` to POS-tag a corpus and remove proper nouns
+3. Pre-process text for topic modelling: tokenisation, lowercasing, punctuation removal, stopword removal, and chunking
+4. Build a document-term matrix using `quanteda`
+5. Fit structural topic models using the `stm` package
+6. Iteratively improve a topic model by adjusting chunk size, number of topics, and document-frequency thresholds
+7. Interpret topic model output in the context of a research question
+:::
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout-top, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+
+Original tutorial by Gerold Schneider & Max Lauber (2022), created for the *Australian Text Analytics Platform* (ATAP). Adapted for LADAL by Martin Schweinberger.
+:::
+
+
+
+# Motivation {#motivation}
+
+Topic modelling lets us engage with large corpora by identifying co-occurrence patterns. The methodology is one implementation of the Firthian hypothesis that "you shall know a word by the company it keeps" [@firth1957ling 11]. Words that frequently appear in similar contexts are often representative of the same topic. To arrive at a meaningful model, we need to prepare the text: removing proper names, filtering stopwords, and chunking the text into pseudo-documents of a suitable size.
+
+## Research questions {-}
+
+Charles Dickens is famous for his social criticism — particularly his treatment of poverty and his vision for including the poor inside society [see for example @kailash2012dickens or @mahlberg2013corpus]. He is also celebrated for his literary realism. This gives us two research questions:
+
+1. Can we use topic modelling to bring Dickens' social criticism to the fore, without the heavy lifting of actually reading his books?
+2. Can we use topic modelling to explore the rich imagery that Dickens constructs with his literary realism?
+
+To explore these questions, we construct a small corpus of eight Dickens novels:
+
+- *A Christmas Carol*
+- *A Tale of Two Cities*
+- *The Pickwick Papers*
+- *Oliver Twist*
+- *David Copperfield*
+- *Hard Times*
+- *Nicholas Nickleby*
+- *Great Expectations*
+
+---
+
+# Setup {#setup}
+
+## Installing packages {-}
+
+```{r install, eval=FALSE, message=FALSE, warning=FALSE}
+install.packages(c(
+  "gutenbergr",          # download texts from Project Gutenberg
+  "quanteda",            # corpus management and DFM construction
+  "quanteda.textmodels", # text models built on quanteda
+  "tidytext",            # tidy text mining tools
+  "stm",                 # Structural Topic Model
+  "dplyr",               # data manipulation
+  "purrr",               # functional iteration
+  "udpipe",              # POS tagging (pure R, no Python needed)
+  "checkdown"            # interactive exercises
+))
+```
+
+## Loading packages {-}
+
+```{r load-pkgs, message=FALSE, warning=FALSE}
+library(gutenbergr)
+library(quanteda)
+library(quanteda.textmodels)
+library(tidytext)
+library(stm)
+library(dplyr)
+library(purrr)
+library(udpipe)
+library(checkdown)
+```
+
+::: {.callout-note}
+## No Python Required
+
+The original version of this tutorial used `spacyr` for POS tagging, which requires a Python installation and the spaCy library. This version replaces `spacyr` with `udpipe`, a pure-R POS tagger that requires no external dependencies. The results are comparable for our purposes (identifying and removing proper nouns), and the installation is much simpler.
+:::
+
+---
+
+# Data: Downloading the Dickens Corpus {#data}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to use the `gutenbergr` package to find and download public-domain texts from Project Gutenberg; how to handle mirror failures with a robust download helper; and how to collapse line-by-line text into a per-book format suitable for processing
+:::
+
+Dickens is convenient to work with because his novels are old enough to be part of the public domain. This means the eight novels can be downloaded entirely legally from [Project Gutenberg](https://www.gutenberg.org/).
+
+First, we check which of Dickens' texts are available on Gutenberg:
+
+```{r gutenberg-search, message=FALSE, warning=FALSE}
+dickens <- gutenbergr::gutenberg_works(author == "Dickens, Charles")
+print(dickens, n = nrow(dickens))
+```
+
+From this we identify the IDs of the eight novels:
+
+- 46 = *A Christmas Carol*
+- 98 = *A Tale of Two Cities*
+- 580 = *The Pickwick Papers*
+- 730 = *Oliver Twist*
+- 766 = *David Copperfield*
+- 786 = *Hard Times*
+- 967 = *Nicholas Nickleby*
+- 1400 = *Great Expectations*
+
+## Robust download helper {-}
+
+Project Gutenberg's primary servers are sometimes unavailable or rate-limited. The helper function below tries a list of mirrors in order and falls back to a direct cache URL if all mirrors fail:
+
+```{r gutenberg-safe-fn, message=FALSE, warning=FALSE}
+gutenberg_safe <- function(id,
+                           meta_fields    = "title",
+                           title_fallback = NA_character_) {
+  mirrors <- c(
+    "http://mirrors.xmission.com/gutenberg/",
+    "http://gutenberg.pglaf.org/",
+    "https://gutenberg.readingroo.ms/",
+    "http://gutenberg.nabasny.com/"
+  )
+  result <- NULL
+
+  # Step 1: try each mirror via gutenbergr
+  for (m in mirrors) {
+    tryCatch({
+      dl <- gutenbergr::gutenberg_download(id,
+                                           meta_fields = meta_fields,
+                                           mirror      = m)
+      if (!is.null(dl) && nrow(dl) > 0) {
+        message("Downloaded ID ", id, " via mirror: ", m)
+        result <- dl
+        break
+      }
+    }, error   = function(e) NULL,
+       warning = function(w) NULL)
+  }
+
+  # Step 2: fall back to direct cache URL if all mirrors failed
+  if (is.null(result) || nrow(result) == 0) {
+    message("All mirrors failed for ID ", id, " — trying direct cache URL")
+    cache_url <- paste0(
+      "https://www.gutenberg.org/cache/epub/", id, "/pg", id, ".txt"
+    )
+    tryCatch({
+      lines <- readLines(url(cache_url), warn = FALSE, encoding = "UTF-8")
+      if (is.na(title_fallback)) {
+        title_fallback <- gutenbergr::gutenberg_metadata |>
+          dplyr::filter(gutenberg_id == id) |>
+          dplyr::pull(title) |>
+          dplyr::first()
+      }
+      result <- data.frame(
+        gutenberg_id     = id,
+        text             = lines,
+        title            = title_fallback,
+        stringsAsFactors = FALSE
+      )
+      message("Downloaded ID ", id, " via direct cache URL (",
+              nrow(result), " lines)")
+    }, error = function(e) {
+      stop("Could not download ID ", id, ": ", conditionMessage(e))
+    })
+  }
+  result
+}
+```
+
+## Downloading the eight novels {-}
+
+We download each novel individually using `gutenberg_safe()` and combine the results:
+
+```{r gutenberg-download, message=FALSE, warning=FALSE}
+list_dickens <- c(46, 98, 580, 730, 766, 786, 967, 1400)
+
+dickens_corpus <- purrr::map_dfr(
+  list_dickens,
+  ~ gutenberg_safe(.x, meta_fields = "title")
+)
+```
+
+The download returns one row per line per work. For processing, we collapse each novel into a single row:
+
+```{r collapse-corpus, message=FALSE, warning=FALSE}
+dickens_corpus <- dickens_corpus |>
+  dplyr::filter(text != "") |>
+  dplyr::group_by(title) |>
+  dplyr::summarise(text = paste0(text, collapse = " "), .groups = "drop")
+
+head(dickens_corpus)
+```
+
+We now have one row per novel — eight rows in total:
+
+```{r title-table, message=FALSE, warning=FALSE}
+table(dickens_corpus$title)
+```
+
+---
+
+# Pre-Processing, Part 1: POS Tagging and Proper Noun Removal {#preproc1}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why proper nouns are problematic for topic modelling of novels; how to download and use a `udpipe` model for POS tagging; how to remove proper nouns from the tagged corpus; and why we accept some tagging inaccuracies rather than making manual corrections
+:::
+
+## Why remove proper nouns? {-}
+
+The concept of topic modelling is based on the Firthian hypothesis that words which frequently occur in similar contexts are representative of the same topic. One of the most common techniques is the latent Dirichlet allocation (LDA). LDA
+
+> derives word clusters using a generative statistical process that begins by assuming that each document in a collection of documents is constructed from a mix of some set of possible topics. The model then assigns high probabilities to words and sets of words that tend to co-occur in multiple contexts across the corpus. [@jockers2013macroanalysis 123]
+
+The algorithm we use is **STM** (Structural Topic Model), which is very similar to LDA but is additionally capable of processing metadata about texts. See @roberts2019stm for technical details.
+
+In the context of novels, proper nouns are mostly names of characters and locations — and these names tend to co-occur mostly within individual novels. This means the model latches onto distinct proper nouns, which display far more consistent co-occurrence patterns than any other feature, crowding out patterns that are actually helpful for answering our research questions.
+
+## Downloading and loading the udpipe model {-}
+
+The `udpipe_download_model()` function downloads approximately 17 MB on the first run and returns an object whose `$file_model` element contains the full path. Setting `overwrite = FALSE` means the download is skipped on every subsequent run:
+
+```{r udpipe-download-load, message=FALSE, warning=FALSE}
+meng_model <- udpipe::udpipe_download_model(
+  language  = "english-ewt",
+  overwrite = FALSE
+)
+m_eng <- udpipe::udpipe_load_model(file = meng_model$file_model)
+```
+
+::: {.callout-tip}
+## Fully Portable
+
+Using `meng_model$file_model` rather than a hardcoded path means this code works on any machine regardless of operating system or working directory.
+:::
+
+## Annotating the corpus {-}
+
+The annotation step POS-tags every token — approximately two million words across the eight novels. This takes 10–20 minutes depending on your hardware. We use a cache-on-disk strategy so the annotation only runs once:
+
+```{r udpipe-annotate, message=FALSE, warning=FALSE}
+cache_path <- "tutorials/topmod/data/dickens_parsed.rds"
+
+if (file.exists(cache_path)) {
+  dickens_parsed <- readRDS(cache_path)
+  message("Loaded parsed corpus from cache.")
+} else {
+  message("Annotating corpus — this may take 10–20 minutes...")
+  dickens_parsed <- as.data.frame(
+    udpipe::udpipe_annotate(m_eng, x = dickens_corpus$text)
+  )
+  dir.create(dirname(cache_path), recursive = TRUE, showWarnings = FALSE)
+  saveRDS(dickens_parsed, cache_path)
+  message("Annotation complete. Saved to cache.")
+}
+```
+
+Let's inspect the structure:
+
+```{r str-parsed, message=FALSE, warning=FALSE}
+str(dickens_parsed)
+```
+
+We now have a data frame with one row per token, with columns including the token itself (`token`), its lemma, and its part-of-speech tag (`upos`). Roughly two million rows for eight novels sounds about right.
+
+```{r head-parsed, message=FALSE, warning=FALSE}
+head(dickens_parsed, n = 15)
+```
+
+Words from the title (e.g. *Christmas*, *Carol*) may be tagged as proper nouns because they are capitalised, even though they are not personal names here. This kind of noise is acceptable — at the scale of two million tokens, occasional mislabellings have negligible impact on the final model.
+
+## Removing proper nouns {-}
+
+We remove all tokens tagged as `PROPN` (proper noun):
+
+```{r remove-propn, message=FALSE, warning=FALSE}
+no_prop_dickens <- dickens_parsed[dickens_parsed$upos != "PROPN", ]
+nrow(no_prop_dickens)
+```
+
+Proper nouns make up only roughly 4–5% of the corpus. A quick check confirms the removal worked:
+
+```{r check-removal, message=FALSE, warning=FALSE}
+head(no_prop_dickens, n = 15)
+```
+
+---
+
+# Pre-Processing, Part 2: Tokenisation, Normalisation, and Chunking {#preproc2}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to convert the annotated data frame to a quanteda tokens object; how to lowercase, remove punctuation, and remove stopwords; and how to chunk the resulting token stream into pseudo-documents of a controlled size
+:::
+
+## Tokenising {-}
+
+The udpipe output is a plain data frame, not a list or spacyr object, so `as.tokens()` requires a conversion step. We first use `split()` to group the tokens back into a named list by document ID, then pass that list to `as.tokens()`:
+
+```{r as-tokens, message=FALSE, warning=FALSE}
+# Split token column by document ID to get a named list, then coerce to tokens
+toks_list <- split(no_prop_dickens$token, no_prop_dickens$doc_id)
+toks      <- quanteda::as.tokens(toks_list)
+head(toks, n = 15)
+```
+
+The corpus now shows one document (sentence) per element, with proper nouns removed.
+
+## Lowercasing {-}
+
+For the model to correctly identify semantically identical features such as *Ghostly* and *ghostly*, we convert all tokens to lowercase:
+
+```{r lowercase, message=FALSE, warning=FALSE}
+toks <- quanteda::tokens_tolower(toks)
+head(toks, n = 15)
+```
+
+## Removing punctuation {-}
+
+We re-pass through `tokens()` with `remove_punct = TRUE`:
+
+```{r remove-punct, message=FALSE, warning=FALSE}
+toks <- quanteda::tokens(toks, remove_punct = TRUE)
+head(toks, n = 15)
+```
+
+Comparing this output to the previous one, punctuation characters have disappeared.
+
+## Removing stopwords {-}
+
+Stopwords are very common function words (*the*, *in*, *a*, etc.) that appear across virtually every page of every book. Their high frequency and low semantic content would dominate co-occurrence patterns and make topic interpretation very difficult. We remove the standard English stopword list bundled with `quanteda`:
+
+```{r remove-stopwords, message=FALSE, warning=FALSE}
+toks <- quanteda::tokens_remove(toks,
+                                pattern = quanteda::stopwords("english"))
+head(toks, n = 15)
+```
+
+The remaining tokens are the content words most likely to be informative for topic modelling.
+
+## Chunking {-}
+
+Sentences are too short to contain meaningful co-occurrence patterns. With only eight novels, dividing by book would give us too few documents. We therefore create **pseudo-documents** by splitting the token stream into chunks of a fixed word count.
+
+The heuristic we start from is that roughly two pages of a novel should contain words relating to a similar theme. At approximately 500 words per page, we begin with chunks of 1,000 words.
+
+First, we unlist the tokens object into a single flat vector:
+
+```{r unlist-toks, message=FALSE, warning=FALSE}
+list_toks <- unlist(toks, use.names = FALSE)
+head(list_toks, n = 15)
+```
+
+Now we define the chunk size and split the vector into pseudo-documents:
+
+```{r chunk-1000, message=FALSE, warning=FALSE}
+chunk          <- 1000
+n              <- length(list_toks)
+r              <- rep(1:ceiling(n / chunk), each = chunk)[1:n]
+chunky_dickens <- split(list_toks, r)
+```
+
+The object `r` assigns each token a chunk number. Checking its distribution and the total number of chunks:
+
+```{r table-r, message=FALSE, warning=FALSE}
+table(r) |> head(5)
+length(chunky_dickens)
+```
+
+We get around 700 pseudo-documents of 1,000 words each (the final chunk is shorter). We convert to a quanteda tokens object and then to a document-feature matrix (DFM):
+
+```{r dtm-1000, message=FALSE, warning=FALSE}
+chunky_toks <- quanteda::tokens(chunky_dickens)
+dtm         <- quanteda::dfm(chunky_toks)
+dtm
+```
+
+---
+
+# Exploring the Document-Term Matrix {#explore}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to compute document frequencies; how to inspect the most and least frequent features; and what the distribution of document frequencies tells us about the trimming decisions we will make
+:::
+
+Before fitting any models, it is worth examining the feature frequencies. The `docfreq()` function counts how many pseudo-documents each feature appears in:
+
+```{r docfreq, message=FALSE, warning=FALSE}
+doc_freq <- quanteda::docfreq(dtm)
+head(doc_freq, n = 20)
+```
+
+The twenty-five most frequent features:
+
+```{r docfreq-top, message=FALSE, warning=FALSE}
+head(sort(doc_freq, decreasing = TRUE), n = 25)
+```
+
+The most common feature, *said*, appears in nearly all pseudo-documents — indicating a great deal of speech and dialogue. Several words related to time (*time*, *now*, *never*, *first*, *old*) appear in the top 25, suggesting character development. We are also seeing the rewards of our pre-processing: had we not removed punctuation and stopwords, this list would be dominated by *the*, *a*, commas, and full stops.
+
+The twenty-five least frequent features:
+
+```{r docfreq-bottom, message=FALSE, warning=FALSE}
+tail(sort(doc_freq, decreasing = TRUE), n = 25)
+```
+
+Among these we see features appearing in only one pseudo-document each. Some are processing artefacts; others are rare genuine words. More interestingly, non-standard spellings such as *stimilated* (from *stimulated*) and *olesome* (from *wholesome*) give us a first flavour of Dickens' literary realism — his use of non-standard spelling to render the speech of dialect speakers.
+
+---
+
+# Topic Modelling {#models}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** How to trim the DFM to remove very rare and very frequent features; how to fit a Structural Topic Model with `stm()`; and how to iteratively improve the model by adjusting the number of topics, document-frequency thresholds, and chunk size
+:::
+
+::: {.callout-note}
+## Reproducibility via set.seed()
+
+All `stm()` calls in this tutorial are immediately preceded by `set.seed(42)`. This ensures that the random initialisation of the STM algorithm starts from the same point every time, producing the same topics on every run. Without a fixed seed, the STM algorithm starts from a random state and produces somewhat different topics on each execution.
+:::
+
+## Trimming {-}
+
+Before fitting the first model, we trim the DFM to remove features that are too rare or too frequent to be informative:
+
+- `min_termfreq = 2`: only features occurring at least twice in the corpus
+- `min_docfreq`: minimum proportion of pseudo-documents the feature must appear in
+- `max_docfreq`: maximum proportion of pseudo-documents (removes very common words)
+- `docfreq_type = "prop"`: document frequency expressed as a proportion
+
+```{r trim-1, message=FALSE, warning=FALSE}
+dtm_trimmed <- quanteda::dfm_trim(
+  dtm,
+  min_termfreq = 2,
+  min_docfreq  = 0.0001,
+  max_docfreq  = 0.15,
+  docfreq_type = "prop"
+)
+```
+
+Even after removing stopwords, some content words are so frequent across all documents that they would dominate every topic. Trimming is a necessary complement to the earlier stopword removal.
+
+---
+
+# First Model: 10 Topics, 1,000-Word Chunks {#model1}
+
+The first model is always a starting point. We fit a structural topic model with K = 10 topics:
+
+```{r model1, message=FALSE, warning=FALSE}
+set.seed(42)
+stmOut_1 <- stm::stm(documents = dtm_trimmed,
+                     K          = 10,
+                     max.em.its = 200)
+```
+
+`K = 10` tells the algorithm to find ten topics. `max.em.its = 200` caps the number of EM iterations.
+
+The raw model object:
+
+```{r print-model1, message=FALSE, warning=FALSE}
+stmOut_1
+```
+
+We plot the top ten keywords for each topic:
+
+```{r plot-model1, fig.dim=c(10, 8), message=FALSE, warning=FALSE}
+plot(stmOut_1, n = 10)
+```
+
+This first model already gives some indication that the topic modelling is working. We see one topic containing contractions (*'ll*, *'em*, *'re*, *'ve*), reflecting informal speech settings. Another contains alternate spellings (*wery*, *wot*, *ai*, *wos*), pointing to dialogue written in dialect. Both topics are directly relevant to our research questions: the representation of informal and dialectal speech is a hallmark of Dickens' literary realism, and his willingness to give voice to dialect speakers reflects his progressive attitudes towards poverty.
+
+Beyond these, a topic containing *prisoner* and *prison*, and another with *grave* and *earth*, give some thematic coherence. However, many topics are still difficult to interpret — exactly what we would expect from a first-pass model with coarse chunks and only ten topics.
+
+---
+
+# Second Model: 20 Topics {#model2}
+
+Sometimes the number of topics prevents the model from showing co-occurrences at the required granularity. We give it space for 20 topics:
+
+```{r model2, message=FALSE, warning=FALSE}
+set.seed(42)
+stmOut_2 <- stm::stm(documents = dtm_trimmed,
+                     K          = 20,
+                     max.em.its = 200)
+plot(stmOut_2, n = 10)
+```
+
+This already presents quite an improvement. One topic pertains to water, with words like *boat*, *river*, *wind*, *tide*, *sea* and *marshes*. Another reflects a young man's education, featuring *boys*, *school*, *schoolmaster*, *son* and *desk*. A topic pointing towards Dickens' interest in justice contains *prisoner*, *prison*, *jury*, *court*, *citizen* and *witness*, while a closely related topic reflects the institutional dimension with *magistrate*, *office*, *clerk*, *attorney*, *officer* and *judge*. A topic pointing towards the otherworldly contains *beneath*, *grave*, *goblin*, *churchyard*, *earth*, *church* and *wind* — capturing the ambiance Dickens conjures at the opening of *Great Expectations*. We also now have several distinct topics capturing contractions and alternate spellings.
+
+Despite this improvement, several topics remain hard to interpret. But with this single adjustment — increasing K from 10 to 20 — we have taken a meaningful step toward interpretable content analysis.
+
+---
+
+# Third Model: More Rare Words {#model3}
+
+We can amplify the role of rare words by tightening the upper document-frequency threshold to 15%:
+
+```{r model3, message=FALSE, warning=FALSE}
+dtm_trimmed_rare <- quanteda::dfm_trim(
+  dtm,
+  min_termfreq = 2,
+  min_docfreq  = 0.005,
+  max_docfreq  = 0.15,
+  docfreq_type = "prop"
+)
+
+set.seed(42)
+stmOut_3 <- stm::stm(documents = dtm_trimmed_rare,
+                     K          = 20,
+                     max.em.its = 200)
+```
+
+Comparing the vocabulary sizes of the two matrices:
+
+```{r compare-dtm3, message=FALSE, warning=FALSE}
+dtm_trimmed_rare
+dtm_trimmed
+```
+
+```{r plot-model3, fig.dim=c(10, 8), message=FALSE, warning=FALSE}
+plot(stmOut_3, n = 10)
+```
+
+Tightening the upper frequency threshold does not yield a clear improvement here. Some novel words appear, but we also see some character names that the proper noun removal missed — indicating that a small number of names were not tagged as `PROPN` by udpipe. For the current purposes, we continue with this imperfect data — which is a realistic situation: data will always have some quirks.
+
+---
+
+# Fourth Model: More Common Words, More Topics {#model4}
+
+We explore what happens when we allow more common words by increasing the minimum document frequency to 1% and using 30 topics:
+
+```{r model4, message=FALSE, warning=FALSE}
+dtm_trimmed_common <- quanteda::dfm_trim(
+  dtm,
+  min_termfreq = 2,
+  min_docfreq  = 0.01,
+  max_docfreq  = 0.25,
+  docfreq_type = "prop"
+)
+
+set.seed(42)
+stmOut_4 <- stm::stm(documents = dtm_trimmed_common,
+                     K          = 30,
+                     max.em.its = 200)
+plot(stmOut_4, n = 10)
+```
+
+Some of the clearest topics from the second model are still recognisable — a water-related topic and a legal topic remain coherent — but there is no clear overall improvement. Allowing more common words means the model is dominated by high-frequency features that appear across many different topics without clearly distinguishing them. The direction this points us in is clear: rather than tinkering further with document-frequency thresholds on 1,000-word chunks, we should try smaller chunks.
+
+---
+
+# Fifth Model: Smaller Chunks (500 Words) {#model5}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Why chunk size is one of the most important parameters in topic modelling; how to re-chunk the token stream at a smaller size; and what improvements emerge from moving to 500-word pseudo-documents
+:::
+
+Smaller chunks limit the number of co-occurrences each word has, which should be especially relevant for rare and scene-specific words. We adjust the chunk size from 1,000 to 500 words:
+
+```{r model5, message=FALSE, warning=FALSE}
+chunk          <- 500
+n              <- length(list_toks)
+r              <- rep(1:ceiling(n / chunk), each = chunk)[1:n]
+chunky_dickens <- split(list_toks, r)
+chunky_toks    <- quanteda::tokens(chunky_dickens)
+dtm            <- quanteda::dfm(chunky_toks)
+
+dtm_trimmed_5 <- quanteda::dfm_trim(
+  dtm,
+  min_termfreq = 2,
+  min_docfreq  = 0.005,
+  max_docfreq  = 0.25,
+  docfreq_type = "prop"
+)
+
+set.seed(42)
+stmOut_5 <- stm::stm(documents = dtm_trimmed_5,
+                     K          = 25,
+                     max.em.its = 200)
+plot(stmOut_5, n = 10)
+```
+
+The smaller chunks produce noticeably different results. Several topics contain informal or dialectal language, showing how much space Dickens gives to people who do not speak received pronunciation — markers of rural and working-class backgrounds, and of children. Dickens' willingness to represent people in poverty thus becomes even more salient than in earlier models.
+
+We also get more distinct thematic topics. One points to graveyards, with words like *ground*, *cold*, *beneath*, *lay*, *spot*, *earth* and *grave*. Another describes comfortable evenings, with *evening*, *dinner*, *remember*, *parlour*, *glad* and *sitting*. Two topics indicate an engagement with justice: one containing *prisoner*, *prison* and *death*, and another containing *case*, *question*, *judge*, *clerk*, *jury* and *attorney*.
+
+Why does 500 work better than 1,000? Shorter chunks allow thematically relevant co-occurrence patterns to emerge while shifting the frequency thresholds in a way that reveals more salient patterns. However, chunks can also be too short: if pseudo-documents are too small, only few features remain and topic detection — which hinges on several words in collaboration — suffers.
+
+---
+
+# Sixth Model: Even Smaller Chunks (200 Words) {#model6}
+
+The trajectory of smaller chunks has thus far led to improvements, so we try 200-word chunks:
+
+```{r model6, message=FALSE, warning=FALSE}
+chunk          <- 200
+n              <- length(list_toks)
+r              <- rep(1:ceiling(n / chunk), each = chunk)[1:n]
+chunky_dickens <- split(list_toks, r)
+chunky_toks    <- quanteda::tokens(chunky_dickens)
+dtm_3          <- quanteda::dfm(chunky_toks)
+
+dtm_trimmed_3 <- quanteda::dfm_trim(
+  dtm_3,
+  min_termfreq = 2,
+  min_docfreq  = 0.005,
+  max_docfreq  = 0.25,
+  docfreq_type = "prop"
+)
+
+set.seed(42)
+stmOut_6 <- stm::stm(documents = dtm_trimmed_3,
+                     K          = 25,
+                     max.em.its = 200)
+plot(stmOut_6, n = 10)
+```
+
+Decreasing the chunk size to 200 words gets us much closer to the kind of results that allow us to address our research questions. Across the twenty-five topics, clear themes emerge.
+
+**Informal and dialectal language** — reliably appearing since the first model — is now captured with even finer distinctions. One topic reflects dialectal speech, with features like *wery*, *wot* and *ere*. Another contains contractions like *'ll* and *n't* alongside interaction words like *asked*, *hear* and *tell*. We get several topics of this kind in total, each with distinct flavours.
+
+**Literary realism** — one topic, displaying a high degree of internal consistency, pertains to travel with words including *coach*, *road*, *horses*, *chaise* and *guard*. A second describes outdoor spaces, containing *light*, *wind*, *people*, *water*, *windows*, *dark*, *streets* and *sea*. A third describes a comfortable social setting with *glass*, *table*, *gentlemen*, *wine*, *company*, *bottle* and *chair*. The granularity of these topics — describing different spaces in specific detail — reflects Dickens' commitment to including mundane everyday experience.
+
+**Positive emotions and care** — topics reflect the theme of family and love, with words like *child*, *home*, *happy*, *loved*, *love* and *heart* in one, and *mother*, *home*, *pretty*, *laughing* and *remember* in another. A third topic opens up in scope: *heart*, *love*, *beautiful*, *happiness*, *happy*, *poor*, *people* and *world* together indicate that Dickens has a broader conception of who is worthy of happiness and love than many of his contemporaries.
+
+**Other recurring themes** include character prospects (*father*, *business*, *money*, *brother*, *tell*, *hope*), remembrance (*saw*, *seen*, *sat*, *home*, *knew*, *gone*), and loss (*child*, *hands*, *heart*, *cried*, *moment*, *death*). Topics pertaining to the legal system and to school also appear, albeit less clearly than in some earlier models.
+
+Some topics remain barely interpretable — which is not uncommon in topic modelling.
+
+This model with 200-word chunks allows us to address both research questions rather well: the topics reveal Dickens' social criticism through the prominence of poverty, informal speech, and legal themes; and they reveal his literary realism through the specific, granular descriptions of spaces, travel, and social settings.
+
+---
+
+# Seventh Model: 200-Word Chunks, Narrower Frequency Range {#model7}
+
+We keep the 200-word chunks but narrow the range of included words by lowering the maximum document frequency to 15%:
+
+```{r model7, message=FALSE, warning=FALSE}
+dtm_trimmed_4 <- quanteda::dfm_trim(
+  dtm_3,
+  min_termfreq = 2,
+  min_docfreq  = 0.005,
+  max_docfreq  = 0.15,
+  docfreq_type = "prop"
+)
+
+set.seed(42)
+stmOut_7 <- stm::stm(documents = dtm_trimmed_4,
+                     K          = 25,
+                     max.em.its = 200)
+plot(stmOut_7, n = 10)
+```
+
+In comparison to the sixth model, the improvements here are subtler but worth examining.
+
+**Appearance and social setting** — there is now a topic more clearly detailing people's appearance, with *coat*, *black*, *hat*, *small*, *white*, *large*, *pretty* and *appearance*. A companion topic describes social settings with *gentlemen*, *company*, *ladies*, *fat*, *chair*, *party*, *honourable* and *crowd*.
+
+**Passing of time** — a topic captures the passage of time evocatively, with *evening*, *often*, *walked*, *quiet*, *hour*, *passed*, *days*, *window*, *thoughts* and *hours*.
+
+**Legal and institutional interactions** — the legal system theme gains specificity, with *paper* and *read* appearing in the same topic as *case*, *prisoner*, *court* and *judge*. A related topic captures formal institutional interactions with *matter*, *beg*, *magistrate*, *fellow*, *person*, *pray*, *certainly* and *inquired*.
+
+**Family and heritage** — a topic on love contains *love*, *child*, *happy*, *woman*, *speak*, *tears*, *loved* and *feel*. A second captures heritage with *mother*, *gave*, *mine*, *remember*, *pretty*, *wonder*, *father*, *suppose* and *baby*. The words *wonder* and *suppose* bring a quality of speculation that may well evoke characters like the orphan Pip in *Great Expectations*.
+
+An interesting observation is that the word *poor* no longer appears in this model. This indicates that it occurs in somewhere between 15% and 25% of all pseudo-documents — making it quite a frequent word. Of course, *poor* is not necessarily related to poverty per se, as it can also express sympathy. But Dickens' use of *poor* could be a productive avenue for more qualitative investigation.
+
+As always, some topics containing contractions and alternate spellings are present, and some topics remain challenging to interpret.
+
+---
+
+# Final Comments {#conclusion}
+
+Many roads lead to Rome. This goes for each step of the way: the choice of programming language and packages, the pre-processing decisions, and the precise specification and interpretation of the models. There is no one-size-fits-all approach.
+
+Perhaps the best frame for thinking about topic modelling is provided by @tangherlini2013trawling, who discuss it in terms of a division of labour: "the computer algorithm is given the task of doing what it does best: counting words and calculating probabilities of term co-occurrence" and the "researcher is given the task of doing what he or she does best: applying domain expertise and experience for labelling and curating the topics" [@tangherlini2013trawling 728].
+
+Working through this tutorial, you have seen how tweaking parameters — number of topics, document-frequency thresholds, chunk size — can change the results substantially. The journey from a first, uninterpretable model to one that provides genuine insight into Dickens' social criticism and literary realism illustrates both the challenges and the rewards of computational text analysis.
+
+::: {.callout-note}
+## Parameter Summary
+
+| Model | Chunk | K | min_docfreq | max_docfreq | Key finding |
+|---|---|---|---|---|---|
+| 1 | 1,000 | 10 | 0.0001 | 0.15 | Baseline — few interpretable topics |
+| 2 | 1,000 | 20 | 0.0001 | 0.15 | More topics → clearer themes |
+| 3 | 1,000 | 20 | 0.005  | 0.15 | Rarer words → marginal change |
+| 4 | 1,000 | 30 | 0.01   | 0.25 | More common words → no improvement |
+| 5 | 500   | 25 | 0.005  | 0.25 | Smaller chunks → clearer themes |
+| 6 | 200   | 25 | 0.005  | 0.25 | Even smaller chunks → best overall |
+| 7 | 200   | 25 | 0.005  | 0.15 | Narrower range → finer detail |
+
+The general trend: smaller chunks and more topics tend to produce more interpretable results, up to the point where chunks become so small that co-occurrences are too sparse.
+:::
+
+---
+
+# Citation & Session Info {-}
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, "), ",
+  "doi: ", params$doi, ".",
+  sep = ""
+)
+```
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "}\n",  sep = "")
+cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("}\n```\n")
+```
+:::
+
+
+
+```{r fin}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, write the new "Creating Surveys in R" section covering `shiny` and `surveydown`, expand the design principles and scale types sections, add the mosaic plot and cumulative density plot examples, expand the ordinal regression section with the Brant test and improved visualisation, write the `checkdown` quiz questions and feedback strings, and revise all callout boxes, section overviews, and the summary section. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material.
+:::
+
+[Back to top](#intro)
+
+[Back to LADAL home](/)
+
+---
+
+# References {-}
