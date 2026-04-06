@@ -8,9 +8,16 @@
 write_redirect <- function(output_path, destination_url) {
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
   content <- paste0(
-    "<!DOCTYPE html>\n<html>\n\t<head>\n\t\t<script>\n\t\t\t",
+    "<!DOCTYPE html>\n<html>\n\t<head>\n",
+    "\t\t<meta charset=\"UTF-8\">\n",
+    "\t\t<meta http-equiv=\"refresh\" content=\"0; url=", destination_url, "\">\n",
+    "\t\t<link rel=\"canonical\" href=\"", destination_url, "\">\n",
+    "\t\t<script>\n\t\t\t",
     "window.location.replace(\"", destination_url, "\");\n\t\t</script>\n",
-    "\t</head>\n</html>\n"
+    "\t</head>\n",
+    "\t<body>\n",
+    "\t\t<p>Redirecting to <a href=\"", destination_url, "\">", destination_url, "</a></p>\n",
+    "\t</body>\n</html>\n"
   )
   cat(content, file = output_path)
 }
@@ -221,6 +228,7 @@ fixes_404 <- list(
   "docs/tutorials/reinfnlp/intror.html"            = paste0(BASE, "/r_intro/r_intro.html"),
   
   # Old .Rmd and content file URLs
+  "docs/tutorials/pdf2txt/pdf2txt.Rmd"             = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/tutorials/surveys/surveys.Rmd"             = paste0(BASE, "/surveys/surveys.html"),
   "docs/content/introviz.Rmd"                      = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
   "docs/content/kwics.Rmd"                         = paste0(BASE, "/concordancing/concordancing.html"),
@@ -229,6 +237,8 @@ fixes_404 <- list(
   
   # Retired or renamed top-level pages
   "docs/topicmodels.html"                          = paste0(BASE, "/topic/topic.html"),
+  "docs/tutorials/bookdown/bookdown.html"          = paste0(BASE, "/publish/publish.html"),
+  "docs/tutorials/keywords/keywords.html"          = paste0(BASE, "/keywords/keywords.html"),
   "docs/news.html"                                 = "https://ladal.edu.au/events.html",
   "docs/phylo.html"                                = "https://ladal.edu.au/tutorials.html",
   "docs/gviz.html"                                 = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
