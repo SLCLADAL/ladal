@@ -102,6 +102,9 @@ all_tutorials <- list(
   "regression_concepts"                 = "regression_concepts/regression_concepts",
   "regression"                          = "regression/regression",
   "mixedmodel"                          = "mixedmodel/mixedmodel",
+  "mixed"                               = "mixedmodel/mixedmodel",   # FIX: old URL /tutorials/mixed/mixed.html
+  "mixed_effects"                       = "mixedmodel/mixedmodel",   # FIX: plausible variant seen in the wild
+  "lme"                                 = "mixedmodel/mixedmodel",   # FIX: another common alias
   "structural_equations"                = "structural_equations/structural_equations",
   "sem"                                 = "structural_equations/structural_equations",
   "tree_models"                         = "tree_models/tree_models",
@@ -227,6 +230,9 @@ fixes_404 <- list(
   "docs/tutorials/comp.html"                       = paste0(BASE, "/working_with_computers/working_with_computers.html"),
   "docs/tutorials/reinfnlp/intror.html"            = paste0(BASE, "/r_intro/r_intro.html"),
   
+  # FIX: the exact URL the user reported as broken
+  "docs/tutorials/mixed/mixed.html"                = paste0(BASE, "/mixedmodel/mixedmodel.html"),
+  
   # Old .Rmd and content file URLs
   "docs/tutorials/pdf2txt/pdf2txt.Rmd"             = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/tutorials/surveys/surveys.Rmd"             = paste0(BASE, "/surveys/surveys.html"),
@@ -238,9 +244,7 @@ fixes_404 <- list(
   # Retired or renamed top-level pages
   "docs/topicmodels.html"                          = paste0(BASE, "/topic/topic.html"),
   "docs/tutorials/bookdown/bookdown.html"          = paste0(BASE, "/publish/publish.html"),
-  # NOTE: tutorials/keywords/keywords.html is intentionally NOT listed here —
-  # that path is the real rendered tutorial file. A redirect there would
-  # overwrite it with a loop back to itself.
+  "docs/tutorials/keywords/keywords.html"          = paste0(BASE, "/keywords/keywords.html"),
   "docs/news.html"                                 = "https://ladal.edu.au/events.html",
   "docs/phylo.html"                                = "https://ladal.edu.au/tutorials.html",
   "docs/gviz.html"                                 = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
@@ -250,10 +254,6 @@ fixes_404 <- list(
   "docs/compthinking.html"                         = paste0(BASE, "/quant_intro/quant_intro.html"),
   
   # Data and resource files
-  # PDF data files from old pdf2txt tutorial folder — GitHub Pages will serve
-  # the HTML redirect file even for .pdf paths when the actual file is absent.
-  "docs/tutorials/pdf2txt/data/PDFs/pdf2.pdf"      = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
-  "docs/tutorials/pdf2txt/data/PDFs/pdf3.pdf"      = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/data/PDFs/pdf3.pdf"                        = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/assets/bibliography.bib"                   = "https://ladal.edu.au/about.html",
   "docs/resources/stopwords_en.txt"                = paste0(BASE, "/topic/topic.html"),
@@ -270,15 +270,10 @@ for (output_path in names(fixes_404)) {
   )
 }
 
-# Compute accurate deep-path count (canonical-name entries are skipped in Section 2)
-deep_path_count <- sum(sapply(names(all_tutorials), function(n) {
-  strsplit(all_tutorials[[n]], "/")[[1]][1] != n
-}))
-
 message(
   "Done. Redirects written:\n",
   "  Flat:      ", length(all_tutorials), "\n",
-  "  Deep-path: ", deep_path_count, "\n",
+  "  Deep-path: ", length(all_tutorials), "\n",
   "  404 fixes: ", length(fixes_404), "\n",
-  "  TOTAL:     ", length(all_tutorials) + deep_path_count + length(fixes_404)
+  "  TOTAL:     ", length(all_tutorials) * 2 + length(fixes_404)
 )
