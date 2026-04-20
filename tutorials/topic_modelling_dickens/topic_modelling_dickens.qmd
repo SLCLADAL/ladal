@@ -1,7 +1,8 @@
 ---
 title: "Topic Modelling of Charles Dickens' Novels"
+description: "This showcase tutorial demonstrates an iterative Structural Topic Model (STM) workflow applied to the complete novels of Charles Dickens, covering corpus compilation from Project Gutenberg, POS tagging with udpipe for proper noun removal, chunk-size experimentation, and the interpretation of topics in relation to social criticism and literary realism. It is aimed at researchers in digital humanities and computational stylistics."
 author: "Gerold Schneider & Max Lauber"
-date: "2026"
+date: "2026-04-06"
 params:
   title:       "Topic Modelling of Charles Dickens' Novels"
   author:      "Gerold Schneider & Max Lauber"
@@ -11,6 +12,7 @@ params:
   url:         "https://ladal.edu.au/tutorials/topic_modelling_dickens/topic_modelling_dickens.html"
   institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
   description:       "This showcase tutorial demonstrates an iterative Structural Topic Model (STM) workflow applied to the complete novels of Charles Dickens, covering corpus compilation from Project Gutenberg, POS tagging with udpipe for proper noun removal, chunk-size experimentation, and the interpretation of topics in relation to social criticism and literary realism. It is aimed at researchers in digital humanities and computational stylistics."
+  keywords: "structural topic model, charles dickens, project gutenberg, pos tagging, udpipe, topic interpretation, digital humanities, computational stylistics"
   doi:         "10.5281/zenodo.19424887"
 ---
 
@@ -20,6 +22,73 @@ options(stringsAsFactors = FALSE)
 options("scipen" = 100, "digits" = 4)
 library(checkdown)
 ```
+
+```{r schema-org, echo=FALSE, results='asis'}
+schema_keywords <- paste0(
+  '"', trimws(strsplit(params$keywords, ",")[[1]]), '"',
+  collapse = ", "
+)
+doi_url <- if (nchar(trimws(params$doi)) > 0) {
+  paste0('    "sameAs": "https://doi.org/', params$doi, '",\n')
+} else { "" }
+
+# Build author array — handles single or multiple authors
+# For multi-author tutorials, add orcids below as named vector
+orcids <- c(
+  "Gerold Schneider" = "https://orcid.org/0000-0002-1905-6237",
+  "Max Lauber"         = ""
+)
+authors_raw <- trimws(strsplit(params$author, " and ")[[1]])
+author_json <- paste0(
+  sapply(authors_raw, function(name) {
+    orcid <- orcids[name]
+    if (!is.na(orcid)) {
+      paste0('    {"@type": "Person", "name": "', name,
+             '", "sameAs": "', orcid, '"}')
+    } else {
+      paste0('    {"@type": "Person", "name": "', name, '"}')
+    }
+  }),
+  collapse = ",\n"
+)
+
+cat(paste0(
+'<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "', params$title, '",
+  "description": "', gsub('"', '\\\\"', params$description), '",
+  "url": "', params$url, '",
+', doi_url,
+'  "datePublished": "', params$date_published, '",
+  "version": "', params$version, '",
+  "inLanguage": "en",
+  "educationalLevel": "Graduate",
+  "learningResourceType": "Tutorial",
+  "keywords": [', schema_keywords, '],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": [
+', author_json, '
+  ],
+  "publisher": {
+    "@type": "EducationalOrganization",
+    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+    "url": "https://ladal.edu.au",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "The University of Queensland"
+    }
+  },
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "LADAL",
+    "url": "https://ladal.edu.au"
+  }
+}
+</script>'))
+```
+
 
 ![Great Court, The University of Queensland](/images/uq1.webp){width="100%" height="200px" loading="lazy" fetchpriority="high"}
 
