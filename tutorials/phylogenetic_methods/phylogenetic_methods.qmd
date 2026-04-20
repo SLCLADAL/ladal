@@ -12,6 +12,7 @@ params:
   url:         "https://ladal.edu.au/tutorials/phylogenetic_methods/phylogenetic_methods.html"
   institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
   description:       "This showcase tutorial demonstrates genealogically-sensitive statistical methods for linguistic typology in R, covering the ACL and BM methods for computing phylogenetically-weighted proportions and averages, constructing and manipulating linguistic family trees with glottoTrees, and a complete worked example reproducing a published typological study across 496 languages. It is aimed at researchers in quantitative typology and historical linguistics."
+  keywords:    "phylogenetic methods, linguistic typology, genealogical signal, ACL method, BM method, glottoTrees, quantitative typology, historical linguistics"
   doi:         "10.5281/zenodo.19332926"
 ---
 
@@ -21,6 +22,73 @@ options(stringsAsFactors = FALSE)
 options("scipen" = 100, "digits" = 4)
 library(checkdown)
 ```
+
+```{r schema-org, echo=FALSE, results='asis'}
+schema_keywords <- paste0(
+  '"', trimws(strsplit(params$keywords, ",")[[1]]), '"',
+  collapse = ", "
+)
+doi_url <- if (nchar(trimws(params$doi)) > 0) {
+  paste0('    "sameAs": "https://doi.org/', params$doi, '",\n')
+} else { "" }
+
+# Build author array — handles single or multiple authors
+# For multi-author tutorials, add orcids below as named vector
+orcids <- c(
+  "Martin Schweinberger" = "https://orcid.org/0000-0003-1923-9153",
+  "Erich Round"         = "https://orcid.org/0000-0002-8679-4243"
+)
+authors_raw <- trimws(strsplit(params$author, " and ")[[1]])
+author_json <- paste0(
+  sapply(authors_raw, function(name) {
+    orcid <- orcids[name]
+    if (!is.na(orcid)) {
+      paste0('    {"@type": "Person", "name": "', name,
+             '", "sameAs": "', orcid, '"}')
+    } else {
+      paste0('    {"@type": "Person", "name": "', name, '"}')
+    }
+  }),
+  collapse = ",\n"
+)
+
+cat(paste0(
+'<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "', params$title, '",
+  "description": "', gsub('"', '\\\\"', params$description), '",
+  "url": "', params$url, '",
+', doi_url,
+'  "datePublished": "', params$date_published, '",
+  "version": "', params$version, '",
+  "inLanguage": "en",
+  "educationalLevel": "Graduate",
+  "learningResourceType": "Tutorial",
+  "keywords": [', schema_keywords, '],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": [
+', author_json, '
+  ],
+  "publisher": {
+    "@type": "EducationalOrganization",
+    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+    "url": "https://ladal.edu.au",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "The University of Queensland"
+    }
+  },
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "LADAL",
+    "url": "https://ladal.edu.au"
+  }
+}
+</script>'))
+```
+
 
 ![Great Court, The University of Queensland](/images/uq1.webp){width="100%" height="200px" loading="lazy" fetchpriority="high"}
 

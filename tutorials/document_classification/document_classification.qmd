@@ -55,6 +55,74 @@ Although R in its basic version already contains a lot of functionalities, we do
 # install.packages("ggplot2")
 ```
 
+```{r schema-org, echo=FALSE, results='asis'}
+schema_keywords <- paste0(
+  '"', trimws(strsplit(params$keywords, ",")[[1]]), '"',
+  collapse = ", "
+)
+doi_url <- if (nchar(trimws(params$doi)) > 0) {
+  paste0('    "sameAs": "https://doi.org/', params$doi, '",\n')
+} else { "" }
+
+# Build author array — handles single or multiple authors
+# For multi-author tutorials, add orcids below as named vector
+orcids <- c(
+  "Gerold Schneider" = "https://orcid.org/0000-0002-1905-6237",
+  "Max Lauber"         = ""
+)
+authors_raw <- trimws(strsplit(params$author, " and ")[[1]])
+author_json <- paste0(
+  sapply(authors_raw, function(name) {
+    orcid <- orcids[name]
+    if (!is.na(orcid)) {
+      paste0('    {"@type": "Person", "name": "', name,
+             '", "sameAs": "', orcid, '"}')
+    } else {
+      paste0('    {"@type": "Person", "name": "', name, '"}')
+    }
+  }),
+  collapse = ",\n"
+)
+
+cat(paste0(
+'<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "', params$title, '",
+  "description": "', gsub('"', '\\\\"', params$description), '",
+  "url": "', params$url, '",
+', doi_url,
+'  "datePublished": "', params$date_published, '",
+  "version": "', params$version, '",
+  "inLanguage": "en",
+  "educationalLevel": "Graduate",
+  "learningResourceType": "Tutorial",
+  "keywords": [', schema_keywords, '],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": [
+', author_json, '
+  ],
+  "publisher": {
+    "@type": "EducationalOrganization",
+    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+    "url": "https://ladal.edu.au",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "The University of Queensland"
+    }
+  },
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "LADAL",
+    "url": "https://ladal.edu.au"
+  }
+}
+</script>'))
+```
+
+
+
 This may take a minute or three. In most cases, this will work without any hiccups. If you should get an error message, we recommend taking a moment to read what it says, and, if it does not make any sense to you, to google it. If an issue comes up for you, chances are that this has already happened to someone else - and, fortunately, the R community has a pretty good track record of responding to questions about technical issues. Generally, it is also a good idea to use a relatively new version of R. If you have last used R two years ago, do update it.
 
 Once you have installed the packages, you’ll need to load them in the current session. This is done with the following lines of code:

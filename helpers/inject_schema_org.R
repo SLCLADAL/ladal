@@ -1,94 +1,90 @@
 # ============================================================
-# LADAL — Schema.org LearningResource chunk template
+# LADAL — Inject schema-org chunk into all tutorial .qmd files
 # ============================================================
 #
-# This file contains two things:
+# Inserts the Schema.org LearningResource JSON-LD chunk into
+# every tutorial that doesn't already have it. The chunk reads
+# from each tutorial's own params block at render time, so no
+# manual editing per tutorial is needed.
 #
-#   PART A — The R chunk to paste into each tutorial .qmd,
-#             placed anywhere in the document body (recommended:
-#             just after the YAML front matter, before the
-#             first heading, alongside the setup chunk).
+# Insertion point: immediately after the setup chunk closing ```
+# (i.e. after the first code chunk closer following the YAML).
 #
-#   PART B — A script to inject the chunk automatically into
-#             all tutorials that don't already have it.
+# Safe behaviour:
+#   - DRY_RUN = TRUE previews all changes without writing anything
+#   - Skips any tutorial that already contains "schema-org"
+#   - Saves a log CSV to helpers/inject_schema_org_log.csv
 #
-# The chunk emits a <script type="application/ld+json"> block
-# using each tutorial's own params values. This tells Google
-# exactly what kind of content the page is, who wrote it,
-# when it was published, and what the DOI is.
+# After running with DRY_RUN <- FALSE:
+#   - Re-render all tutorials with render_all_pages.R
+#   - Verify one rendered HTML contains the JSON-LD block
+#     by searching the page source for "application/ld+json"
 #
-# Google uses LearningResource schema to generate rich results
-# for educational content — course cards, knowledge panels,
-# and structured snippets in search results.
+# REQUIRES: here
+#   install.packages("here")
 # ============================================================
-
-
-# ── PART A: Paste this chunk into each tutorial ───────────────────────────────
-#
-# Place it after the setup chunk, before the first heading (# Introduction).
-# It runs silently (echo=FALSE, results='asis') and emits JSON-LD into the page.
-
-CHUNK_TEMPLATE <- r"(
-```{r schema-org, echo=FALSE, results='asis'}
-# Schema.org structured data — read by Google for rich search results
-schema_keywords <- paste0(
-  '"', trimws(strsplit(params$keywords, ",")[[1]]), '"',
-  collapse = ", "
-)
-doi_url <- if (nchar(trimws(params$doi)) > 0) {
-  paste0('    "sameAs": "https://doi.org/', params$doi, '",\n')
-} else { "" }
-cat(paste0(
-'<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "LearningResource",
-  "name": "', params$title, '",
-  "description": "', gsub('"', '\\\\"', params$description), '",
-  "url": "', params$url, '",
-', doi_url,
-'  "datePublished": "', params$date_published, '",
-  "version": "', params$version, '",
-  "inLanguage": "en",
-  "educationalLevel": "Graduate",
-  "learningResourceType": "Tutorial",
-  "keywords": [', schema_keywords, '],
-  "license": "https://creativecommons.org/licenses/by/4.0/",
-  "author": {
-    "@type": "Person",
-    "name": "', params$author, '",
-    "sameAs": "https://orcid.org/0000-0003-1923-9153"
-  },
-  "publisher": {
-    "@type": "EducationalOrganization",
-    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
-    "url": "https://ladal.edu.au",
-    "parentOrganization": {
-      "@type": "CollegeOrUniversity",
-      "name": "The University of Queensland"
-    }
-  },
-  "isPartOf": {
-    "@type": "WebSite",
-    "name": "LADAL",
-    "url": "https://ladal.edu.au"
-  }
-}
-<\/script>'))
-```
-)"
-
-
-# ── PART B: Script to inject the chunk into all tutorials ─────────────────────
 
 library(here)
 
-DRY_RUN <- TRUE   # Set to FALSE to actually write changes
+DRY_RUN <- FALSE   # <- Set to FALSE to write changes
 
 TUTORIALS_DIR <- here("tutorials")
 
-# Marker string — if this appears in a file, we skip it (already injected)
-MARKER <- "schema-org"
+# ── The chunk to inject ───────────────────────────────────────────────────────
+# Stored as a character vector (one element per line) to avoid any
+# escaping issues that arise from storing R code inside an R string.
+
+CHUNK_LINES <- c(
+  '```{r schema-org, echo=FALSE, results=\'asis\'}',
+  '# Schema.org structured data - read by Google for rich search results',
+  'schema_keywords <- paste0(',
+  '  \'"\', trimws(strsplit(params$keywords, ",")[[1]]), \'"\',',
+  '  collapse = ", "',
+  ')',
+  'doi_url <- if (nchar(trimws(params$doi)) > 0) {',
+  '  paste0(\'    "sameAs": "https://doi.org/\', params$doi, \'",\\n\')',
+  '} else { "" }',
+  'cat(paste0(',
+  '\'<script type="application/ld+json">',
+  '{',
+  '  "@context": "https://schema.org",',
+  '  "@type": "LearningResource",',
+  '  "name": "\', params$title, \'",',
+  '  "description": "\', gsub(\'"\', \'\\\\\\\\"\', params$description), \'",',
+  '  "url": "\', params$url, \'",',
+  '\', doi_url,',
+  '\'  "datePublished": "\', params$date_published, \'",',
+  '  "version": "\', params$version, \'",',
+  '  "inLanguage": "en",',
+  '  "educationalLevel": "Graduate",',
+  '  "learningResourceType": "Tutorial",',
+  '  "keywords": [\', schema_keywords, \'],',
+  '  "license": "https://creativecommons.org/licenses/by/4.0/",',
+  '  "author": {',
+  '    "@type": "Person",',
+  '    "name": "\', params$author, \'",',
+  '    "sameAs": "https://orcid.org/0000-0003-1923-9153"',
+  '  },',
+  '  "publisher": {',
+  '    "@type": "EducationalOrganization",',
+  '    "name": "Language Technology and Data Analysis Laboratory (LADAL)",',
+  '    "url": "https://ladal.edu.au",',
+  '    "parentOrganization": {',
+  '      "@type": "CollegeOrUniversity",',
+  '      "name": "The University of Queensland"',
+  '    }',
+  '  },',
+  '  "isPartOf": {',
+  '    "@type": "WebSite",',
+  '    "name": "LADAL",',
+  '    "url": "https://ladal.edu.au"',
+  '  }',
+  '}',
+  '</script>\'))',
+  '```'
+)
+
+# ── Find all tutorial .qmd files ──────────────────────────────────────────────
 
 qmd_files <- list.files(
   path       = TUTORIALS_DIR,
@@ -100,74 +96,99 @@ qmd_files <- list.files(
 cat("Found", length(qmd_files), "tutorial .qmd files\n")
 cat("DRY_RUN:", DRY_RUN, "\n\n")
 
-injected <- 0
-skipped  <- 0
+results <- data.frame(
+  file   = character(),
+  status = character(),
+  stringsAsFactors = FALSE
+)
 
 for (qmd_path in qmd_files) {
   rel_path <- gsub(paste0(here(), "/"), "", qmd_path)
-  content  <- paste(readLines(qmd_path, warn = FALSE), collapse = "\n")
+  lines    <- readLines(qmd_path, warn = FALSE)
+  content  <- paste(lines, collapse = "\n")
 
-  # Skip if already has schema-org chunk
-  if (grepl(MARKER, content, fixed = TRUE)) {
-    cat("SKIPPED (already has schema chunk):", rel_path, "\n")
-    skipped <- skipped + 1
+  # Skip if already has the schema-org chunk
+  if (grepl("schema-org", content, fixed = TRUE)) {
+    cat("SKIPPED (already has schema-org chunk):", rel_path, "\n")
+    results <- rbind(results, data.frame(
+      file = rel_path, status = "SKIPPED - already has schema-org",
+      stringsAsFactors = FALSE
+    ))
     next
   }
 
-  # Find the setup chunk — inject schema chunk immediately after it
-  # Pattern: end of the ```{r setup ...} ... ``` block
-  # We look for the closing ``` of the setup chunk followed by newlines,
-  # then the banner image line (which follows setup in all tutorials).
-  #
-  # Strategy: find the first ``` that closes the setup chunk.
-  # The setup chunk is always the first code chunk after the YAML.
-  lines <- strsplit(content, "\n")[[1]]
-
-  # Find YAML end
+  # Find YAML end (second --- delimiter)
   delimiters <- which(trimws(lines) == "---")
   if (length(delimiters) < 2) {
-    cat("SKIPPED (no YAML):", rel_path, "\n")
-    skipped <- skipped + 1
+    cat("SKIPPED (no YAML found):", rel_path, "\n")
+    results <- rbind(results, data.frame(
+      file = rel_path, status = "SKIPPED - no YAML",
+      stringsAsFactors = FALSE
+    ))
     next
   }
   yaml_end <- delimiters[2]
 
-  # Find the first ``` that closes a chunk after YAML
-  # (i.e., a line that is exactly ``` with nothing else)
+  # Find the first chunk-closing ``` after the YAML
+  # (a line that is exactly ``` with nothing else)
   chunk_closers <- which(trimws(lines) == "```")
   chunk_closers_after_yaml <- chunk_closers[chunk_closers > yaml_end]
 
   if (length(chunk_closers_after_yaml) == 0) {
-    cat("SKIPPED (no chunk closer found):", rel_path, "\n")
-    skipped <- skipped + 1
+    cat("SKIPPED (no setup chunk found):", rel_path, "\n")
+    results <- rbind(results, data.frame(
+      file = rel_path, status = "SKIPPED - no setup chunk closer found",
+      stringsAsFactors = FALSE
+    ))
     next
   }
 
-  # Insert point: after the first chunk closer (= after setup chunk)
+  # Insert after the first chunk closer (= after the setup chunk)
   insert_after <- chunk_closers_after_yaml[1]
 
-  # Build modified content
-  chunk_lines <- strsplit(trimws(CHUNK_TEMPLATE), "\n")[[1]]
+  # Build the new file: lines up to insertion point, blank line,
+  # the chunk, blank line, then the rest of the file
   new_lines <- c(
     lines[1:insert_after],
     "",
-    chunk_lines,
+    CHUNK_LINES,
     "",
     lines[(insert_after + 1):length(lines)]
   )
 
   if (DRY_RUN) {
-    cat("WOULD INJECT schema chunk after line", insert_after, "in:", rel_path, "\n")
+    cat("WOULD INSERT after line", insert_after, "in:", rel_path, "\n")
+    results <- rbind(results, data.frame(
+      file   = rel_path,
+      status = paste("DRY RUN - would insert after line", insert_after),
+      stringsAsFactors = FALSE
+    ))
   } else {
     writeLines(new_lines, qmd_path)
-    cat("INJECTED:", rel_path, "\n")
+    cat("INSERTED in:", rel_path, "\n")
+    results <- rbind(results, data.frame(
+      file   = rel_path,
+      status = paste("INSERTED after line", insert_after),
+      stringsAsFactors = FALSE
+    ))
   }
-  injected <- injected + 1
 }
+
+# ── Summary ───────────────────────────────────────────────────────────────────
 
 cat("\n============================================================\n")
 cat("Summary\n")
 cat("============================================================\n")
-cat(if (DRY_RUN) "Would inject: " else "Injected: ", injected, "\n")
-cat("Skipped:  ", skipped, "\n")
-cat("\nSet DRY_RUN <- FALSE and re-run to apply changes.\n")
+cat("Inserted / would insert:", sum(grepl("INSERT", results$status)), "\n")
+cat("Skipped:                ", sum(grepl("SKIPPED", results$status)), "\n")
+
+log_path <- here("helpers", "inject_schema_org_log.csv")
+write.csv(results, log_path, row.names = FALSE)
+cat("\nLog saved to:", log_path, "\n")
+
+if (DRY_RUN) {
+  cat("\nSet DRY_RUN <- FALSE and re-run to apply changes.\n")
+} else {
+  cat("\nDone. Now re-render all tutorials with render_all_pages.R\n")
+  cat("Verify by opening a rendered HTML and searching for 'application/ld+json'\n")
+}
