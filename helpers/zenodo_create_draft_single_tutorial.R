@@ -68,7 +68,7 @@ LIMIT <- 20
 #
 # Example — batch mode (process up to LIMIT tutorials):
 #   TARGET_TUTORIAL <- ""
-TARGET_TUTORIAL <- ""
+TARGET_TUTORIAL <- "readability"
 
 # Mapping of old slcladal.github.io slugs for tutorials that were RENAMED.
 # For tutorials whose folder name matches the old slug, the old URL is derived

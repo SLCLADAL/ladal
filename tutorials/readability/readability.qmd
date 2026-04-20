@@ -1,0 +1,998 @@
+---
+title: "Readability Analysis in R"
+description: "This tutorial covers readability analysis in R, including the most widely used formula-based readability measures (Flesch, Gunning Fog, SMOG, Coleman-Liau, and Dale-Chall), how to compute them using quanteda.textstats and koRpus, and how to compare readability across text genres and learner versus native-speaker writing. It is aimed at researchers in linguistics, applied linguistics, and the digital humanities who want to quantify and compare text complexity."
+author: "Martin Schweinberger"
+date: "2026"
+params:
+  title:          "Readability Analysis in R"
+  author:         "Martin Schweinberger"
+  year:           "2026"
+  version:        "3.1.1"
+  date_published: "2026-04-20"
+  url:            "https://ladal.edu.au/tutorials/readability/readability.html"
+  institution:    "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
+  description:    "This tutorial covers readability analysis in R, including the most widely used formula-based readability measures (Flesch, Gunning Fog, SMOG, Coleman-Liau, and Dale-Chall), how to compute them using quanteda.textstats and koRpus, and how to compare readability across text genres and learner versus native-speaker writing. It is aimed at researchers in linguistics, applied linguistics, and the digital humanities who want to quantify and compare text complexity."
+  keywords:       "readability, Flesch, Gunning Fog, SMOG, Coleman-Liau, Dale-Chall, text complexity, corpus linguistics, learner language, R"
+  doi:            "10.5281/zenodo.19659678"
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+---
+
+```{r schema-org, echo=FALSE, results='asis'}
+schema_keywords <- paste0(
+  '"', trimws(strsplit(params$keywords, ",")[[1]]), '"',
+  collapse = ", "
+)
+doi_url <- if (nchar(trimws(params$doi)) > 0) {
+  paste0('    "sameAs": "https://doi.org/', params$doi, '",\n')
+} else { "" }
+cat(paste0(
+'<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "', params$title, '",
+  "description": "', gsub('"', '\\\\"', params$description), '",
+  "url": "', params$url, '",
+', doi_url,
+'  "datePublished": "', params$date_published, '",
+  "version": "', params$version, '",
+  "inLanguage": "en",
+  "educationalLevel": "Graduate",
+  "learningResourceType": "Tutorial",
+  "keywords": [', schema_keywords, '],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": {
+    "@type": "Person",
+    "name": "', params$author, '",
+    "sameAs": "https://orcid.org/0000-0003-1923-9153"
+  },
+  "publisher": {
+    "@type": "EducationalOrganization",
+    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+    "url": "https://ladal.edu.au",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "The University of Queensland"
+    }
+  },
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "LADAL",
+    "url": "https://ladal.edu.au"
+  }
+}
+</script>'))
+```
+
+![Great Court, The University of Queensland](/images/uq1.jpg){width="100%" height="200px" loading="lazy"}
+
+# Introduction {-}
+
+![](/images/gy_chili.png){width="15%" style="float:right; padding:10px"}
+
+How difficult is a text to read? This deceptively simple question has occupied linguists, educators, and psychologists for over a century, and it remains relevant today wherever language is produced for a particular audience — from school textbooks and government reports to patient information leaflets and second-language teaching materials. Readability analysis offers a principled, reproducible way to quantify text complexity using measurable surface features of language: how long are the words, how long are the sentences, and how familiar is the vocabulary?
+
+This tutorial introduces the major formula-based readability measures and shows you how to compute them in R. You will work with two complementary packages: `quanteda.textstats`, which integrates readability computation into the widely used `quanteda` corpus framework, and `koRpus`, which provides a more detailed linguistic pre-processing pipeline and a broader range of indices. You will then apply these tools to a practical research question: does readability differ systematically across text genres, and between texts produced by native speakers and learners of English?
+
+By the end of this tutorial you will have a complete, reproducible workflow — from loading raw texts to producing publication-quality tables and figures — that you can adapt for your own research. No prior experience with readability analysis is assumed, but familiarity with basic R and the `quanteda` ecosystem will help you move through the practical sections more quickly.
+
+
+::: {.callout-tip}
+## Learning Objectives
+
+By the end of this tutorial, you will be able to:
+
+- explain what readability measures are and what linguistic features they draw on
+- distinguish between the major readability indices and identify which is appropriate for a given research context
+- compute readability scores for a corpus of texts using `quanteda.textstats`
+- compute readability scores using the `koRpus` package and interpret the detailed output it provides
+- compare readability across text genres and across native-speaker and learner writing
+- create publication-quality tables and visualisations of readability results
+- identify the limitations of formula-based readability measures and apply them critically
+:::
+
+::: {.callout-warning}
+## Prerequisites
+
+This tutorial assumes familiarity with:
+
+- basic R syntax (objects, functions, vectors)
+- loading and manipulating data frames with `dplyr`
+- the `quanteda` corpus framework (creating a corpus and a document-feature matrix)
+- basic `ggplot2` plotting
+
+If you are new to `quanteda`, work through the [Introduction to Text Analysis](/tutorials/textanalysis/textanalysis.html) tutorial first. If you are new to `ggplot2`, the [Introduction to Data Visualization](/tutorials/data_viz_intro/data_viz_intro.html) tutorial will give you the background you need.
+:::
+
+
+::: {.callout-note}
+## Citation
+
+```{r citation-callout, echo=FALSE, results='asis'}
+doi_link <- if (nchar(trimws(params$doi)) > 0) {
+  paste0(
+    ' doi: <a href="https://doi.org/', params$doi,
+    '" target="_blank">', params$doi, '</a>.'
+  )
+} else { "" }
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  doi_link,
+  sep = ""
+)
+```
+:::
+
+# Preparation and Setup {-}
+
+The code below installs all packages required for this tutorial. If you have already installed them, you can skip this step.
+
+```{r install, echo=TRUE, eval=FALSE}
+install.packages(c(
+  "quanteda",
+  "quanteda.textstats",
+  "koRpus",
+  "koRpus.lang.en",
+  "dplyr",
+  "tidyr",
+  "ggplot2",
+  "flextable",
+  "checkdown"
+))
+```
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(quanteda)
+library(quanteda.textstats)
+library(koRpus)
+library(koRpus.lang.en)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(flextable)
+library(checkdown)
+```
+
+
+# What is Readability? {#what-is-readability}
+
+::: {.callout-note}
+## Section overview
+
+This section introduces the concept of readability, explains what linguistic features formula-based measures draw on, and situates readability analysis within linguistics and applied linguistics research. It also clarifies what readability measures can and cannot tell you.
+:::
+
+Readability, in the technical sense used in this tutorial, refers to the ease with which a reader can process the surface form of a written text. It is distinct from comprehensibility (which also depends on the reader's background knowledge) and from legibility (which refers to the physical presentation of text on the page). Formula-based readability measures — the kind this tutorial focuses on — estimate difficulty from properties that can be counted automatically: word length (measured in syllables or characters), sentence length (measured in words), and sometimes vocabulary difficulty (measured against a reference list of common words).
+
+The earliest readability formulas were developed in the 1940s and 1950s, primarily for educational contexts. Rudolph Flesch's work on reading ease and grade-level estimation was among the most influential, and several of the formulas still in wide use today are refinements or extensions of his approach [@flesch1948new; @kincaid1975derivation]. The appeal of formula-based measures is straightforward: they are fast, reproducible, and require no human judgement. A researcher with a corpus of thousands of documents can compute readability scores for all of them in seconds, something that would be impossible with expert annotation.
+
+This speed and scalability comes with real limitations, however. Formula-based readability measures are sensitive only to surface features. A text full of short, common words and short sentences will score as easy even if its logical structure is convoluted or its content assumes specialist background knowledge. Conversely, a text with occasional long technical terms may score as difficult even if those terms are immediately explained. The measures therefore work best as a first-pass screening tool, as a variable in a larger analysis, or for comparing large collections of texts where individual quirks average out across many documents [@benjamin2012readability].
+
+Within linguistics, readability analysis has found applications in several subfields. In applied linguistics and second language acquisition, readability scores are used to assess whether textbook or test materials are pitched at an appropriate level for learners. In corpus linguistics, they provide a quantitative axis for comparing registers — newspaper prose versus academic writing versus legal documents, for example. In computational linguistics and natural language processing, readability has been studied as a feature of text simplification systems. And in health communication research, readable patient materials have been shown to improve adherence and outcomes, giving readability analysis direct real-world relevance [@paasche-orlow2003readability].
+
+**Q1. A researcher uses a Flesch-Kincaid Grade Level score to compare the complexity of two sets of news articles. The score for Set A is 12.3 and for Set B is 8.1. Which of the following interpretations is most accurate?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q1"
+check_question(
+  "Set A texts have longer words and/or longer sentences on average than Set B texts",
+  options = c(
+    "Set A texts have longer words and/or longer sentences on average than Set B texts",
+    "Set A texts are impossible to understand without a university degree",
+    "Set A texts have a richer and more sophisticated argument structure than Set B texts",
+    "Set B texts were written by less educated authors than Set A texts"
+  ),
+  type = "radio",
+  q_id = "READ_Q1",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Flesch-Kincaid Grade Level is computed from average syllables per word and average words per sentence. A higher score means longer, more polysyllabic words and/or longer sentences — that is all the formula captures. It says nothing about argument structure, authorial education, or true comprehensibility, because those features cannot be counted from surface text statistics alone.",
+  wrong = "Think carefully about what the Flesch-Kincaid formula actually measures. It is based on syllable counts and sentence lengths. What can and cannot be inferred from those two surface features?"
+)
+```
+
+---
+
+# Core Readability Measures {#core-measures}
+
+::: {.callout-note}
+## Section overview
+
+This section introduces and explains the five major readability indices covered in this tutorial: Flesch Reading Ease, Flesch-Kincaid Grade Level, the Gunning Fog Index, the SMOG Index, the Coleman-Liau Index, and the Dale-Chall Readability Formula. For each measure, the underlying formula is explained, the output scale is described, and typical use cases are noted.
+:::
+
+## Flesch Reading Ease {-}
+
+The Flesch Reading Ease formula, first published by Rudolph Flesch in 1948, produces a score on a scale from 0 to 100 [@flesch1948new]. Higher scores indicate easier texts. The formula is:
+
+$$\text{FRE} = 206.835 - 1.015 \left(\frac{\text{words}}{\text{sentences}}\right) - 84.6 \left(\frac{\text{syllables}}{\text{words}}\right)$$
+
+As a rough guide, scores above 70 are considered easy (plain English suitable for the general public), scores between 50 and 70 are moderately difficult (standard newspaper prose), and scores below 30 are very difficult (academic or legal writing). The formula was originally calibrated on American English texts, and its syllable-counting component can behave unexpectedly with highly technical vocabulary, acronyms, or non-English words. Despite these limitations, it remains one of the most widely cited readability measures in applied research.
+
+## Flesch-Kincaid Grade Level {-}
+
+The Flesch-Kincaid Grade Level formula, developed for the United States Navy in 1975, recasts the same underlying features into a US school grade level estimate [@kincaid1975derivation]. The formula is:
+
+$$\text{FKGL} = 0.39 \left(\frac{\text{words}}{\text{sentences}}\right) + 11.8 \left(\frac{\text{syllables}}{\text{words}}\right) - 15.59$$
+
+A score of 8 corresponds approximately to eighth-grade reading level (13–14 year olds), a score of 12 to twelfth grade (17–18 year olds), and scores above 16 to university-level text. Like Flesch Reading Ease, it relies exclusively on word length and sentence length. Because the two Flesch measures are derived from the same inputs, they are almost perfectly correlated; using both adds very little information, and researchers typically choose one based on their discipline's conventions.
+
+## Gunning Fog Index {-}
+
+The Gunning Fog Index, developed by Robert Gunning in 1952, estimates the years of formal education required to understand a text on first reading [@gunning1952technique]. Its distinguishing feature is the use of "complex words" — words of three or more syllables — rather than average syllable count:
+
+$$\text{Fog} = 0.4 \left( \frac{\text{words}}{\text{sentences}} + 100 \cdot \frac{\text{complex words}}{\text{words}} \right)$$
+
+A Fog score of 12 corresponds roughly to high-school-level text; scores above 17 are considered unreadable by most adults. The use of a polysyllabic word threshold makes Fog somewhat less sensitive to minor variation in word length than the Flesch family, but it means that a single unusual long word can shift the score noticeably in short texts.
+
+## SMOG Index {-}
+
+The SMOG (Simple Measure of Gobbledygook) Index was developed by McLaughlin in 1969 as a faster, more robust alternative to Flesch-Kincaid for health and medical texts [@mclaughlin1969smog]. It is based entirely on polysyllabic word counts and is known for being particularly reliable for texts aimed at adult readers:
+
+$$\text{SMOG} = 3 + \sqrt{\text{polysyllabic words in 30 sentences}}$$
+
+In practice, most implementations normalise this to the full text rather than requiring exactly 30 sentences. SMOG is widely used in health communication research because it has been validated against patient comprehension data and tends to be more conservative (giving higher difficulty estimates) than Flesch-Kincaid.
+
+## Coleman-Liau Index {-}
+
+The Coleman-Liau Index, proposed by Meri Coleman and T. L. Liau in 1975, is notable for being based on characters rather than syllables [@coleman1975computer]. This makes it faster to compute and more consistent across different implementations, since syllable counting requires either a pronunciation dictionary or a syllabification algorithm, both of which introduce their own variation. The formula is:
+
+$$\text{CLI} = 0.0588 \cdot L - 0.296 \cdot S - 15.8$$
+
+where $L$ is the average number of letters per 100 words and $S$ is the average number of sentences per 100 words. Like Flesch-Kincaid, it returns a US grade level estimate.
+
+## Dale-Chall Readability Formula {-}
+
+The Dale-Chall formula, first developed by Edgar Dale and Jeanne Chall in 1948 and revised in 1995, takes a different approach from all the preceding measures: instead of word length as a proxy for difficulty, it measures the proportion of words that are *not* on a reference list of 3,000 familiar words known to most fourth-grade American students [@dale1995readability]. The formula is:
+
+$$\text{DC} = 0.1579 \cdot \left(\frac{\text{unfamiliar words}}{\text{words}} \times 100\right) + 0.0496 \cdot \frac{\text{words}}{\text{sentences}}$$
+
+A correction factor is added when the proportion of unfamiliar words exceeds 5%. Because Dale-Chall uses a vocabulary familiarity list rather than a syllable count, it captures a different dimension of difficulty from the length-based measures, and the two types of measure often give complementary information.
+
+**Q2. A health communication researcher wants to assess whether a set of patient information leaflets about diabetes management is written at an appropriate level. The texts contain many technical terms (e.g. "hyperglycaemia", "glycated haemoglobin") that appear infrequently in everyday language. Which readability measure is most likely to reflect this vocabulary difficulty?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q2"
+check_question(
+  "Dale-Chall Readability Formula, because it measures the proportion of words absent from a familiarity reference list",
+  options = c(
+    "Dale-Chall Readability Formula, because it measures the proportion of words absent from a familiarity reference list",
+    "Coleman-Liau Index, because it uses character counts and handles technical vocabulary better",
+    "Flesch Reading Ease, because it was specifically designed for health communication texts",
+    "Gunning Fog, because it only counts polysyllabic words and would ignore these terms"
+  ),
+  type = "radio",
+  q_id = "READ_Q2",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! The Dale-Chall formula is uniquely sensitive to vocabulary familiarity because it compares each word against a reference list of words known to most fourth-grade students. Medical terms like 'hyperglycaemia' will not appear on that list and will therefore count as 'unfamiliar', raising the difficulty score. Length-based measures (Flesch, Fog, SMOG, Coleman-Liau) will also flag these terms as long or polysyllabic, but only Dale-Chall directly captures the dimension of lexical unfamiliarity.",
+  wrong = "Think about how each formula captures difficulty. Which one uses a reference list of familiar words rather than counting syllables or characters?"
+)
+```
+
+---
+
+# Computing Readability with quanteda.textstats {#quanteda-readability}
+
+::: {.callout-note}
+## Section overview
+
+This section shows you how to compute all five readability measures using the `quanteda.textstats` package. It covers creating a `quanteda` corpus, calling `textstat_readability()`, and presenting the results as a formatted table. The approach here is best suited for large corpora where speed and integration with the rest of the `quanteda` workflow matter most.
+:::
+
+## Creating a corpus {-}
+
+`quanteda.textstats::textstat_readability()` works directly on a `quanteda` corpus object. The first step is therefore to create one. In a real project you would load your texts from files, but for demonstration we will create a small corpus of six sample texts representing three registers: an academic abstract, a news article excerpt, and a simplified science summary aimed at the general public. We include two examples of each register so that we can later compare within-register variability.
+
+```{r create-corpus, message=FALSE, warning=FALSE}
+# Sample texts — two per register
+texts <- c(
+  academic_1 = "The present study investigates the morphosyntactic properties of nominal
+    ellipsis in English, with particular attention to the constraints governing
+    the recoverability of elided nominal heads from prior discourse. Building on
+    previous analyses within the framework of Minimalist syntax, we argue that
+    nominal ellipsis is licensed by a dedicated functional projection that enters
+    into an agreement relation with the antecedent nominal. The empirical basis
+    consists of 1,200 constructed and naturally occurring examples extracted from
+    the British National Corpus, analysed using a logistic mixed-effects model
+    with random intercepts for participant and item. Results indicate that
+    recoverability is modulated by syntactic parallelism and semantic givenness,
+    providing novel evidence for the interaction of syntactic and discourse
+    factors in ellipsis licensing.",
+
+  academic_2 = "This paper examines the sociolinguistic determinants of code-switching
+    behaviour in bilingual communities residing in urban centres of post-colonial
+    West Africa. Drawing on a corpus of naturalistic conversational data collected
+    over eighteen months of ethnographic fieldwork, we apply variationist analysis
+    to identify the structural and social factors that condition intra-sentential
+    switches between the local vernacular and the official national language.
+    Quantitative modelling using mixed-effects logistic regression reveals that
+    the strongest predictors of switching are topic domain, the formality of the
+    interactional setting, and the interlocutor's perceived linguistic repertoire.
+    These findings are discussed in relation to theories of markedness and the
+    conversational management of social identity.",
+
+  news_1 = "Scientists have discovered a new species of deep-sea fish living more than
+    three kilometres below the surface of the Pacific Ocean. The fish, which has
+    been named after the research vessel that found it, is completely blind and
+    navigates using specialised pressure sensors along its body. The discovery was
+    made during a six-week expedition to the Mariana Trench and is described in
+    the journal Nature. Lead researcher Dr Sarah Chen said the finding showed how
+    little we still know about life in the deep ocean. The team used a remotely
+    operated submarine to collect samples at depths where sunlight never reaches.",
+
+  news_2 = "A new report from the International Energy Agency says renewable energy now
+    accounts for more than a third of global electricity generation. Solar and wind
+    power saw the biggest growth last year, with new installations breaking records
+    in both Europe and Asia. The report warns, however, that the pace of expansion
+    will need to double if the world is to meet its climate targets by 2050. Energy
+    ministers from forty countries are meeting in Paris this week to discuss how
+    to accelerate the transition away from fossil fuels. Critics of the report
+    argue that its projections underestimate the technical challenges of
+    integrating large amounts of variable renewable energy into existing grids.",
+
+  simplified_1 = "A team of scientists found a new kind of fish deep in the ocean. The fish
+    lives very far down where it is completely dark. It cannot see at all. Instead
+    it uses special body parts to feel movement in the water. The fish was found
+    in a very deep part of the Pacific Ocean called the Mariana Trench. The
+    scientists used a small robot submarine to go that deep. Finding this fish
+    is exciting because we still have a lot to learn about life at the bottom
+    of the sea.",
+
+  simplified_2 = "Clean energy like wind and solar power is growing fast all around the world.
+    Last year, more new wind farms and solar panels were built than ever before.
+    This is good news for the environment. But a new report says we need to build
+    even more if we want to slow down climate change. Leaders from many countries
+    are meeting to talk about how to make this happen more quickly. Some people
+    think it will be hard to use so much wind and solar power because they do not
+    always produce energy at the right time."
+)
+
+# Create quanteda corpus with document-level metadata
+corpus_demo <- corpus(texts)
+docvars(corpus_demo, "register") <- c(
+  "academic", "academic",
+  "news", "news",
+  "simplified", "simplified"
+)
+```
+
+## Running textstat_readability() {-}
+
+`textstat_readability()` accepts a character vector or a `quanteda` corpus object and returns a data frame with one row per document. The `measure` argument specifies which indices to compute. You can pass a single measure name or a character vector of several. The full list of supported measures is documented in `?textstat_readability`.
+
+```{r compute-readability, message=FALSE, warning=FALSE}
+# Compute all five measures in a single call
+readability_results <- textstat_readability(
+  corpus_demo,
+  measure = c("Flesch", "Flesch.Kincaid", "FOG", "SMOG", "Coleman.Liau", "Dale.Chall")
+)
+
+readability_results
+```
+
+## Displaying results as a formatted table {-}
+
+The raw data frame output is useful for downstream analysis, but for presenting results in a report or paper you will want a formatted table. The code below rounds scores to two decimal places, renames the columns to be more reader-friendly, and passes the result to `flextable` for display.
+
+```{r readability-table, message=FALSE, warning=FALSE}
+readability_results |>
+  mutate(
+    register = docvars(corpus_demo, "register")
+  ) |>
+  rename(
+    Document        = document,
+    Register        = register,
+    `Flesch RE`     = Flesch,
+    `FK Grade`      = Flesch.Kincaid,
+    `Gunning Fog`   = FOG,
+    SMOG            = SMOG,
+    `Coleman-Liau`  = Coleman.Liau.ECP,
+    `Dale-Chall`    = Dale.Chall
+  ) |>
+  mutate(across(where(is.numeric), \(x) round(x, 2))) |>
+  as.data.frame() |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Readability scores for six sample texts across three registers") |>
+  flextable::border_outer()
+```
+
+Even from this small example, you can see the expected pattern: academic texts score lowest on Flesch Reading Ease (hardest) and highest on grade-level measures, while simplified texts score highest on Flesch RE and lowest on grade-level measures. News articles fall in between. Notice also that the different measures do not always rank texts identically — this reflects the fact that they capture overlapping but not identical dimensions of surface complexity.
+
+**Q3. You run `textstat_readability()` on a corpus and notice that one document has a Flesch Reading Ease score of 22 and a Flesch-Kincaid Grade Level score of 17. What does this combination of scores most likely indicate?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q3"
+check_question(
+  "The document contains long sentences and many polysyllabic words, consistent with highly technical or academic writing",
+  options = c(
+    "The document contains long sentences and many polysyllabic words, consistent with highly technical or academic writing",
+    "The readability package has made a calculation error — the two scores are contradictory",
+    "The document is very short, which causes unreliable scores",
+    "The document uses many rare words not found in the Flesch reference vocabulary"
+  ),
+  type = "radio",
+  q_id = "READ_Q3",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Both the Flesch Reading Ease (FRE) and Flesch-Kincaid Grade Level (FKGL) scores are derived from average sentence length and average syllables per word, so they always move in the same direction — a low FRE score always corresponds to a high FKGL score, and vice versa. A FRE of 22 (very difficult) and a FKGL of 17 (well above university level) are entirely consistent and together indicate a text with complex vocabulary and long, complex sentences typical of academic or technical prose.",
+  wrong = "Remember that Flesch RE and Flesch-Kincaid Grade Level are both derived from the same two inputs: sentence length and syllables per word. If one is very high, what must the other be — and why are they not contradictory?"
+)
+```
+
+---
+
+# Computing Readability with koRpus {#korpus-readability}
+
+::: {.callout-note}
+## Section overview
+
+This section introduces the `koRpus` package as a complement to `quanteda.textstats`. `koRpus` performs tokenisation and syllabification as a pre-processing step, giving you more granular control over how texts are analysed and access to a broader set of readability indices. It is particularly well suited when you need syllable-level detail or want to compute measures for individual texts interactively.
+:::
+
+## Why use koRpus? {-}
+
+`quanteda.textstats` is fast and integrates seamlessly with the rest of the `quanteda` workflow, making it the natural first choice for large-scale corpus work. `koRpus`, developed by Meik Michalke [@michalke2021korpus], offers a different set of trade-offs. Its core strength is the `tokenize()` function, which segments text into words, assigns part-of-speech tags (via the TreeTagger external tool, if installed), and counts syllables using a built-in hyphenation algorithm. This means the syllable counts passed to the readability formulas are derived from actual linguistic analysis of each word rather than a simple algorithm, which can improve accuracy for unusual or technical vocabulary.
+
+`koRpus` also implements a wider range of indices than `quanteda.textstats`, including several that are less commonly available in other R packages, such as the Linsear Write Formula, Bormuth's Cloze Mean, and the Spache Readability Formula for children's texts. For most research purposes, `quanteda.textstats` will suffice, but if you need a specific less common index, or if you want to inspect the syllabification of individual words, `koRpus` is the tool to reach for.
+
+## Tokenising and analysing a text {-}
+
+The central workflow in `koRpus` involves two steps. First, you tokenise the text with `koRpus::tokenize()`, which returns a tagged object containing every token along with its syllable count, character count, and (if TreeTagger is installed) its part-of-speech tag. Second, you pass that object to `koRpus::readability()` to compute one or more indices.
+
+For the example below, we use the news article excerpt from our earlier corpus. `koRpus::tokenize()` requires only the text and a language code; it uses its built-in hyphenation-based syllabifier automatically, with no external tools needed for readability analysis.
+
+```{r korpus-tokenize, message=FALSE, warning=FALSE}
+# Extract one text as a character string
+news_text <- as.character(corpus_demo["news_1"])
+
+# koRpus::tokenize() requires a file path, not a string — write to temp file first
+tmp <- tempfile(fileext = ".txt")
+writeLines(news_text, tmp)
+
+# Tokenise from file
+news_tokenised <- koRpus::tokenize(
+  tmp,
+  lang = "en"
+)
+
+# Inspect the first few tokens
+head(koRpus::taggedText(news_tokenised), 10)
+```
+
+```{r korpus-readability, message=FALSE, warning=FALSE, results='hide'}
+# Compute readability measures — Dale.Chall excluded as it requires
+# an external word list not available in all koRpus installations
+news_readability <- koRpus::readability(
+  news_tokenised,
+  index = c("Flesch", "Flesch.Kincaid", "FOG", "SMOG", "Coleman.Liau")
+)
+
+summary(news_readability)
+```
+
+## Extracting scores from a koRpus object {-}
+
+The `koRpus::readability()` function returns a complex S4 object. To extract the numeric scores for comparison or plotting, use the `slot()` function or the dedicated accessor functions. The code below extracts the main index values into a tidy data frame.
+
+```{r korpus-extract, message=FALSE, warning=FALSE}
+# Extract scores directly from named slots
+news_scores <- data.frame(
+  text         = "news_1",
+  Flesch_RE    = slot(news_readability, "Flesch")$RE,
+  FK_Grade     = slot(news_readability, "Flesch.Kincaid")$grade,
+  Fog          = slot(news_readability, "FOG")$FOG,
+  SMOG         = slot(news_readability, "SMOG")$grade,
+  Coleman_Liau = slot(news_readability, "Coleman.Liau")$grade
+)
+
+news_scores |>
+  mutate(across(where(is.numeric), \(x) round(x, 2))) |>
+  as.data.frame() |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 12) |>
+  flextable::fontsize(size = 12, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(caption = "Readability scores for the news_1 text computed with koRpus") |>
+  flextable::border_outer()
+```
+
+::: {.callout-warning}
+## koRpus and TreeTagger
+
+Full part-of-speech tagging in `koRpus` requires TreeTagger, a separate, freely available external tool that must be downloaded and installed independently of R. When TreeTagger is not available, `koRpus::tokenize()` still runs correctly using its built-in hyphenation-based syllabifier, which is all that is needed for the readability measures covered in this tutorial. None of the five indices (Flesch, FK, Fog, SMOG, Coleman-Liau, Dale-Chall) require POS tags — they rely only on token counts, syllable counts, and character counts. Instructions for installing TreeTagger if you need POS tagging for other purposes are available in the `koRpus` package documentation (`vignette("koRpus", package = "koRpus")`).
+:::
+
+---
+
+# Worked Example: Genres and Learner Language {#worked-example}
+
+::: {.callout-note}
+## Section overview
+
+This section presents a complete, end-to-end readability analysis using a dataset of texts drawn from four categories: academic writing, newspaper prose, simplified popular science writing, and English as a Foreign Language (EFL) learner essays. The analysis demonstrates how to compute and compare readability scores across both registers and proficiency levels, and how to visualise the results.
+:::
+
+## The dataset {-}
+
+For this worked example, we construct a dataset of fifteen texts divided across four categories. Three categories are native-speaker texts representing different registers (academic, news, simplified), and one category contains learner essays at intermediate English proficiency level drawn from the style of writing typical of international students. In a real research project you would use an established learner corpus such as ICLE (International Corpus of Learner English) or EFCAMDAT; here we use constructed examples that replicate the characteristic features of learner writing at the B2/upper-intermediate level.
+
+The characteristic features of B2 learner writing that affect readability include shorter sentences (because learners tend to avoid complex embedding), a preference for high-frequency, monosyllabic vocabulary (which lowers grade-level scores), but also occasional very long multi-clause sentences produced by stringing clauses together with coordinators, and recurring formulaic phrases. These features interact in ways that can produce unexpectedly low or high readability scores, making learner writing an interesting test case for readability measures.
+
+```{r build-extended-corpus, message=FALSE, warning=FALSE}
+# Extended corpus with four categories, three texts each (twelve total)
+extended_texts <- c(
+
+  # --- Academic ---
+  acad_1 = "The morphological structure of words in agglutinative languages presents
+    significant challenges for computational parsing models trained primarily on
+    analytic languages such as English. In this study we evaluate three neural
+    sequence-labelling architectures on a newly annotated corpus of Swahili
+    and Turkish morphological data, comparing character-level convolutional
+    networks, bidirectional LSTMs, and transformer-based encoders. Results
+    demonstrate that transformer architectures achieve the highest F1 scores
+    across both languages, but that their advantage over LSTMs is substantially
+    reduced when training data are limited to fewer than 5,000 annotated tokens.",
+
+  acad_2 = "Discourse coherence in second language writing has been investigated
+    primarily through the lens of cohesive devices, but relatively little
+    attention has been paid to the role of topic continuity in establishing
+    local coherence across adjacent sentences. The present study examines topic
+    chains in argumentative essays produced by advanced learners of English
+    and compares them to essays produced by native speakers of comparable
+    educational background. Using an annotation scheme derived from Givon's
+    topic continuity framework, we show that learner essays exhibit shorter
+    and more frequently interrupted topic chains, even when surface measures
+    of cohesion such as connective frequency are controlled for.",
+
+  acad_3 = "The relationship between phonological working memory capacity and vocabulary
+    acquisition in young children has been extensively documented in the
+    first language acquisition literature, but its role in second language
+    vocabulary learning among adult learners remains less well understood.
+    This study reports on a longitudinal experiment tracking 124 adult learners
+    of Mandarin Chinese over a twelve-week instructional period. Phonological
+    working memory was assessed at baseline using a non-word repetition task,
+    and vocabulary knowledge was measured at three-week intervals using a
+    battery of receptive and productive vocabulary tests. Mixed-effects growth
+    curve models revealed a significant interaction between working memory
+    capacity and rate of vocabulary growth, consistent with resource-limited
+    models of lexical acquisition.",
+
+  # --- News ---
+  news_a = "Scientists at the European Space Agency have confirmed that a spacecraft
+    launched three years ago has entered orbit around Jupiter's moon Europa.
+    The probe will spend the next two years mapping the moon's icy surface
+    and searching for signs of liquid water beneath. Europa is considered one
+    of the most promising places in the solar system to look for microbial life.
+    The mission cost over four billion euros and involved research teams from
+    twelve countries. Mission controllers in Darmstadt celebrated as the
+    confirmation signal arrived, delayed by forty-three minutes due to the
+    distance from Earth.",
+
+  news_b = "The government has announced a new package of measures aimed at reducing
+    waiting times in public hospitals. Under the plan, which will cost an estimated
+    three billion dollars over four years, funding will be directed towards hiring
+    additional nursing staff and expanding outpatient capacity in regional areas.
+    Health advocates welcomed the announcement but said the measures did not go
+    far enough to address chronic understaffing in emergency departments. The
+    opposition called the package inadequate and accused the government of
+    delaying action until an election year. Detailed implementation guidelines
+    are expected to be released next month.",
+
+  news_c = "A study published this week in the journal Science has found that global
+    average sea surface temperatures reached a record high last year, exceeding
+    any previously recorded value in the 170-year instrumental record. The authors
+    attribute the increase to a combination of long-term human-caused warming and
+    a strong El Nino event. Marine biologists have warned that sustained elevated
+    temperatures will accelerate coral bleaching events worldwide. The findings
+    will be presented to policymakers at an international climate summit in
+    Nairobi next month, where negotiators are discussing updates to national
+    emissions reduction targets.",
+
+  # --- Simplified ---
+  simp_1 = "Astronauts on the International Space Station sometimes have trouble
+    sleeping. This is because in space, the sun rises and sets sixteen times
+    a day. That makes it hard for the body to know when it is night. Scientists
+    have been studying this problem to try to help. One idea is to use special
+    lights inside the station that change colour through the day, just like
+    sunlight does on Earth. Early tests show this might help astronauts sleep
+    better and feel less tired.",
+
+  simp_2 = "Sharks have been in the ocean for a very long time, much longer than
+    dinosaurs. There are more than five hundred different kinds of shark. Most
+    sharks do not want to hurt people. They are more interested in eating fish
+    and squid. Sharks are very important for keeping the ocean healthy. When
+    there are fewer sharks, other animals can grow too numerous and cause problems
+    for the whole ocean. Scientists are working hard to protect sharks because
+    many kinds are becoming rare.",
+
+  simp_3 = "Your brain uses sleep to clean itself. During the night, while you are
+    asleep, special cells in your brain remove waste that builds up through the day.
+    If you do not sleep enough, this cleaning does not happen properly. Over time,
+    this can cause problems with memory and thinking. That is why getting enough
+    sleep is so important. Most adults need between seven and nine hours of sleep
+    each night. Going to bed at the same time every night can help your brain
+    work better.",
+
+  # --- EFL Learner Essays (B2 level) ---
+  learner_1 = "In my opinion, the most important invention of the modern time is the
+    internet. The internet change completely how people communicate and find
+    information. Before the internet, if you want to know something you must go
+    to library and search in many books. Now you can find everything in some
+    seconds. Also, the internet make possible to talk with people in other countries
+    very easily. My grandmother cannot use the internet but I think if she learn
+    it she will be very happy because she can speak with my cousins in Germany.
+    The internet also have some problems like false information and people who
+    want to steal money, so we must be careful. But I think overall it is very
+    good for the society.",
+
+  learner_2 = "The problem of climate change is very serious and all governments must
+    take action now. Many scientists say that temperature of the Earth is going
+    up because of gases that factories and cars produce. I agree that this is
+    a big danger. In my country there are more floods than before and also the
+    summer is more hotter every year. Some politicians say that changing our
+    economy will cost too much money but I think they are wrong. If we do not
+    act now the cost will be much more bigger in the future. Also, many new
+    jobs can be create in clean energy sector so it is not only a problem but
+    also a chance. Every person can also help by use less electricity and not
+    waste food.",
+
+  learner_3 = "University education should be free for all students. When education cost
+    a lot of money, only rich people can study and this is not fair. Many students
+    from poor family have to work during their studies and they cannot concentrate
+    fully on their courses. This make results worse. In countries like Germany
+    and Norway, university is free or very cheap and these countries have high
+    level of education. Some people say free university cost too much for the
+    government but I think it is an invest in the future. When more people have
+    degree, they get better jobs and pay more taxes. So the government will get
+    back the money. I believe every person who work hard deserve the chance to
+    study without worry about money."
+)
+
+# Build corpus with metadata
+extended_corpus <- corpus(extended_texts)
+docvars(extended_corpus, "category") <- rep(
+  c("academic", "news", "simplified", "learner_EFL"),
+  each = 3
+)
+
+# Compute readability for all documents
+extended_readability <- textstat_readability(
+  extended_corpus,
+  measure = c("Flesch", "Flesch.Kincaid", "FOG", "SMOG", "Coleman.Liau", "Dale.Chall")
+)
+
+# Add category variable
+extended_readability <- extended_readability |>
+  mutate(category = docvars(extended_corpus, "category"))
+```
+
+## Computing group summaries {-}
+
+With document-level scores in hand, the natural next step is to aggregate by category and examine the means and ranges for each measure. The code below uses `dplyr` to compute group means and standard deviations, then displays the summary as a formatted table.
+
+```{r summary-table, message=FALSE, warning=FALSE}
+# Compute group-level summaries
+readability_summary <- extended_readability |>
+  group_by(category) |>
+  summarise(
+    `Flesch RE mean`     = round(mean(Flesch, na.rm = TRUE), 1),
+    `Flesch RE sd`       = round(sd(Flesch, na.rm = TRUE), 1),
+    `FK Grade mean`      = round(mean(Flesch.Kincaid, na.rm = TRUE), 1),
+    `FK Grade sd`        = round(sd(Flesch.Kincaid, na.rm = TRUE), 1),
+    `Fog mean`           = round(mean(FOG, na.rm = TRUE), 1),
+    `Fog sd`             = round(sd(FOG, na.rm = TRUE), 1),
+    `SMOG mean`          = round(mean(SMOG, na.rm = TRUE), 1),
+    `Coleman-Liau mean`  = round(mean(Coleman.Liau.ECP, na.rm = TRUE), 1),
+    `Dale-Chall mean`    = round(mean(Dale.Chall, na.rm = TRUE), 1),
+    .groups = "drop"
+  ) |>
+  rename(Category = category)
+
+readability_summary |>
+  as.data.frame() |>
+  flextable::flextable() |>
+  flextable::set_table_properties(width = .95, layout = "autofit") |>
+  flextable::theme_zebra() |>
+  flextable::fontsize(size = 11) |>
+  flextable::fontsize(size = 11, part = "header") |>
+  flextable::align_text_col(align = "center") |>
+  flextable::set_caption(
+    caption = "Mean readability scores by text category (academic, news, simplified, EFL learner)"
+  ) |>
+  flextable::border_outer()
+```
+
+## Interpreting the learner writing results {-}
+
+The learner essay scores are worth examining carefully, because they can appear counterintuitive at first glance. Learner essays at the B2 level often score as relatively *easy* on Flesch Reading Ease and relatively *low* on Flesch-Kincaid Grade Level, despite being produced by university students writing on complex topics. This pattern arises because B2 learners tend to use shorter, more frequent vocabulary items and shorter sentences than native-speaker academic writers, even when the topic is similar. The surface simplicity of learner language does not reflect conceptual simplicity — it reflects the learner's constrained productive vocabulary and tendency to avoid syntactic risk.
+
+Dale-Chall scores for learner texts may tell a different story, however. Because learners sometimes reach for uncommon words in an attempt to demonstrate range — and because they may produce non-standard word forms that do not appear on the familiarity reference list — the Dale-Chall formula can sometimes flag learner texts as harder than their Flesch scores suggest. Comparing multiple indices side-by-side, as done here, is therefore more informative than relying on a single measure.
+
+**Q4. A researcher computes Flesch Reading Ease scores for a set of B2 learner essays and a set of native-speaker news articles on the same topics. The learner essays score higher on Flesch RE (i.e. appear "easier") than the news articles. Which explanation is most consistent with how Flesch RE works?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q4"
+check_question(
+  "Learner essays tend to use shorter, more common words and shorter sentences than news articles, which lowers apparent complexity on surface-based measures",
+  options = c(
+    "Learner essays tend to use shorter, more common words and shorter sentences than news articles, which lowers apparent complexity on surface-based measures",
+    "Learner writers are more intelligent than professional journalists and therefore write more clearly",
+    "Flesch RE was designed for learner language and gives inflated scores for native speaker texts",
+    "The readability formula has a known bug that overestimates difficulty for journalistic prose"
+  ),
+  type = "radio",
+  q_id = "READ_Q4",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Flesch Reading Ease penalises long words (measured in syllables) and long sentences. B2 learners characteristically avoid complex embedding, subordination, and polysyllabic vocabulary not because their ideas are simple, but because they are working within the constraints of their productive vocabulary and grammatical competence. The result is a surface profile that looks 'easy' to a formula-based measure, even though the underlying content or reasoning may be no less sophisticated than in the native-speaker texts.",
+  wrong = "Focus on what Flesch RE actually measures: syllables per word and words per sentence. What is it about learner writing at the B2 level that would affect these two counts specifically?"
+)
+```
+
+---
+
+# Visualising Readability Results {#visualisation}
+
+::: {.callout-note}
+## Section overview
+
+This section demonstrates how to visualise readability scores using `ggplot2`. It covers a dot plot for comparing individual document scores, a grouped bar chart for comparing category means, and a faceted plot for examining how different indices rank the same set of texts.
+:::
+
+## Dot plot of document-level scores {-}
+
+A dot plot is an effective choice for a small corpus because it shows both the individual data points and their spread within each category. The plot below shows Flesch Reading Ease scores for all twelve documents, coloured by category.
+
+```{r dotplot-flesch, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+ggplot(extended_readability,
+       aes(x = reorder(document, Flesch),
+           y = Flesch,
+           colour = category,
+           shape  = category)) +
+  geom_point(size = 4) +
+  geom_hline(yintercept = c(30, 50, 70),
+             linetype = "dashed", colour = "grey60", linewidth = 0.4) +
+  annotate("text", x = 0.5, y = 72,  label = "Easy (70+)",  hjust = 0,
+           size = 3, colour = "grey50") +
+  annotate("text", x = 0.5, y = 52,  label = "Standard (50–70)", hjust = 0,
+           size = 3, colour = "grey50") +
+  annotate("text", x = 0.5, y = 32,  label = "Difficult (<30)", hjust = 0,
+           size = 3, colour = "grey50") +
+  scale_colour_manual(
+    values = c(academic    = "#1b6ca8",
+               news        = "#e07b39",
+               simplified  = "#3aaf85",
+               learner_EFL = "#c03b7d"),
+    name = "Category"
+  ) +
+  scale_shape_manual(
+    values = c(academic    = 16,
+               news        = 17,
+               simplified  = 15,
+               learner_EFL = 18),
+    name = "Category"
+  ) +
+  labs(
+    title   = "Flesch Reading Ease scores by document and category",
+    x       = "Document",
+    y       = "Flesch Reading Ease"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+## Faceted multi-measure comparison {-}
+
+One of the most informative visualisations for readability analysis is a faceted plot that shows all measures side by side for the same set of documents. This makes it immediately visible when measures agree and when they diverge. The code below reshapes the data to long format using `tidyr::pivot_longer()` and then facets by measure.
+
+```{r faceted-measures, message=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+readability_long <- extended_readability |>
+  pivot_longer(
+    cols      = c(Flesch, Flesch.Kincaid, FOG, SMOG, Coleman.Liau.ECP, Dale.Chall),
+    names_to  = "measure",
+    values_to = "score"
+  ) |>
+  mutate(
+    measure = recode(measure,
+      Flesch           = "Flesch RE",
+      Flesch.Kincaid   = "FK Grade",
+      FOG              = "Gunning Fog",
+      SMOG             = "SMOG",
+      Coleman.Liau.ECP = "Coleman-Liau",
+      Dale.Chall       = "Dale-Chall"
+    )
+  )
+
+readability_means <- readability_long |>
+  group_by(category, measure) |>
+  summarise(mean_score = mean(score, na.rm = TRUE), .groups = "drop")
+
+ggplot(readability_means,
+       aes(x = category, y = mean_score, fill = category)) +
+  geom_col(width = 0.7) +
+  facet_wrap(~ measure, scales = "free_y", ncol = 3) +
+  scale_fill_manual(
+    values = c(academic    = "#1b6ca8",
+               news        = "#e07b39",
+               simplified  = "#3aaf85",
+               learner_EFL = "#c03b7d"),
+    name = "Category"
+  ) +
+  labs(
+    title = "Mean readability scores by category across six measures",
+    x     = NULL,
+    y     = "Mean score"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.text.x        = element_text(angle = 35, hjust = 1),
+    strip.text         = element_text(face = "bold"),
+    panel.grid.major.x = element_blank(),
+    legend.position    = "none"
+  )
+```
+
+The faceted plot reveals an important pattern: while all six measures agree on the broad ordering (academic texts hardest, simplified texts easiest), the absolute scores and the relative positions of news and learner texts vary noticeably across measures. This is precisely why comparing multiple measures, rather than relying on a single index, gives a more complete picture of text complexity.
+
+**Q5. When you plot mean readability scores for the four text categories across all six measures in a faceted chart, you notice that learner essays score close to simplified texts on Flesch RE and FK Grade but close to news articles on Dale-Chall. What does this suggest about the nature of learner writing complexity?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q5"
+check_question(
+  "Learner texts have simple sentence structures (captured by Flesch/FK) but include some unfamiliar vocabulary items (captured by Dale-Chall), reflecting a mix of surface simplicity and lexical challenges",
+  options = c(
+    "Learner texts have simple sentence structures (captured by Flesch/FK) but include some unfamiliar vocabulary items (captured by Dale-Chall), reflecting a mix of surface simplicity and lexical challenges",
+    "The readability measures all have different scales, so the scores cannot be compared across measures",
+    "Learner texts are identical in complexity to simplified texts on all measures that matter",
+    "Dale-Chall is a less reliable measure and its results should be disregarded"
+  ),
+  type = "radio",
+  q_id = "READ_Q5",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! This pattern is exactly what makes multi-measure comparison valuable. Flesch RE and FK Grade capture sentence length and syllabic complexity, where learners resemble simplified text writers. Dale-Chall captures vocabulary familiarity, where learners may score higher because they occasionally use uncommon words, produce non-standard forms that are absent from the familiar-word list, or use formulaic phrases that happen to include low-frequency items. The divergence across measures is meaningful, not a sign of measurement error.",
+  wrong = "Think about what each group of measures captures. Flesch/FK measures reflect sentence length and syllable counts. Dale-Chall reflects vocabulary familiarity. If learner texts score differently on these two types of measure, what does that tell you about which dimension of complexity they differ on?"
+)
+```
+
+---
+
+# Limitations and Best Practices {#limitations}
+
+::: {.callout-note}
+## Section overview
+
+This section discusses the most important limitations of formula-based readability measures and offers practical guidance on how to apply them responsibly. Understanding what these measures cannot do is as important as knowing how to compute them.
+:::
+
+## What readability formulas cannot measure {-}
+
+Formula-based readability measures have a long list of acknowledged limitations, and being aware of them is essential for interpreting results responsibly. The most fundamental limitation is that they are sensitive only to surface features. Sentence length and word length are imperfect proxies for the true sources of reading difficulty, which include syntactic complexity, coherence, the density of new concepts, the degree of presupposed background knowledge, and the quality of the text's organisation. A bureaucratic document written entirely in short sentences and common words can be profoundly difficult to understand; a well-structured academic text with technical vocabulary can be surprisingly accessible to an informed reader.
+
+A related limitation is that all of the major formulas were calibrated on American English texts, and most were validated on relatively narrow text types (school textbooks, naval training manuals, health information leaflets). Their performance when applied to other varieties of English, other registers, or other languages is not well established. The syllabification algorithms used by most R implementations of these formulas are also designed for English and can produce unreliable syllable counts for loanwords, proper nouns, acronyms, and numerals.
+
+Text length is another important practical concern. Readability scores become less stable as texts get shorter, because a single long sentence or a single unusual word has a much larger effect on the computed average when the text contains only five or six sentences. Most published guidelines recommend a minimum of 100 words, and several authors suggest that 300 words or more is preferable for stable estimates. If your corpus contains many very short texts (social media posts, individual paragraphs, short utterances), readability scores should be interpreted with particular caution.
+
+## Using multiple measures {-}
+
+Because each formula captures a slightly different combination of surface features, and because the available implementations use somewhat different syllabification algorithms, no single measure should be taken as a definitive assessment of text difficulty. The standard recommendation in the research literature is to compute several indices and report their convergent pattern rather than relying on one number. When measures agree — when all five indices rank a set of texts in roughly the same order — that convergence provides stronger evidence of a genuine difficulty difference than any single measure alone. When measures diverge — as Dale-Chall sometimes does relative to the length-based measures — that divergence is itself informative about which dimension of complexity is driving the difference.
+
+## Readability versus difficulty: a necessary distinction {-}
+
+It is worth emphasising, especially in a linguistics research context, that readability scores are properties of texts, not properties of readers. Two readers with different background knowledge, reading goals, and linguistic proficiency will experience the same text very differently, and no formula can capture that variability. When making claims based on readability analysis, researchers should be careful to frame their conclusions in terms of text-level surface features rather than making strong claims about reader experience. Statements like "academic texts have significantly higher Flesch-Kincaid Grade Level scores than simplified texts in this corpus" are empirically defensible; statements like "academic texts are harder for readers to understand" go beyond what the data directly support.
+
+::: {.callout-important}
+## Key rules for responsible readability analysis
+
+Compute at least two or three indices and report their convergence or divergence. Report the text length of your documents alongside the readability scores — very short texts produce unreliable estimates. Do not use readability scores as a sole criterion for assessing suitability of a text for a given audience, as they cannot capture conceptual difficulty, coherence, or background knowledge requirements. When comparing corpora from different languages or language varieties, note that formulas calibrated on American English may not transfer cleanly. Always contextualise your readability scores with qualitative description of the texts.
+:::
+
+**Q6. A researcher reports that a corpus of government policy documents has a mean Flesch-Kincaid Grade Level of 16.8. They conclude that "these documents are too difficult for the average citizen to understand." What is the most important limitation of this conclusion?**
+
+```{r}
+#| echo: false
+#| label: "READ_Q6"
+check_question(
+  "Readability scores are properties of texts, not of readers — they cannot predict individual comprehension, which depends on background knowledge, motivation, and reading skill",
+  options = c(
+    "Readability scores are properties of texts, not of readers — they cannot predict individual comprehension, which depends on background knowledge, motivation, and reading skill",
+    "The Flesch-Kincaid Grade Level scale does not go above 16, so a score of 16.8 is impossible",
+    "The conclusion is correct — a Grade Level of 16.8 definitively proves citizens cannot understand the documents",
+    "Government documents should be assessed with Dale-Chall, not Flesch-Kincaid"
+  ),
+  type = "radio",
+  q_id = "READ_Q6",
+  random_answer_order = TRUE,
+  button_label = "Check answer",
+  right = "Correct! Readability formulas measure surface features of texts, not the comprehension experience of any particular reader. A score of 16.8 tells you that these documents have long sentences and polysyllabic words consistent with university-level prose. It does not tell you what any specific citizen will understand, because comprehension depends on factors the formula cannot measure: the reader's domain knowledge, familiarity with bureaucratic register, reading purpose, and cognitive resources. The conclusion overstates what the score can support.",
+  wrong = "Think about the difference between what the formula actually measures and what comprehension requires. Can a single number based on word length and sentence length capture everything that determines whether a person understands a text?"
+)
+```
+
+---
+
+# Citation and Session Info {.unnumbered}
+
+::: {.callout-note}
+## Citation
+
+```{r citation-end, echo=FALSE, results='asis'}
+doi_link <- if (nchar(trimws(params$doi)) > 0) {
+  paste0(
+    ' doi: <a href="https://doi.org/', params$doi,
+    '" target="_blank">', params$doi, '</a>.'
+  )
+} else { "" }
+cat(
+  params$author, ". ",
+  params$year,   ". *",
+  params$title,  "*. ",
+  params$institution, ". ",
+  "url: ", params$url, " ",
+  "(Version ", params$version, ").",
+  doi_link,
+  sep = ""
+)
+```
+
+```{r citation-bibtex, echo=FALSE, results='asis'}
+key <- paste0(
+  tolower(gsub(" ", "", gsub(",.*", "", params$author))),
+  params$year,
+  tolower(gsub("[^a-zA-Z]", "", strsplit(params$title, " ")[[1]][1]))
+)
+cat("```\n")
+cat("@manual{", key, ",\n",           sep = "")
+cat("  author       = {", params$author,      "},\n", sep = "")
+cat("  title        = {", params$title,       "},\n", sep = "")
+cat("  year         = {", params$year,        "},\n", sep = "")
+cat("  note         = {", params$url,         "},\n", sep = "")
+cat("  organization = {", params$institution, "},\n", sep = "")
+cat("  edition      = {", params$version,     "},\n", sep = "")
+cat("  doi          = {", params$doi,         "}\n",  sep = "")
+cat("}\n```\n")
+```
+:::
+
+```{r session-info}
+sessionInfo()
+```
+
+::: {.callout-note}
+## AI Transparency Statement
+
+This tutorial was re-developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the `checkdown` quiz questions and feedback strings. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.
+:::
+
+[Back to top](#introduction)
+
+[Back to HOME](/)
+
+# References {.unnumbered}
