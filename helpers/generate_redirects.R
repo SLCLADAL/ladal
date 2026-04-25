@@ -244,7 +244,6 @@ fixes_404 <- list(
   # Retired or renamed top-level pages
   "docs/topicmodels.html"                          = paste0(BASE, "/topic/topic.html"),
   "docs/tutorials/bookdown/bookdown.html"          = paste0(BASE, "/publish/publish.html"),
-  "docs/tutorials/keywords/keywords.html"          = paste0(BASE, "/keywords/keywords.html"),
   "docs/news.html"                                 = "https://ladal.edu.au/events.html",
   "docs/phylo.html"                                = "https://ladal.edu.au/tutorials.html",
   "docs/gviz.html"                                 = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
