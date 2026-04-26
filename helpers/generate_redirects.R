@@ -102,9 +102,9 @@ all_tutorials <- list(
   "regression_concepts"                 = "regression_concepts/regression_concepts",
   "regression"                          = "regression/regression",
   "mixedmodel"                          = "mixedmodel/mixedmodel",
-  "mixed"                               = "mixedmodel/mixedmodel",   # FIX: old URL /tutorials/mixed/mixed.html
-  "mixed_effects"                       = "mixedmodel/mixedmodel",   # FIX: plausible variant seen in the wild
-  "lme"                                 = "mixedmodel/mixedmodel",   # FIX: another common alias
+  "mixed"                               = "mixedmodel/mixedmodel",
+  "mixed_effects"                       = "mixedmodel/mixedmodel",
+  "lme"                                 = "mixedmodel/mixedmodel",
   "structural_equations"                = "structural_equations/structural_equations",
   "sem"                                 = "structural_equations/structural_equations",
   "tree_models"                         = "tree_models/tree_models",
@@ -193,13 +193,41 @@ for (old_name in names(all_tutorials)) {
 # the canonical folder name (the first segment of the all_tutorials value).
 # If old_name == canonical folder, writing a redirect would create a loop
 # because the redirect file would overwrite the real rendered tutorial HTML.
+#
+# ADDITIONAL SAFETY: Never write a redirect for these canonical folder names
+# regardless of how they appear in all_tutorials. This list exists because
+# some tutorials (e.g. keywords) had loop issues caused by old aliases matching
+# the canonical folder name through indirect paths.
+
+CANONICAL_FOLDERS <- c(
+  "working_with_computers", "datamanagement", "reproducibility",
+  "quant_intro", "quant_basics", "r_intro", "data_loading", "string",
+  "regular_expressions", "table", "workingwithr", "r_reproducibility",
+  "notebooks", "publish", "jupyter", "why_r", "corpus_compilation",
+  "gutenberg", "webscraping", "data_simulation", "pdf_to_text",
+  "data_viz_intro", "data_viz_advanced", "interactive_viz", "conceptmaps",
+  "leaflet", "conceptual_maps_comparison", "vowelchart", "descriptive_stats",
+  "inferential_stats", "anova", "regression_concepts", "regression",
+  "mixedmodel", "structural_equations", "tree_models", "cluster_analysis",
+  "phylogenetic_methods", "reinforcement_nlp", "lexical_similarity",
+  "semantic_vectors", "dimension_reduction", "power_analysis", "surveys",
+  "eyetracking", "text_analysis_intro", "textanalysis", "concordancing",
+  "collocations", "keywords", "pos_tagging", "network_analysis", "topic",
+  "sentiment", "text_summarisation", "spellcheck", "embeddings",
+  "bert_roberta", "deep_learning", "ollamar", "llm_privacy",
+  "document_classification", "topic_modelling_dickens", "corpus_linguistics",
+  "learner_language", "litsty", "lexicography"
+)
 
 message("Writing deep-path redirects...")
 for (old_name in names(all_tutorials)) {
-  # Extract canonical folder name from "folder/file" value
   canonical_folder <- strsplit(all_tutorials[[old_name]], "/")[[1]][1]
-  # Only redirect if the old name is genuinely different from canonical
-  if (old_name != canonical_folder) {
+  # Only redirect if:
+  #   1. The old name differs from the canonical folder name, AND
+  #   2. The old name is not itself a canonical folder name
+  # This double-check prevents loops even if a new alias accidentally
+  # matches a canonical folder (as happened with the keywords tutorial).
+  if (old_name != canonical_folder && !(old_name %in% CANONICAL_FOLDERS)) {
     write_redirect(
       output_path     = paste0("docs/tutorials/", old_name, "/", old_name, ".html"),
       destination_url = paste0(BASE, "/", all_tutorials[[old_name]], ".html")
@@ -213,7 +241,7 @@ for (old_name in names(all_tutorials)) {
 
 fixes_404 <- list(
   
-  # Old URLs with non-standard paths or filenames
+  # ── Old URLs with non-standard paths or filenames ─────────────────────────
   "docs/tutorials/ngrams/ngrams.html"              = paste0(BASE, "/collocations/collocations.html"),
   "docs/tutorials/textanalysis/textanalysis2.html" = paste0(BASE, "/textanalysis/textanalysis.html"),
   "docs/tutorials/statistics/statistics.html"      = paste0(BASE, "/inferential_stats/inferential_stats.html"),
@@ -229,11 +257,27 @@ fixes_404 <- list(
   "docs/tutorials/regression.html"                 = paste0(BASE, "/regression/regression.html"),
   "docs/tutorials/comp.html"                       = paste0(BASE, "/working_with_computers/working_with_computers.html"),
   "docs/tutorials/reinfnlp/intror.html"            = paste0(BASE, "/r_intro/r_intro.html"),
-  
-  # FIX: the exact URL the user reported as broken
   "docs/tutorials/mixed/mixed.html"                = paste0(BASE, "/mixedmodel/mixedmodel.html"),
   
-  # Old .Rmd and content file URLs
+  # ── New 404 fixes: tutorials at unexpected paths ──────────────────────────
+  # ollama (old folder name before package was renamed to ollamar)
+  "docs/tutorials/ollama/ollama.html"              = paste0(BASE, "/ollamar/ollamar.html"),
+  # ollamar folder but wrong filename
+  "docs/tutorials/ollamar/ollama.html"             = paste0(BASE, "/ollamar/ollamar.html"),
+  # embeddings at old tutorial-style path
+  "docs/tutorials/embeddings_tutorial/embeddings_tutorial.html" = paste0(BASE, "/embeddings/embeddings.html"),
+  # litsty at wrong depth (should be tutorials/litsty/litsty.html)
+  "docs/tutorials/litsty.html"                     = paste0(BASE, "/litsty/litsty.html"),
+  # maps — retired, send to tutorials index
+  "docs/tutorials/maps/maps.html"                  = "https://ladal.edu.au/tutorials.html",
+  # viz — old name for data_viz_intro
+  "docs/tutorials/viz/viz.html"                    = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
+  # regression_part1 — old split tutorial
+  "docs/tutorials/regression_part1.html"           = paste0(BASE, "/regression/regression.html"),
+  # corpuslinguistics_showcase deep path
+  "docs/tutorials/corpuslinguistics_showcase/corpuslinguistics_showcase.html" = paste0(BASE, "/corpus_linguistics/corpus_linguistics.html"),
+  
+  # ── Old .Rmd and content file URLs ────────────────────────────────────────
   "docs/tutorials/pdf2txt/pdf2txt.Rmd"             = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/tutorials/surveys/surveys.Rmd"             = paste0(BASE, "/surveys/surveys.html"),
   "docs/content/introviz.Rmd"                      = paste0(BASE, "/data_viz_intro/data_viz_intro.html"),
@@ -241,7 +285,7 @@ fixes_404 <- list(
   "docs/content/dviz.Rmd"                          = paste0(BASE, "/data_viz_advanced/data_viz_advanced.html"),
   "docs/content/clust.Rmd"                         = paste0(BASE, "/cluster_analysis/cluster_analysis.html"),
   
-  # Retired or renamed top-level pages
+  # ── Retired or renamed top-level pages ───────────────────────────────────
   "docs/topicmodels.html"                          = paste0(BASE, "/topic/topic.html"),
   "docs/tutorials/bookdown/bookdown.html"          = paste0(BASE, "/publish/publish.html"),
   "docs/news.html"                                 = "https://ladal.edu.au/events.html",
@@ -252,12 +296,13 @@ fixes_404 <- list(
   "docs/compthink.html"                            = paste0(BASE, "/quant_intro/quant_intro.html"),
   "docs/compthinking.html"                         = paste0(BASE, "/quant_intro/quant_intro.html"),
   
-  # Data and resource files
+  # ── Data and resource files ───────────────────────────────────────────────
+  # These redirect to the relevant tutorial page rather than a raw file.
   "docs/data/PDFs/pdf3.pdf"                        = paste0(BASE, "/pdf_to_text/pdf_to_text.html"),
   "docs/assets/bibliography.bib"                   = "https://ladal.edu.au/about.html",
   "docs/resources/stopwords_en.txt"                = paste0(BASE, "/topic/topic.html"),
   
-  # Malformed URL
+  # ── Malformed URL ─────────────────────────────────────────────────────────
   "docs/www.ladal.edu.au"                          = "https://ladal.edu.au"
 )
 
@@ -272,7 +317,7 @@ for (output_path in names(fixes_404)) {
 message(
   "Done. Redirects written:\n",
   "  Flat:      ", length(all_tutorials), "\n",
-  "  Deep-path: ", length(all_tutorials), "\n",
+  "  Deep-path: up to ", length(all_tutorials), " (fewer due to loop protection)\n",
   "  404 fixes: ", length(fixes_404), "\n",
-  "  TOTAL:     ", length(all_tutorials) * 2 + length(fixes_404)
+  "  TOTAL:     up to ", length(all_tutorials) * 2 + length(fixes_404)
 )
