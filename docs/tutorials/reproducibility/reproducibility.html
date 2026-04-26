@@ -1,0 +1,2235 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.41">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Martin Schweinberger">
+<meta name="dcterms.date" content="2026-01-01">
+<meta name="description" content="This tutorial introduces the principles of reproducible research, covering version control basics, documentation strategies, and the creation of reproducible analytical workflows using R and Quarto. It is aimed at researchers in linguistics and the humanities who want to align their work with open science standards increasingly required by journals and funders.">
+
+<title>Reproducible Research: Principles and Practice – LADAL</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<link href="../../images/ladal_icon_tp.png" rel="icon" type="image/png">
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-48ffa3e5b9d089919c6712c39e5b00f2.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-c0a3c07012df1de2ea393e372509f4c5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-RM0VHZB3CG"></script>
+
+<script type="text/javascript">
+
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-RM0VHZB3CG', { 'anonymize_ip': true});
+</script>
+<style>html{ scroll-behavior: smooth; }</style>
+<script>
+    // Wait for the document to be fully loaded
+    document.addEventListener("DOMContentLoaded", function () {
+        // Create a new div element to hold the dynamic content
+        var newContainer = document.createElement("div");
+        newContainer.classList.add("custom-banner");
+        newContainer.innerHTML = `
+          <div class="banner">
+              <img src="/images/ladal_icon_white.png" alt="Icon" class="banner-icon">
+              <span class="banner-text">Language Technology and Data Analysis Laboratory</span>
+          </div>
+      `;
+        var header = document.getElementById("quarto-header");
+        var navbar = header.querySelector("nav");
+        header.insertBefore(newContainer, navbar);
+
+        // ── Per-page Open Graph tag overrides ────────────────────────────────
+        // Quarto renders the page title into <title> and (with our injected
+        // top-level description: field) into <meta name="description">.
+        // We read those values and overwrite the static OG/Twitter defaults
+        // so that each tutorial page gets its own rich social preview.
+
+        var pageTitle = document.title || "";
+        var descMeta  = document.querySelector('meta[name="description"]');
+        var pageDesc  = descMeta ? descMeta.getAttribute("content") : "";
+        var pageUrl   = window.location.href;
+
+        function setMeta(selector, attr, value) {
+            if (!value) return;
+            var el = document.querySelector(selector);
+            if (el) el.setAttribute(attr, value);
+        }
+
+        // Open Graph
+        setMeta('meta[property="og:title"]',       "content", pageTitle);
+        setMeta('meta[property="og:description"]', "content", pageDesc);
+        setMeta('meta[property="og:url"]',         "content", pageUrl);
+
+        // Twitter / X Card
+        setMeta('meta[name="twitter:title"]',       "content", pageTitle);
+        setMeta('meta[name="twitter:description"]', "content", pageDesc);
+    });
+</script>
+
+<!-- ============================================================
+     LADAL — Open Graph & Twitter Card meta tags
+     Default values — overridden per-page by the JS above once
+     the page title and description are known at runtime.
+     ============================================================ -->
+
+<meta property="og:site_name" content="LADAL">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ladal.edu.au">
+<meta property="og:title" content="Reproducible Research: Principles and Practice – LADAL">
+<meta property="og:description" content="This tutorial introduces the principles of reproducible research, covering version control basics, documentation strategies, and the creation of reproducible analytical workflows using R and Quarto. It is aimed at researchers in linguistics and the humanities who want to align their work with open science standards increasingly required by journals and funders.">
+<meta property="og:image" content="https://ladal.edu.au/images/uq1.webp">
+<meta property="og:image:alt" content="Great Court, The University of Queensland — LADAL">
+<meta property="og:locale" content="en_AU">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Reproducible Research: Principles and Practice – LADAL">
+<meta name="twitter:description" content="This tutorial introduces the principles of reproducible research, covering version control basics, documentation strategies, and the creation of reproducible analytical workflows using R and Quarto. It is aimed at researchers in linguistics and the humanities who want to align their work with open science standards increasingly required by journals and funders.">
+<meta name="twitter:image" content="https://ladal.edu.au/images/uq1.webp">
+<meta name="twitter:image:alt" content="Great Court, The University of Queensland — LADAL">
+
+<!-- General meta description — Quarto overrides this per-page once
+     each tutorial has a top-level description: field in its YAML.
+     This fallback covers the homepage and any pages without one. -->
+<meta name="description" content="Free, open-access tutorials, tools, and courses for language researchers at all levels. Part of the Language Data Commons of Australia (LDaCA) at the University of Queensland.">
+
+<!-- ============================================================
+     LADAL — Schema.org structured data (LearningResource)
+     This default block covers non-tutorial pages.
+     Tutorial pages get their own richer block via an inline
+     R chunk (see: helpers/schema_org_chunk_template.R).
+     ============================================================ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+  "url": "https://ladal.edu.au",
+  "description": "Free, open-access research infrastructure providing tutorials, tools, and courses for researchers working with language data.",
+  "parentOrganization": {
+    "@type": "CollegeOrUniversity",
+    "name": "The University of Queensland",
+    "url": "https://www.uq.edu.au"
+  },
+  "sameAs": [
+    "https://github.com/SLCLADAL",
+    "https://zenodo.org/communities/ladal"
+  ]
+}
+</script>
+
+
+<link rel="stylesheet" href="../../css/styles.css">
+<link rel="canonical" href="https://ladal.edu.au/tutorials/reproducibility/reproducibility.html">
+</head>
+
+<body class="floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">LADAL</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">HOME</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-about" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">ABOUT</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-about">    
+        <li>
+    <a class="dropdown-item" href="../../about.html">
+ <span class="dropdown-text">About LADAL</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#directors">
+ <span class="dropdown-text">People &amp; Collaborators</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#citing">
+ <span class="dropdown-text">Citing &amp; Licensing</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../about.html#faq">
+ <span class="dropdown-text">FAQs</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tutorials" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">TUTORIALS</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tutorials">    
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html">
+ <span class="dropdown-text">About Tutorials</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-science-basics">
+ <span class="dropdown-text">Data Science Basics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#r-basics">
+ <span class="dropdown-text">R Basics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-visualisation">
+ <span class="dropdown-text">Data Collection and Acquisition</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#data-collection">
+ <span class="dropdown-text">Data Visualisation</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#statistics">
+ <span class="dropdown-text">Statistics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tutorials.html#text-analytics">
+ <span class="dropdown-text">Text Analytics</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-courses" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">COURSES</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-courses">    
+        <li>
+    <a class="dropdown-item" href="../../courses.html">
+ <span class="dropdown-text">About Courses</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../courses.html#short-courses">
+ <span class="dropdown-text">Short Courses</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../courses.html#long-courses">
+ <span class="dropdown-text">Long Courses</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-tools" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">TOOLS</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-tools">    
+        <li>
+    <a class="dropdown-item" href="../../tools.html">
+ <span class="dropdown-text">About Tools</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tools.html#shiny-tools">
+ <span class="dropdown-text">Shiny Tools</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../tools.html#jupyter-tools">
+ <span class="dropdown-text">Juypter Notebooks Tools</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../events.html"> 
+<span class="menu-text">EVENTS</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-resources" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">RESOURCES</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-resources">    
+        <li>
+    <a class="dropdown-item" href="../../resources.html">
+ <span class="dropdown-text">Guides &amp; Resources</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../contact.html">
+ <span class="dropdown-text">Contribute to LADAL</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../../contact.html"> 
+<span class="menu-text">CONTACT</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#intro" id="toc-intro" class="nav-link active" data-scroll-target="#intro">Introduction</a>
+  <ul class="collapse">
+  <li><a href="#why-reproducibility-matters" id="toc-why-reproducibility-matters" class="nav-link" data-scroll-target="#why-reproducibility-matters">Why reproducibility matters</a></li>
+  </ul></li>
+  <li><a href="#part1" id="toc-part1" class="nav-link" data-scroll-target="#part1">Part 1: Core Concepts</a>
+  <ul class="collapse">
+  <li><a href="#replication" id="toc-replication" class="nav-link" data-scroll-target="#replication">Replication</a></li>
+  <li><a href="#reproduction" id="toc-reproduction" class="nav-link" data-scroll-target="#reproduction">Reproduction</a></li>
+  <li><a href="#robustness" id="toc-robustness" class="nav-link" data-scroll-target="#robustness">Robustness</a></li>
+  <li><a href="#triangulation" id="toc-triangulation" class="nav-link" data-scroll-target="#triangulation">Triangulation</a></li>
+  <li><a href="#transparency" id="toc-transparency" class="nav-link" data-scroll-target="#transparency">Transparency</a></li>
+  <li><a href="#relationships-between-concepts" id="toc-relationships-between-concepts" class="nav-link" data-scroll-target="#relationships-between-concepts">Relationships between concepts</a></li>
+  </ul></li>
+  <li><a href="#part2" id="toc-part2" class="nav-link" data-scroll-target="#part2">Part 2: The Reproducibility Spectrum</a>
+  <ul class="collapse">
+  <li><a href="#level-0-not-reproducible" id="toc-level-0-not-reproducible" class="nav-link" data-scroll-target="#level-0-not-reproducible">Level 0: not reproducible</a></li>
+  <li><a href="#level-1-reproducible-publication" id="toc-level-1-reproducible-publication" class="nav-link" data-scroll-target="#level-1-reproducible-publication">Level 1: reproducible publication</a></li>
+  <li><a href="#level-2-reproducible-analysis" id="toc-level-2-reproducible-analysis" class="nav-link" data-scroll-target="#level-2-reproducible-analysis">Level 2: reproducible analysis</a></li>
+  <li><a href="#level-3-fully-reproducible" id="toc-level-3-fully-reproducible" class="nav-link" data-scroll-target="#level-3-fully-reproducible">Level 3: fully reproducible</a></li>
+  <li><a href="#level-4-reproducible-science-ecosystem" id="toc-level-4-reproducible-science-ecosystem" class="nav-link" data-scroll-target="#level-4-reproducible-science-ecosystem">Level 4: reproducible science ecosystem</a></li>
+  <li><a href="#choosing-your-level" id="toc-choosing-your-level" class="nav-link" data-scroll-target="#choosing-your-level">Choosing your level</a></li>
+  </ul></li>
+  <li><a href="#part3" id="toc-part3" class="nav-link" data-scroll-target="#part3">Part 3: Practical Strategies</a>
+  <ul class="collapse">
+  <li><a href="#project-organisation" id="toc-project-organisation" class="nav-link" data-scroll-target="#project-organisation">1. Project organisation</a></li>
+  <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">2. Documentation</a></li>
+  <li><a href="#version-control-with-git" id="toc-version-control-with-git" class="nav-link" data-scroll-target="#version-control-with-git">3. Version control with Git</a></li>
+  <li><a href="#computational-notebooks" id="toc-computational-notebooks" class="nav-link" data-scroll-target="#computational-notebooks">4. Computational notebooks</a></li>
+  <li><a href="#managing-computational-environments" id="toc-managing-computational-environments" class="nav-link" data-scroll-target="#managing-computational-environments">5. Managing computational environments</a></li>
+  <li><a href="#data-sharing-and-dois" id="toc-data-sharing-and-dois" class="nav-link" data-scroll-target="#data-sharing-and-dois">6. Data sharing and DOIs</a></li>
+  <li><a href="#pre-registration" id="toc-pre-registration" class="nav-link" data-scroll-target="#pre-registration">7. Pre-registration</a></li>
+  </ul></li>
+  <li><a href="#part4" id="toc-part4" class="nav-link" data-scroll-target="#part4">Part 4: Reproducibility in Corpus Linguistics</a>
+  <ul class="collapse">
+  <li><a href="#the-reproducibility-landscape-in-corpus-linguistics" id="toc-the-reproducibility-landscape-in-corpus-linguistics" class="nav-link" data-scroll-target="#the-reproducibility-landscape-in-corpus-linguistics">The reproducibility landscape in corpus linguistics</a></li>
+  <li><a href="#what-corpus-linguists-should-share" id="toc-what-corpus-linguists-should-share" class="nav-link" data-scroll-target="#what-corpus-linguists-should-share">What corpus linguists should share</a></li>
+  <li><a href="#robustness-in-corpus-linguistics" id="toc-robustness-in-corpus-linguistics" class="nav-link" data-scroll-target="#robustness-in-corpus-linguistics">Robustness in corpus linguistics</a></li>
+  </ul></li>
+  <li><a href="#part5" id="toc-part5" class="nav-link" data-scroll-target="#part5">Part 5: The Reproducibility Checklist</a>
+  <ul class="collapse">
+  <li><a href="#before-starting" id="toc-before-starting" class="nav-link" data-scroll-target="#before-starting">Before starting</a></li>
+  <li><a href="#during-research" id="toc-during-research" class="nav-link" data-scroll-target="#during-research">During research</a></li>
+  <li><a href="#before-publication" id="toc-before-publication" class="nav-link" data-scroll-target="#before-publication">Before publication</a></li>
+  <li><a href="#at-publication" id="toc-at-publication" class="nav-link" data-scroll-target="#at-publication">At publication</a></li>
+  </ul></li>
+  <li><a href="#part6" id="toc-part6" class="nav-link" data-scroll-target="#part6">Part 6: Troubleshooting Common Challenges</a>
+  <ul class="collapse">
+  <li><a href="#i-cannot-share-my-data-privacyethics" id="toc-i-cannot-share-my-data-privacyethics" class="nav-link" data-scroll-target="#i-cannot-share-my-data-privacyethics">“I cannot share my data (privacy/ethics)”</a></li>
+  <li><a href="#my-code-is-messy" id="toc-my-code-is-messy" class="nav-link" data-scroll-target="#my-code-is-messy">“My code is messy”</a></li>
+  <li><a href="#i-do-not-have-time-for-this" id="toc-i-do-not-have-time-for-this" class="nav-link" data-scroll-target="#i-do-not-have-time-for-this">“I do not have time for this”</a></li>
+  <li><a href="#my-collaborators-do-not-care" id="toc-my-collaborators-do-not-care" class="nav-link" data-scroll-target="#my-collaborators-do-not-care">“My collaborators do not care”</a></li>
+  <li><a href="#my-field-does-not-do-this" id="toc-my-field-does-not-do-this" class="nav-link" data-scroll-target="#my-field-does-not-do-this">“My field does not do this”</a></li>
+  </ul></li>
+  <li><a href="#resources" id="toc-resources" class="nav-link" data-scroll-target="#resources">Resources</a>
+  <ul class="collapse">
+  <li><a href="#tools" id="toc-tools" class="nav-link" data-scroll-target="#tools">Tools</a></li>
+  <li><a href="#learning-resources" id="toc-learning-resources" class="nav-link" data-scroll-target="#learning-resources">Learning resources</a></li>
+  <li><a href="#communities" id="toc-communities" class="nav-link" data-scroll-target="#communities">Communities</a></li>
+  </ul></li>
+  <li><a href="#quick-reference" id="toc-quick-reference" class="nav-link" data-scroll-target="#quick-reference">Quick Reference</a>
+  <ul class="collapse">
+  <li><a href="#reproducibility-workflow-summary" id="toc-reproducibility-workflow-summary" class="nav-link" data-scroll-target="#reproducibility-workflow-summary">Reproducibility workflow summary</a></li>
+  <li><a href="#red-flags-for-non-reproducibility" id="toc-red-flags-for-non-reproducibility" class="nav-link" data-scroll-target="#red-flags-for-non-reproducibility">Red flags for non-reproducibility</a></li>
+  <li><a href="#green-flags-for-reproducibility" id="toc-green-flags-for-reproducibility" class="nav-link" data-scroll-target="#green-flags-for-reproducibility">Green flags for reproducibility</a></li>
+  </ul></li>
+  <li><a href="#citation-session-info" id="toc-citation-session-info" class="nav-link" data-scroll-target="#citation-session-info">Citation &amp; Session Info</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+</nav>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Reproducible Research: Principles and Practice</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button" data-quarto-source-url="https://github.com/SLCLADAL/ladal/blob/main/tutorials/reproducibility/reproducibility.qmd">View Source</a></li></ul></div></div>
+</div>
+
+<div>
+  <div class="description">
+    This tutorial introduces the principles of reproducible research, covering version control basics, documentation strategies, and the creation of reproducible analytical workflows using R and Quarto. It is aimed at researchers in linguistics and the humanities who want to align their work with open science standards increasingly required by journals and funders.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Martin Schweinberger </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "Reproducible Research: Principles and Practice",
+  "description": "This tutorial introduces the principles of reproducible research, covering version control basics, documentation strategies, and the creation of reproducible analytical workflows using R and Quarto. It is aimed at researchers in linguistics and the humanities who want to align their work with open science standards increasingly required by journals and funders.",
+  "url": "https://ladal.edu.au/tutorials/reproducibility/reproducibility.html",
+    "sameAs": "https://doi.org/10.5281/zenodo.19332950",
+  "datePublished": "2026-03-28",
+  "version": "3.1.1",
+  "inLanguage": "en",
+  "educationalLevel": "Graduate",
+  "learningResourceType": "Tutorial",
+  "keywords": ["reproducible research", "version control", "open science", "research workflows", "documentation", "Git", "R Markdown", "Quarto"],
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": {
+    "@type": "Person",
+    "name": "Martin Schweinberger",
+    "sameAs": "https://orcid.org/0000-0003-1923-9153"
+  },
+  "publisher": {
+    "@type": "EducationalOrganization",
+    "name": "Language Technology and Data Analysis Laboratory (LADAL)",
+    "url": "https://ladal.edu.au",
+    "parentOrganization": {
+      "@type": "CollegeOrUniversity",
+      "name": "The University of Queensland"
+    }
+  },
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "LADAL",
+    "url": "https://ladal.edu.au"
+  }
+}
+</script>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../..\images/uq1.webp" style="width:100.0%" loading="lazy" data-fetchpriority="high" height="200" class="figure-img"></p>
+<figcaption>Great Court, The University of Queensland</figcaption>
+</figure>
+</div>
+<section id="intro" class="level1">
+<h1>Introduction</h1>
+<p><img src="../..\images/gy_chili.png" class="img-fluid" style="float:right; padding:10px;width:15.0%"></p>
+<p>This tutorial introduces <strong>reproducible research</strong> — the practices, tools, and norms that allow scientific findings to be independently verified, extended, and built upon. The ability to reproduce a study’s results is one of the foundational commitments of empirical science, yet surveys consistently show that a substantial proportion of published findings fail to survive independent scrutiny. This has come to be called the <strong>reproducibility crisis</strong>, and it has reshaped conversations about research practice across the natural sciences, social sciences, and increasingly the humanities and linguistics.</p>
+<p>The tutorial covers the core conceptual vocabulary of reproducibility (reproduction, replication, robustness, triangulation, transparency), the different levels of reproducibility a study can achieve, and the practical strategies — from folder organisation and documentation to version control, computational notebooks, and pre-registration — that researchers can adopt to make their work more transparent and trustworthy. A dedicated section addresses reproducibility specifically in corpus linguistics and computational humanities, where the crisis has begun to receive sustained attention <span class="citation" data-cites="schweinberger2026repro_intro flanagan2025repro sonning2021replication">(<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">Schweinberger 2026</a>; <a href="#ref-flanagan2025repro" role="doc-biblioref">Flanagan 2025</a>; <a href="#ref-sonning2021replication" role="doc-biblioref">Sönning and Werner 2021</a>)</span>.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Learning Objectives
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>By the end of this tutorial you will be able to:</p>
+<ol type="1">
+<li>Define and distinguish the key concepts: reproduction, replication, robustness, triangulation, and transparency</li>
+<li>Explain what the reproducibility crisis is, what caused it, and how it has developed in the sciences and in linguistics</li>
+<li>Identify the four main reasons why research fails to reproduce — methodological, data, computational, and publication-related</li>
+<li>Describe the five levels of the reproducibility spectrum and choose an appropriate target level for a given study</li>
+<li>Implement a standard project folder structure, file-naming convention, README, codebook, and analysis log</li>
+<li>Use Git and GitHub for version control in a research project</li>
+<li>Create a computational notebook (R Markdown or Quarto) that integrates code, output, and narrative</li>
+<li>Manage a project’s computational environment using <code>renv</code> and <code>sessionInfo()</code></li>
+<li>Share data and code via a repository (OSF, Zenodo, or institutional RDM) and obtain a persistent DOI</li>
+<li>Pre-register a study and explain how registered reports prevent publication bias</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Prerequisite Tutorials
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This tutorial assumes basic familiarity with R and with quantitative research methods. No prior knowledge of version control or open science practices is required. Readers may benefit from first completing:</p>
+<ul>
+<li><a href="../..\tutorials/quant_intro/quant_intro.html">Introduction to Quantitative Reasoning</a></li>
+<li><a href="../..\tutorials/r_intro/r_intro.html">Getting Started with R and RStudio</a></li>
+</ul>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Citation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Martin Schweinberger. 2026. <em>Reproducible Research: Principles and Practice</em>. The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia. url: https://ladal.edu.au/tutorials/reproducibility/reproducibility.html (Version 3.1.1). doi: <a href="https://doi.org/10.5281/zenodo.19332951" target="_blank">10.5281/zenodo.19332951</a>.</p>
+</div>
+</div>
+<hr>
+<section id="why-reproducibility-matters" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="why-reproducibility-matters">Why reproducibility matters</h2>
+<p><img src="../..\images/reprocicle.png" class="img-fluid" style="float:right; padding:10px;width:40.0%"></p>
+<section id="the-reproducibility-crisis" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="the-reproducibility-crisis">The reproducibility crisis</h3>
+<p>The reproducibility crisis is not a distant problem in other disciplines. A landmark survey of scientists across fields found that over 70% had tried and failed to reproduce another researcher’s experiments, and more than 50% had failed to reproduce their own <span class="citation" data-cites="baker2016reproducibility">(<a href="#ref-baker2016reproducibility" role="doc-biblioref">Baker 2016</a>)</span>. A large-scale replication project in psychology successfully reproduced only 36–47% of published findings <span class="citation" data-cites="osc2015repro">(<a href="#ref-osc2015repro" role="doc-biblioref">Collaboration 2015</a>)</span>. The economic costs have been estimated at $28 billion per year in the United States alone from irreproducible preclinical research <span class="citation" data-cites="freedman2015economics">(<a href="#ref-freedman2015economics" role="doc-biblioref">Freedman, Cockburn, and Simcoe 2015</a>)</span>.</p>
+<p>The consequences extend beyond wasted resources. When influential findings fail to replicate, public confidence in science erodes. Funding agencies and journals have responded by mandating greater transparency — requiring data and code sharing, pre-registration, and more complete statistical reporting.</p>
+</section>
+<section id="the-crisis-reaches-linguistics" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="the-crisis-reaches-linguistics">The crisis reaches linguistics</h3>
+<p>For a long time, linguistics seemed insulated from these concerns. But the field has increasingly come under scrutiny. <span class="citation" data-cites="sonning2021replication">Sönning and Werner (<a href="#ref-sonning2021replication" role="doc-biblioref">2021</a>)</span> document how the broader replication crisis applies to linguistic research, identifying structural vulnerabilities including small samples, flexible analytical choices, and limited data sharing. The special issue they guest-edited in <em>Linguistics</em> <span class="citation" data-cites="sonning2021linguistics">(<a href="#ref-sonning2021linguistics" role="doc-biblioref"><span>“Special Issue: The Replication Crisis: Implications for Linguistics”</span> 2021</a>)</span> brought systematic attention to these issues.</p>
+<p>In corpus linguistics specifically, <span class="citation" data-cites="schweinberger2026repro_intro">Schweinberger (<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">2026</a>)</span> and <span class="citation" data-cites="schweinberger2025introduction">Schweinberger and Haugh (<a href="#ref-schweinberger2025introduction" role="doc-biblioref">2025b</a>)</span> argue that the field faces reproducibility challenges that are both general (underpowered studies, analytical flexibility, publication bias) and discipline-specific (proprietary corpora, non-shared query scripts, undocumented annotation decisions). <span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span> provides an empirical assessment of reproducibility, replicability, robustness, and generalizability across corpus-linguistic studies, finding substantial room for improvement across all four dimensions. <span class="citation" data-cites="schweinberger2025implications">Schweinberger (<a href="#ref-schweinberger2025implications" role="doc-biblioref">2025</a>)</span> draws implications for how corpus linguists can redesign their workflows, reporting conventions, and publication practices to meet contemporary transparency standards.</p>
+</section>
+<section id="timeline-of-the-crisis" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="timeline-of-the-crisis">Timeline of the crisis</h3>
+<p><strong>Late 1990s – early 2000s:</strong> Failed replications begin to accumulate in medical research <span class="citation" data-cites="ioannidis2005false">(<a href="#ref-ioannidis2005false" role="doc-biblioref">Ioannidis 2005</a>)</span>. Seminal psychology experiments prove difficult to reproduce. Questions about questionable research practices emerge.</p>
+<p><strong>2010s:</strong> The Reproducibility Project: Psychology (2015) provides the first large-scale systematic evidence <span class="citation" data-cites="osc2015repro">(<a href="#ref-osc2015repro" role="doc-biblioref">Collaboration 2015</a>)</span>. The crisis spreads to economics and other social sciences <span class="citation" data-cites="anderson2016repro">(<a href="#ref-anderson2016repro" role="doc-biblioref">Anderson et al. 2016</a>)</span>. A <em>Nature</em> survey across disciplines reveals widespread concern <span class="citation" data-cites="baker2016reproducibility">(<a href="#ref-baker2016reproducibility" role="doc-biblioref">Baker 2016</a>)</span>. The open science movement begins to organise around concrete solutions.</p>
+<p><strong>2020s:</strong> Linguistics and corpus linguistics enter the conversation <span class="citation" data-cites="sonning2021replication schweinberger2026repro_intro flanagan2025repro">(<a href="#ref-sonning2021replication" role="doc-biblioref">Sönning and Werner 2021</a>; <a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">Schweinberger 2026</a>; <a href="#ref-flanagan2025repro" role="doc-biblioref">Flanagan 2025</a>)</span>. Funder and journal mandates for transparency become widespread. Tools and training for reproducible research become broadly available. The emphasis shifts from diagnosis to solutions.</p>
+</section>
+<section id="why-research-fails-to-reproduce" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="why-research-fails-to-reproduce">Why research fails to reproduce</h3>
+<p>Four categories of failure account for most reproducibility problems <span class="citation" data-cites="goodman2016repro munafo2018robust">(<a href="#ref-goodman2016repro" role="doc-biblioref">Goodman, Fanelli, and Ioannidis 2016</a>; <a href="#ref-munafo2018robust" role="doc-biblioref">Munafò and Davey Smith 2018</a>)</span>:</p>
+<p><strong>Methodological issues</strong> (approx. 40% of failures): Insufficient documentation of procedures, underpowered studies, inappropriate statistical methods, and decisions made during analysis that were not pre-specified and are not reported.</p>
+<p><strong>Data problems</strong> (approx. 35%): Data unavailable, data processing errors, undocumented handling of outliers or missing values, and raw data that has been lost or silently modified.</p>
+<p><strong>Computational issues</strong> (approx. 25%): Software versions not recorded, code not shared or not documented, random seeds not set, and computing environments not described — meaning that even with the same data and ostensibly the same method, results cannot be reproduced.</p>
+<p><strong>Publication bias:</strong> Positive results are preferentially submitted and accepted. Negative results are filed away. Researchers engage in p-hacking (running multiple analyses until a significant result appears) and HARKing (Hypothesizing After Results are Known), which inflates the apparent rate of significant findings in the published literature.</p>
+</section>
+<section id="benefits-of-reproducible-research" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="benefits-of-reproducible-research">Benefits of reproducible research</h3>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Why invest in reproducibility?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>For science:</strong> Reproducible findings are buildable findings — other researchers can extend, replicate, and meta-analyse them. Resources are not wasted reproducing basic infrastructure. Public trust in the enterprise is maintained.</p>
+<p><strong>For your career:</strong> Reproducible papers receive substantially more citations <span class="citation" data-cites="piwowar2013data">(<a href="#ref-piwowar2013data" role="doc-biblioref">Piwowar and Vision 2013</a>)</span>. Data and code sharing increases visibility and collaboration opportunities. Funder and journal requirements are increasingly making reproducibility a condition of publication and grant success.</p>
+<p><strong>For you personally:</strong> Future you will be able to return to a project, understand what was done, and rerun or extend the analysis. Collaborators can contribute meaningfully. Errors are caught earlier. Work accumulates rather than dispersing.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+</section>
+<section id="part1" class="level1">
+<h1>Part 1: Core Concepts</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> The five key concepts that together constitute the framework for reproducible research — reproduction, replication, robustness, triangulation, and transparency — and how they relate to each other.</p>
+<p><strong>Why this matters:</strong> These terms are frequently used imprecisely and interchangeably in the literature. Precise definitions are the foundation for making principled decisions about research design and reporting.</p>
+</div>
+</div>
+<section id="replication" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="replication">Replication</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Definition
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Replication</strong> means repeating a study’s <em>procedure</em> with <em>new data</em> to test whether findings hold.</p>
+<p><strong>Formula:</strong> Same method + Different data → Similar results?</p>
+</div>
+</div>
+<p>A replication uses a comparable (not necessarily identical) population and applies similar (not identical) procedures. It tests the robustness and generalizability of an original finding. A successful replication strengthens confidence that the finding reflects a genuine pattern rather than sample-specific noise. A failed replication does not automatically refute the original — it opens a productive scientific question about the boundary conditions of the effect.</p>
+<p>Three main types of replication are commonly distinguished:</p>
+<p><strong>Direct (or close) replication</strong> keeps procedures as identical as possible and draws a different sample from the same population. This tests whether the original result was sample-specific. <strong>Conceptual replication</strong> tests the same underlying hypothesis using different procedures or measures, asking whether the result is method-specific. <strong>Constructive (or extended) replication</strong> adds new conditions or extends the original to new populations, testing boundary conditions and advancing theory.</p>
+<p>In corpus linguistics, replication has a specific character: it typically means applying the same analytical approach to a different corpus or a different time period, testing whether a lexicogrammatical pattern, frequency finding, or collocation holds across data sources <span class="citation" data-cites="flanagan2025repro schweinberger2026repro_intro">(<a href="#ref-flanagan2025repro" role="doc-biblioref">Flanagan 2025</a>; <a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">Schweinberger 2026</a>)</span>.</p>
+</section>
+<section id="reproduction" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="reproduction">Reproduction</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Definition
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Reproduction</strong> (also called computational reproducibility or computational replication) means repeating the analysis with the <em>same data</em> and the <em>same method</em> to verify that the reported results can be obtained.</p>
+<p><strong>Formula:</strong> Same method + Same data → Identical results</p>
+</div>
+</div>
+<p>Reproduction is sometimes called <em>repeatability</em> <span class="citation" data-cites="mcenery2022fundamental">(<a href="#ref-mcenery2022fundamental" role="doc-biblioref">McEnery and Brezina 2022</a>)</span> or <em>analytic reproducibility</em>. It is a minimal baseline: if a study cannot be reproduced computationally, there is no way to verify that the reported results are correct, extend the analysis, or build on it.</p>
+<p>Three levels can be distinguished <span class="citation" data-cites="schweinberger2025implications">(<a href="#ref-schweinberger2025implications" role="doc-biblioref">Schweinberger 2025</a>)</span>:</p>
+<p><strong>Computational reproducibility</strong> is the strictest form: the same code applied to the same data on the same or equivalent computing environment produces bit-identical results. <strong>Practical reproducibility</strong> relaxes the environment requirement: another researcher can run the analysis on a different machine with modest effort, producing results that are substantively equivalent even if numerically trivial differences arise. <strong>Formal (or theoretical) reproducibility</strong> requires only that the documentation is in principle sufficient for reproduction, even if in practice the data or code are not shared.</p>
+<p>Level 2 (practical reproducibility) is the minimum that should be aimed for in all quantitative research.</p>
+</section>
+<section id="robustness" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="robustness">Robustness</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Definition
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Robustness</strong> means that results remain substantively stable when different <em>analytical procedures</em> are applied to the same or similar data.</p>
+<p><strong>Formula:</strong> Different methods + Same/similar data → Consistent conclusions?</p>
+</div>
+</div>
+<p>A finding is robust if its direction and approximate magnitude are maintained across reasonable alternative analytical choices — different statistical models, different variable operationalisations, different ways of handling outliers or missing data. Robustness checks do not test whether the finding generalises to new data (that is replication’s job), but whether it is an artefact of specific analytical decisions.</p>
+<p><span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span> demonstrates that robustness — alongside reproducibility, replicability, and generalizability — is a distinct and separately assessable property of corpus-linguistic research. A study can be computationally reproducible yet fragile: reproduce it exactly and you get the same numbers, but change the corpus composition or the frequency threshold and the finding disappears.</p>
+</section>
+<section id="triangulation" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="triangulation">Triangulation</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Definition
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Triangulation</strong> means using <em>multiple approaches</em> — different methods, data sources, or theoretical perspectives — to address a single research question.</p>
+<p><strong>Formula:</strong> Multiple approaches → Converging evidence?</p>
+</div>
+</div>
+<p>Each individual method or dataset has its own limitations and assumptions. When multiple independent approaches converge on the same conclusion, confidence in that conclusion is substantially strengthened. When they diverge, that divergence is itself an important empirical finding that calls for explanation.</p>
+<p>Four types of triangulation are commonly distinguished: <strong>data triangulation</strong> (multiple datasets, time periods, or populations), <strong>method triangulation</strong> (quantitative and qualitative, experimental and observational, multiple statistical approaches), <strong>investigator triangulation</strong> (multiple researchers independently analysing the same data), and <strong>theory triangulation</strong> (multiple theoretical frameworks applied to the same phenomenon) <span class="citation" data-cites="munafo2018robust">(<a href="#ref-munafo2018robust" role="doc-biblioref">Munafò and Davey Smith 2018</a>)</span>.</p>
+</section>
+<section id="transparency" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="transparency">Transparency</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Definition
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Transparency</strong> means clear, comprehensive reporting of <em>all</em> aspects of the research process, sufficient for others to understand, evaluate, and build upon the work.</p>
+<p><strong>Formula:</strong> Complete information → Others can understand and evaluate</p>
+</div>
+</div>
+<p>Transparency is the enabling condition for all other aspects of reproducibility. A study cannot be reproduced if the methods are opaque; it cannot be replicated if the procedures are not described; its robustness cannot be assessed if analytical decisions are hidden.</p>
+<p>Transparency operates at multiple levels <span class="citation" data-cites="schweinberger2025transparency">(<a href="#ref-schweinberger2025transparency" role="doc-biblioref">Schweinberger and Haugh 2025a</a>)</span>:</p>
+<p><strong>Design transparency:</strong> Research questions stated upfront, hypotheses pre-registered where applicable, sampling strategy documented, power analysis reported. <strong>Data transparency:</strong> Collection methods detailed, processing steps documented, raw data shared where ethically permissible, deviations from the planned procedure noted. <strong>Analysis transparency:</strong> All analyses reported (not only significant ones), code shared, software versions specified, decision-making explained. <strong>Results transparency:</strong> Full results including null findings, confidence intervals and effect sizes reported, alternative explanations considered.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Transparency in corpus linguistics
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Transparency in corpus linguistics has some domain-specific dimensions <span class="citation" data-cites="schweinberger2025transparency schweinberger2025implications">(<a href="#ref-schweinberger2025transparency" role="doc-biblioref">Schweinberger and Haugh 2025a</a>; <a href="#ref-schweinberger2025implications" role="doc-biblioref">Schweinberger 2025</a>)</span>. Corpus query scripts must be shared and annotated; decisions about corpus composition and sampling must be documented; annotation schemes must be described with sufficient detail for replication; and where a proprietary corpus is used, the subset of data drawn on should be described as precisely as copyright allows. <span class="citation" data-cites="schweinberger2025transparency">Schweinberger and Haugh (<a href="#ref-schweinberger2025transparency" role="doc-biblioref">2025a</a>)</span> show that even interpretive corpus pragmatics — a tradition not primarily associated with computational reproducibility — has much to gain from greater transparency about analytical decisions and interpretive processes.</p>
+</div>
+</div>
+</section>
+<section id="relationships-between-concepts" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="relationships-between-concepts">Relationships between concepts</h2>
+<p>The five concepts are not independent — they form a hierarchy:</p>
+<pre><code>              TRANSPARENCY
+              (Foundation)
+                   ↓
+    ┌──────────────┼──────────────┐
+    ↓              ↓              ↓
+REPRODUCTION   REPLICATION   ROBUSTNESS
+(Same data)   (New data)   (Alt. methods)
+    ↓              ↓              ↓
+    └──────────────┼──────────────┘
+                   ↓
+            TRIANGULATION
+         (Multiple approaches)
+                   ↓
+          RELIABLE KNOWLEDGE</code></pre>
+<p>Transparency enables all other activities. Reproduction verifies computational accuracy. Replication tests generalizability across samples and contexts. Robustness checks confirm that results are not artefacts of specific analytical choices. Triangulation provides the strongest possible evidence by drawing multiple independent lines of inquiry to the same conclusion.</p>
+<hr>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Exercises: Core Concepts
+</div>
+</div>
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+<p><strong>Q1. A researcher runs the same analysis script on the same dataset and obtains the same statistical results as the original paper. Which concept does this exemplify?</strong></p>
+<div class="cell">
+<div class="cell-output-display">
+<form name="form_CORE_Q1" onsubmit="return validate_form_CORE_Q1()" method="post">
+<label>
+<input type="radio" name="answer_CORE_Q1" id="answer_CORE_Q1_1" value="Triangulation — multiple methods were used">
+Triangulation — multiple methods were used
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q1" id="answer_CORE_Q1_2" value="Robustness — the same result emerged from a different approach">
+Robustness — the same result emerged from a different approach
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q1" id="answer_CORE_Q1_3" value="Replication — a different researcher is involved">
+Replication — a different researcher is involved
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q1" id="answer_CORE_Q1_4" value="Reproduction (computational reproducibility) — the same method applied to the same data produces the same results">
+Reproduction (computational reproducibility) — the same method applied to the same data produces the same results
+</label>
+<br>
+<input type="submit" value="Check answer">
+<div id="result_CORE_Q1"></div>
+</form>
+<script>function validate_form_CORE_Q1() {var x, text; var x = document.forms['form_CORE_Q1']['answer_CORE_Q1'].value;if (x == 'Reproduction (computational reproducibility) — the same method applied to the same data produces the same results'){text = 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.';} else {text = 'Think about the definitions precisely: reproduction = same data + same method → same results. Replication = same method + new data. Which fits the scenario described?';} document.getElementById('result_CORE_Q1').innerHTML = text; evaluate_final_score(); return false;}function evaluate_final_score(){
+         element = document.getElementById('checkdown_final_score');
+         if(element === null){return false;} else {var element, text, res1;res1 = document.getElementById('result_CORE_Q1').innerText == 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.';text = res1;element.innerHTML = text;
+         return false;
+         }}</script>
+</div>
+</div>
+<p><strong>Q2. A corpus linguist replicates a study of hedging in academic writing, but uses a different corpus (a different institutional variety) and finds a similar pattern. The original finding is thus supported. This is an example of:</strong></p>
+<div class="cell">
+<div class="cell-output-display">
+<form name="form_CORE_Q2" onsubmit="return validate_form_CORE_Q2()" method="post">
+<label>
+<input type="radio" name="answer_CORE_Q2" id="answer_CORE_Q2_1" value="Reproduction — the original analysis was re-run">
+Reproduction — the original analysis was re-run
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q2" id="answer_CORE_Q2_2" value="Replication — the same research question and method were applied to new data, and the finding held">
+Replication — the same research question and method were applied to new data, and the finding held
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q2" id="answer_CORE_Q2_3" value="Robustness — an alternative method produced consistent results">
+Robustness — an alternative method produced consistent results
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORE_Q2" id="answer_CORE_Q2_4" value="Triangulation — different theoretical perspectives were applied">
+Triangulation — different theoretical perspectives were applied
+</label>
+<br>
+<input type="submit" value="Check answer">
+<div id="result_CORE_Q2"></div>
+</form>
+<script>function validate_form_CORE_Q2() {var x, text; var x = document.forms['form_CORE_Q2']['answer_CORE_Q2'].value;if (x == 'Replication — the same research question and method were applied to new data, and the finding held'){text = 'Correct! A different corpus constitutes new data. Applying the same analytical approach (same method) to new data and obtaining similar results is replication — specifically, a direct or close replication. This is distinct from reproduction (which re-runs the identical analysis on the identical data) and from robustness (which varies the method, not the data).';} else {text = 'The key question is: was this the same data or new data? New data = replication. Same data = reproduction. Same data, different method = robustness check.';} document.getElementById('result_CORE_Q2').innerHTML = text; evaluate_final_score(); return false;}function evaluate_final_score(){
+         element = document.getElementById('checkdown_final_score');
+         if(element === null){return false;} else {var element, text, res1, res2;res1 = document.getElementById('result_CORE_Q1').innerText == 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.'; res2 = document.getElementById('result_CORE_Q2').innerText == 'Correct! A different corpus constitutes new data. Applying the same analytical approach (same method) to new data and obtaining similar results is replication — specifically, a direct or close replication. This is distinct from reproduction (which re-runs the identical analysis on the identical data) and from robustness (which varies the method, not the data).';text = res1 + res2;element.innerHTML = text;
+         return false;
+         }}</script>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part2" class="level1">
+<h1>Part 2: The Reproducibility Spectrum</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> The five levels of reproducibility, from non-reproducible to fully open-science practice — and how to choose the appropriate level for your own work.</p>
+<p><strong>Why this matters:</strong> Not all research needs the same level of reproducibility. Understanding the spectrum allows you to make proportionate, realistic commitments rather than treating reproducibility as an all-or-nothing requirement.</p>
+</div>
+</div>
+<section id="level-0-not-reproducible" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="level-0-not-reproducible">Level 0: not reproducible</h2>
+<p><strong>Characteristics:</strong> No data or code available; insufficient methodological detail to understand what was done; results cannot be independently verified.</p>
+<p><strong>When acceptable:</strong> Never, for published empirical research.</p>
+<p><strong>The cost:</strong> Claims cannot be evaluated, errors are undetectable, and science cannot advance cumulatively. As <span class="citation" data-cites="munafo2018robust">Munafò and Davey Smith (<a href="#ref-munafo2018robust" role="doc-biblioref">2018</a>)</span> note, non-reproducibility does not simply fail to advance knowledge — it actively misleads subsequent researchers who may invest resources attempting to build on findings that were never solid.</p>
+</section>
+<section id="level-1-reproducible-publication" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="level-1-reproducible-publication">Level 1: reproducible publication</h2>
+<p><strong>Characteristics:</strong> Detailed methods section; complete statistical reporting (test statistics, degrees of freedom, exact p-values, effect sizes, confidence intervals); supplementary materials; data availability statement.</p>
+<p><strong>What this enables:</strong> Understanding what was done; critical evaluation of the methods and analysis; conceptual replication.</p>
+<p><strong>Appropriate for:</strong> Theoretical papers, systematic reviews, qualitative research with appropriately detailed accounts of the analytical process.</p>
+</section>
+<section id="level-2-reproducible-analysis" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="level-2-reproducible-analysis">Level 2: reproducible analysis</h2>
+<p><strong>Characteristics:</strong> Data publicly available (or available on reasonable request, with a data access agreement); analysis code shared; codebook or data dictionary provided; basic documentation in a README file.</p>
+<p><strong>What this enables:</strong> Verification of reported results; alternative analyses on the same data; extension and development of the work.</p>
+<p><strong>Appropriate for:</strong> All quantitative research; computational analyses; published datasets.</p>
+<p><strong>Minimum requirements:</strong> A data sharing agreement or licence, commented analysis code, and a README file that explains how to reproduce the analysis.</p>
+<p>Level 2 should be the <strong>minimum standard</strong> for all quantitative corpus-linguistic and computational research <span class="citation" data-cites="schweinberger2025implications flanagan2025repro">(<a href="#ref-schweinberger2025implications" role="doc-biblioref">Schweinberger 2025</a>; <a href="#ref-flanagan2025repro" role="doc-biblioref">Flanagan 2025</a>)</span>.</p>
+</section>
+<section id="level-3-fully-reproducible" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="level-3-fully-reproducible">Level 3: fully reproducible</h2>
+<p><strong>Characteristics:</strong> Complete workflow documented from raw data to final output; version-controlled code with commit history; computational environment specified (R package versions, system dependencies); automation where possible.</p>
+<p><strong>What this enables:</strong> Push-button reproduction on a different machine; exact numerical replication; long-term reproducibility as software environments evolve.</p>
+<p><strong>Appropriate for:</strong> Computational research; complex analyses with many interdependent steps; high-stakes findings with policy implications.</p>
+<p><strong>Requirements:</strong> Environment management with <code>renv</code> or <code>conda</code>; dependency documentation; automated workflows; comprehensive README.</p>
+</section>
+<section id="level-4-reproducible-science-ecosystem" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="level-4-reproducible-science-ecosystem">Level 4: reproducible science ecosystem</h2>
+<p><strong>Characteristics:</strong> Pre-registration of hypotheses and analysis plan before data collection; registered reports (peer review before data are collected); open materials; open peer review; null results published.</p>
+<p><strong>What this enables:</strong> Prevention of p-hacking and HARKing; publication of null results; complete transparency about confirmatory vs.&nbsp;exploratory analyses; cumulative science.</p>
+<p><strong>Appropriate for:</strong> Experimental research; hypothesis-testing studies; contested areas; high-impact claims.</p>
+<p>The registered report format — in which journals peer-review the study design and grant in-principle acceptance before data are collected — is increasingly recognised as one of the most powerful structural solutions to publication bias. A list of journals offering registered reports is maintained at <a href="https://cos.io/rr/">cos.io/rr</a>.</p>
+</section>
+<section id="choosing-your-level" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="choosing-your-level">Choosing your level</h2>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Decision guide
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Level 2 is the minimum for all quantitative research</strong> involving original data collection, corpus compilation, or computational analysis. This includes the vast majority of corpus-linguistic studies.</p>
+<p><strong>Levels 3–4 are strongly recommended when:</strong> findings are high-stakes or policy-relevant; the study involves a large computational pipeline; the research area is contested; you want maximum credibility and impact.</p>
+<p><strong>Practical constraints:</strong> Ethical obligations may prevent full data sharing (use deidentification, synthetic data, or a restricted-access repository). Copyright may restrict sharing of proprietary corpus material (share query scripts and frequency tables instead). Field norms and funder requirements also shape what is feasible.</p>
+<p><strong>A key principle:</strong> partial reproducibility is far better than none. Sharing your code without the data is valuable. Sharing a processed dataset without the raw data is valuable. Document what you cannot share and why.</p>
+</div>
+</div>
+<hr>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Exercises: The Reproducibility Spectrum
+</div>
+</div>
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+<p><strong>Q3. A corpus study shares the analysis R script and the frequency tables extracted from a proprietary corpus, but cannot share the corpus itself due to licensing restrictions. Which level of the reproducibility spectrum does this best correspond to?</strong></p>
+<div class="cell">
+<div class="cell-output-display">
+<form name="form_SPEC_Q1" onsubmit="return validate_form_SPEC_Q1()" method="post">
+<label>
+<input type="radio" name="answer_SPEC_Q1" id="answer_SPEC_Q1_1" value="Level 0 (not reproducible) — without the corpus data, nothing can be verified">
+Level 0 (not reproducible) — without the corpus data, nothing can be verified
+</label>
+<br>
+<label>
+<input type="radio" name="answer_SPEC_Q1" id="answer_SPEC_Q1_2" value="Level 1 (reproducible publication) — only the methods section matters">
+Level 1 (reproducible publication) — only the methods section matters
+</label>
+<br>
+<label>
+<input type="radio" name="answer_SPEC_Q1" id="answer_SPEC_Q1_3" value="Level 4 (reproducible science ecosystem) — everything possible has been shared">
+Level 4 (reproducible science ecosystem) — everything possible has been shared
+</label>
+<br>
+<label>
+<input type="radio" name="answer_SPEC_Q1" id="answer_SPEC_Q1_4" value="Level 2 (reproducible analysis) — the analytical steps can be understood, evaluated, and applied to the same or similar data; the constraint is the licensed corpus, not a lack of transparency">
+Level 2 (reproducible analysis) — the analytical steps can be understood, evaluated, and applied to the same or similar data; the constraint is the licensed corpus, not a lack of transparency
+</label>
+<br>
+<input type="submit" value="Check answer">
+<div id="result_SPEC_Q1"></div>
+</form>
+<script>function validate_form_SPEC_Q1() {var x, text; var x = document.forms['form_SPEC_Q1']['answer_SPEC_Q1'].value;if (x == 'Level 2 (reproducible analysis) — the analytical steps can be understood, evaluated, and applied to the same or similar data; the constraint is the licensed corpus, not a lack of transparency'){text = 'Correct! Sharing the analysis script and derived frequency tables allows other researchers to understand exactly what was done, evaluate the analytical decisions, and apply the same approach to equivalent corpora. The corpus licensing constraint is a legitimate practical limitation, not a transparency failure. The key principle is to share everything that can be shared and document clearly what cannot be shared and why. This is well within Level 2.';} else {text = 'Consider what the researcher HAS shared: code and derived data. Consider what they CAN’T share: the licensed corpus. Is the constraint a transparency failure or a legitimate legal limitation? And what level does sharing code + derived data correspond to?';} document.getElementById('result_SPEC_Q1').innerHTML = text; evaluate_final_score(); return false;}function evaluate_final_score(){
+         element = document.getElementById('checkdown_final_score');
+         if(element === null){return false;} else {var element, text, res1, res2, res3;res1 = document.getElementById('result_CORE_Q1').innerText == 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.'; res2 = document.getElementById('result_CORE_Q2').innerText == 'Correct! A different corpus constitutes new data. Applying the same analytical approach (same method) to new data and obtaining similar results is replication — specifically, a direct or close replication. This is distinct from reproduction (which re-runs the identical analysis on the identical data) and from robustness (which varies the method, not the data).'; res3 = document.getElementById('result_SPEC_Q1').innerText == 'Correct! Sharing the analysis script and derived frequency tables allows other researchers to understand exactly what was done, evaluate the analytical decisions, and apply the same approach to equivalent corpora. The corpus licensing constraint is a legitimate practical limitation, not a transparency failure. The key principle is to share everything that can be shared and document clearly what cannot be shared and why. This is well within Level 2.';text = res1 + res2 + res3;element.innerHTML = text;
+         return false;
+         }}</script>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part3" class="level1">
+<h1>Part 3: Practical Strategies</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> Seven practical strategies for making research reproducible — project organisation, documentation, version control, computational notebooks, environment management, data sharing, and pre-registration.</p>
+<p><strong>These are not abstract ideals but concrete, implementable practices.</strong> Each strategy can be adopted incrementally; you do not need to implement everything at once.</p>
+</div>
+</div>
+<section id="project-organisation" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="project-organisation">1. Project organisation</h2>
+<section id="standard-folder-structure" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="standard-folder-structure">Standard folder structure</h3>
+<p>A consistent folder structure makes any project navigable by anyone (including future you) and enables automated workflows. The following template is widely used in research:</p>
+<pre><code>ProjectName/
+├── README.md
+├── data/
+│   ├── raw/              ← Never edit these files!
+│   ├── processed/
+│   └── metadata/
+├── code/
+│   ├── 01_clean.R
+│   ├── 02_analyze.R
+│   └── 03_visualize.R
+├── output/
+│   ├── figures/
+│   ├── tables/
+│   └── reports/
+├── docs/
+│   ├── manuscript/
+│   ├── presentations/
+│   └── notes/
+└── environment/
+    ├── renv.lock
+    └── Dockerfile</code></pre>
+<p>Raw data files should <strong>never be edited</strong> after they are deposited in <code>data/raw/</code>. All transformations are applied in code, so the raw-to-processed pathway is always traceable and reproducible.</p>
+</section>
+<section id="file-naming-conventions" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="file-naming-conventions">File naming conventions</h3>
+<p>Good file names are self-documenting and sort logically. A useful formula:</p>
+<pre><code>YYYY-MM-DD_project_description_version.extension</code></pre>
+<p>Use dates (ISO format), underscores rather than spaces, and meaningful descriptions. Avoid:</p>
+<pre><code>finalFINAL.R      # Which final?
+use_this_one.R    # As opposed to which one?
+analysis (1).R    # Version control does this better</code></pre>
+<hr>
+</section>
+</section>
+<section id="documentation" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="documentation">2. Documentation</h2>
+<p><img src="../..\images/busfactor.png" class="img-fluid" style="float:right; padding:10px;width:50.0%"></p>
+<section id="the-bus-factor" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="the-bus-factor">The bus factor</h3>
+<p>The <strong>bus factor</strong> of a project is the number of team members who would need to be suddenly unavailable for the project to fail. For most academic research, the bus factor is 1 — that person is you. Documentation is the technical solution to this problem: it ensures that the project can continue, be reproduced, or be extended even if you are no longer available to explain it in person.</p>
+</section>
+<section id="readme-file" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="readme-file">README file</h3>
+<p>Every project repository should contain a README file at the root level. A minimal README includes a description of the research question and approach, the repository structure, instructions for reproducing the analysis, information about the data (source, size, access), software requirements, a citation, and a licence. The README is the first thing any new collaborator or reviewer reads; it should contain everything they need to get started.</p>
+</section>
+<section id="codebooks" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="codebooks">Codebooks</h3>
+<p>A codebook documents every variable in a dataset: its name, type, description, units, permitted values, missing value codes, and any notes about how it was created or processed. Without a codebook, even a fully shared dataset is difficult to use, because variable names alone rarely communicate everything a downstream user needs to know.</p>
+</section>
+<section id="analysis-logs" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="analysis-logs">Analysis logs</h3>
+<p>An analysis log is a dated record of every significant analytical decision: what data were cleaned and how, what outliers were identified and what was done with them, what models were run and what the results were, and why decisions were made when multiple options were available. Analysis logs are especially valuable when results change during revisions, when a collaborator picks up the work, or when a reviewer asks about a decision made months earlier.</p>
+<hr>
+</section>
+</section>
+<section id="version-control-with-git" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="version-control-with-git">3. Version control with Git</h2>
+<p><img src="../..\images/gitlogo.png" class="img-fluid" style="float:right; padding:10px;width:40.0%"></p>
+<p>Git tracks every change to every file in a repository, recording who made the change, when, and (with a good commit message) why. This provides a complete, recoverable history of the project.</p>
+<p>For researchers, the key benefits are that no work is ever permanently lost (any earlier state can be restored), experiments can be tried freely (a failed experiment can always be reverted), collaboration is managed systematically (changes from multiple contributors are merged with full attribution), and the evolution of the project is documented for reviewers, replicators, and future readers.</p>
+<p><strong>Core workflow:</strong></p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Initialise repository</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> init</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Stage changes</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add analysis.R</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Commit with a descriptive message</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Add demographic variables to regression model"</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Push to GitHub (if using remote)</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push origin main</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Good commit messages are active-voice descriptions of what changed and why: “Fix calculation error in summary statistics”, “Remove outliers based on preregistered criteria”, “Update figure labels for manuscript submission”. Unhelpful messages (“stuff”, “changes”, “final version (really!)”) defeat the purpose.</p>
+<p>RStudio provides a built-in Git interface — enabling staging, committing, and pushing through a graphical panel without requiring command-line familiarity. Set it up via <em>Tools → Project Options → Git/SVN</em>.</p>
+<hr>
+</section>
+<section id="computational-notebooks" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="computational-notebooks">4. Computational notebooks</h2>
+<p>Computational notebooks (R Markdown, Quarto, Jupyter) integrate code, output, and narrative prose in a single document. For reproducible research they have three key advantages: the analysis is self-documenting (reasoning is written next to code), the output is embedded (figures, tables, and statistics are produced by the same document that describes them), and the document renders to multiple formats (HTML for sharing, PDF for archiving, Word for journals).</p>
+<p>The following minimal example in Quarto illustrates the structure:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Analysis of Survey Data"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Your Name"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2024-02-10"</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span><span class="co"> html</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="fu"># Introduction</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>This analysis examines the effect of mindfulness training on anxiety scores</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>(N = 150).</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: Mindfulness training will reduce anxiety scores vs. control.</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="fu"># Setup</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>::: {.cell}</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="in">```{.r .cell-code}</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="in">library(lme4)</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="in">data &lt;- read_csv("../data/processed/survey_clean.csv")</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="in">set.seed(42)</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="fu"># Descriptive Statistics</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>::: {.cell}</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="in">```{.r .cell-code}</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="in">data |&gt;</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="in">  group_by(condition) |&gt;</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="in">  summarise(n = n(), M = mean(anxiety_post), SD = sd(anxiety_post))</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="fu"># Main Analysis</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>::: {.cell}</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="in">```{.r .cell-code}</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="in">model &lt;- lmer(anxiety_post ~ condition + anxiety_pre + (1|participant_id),</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="in">              data = data)</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a><span class="in">summary(model)</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>**Result**: Significant effect of condition, β = −13.2, t = 4.5, p &lt; .001.</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<hr>
+</section>
+<section id="managing-computational-environments" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="managing-computational-environments">5. Managing computational environments</h2>
+<p>Code that runs on your machine today may fail on a collaborator’s machine, or on your own machine two years from now, because software packages are updated and interfaces change. Documenting and managing the computational environment is therefore an essential part of reproducibility.</p>
+<section id="using-renv" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="using-renv">Using <code>renv</code></h3>
+<p>The <code>renv</code> package manages project-specific R package libraries, recording the exact version of every package your project depends on in a lockfile (<code>renv.lock</code>). A collaborator who runs <code>renv::restore()</code> will install exactly the same package versions, regardless of what is currently installed on their system.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># One-time project setup</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>renv<span class="sc">::</span><span class="fu">init</span>()</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># After installing or updating packages, record the state</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>renv<span class="sc">::</span><span class="fu">snapshot</span>()</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Collaborator restores exact environment</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>renv<span class="sc">::</span><span class="fu">restore</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="recording-session-information" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="recording-session-information">Recording session information</h3>
+<p>Always include <code>sessionInfo()</code> at the end of every analysis script or notebook. This records the R version, platform, and all loaded package versions, providing a permanent record even if the <code>renv.lock</code> file is lost.</p>
+</section>
+<section id="docker-advanced" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="docker-advanced">Docker (advanced)</h3>
+<p>For ultimate long-term reproducibility — particularly for complex dependencies or high-stakes computational research — Docker containers capture the entire computing environment including the operating system, R installation, and all packages. The container runs identically on any machine that can run Docker, and its state is frozen at the time of creation.</p>
+<hr>
+</section>
+</section>
+<section id="data-sharing-and-dois" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="data-sharing-and-dois">6. Data sharing and DOIs</h2>
+<p><img src="../..\images/doi.png" class="img-fluid" style="float:right; padding:10px;width:20.0%"></p>
+<p>A Digital Object Identifier (DOI) is a persistent link — unlike a URL, it does not break when a website is reorganised. Sharing data and code under a DOI enables proper citation, tracks impact, satisfies funder and journal requirements, and ensures long-term accessibility.</p>
+<p><strong>Recommended repositories:</strong></p>
+<ul>
+<li><strong>Zenodo</strong> (<a href="https://zenodo.org">zenodo.org</a>) — free, open, supports large files (up to 50 GB per dataset), integrates with GitHub, and issues DOIs automatically.</li>
+<li><strong>Open Science Framework (OSF)</strong> (<a href="https://osf.io">osf.io</a>) — free, integrates project management and pre-registration alongside data hosting.</li>
+<li><strong>UQ Research Data Manager</strong> (<a href="https://research.uq.edu.au/rmbt/uqrdm">research.uq.edu.au/rmbt/uqrdm</a>) — free for UQ researchers, meets Australian funder requirements.</li>
+<li><strong>Figshare</strong> (<a href="https://figshare.com">figshare.com</a>) — free for public data, good visualisation tools.</li>
+</ul>
+<p><strong>Minimum to share:</strong> The final analysed dataset (deidentified if necessary), all analysis code, a README, and a codebook. <strong>Recommended additions:</strong> Raw data (if shareable), processing scripts, the rendered analysis notebook, and all study materials (survey instruments, annotation guidelines, etc.).</p>
+<p>Data should be cited in reference lists just as articles are, using the standard format: Author(s). (Year). <em>Title of dataset</em> [Data set]. Repository. DOI.</p>
+<hr>
+</section>
+<section id="pre-registration" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="pre-registration">7. Pre-registration</h2>
+<p>Pre-registration means publicly stating the research question, hypotheses, sample size justification, and analysis plan <em>before</em> data are collected, on a time-stamped public registry. This separates confirmatory from exploratory analysis, prevents post-hoc hypothesis construction (HARKing), and provides a check against p-hacking.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+What pre-registration prevents
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>P-hacking</strong> involves running many analyses until a significant result is found, then reporting only that analysis. Without pre-registration, there is no record that other analyses were run.</p>
+<p><strong>HARKing</strong> (Hypothesizing After Results are Known) involves presenting hypotheses in a published paper as if they were formulated before data were collected, when in fact they were generated by examining the data. Pre-registration provides a time-stamped record of what was predicted.</p>
+<p><strong>Selective reporting</strong> means reporting only the analyses that produced significant or interpretable results. A pre-registered analysis plan creates an expectation of completeness.</p>
+</div>
+</div>
+<p><strong>Pre-registration platforms:</strong> - OSF Registries (<a href="https://osf.io/registries">osf.io/registries</a>) — comprehensive templates, embargoes available - AsPredicted (<a href="https://aspredicted.org">aspredicted.org</a>) — nine-question form, very quick</p>
+<p><strong>Registered reports</strong> go further: a journal peer-reviews the study design <em>before</em> data collection and grants in-principle acceptance, guaranteeing publication of the results regardless of whether the outcome is significant. This is the most powerful structural solution to publication bias. A growing list of journals offering registered reports (including linguistics journals) is maintained at <a href="https://cos.io/rr/">cos.io/rr</a>.</p>
+<hr>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Exercises: Practical Strategies
+</div>
+</div>
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+<p><strong>Q4. A researcher wants to ensure their R-based corpus analysis can be exactly reproduced by a colleague on a different computer. Which tool is most directly designed to solve this problem?</strong></p>
+<div class="cell">
+<div class="cell-output-display">
+<form name="form_PRAC_Q1" onsubmit="return validate_form_PRAC_Q1()" method="post">
+<label>
+<input type="radio" name="answer_PRAC_Q1" id="answer_PRAC_Q1_1" value="renv — it records exact package versions in a lockfile (renv.lock) so the collaborator can restore an identical R environment with renv::restore()">
+renv — it records exact package versions in a lockfile (renv.lock) so the collaborator can restore an identical R environment with renv::restore()
+</label>
+<br>
+<label>
+<input type="radio" name="answer_PRAC_Q1" id="answer_PRAC_Q1_2" value="Git — it tracks all changes to code files and enables collaboration">
+Git — it tracks all changes to code files and enables collaboration
+</label>
+<br>
+<label>
+<input type="radio" name="answer_PRAC_Q1" id="answer_PRAC_Q1_3" value="R Markdown — it integrates code and output in a single document">
+R Markdown — it integrates code and output in a single document
+</label>
+<br>
+<label>
+<input type="radio" name="answer_PRAC_Q1" id="answer_PRAC_Q1_4" value="OSF — it provides a persistent DOI for data and code">
+OSF — it provides a persistent DOI for data and code
+</label>
+<br>
+<input type="submit" value="Check answer">
+<div id="result_PRAC_Q1"></div>
+</form>
+<script>function validate_form_PRAC_Q1() {var x, text; var x = document.forms['form_PRAC_Q1']['answer_PRAC_Q1'].value;if (x == 'renv — it records exact package versions in a lockfile (renv.lock) so the collaborator can restore an identical R environment with renv::restore()'){text = 'Correct! The problem described — code running on one machine but potentially not on another due to different package versions — is specifically the problem renv is designed to solve. Git is essential for version control and collaboration but does not manage package environments. OSF handles data/code archiving and citation. R Markdown improves documentation and transparency. Only renv directly addresses package version management.';} else {text = 'The specific problem is that different machines may have different versions of R packages, causing code to behave differently or fail. Which tool is designed to capture and restore exact package versions?';} document.getElementById('result_PRAC_Q1').innerHTML = text; evaluate_final_score(); return false;}function evaluate_final_score(){
+         element = document.getElementById('checkdown_final_score');
+         if(element === null){return false;} else {var element, text, res1, res2, res3, res4;res1 = document.getElementById('result_CORE_Q1').innerText == 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.'; res2 = document.getElementById('result_CORE_Q2').innerText == 'Correct! A different corpus constitutes new data. Applying the same analytical approach (same method) to new data and obtaining similar results is replication — specifically, a direct or close replication. This is distinct from reproduction (which re-runs the identical analysis on the identical data) and from robustness (which varies the method, not the data).'; res3 = document.getElementById('result_SPEC_Q1').innerText == 'Correct! Sharing the analysis script and derived frequency tables allows other researchers to understand exactly what was done, evaluate the analytical decisions, and apply the same approach to equivalent corpora. The corpus licensing constraint is a legitimate practical limitation, not a transparency failure. The key principle is to share everything that can be shared and document clearly what cannot be shared and why. This is well within Level 2.'; res4 = document.getElementById('result_PRAC_Q1').innerText == 'Correct! The problem described — code running on one machine but potentially not on another due to different package versions — is specifically the problem renv is designed to solve. Git is essential for version control and collaboration but does not manage package environments. OSF handles data/code archiving and citation. R Markdown improves documentation and transparency. Only renv directly addresses package version management.';text = res1 + res2 + res3 + res4;element.innerHTML = text;
+         return false;
+         }}</script>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part4" class="level1">
+<h1>Part 4: Reproducibility in Corpus Linguistics</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>What you will learn:</strong> How the general challenges of reproducibility apply specifically to corpus linguistics — including corpus compilation, annotation, querying, and the balance between quantitative and qualitative interpretation.</p>
+<p><strong>Key references:</strong> <span class="citation" data-cites="schweinberger2026repro_intro">Schweinberger (<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">2026</a>)</span>; <span class="citation" data-cites="schweinberger2025introduction">Schweinberger and Haugh (<a href="#ref-schweinberger2025introduction" role="doc-biblioref">2025b</a>)</span>; <span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span>; <span class="citation" data-cites="schweinberger2025implications">Schweinberger (<a href="#ref-schweinberger2025implications" role="doc-biblioref">2025</a>)</span>; <span class="citation" data-cites="schweinberger2025transparency">Schweinberger and Haugh (<a href="#ref-schweinberger2025transparency" role="doc-biblioref">2025a</a>)</span>; <span class="citation" data-cites="sonning2021replication">Sönning and Werner (<a href="#ref-sonning2021replication" role="doc-biblioref">2021</a>)</span></p>
+</div>
+</div>
+<section id="the-reproducibility-landscape-in-corpus-linguistics" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="the-reproducibility-landscape-in-corpus-linguistics">The reproducibility landscape in corpus linguistics</h2>
+<p>Corpus linguistics occupies an interesting position in the reproducibility landscape. On one hand, it is an empirical, data-driven field that should in principle be well-placed to share data, scripts, and outputs. On the other hand, several structural features of the field have historically worked against reproducibility <span class="citation" data-cites="schweinberger2026repro_intro schweinberger2025introduction">(<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">Schweinberger 2026</a>; <a href="#ref-schweinberger2025introduction" role="doc-biblioref">Schweinberger and Haugh 2025b</a>)</span>:</p>
+<p><strong>Proprietary corpora:</strong> Major corpora (BNC, ICE, COCA, and many others) are licensed rather than open. Researchers cannot share the underlying data, which limits verification and replication. The appropriate response is to share query scripts, frequency tables, concordance samples, and derived datasets that do not reproduce the original copyrighted text.</p>
+<p><strong>Undocumented analytical decisions:</strong> Corpus analysis typically involves many decisions — how words and constructions are operationalised, what search terms are used, how ambiguous or borderline cases are handled, what frequency thresholds are applied, which tokens are excluded and why. These decisions profoundly affect results but are often reported only partially or not at all.</p>
+<p><strong>Mixed-methods workflows:</strong> Many corpus-linguistic studies combine quantitative frequency analysis with qualitative interpretation of concordance lines. The quantitative component can in principle be reproduced; the qualitative component requires transparency about how categories were developed, how disagreements were resolved, and how representative examples were selected <span class="citation" data-cites="schweinberger2025transparency">(<a href="#ref-schweinberger2025transparency" role="doc-biblioref">Schweinberger and Haugh 2025a</a>)</span>.</p>
+<p><strong>Annotation variability:</strong> Studies using annotated corpora (POS-tagged, parsed, semantically annotated) inherit the reliability and validity assumptions of the annotation system. These are rarely reported in detail, yet they can substantially affect which tokens are retrieved.</p>
+</section>
+<section id="what-corpus-linguists-should-share" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="what-corpus-linguists-should-share">What corpus linguists should share</h2>
+<p>Following <span class="citation" data-cites="schweinberger2025implications">Schweinberger (<a href="#ref-schweinberger2025implications" role="doc-biblioref">2025</a>)</span> and <span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span>, a reproducible corpus-linguistic study should provide as a minimum:</p>
+<ul>
+<li>The <strong>corpus query scripts</strong> (CQL queries, regex patterns, keyword-in-context parameters) used to extract the data</li>
+<li>The <strong>extracted dataset</strong> (concordance lines, frequency tables, or annotated samples) — this is usually shareable even when the underlying corpus is not</li>
+<li>The <strong>annotation scheme</strong> and coding manual, with examples of each category</li>
+<li>The <strong>statistical analysis code</strong> with output</li>
+<li>An <strong>inter-annotator reliability</strong> report (Cohen’s kappa or similar) for any manual annotation</li>
+<li>A <strong>decision log</strong> recording borderline cases and how they were resolved</li>
+</ul>
+<p>Where pre-registration is applicable — for example, in studies that test specific hypotheses about usage patterns or make predictions about effect directions — it should be used. Many corpus studies are primarily descriptive or exploratory; for these, transparent reporting of the distinction between confirmatory and exploratory analyses is the critical requirement.</p>
+</section>
+<section id="robustness-in-corpus-linguistics" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="robustness-in-corpus-linguistics">Robustness in corpus linguistics</h2>
+<p><span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span> identifies robustness as a particularly important and underexplored dimension in corpus linguistics. Corpus findings are often sensitive to choices that are underreported: the choice of reference corpus in keyword analysis, the frequency threshold used to define a construction, the lemmatisation strategy, or the exclusion of particular registers. Running and reporting sensitivity analyses — varying one parameter at a time while holding others constant — is a practical way to demonstrate that a core finding is not an artefact of these choices.</p>
+<hr>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Exercises: Reproducibility in Corpus Linguistics
+</div>
+</div>
+<div class="callout-body-container callout-body">
+
+</div>
+</div>
+<p><strong>Q5. A corpus-linguistic study uses a proprietary corpus and cannot share the underlying texts. Which combination of shared materials best satisfies reproducibility requirements?</strong></p>
+<div class="cell">
+<div class="cell-output-display">
+<form name="form_CORP_Q1" onsubmit="return validate_form_CORP_Q1()" method="post">
+<label>
+<input type="radio" name="answer_CORP_Q1" id="answer_CORP_Q1_1" value="The statistical analysis code only — data sharing is impossible so code is all that can be offered">
+The statistical analysis code only — data sharing is impossible so code is all that can be offered
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORP_Q1" id="answer_CORP_Q1_2" value="Nothing — if the corpus cannot be shared, the study is inherently non-reproducible">
+Nothing — if the corpus cannot be shared, the study is inherently non-reproducible
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORP_Q1" id="answer_CORP_Q1_3" value="The published article with a detailed methods section only">
+The published article with a detailed methods section only
+</label>
+<br>
+<label>
+<input type="radio" name="answer_CORP_Q1" id="answer_CORP_Q1_4" value="Query scripts, derived frequency tables, annotation coding manual, inter-annotator reliability statistics, and statistical analysis code">
+Query scripts, derived frequency tables, annotation coding manual, inter-annotator reliability statistics, and statistical analysis code
+</label>
+<br>
+<input type="submit" value="Check answer">
+<div id="result_CORP_Q1"></div>
+</form>
+<script>function validate_form_CORP_Q1() {var x, text; var x = document.forms['form_CORP_Q1']['answer_CORP_Q1'].value;if (x == 'Query scripts, derived frequency tables, annotation coding manual, inter-annotator reliability statistics, and statistical analysis code'){text = 'Correct! A proprietary corpus constraint does not make a study non-reproducible — it limits one specific aspect of reproducibility. Everything else can and should be shared: the queries that extracted the data, the frequency tables or concordance samples that were actually analysed, the coding scheme, the reliability data, and the statistical code. Together, these allow other researchers to evaluate every analytical decision, apply the same approach to other corpora, and extend or replicate the work.';} else {text = 'Consider what can be shared even when the corpus itself cannot. What is the difference between the corpus (proprietary) and the derived data, query scripts, and analysis code (shareable)?';} document.getElementById('result_CORP_Q1').innerHTML = text; evaluate_final_score(); return false;}function evaluate_final_score(){
+         element = document.getElementById('checkdown_final_score');
+         if(element === null){return false;} else {var element, text, res1, res2, res3, res4, res5;res1 = document.getElementById('result_CORE_Q1').innerText == 'Correct! Reproduction (also called computational reproducibility) specifically refers to obtaining the same results using the same data and the same method. It is a baseline verification of computational accuracy. Replication uses new data; robustness uses alternative methods; triangulation combines multiple independent approaches.'; res2 = document.getElementById('result_CORE_Q2').innerText == 'Correct! A different corpus constitutes new data. Applying the same analytical approach (same method) to new data and obtaining similar results is replication — specifically, a direct or close replication. This is distinct from reproduction (which re-runs the identical analysis on the identical data) and from robustness (which varies the method, not the data).'; res3 = document.getElementById('result_SPEC_Q1').innerText == 'Correct! Sharing the analysis script and derived frequency tables allows other researchers to understand exactly what was done, evaluate the analytical decisions, and apply the same approach to equivalent corpora. The corpus licensing constraint is a legitimate practical limitation, not a transparency failure. The key principle is to share everything that can be shared and document clearly what cannot be shared and why. This is well within Level 2.'; res4 = document.getElementById('result_PRAC_Q1').innerText == 'Correct! The problem described — code running on one machine but potentially not on another due to different package versions — is specifically the problem renv is designed to solve. Git is essential for version control and collaboration but does not manage package environments. OSF handles data/code archiving and citation. R Markdown improves documentation and transparency. Only renv directly addresses package version management.'; res5 = document.getElementById('result_CORP_Q1').innerText == 'Correct! A proprietary corpus constraint does not make a study non-reproducible — it limits one specific aspect of reproducibility. Everything else can and should be shared: the queries that extracted the data, the frequency tables or concordance samples that were actually analysed, the coding scheme, the reliability data, and the statistical code. Together, these allow other researchers to evaluate every analytical decision, apply the same approach to other corpora, and extend or replicate the work.';text = res1 + res2 + res3 + res4 + res5;element.innerHTML = text;
+         return false;
+         }}</script>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part5" class="level1">
+<h1>Part 5: The Reproducibility Checklist</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>A practical checklist organised by research phase</strong> — before starting, during research, before publication, and at publication.</p>
+</div>
+</div>
+<section id="before-starting" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="before-starting">Before starting</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Planning phase checklist
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Project setup</strong> - Create standard folder structure with <code>raw/</code>, <code>processed/</code>, <code>code/</code>, <code>output/</code> subdirectories - Initialise Git repository (<code>git init</code>) and make an initial commit - Set up <code>renv</code> for package management (<code>renv::init()</code>) - Create README template with project description - Draft a data management plan</p>
+<p><strong>Pre-registration (where applicable)</strong> - Formulate specific, directional hypotheses - Determine required sample size (power analysis) - Specify primary and secondary analysis plans - Specify exclusion criteria and outlier handling procedures - Register on OSF Registries or AsPredicted before data collection begins</p>
+</div>
+</div>
+</section>
+<section id="during-research" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="during-research">During research</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Active research phase checklist
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Data collection</strong> - Document all procedures (including deviations from the plan) - Store raw data separately and never edit raw files - Maintain a dated data collection log</p>
+<p><strong>Data processing</strong> - Comment all code thoroughly — explain <em>why</em>, not just <em>what</em> - Use descriptive variable names - Document all decisions in an analysis log - Set random seeds (<code>set.seed(42)</code> or equivalent)</p>
+<p><strong>Analysis</strong> - Follow the pre-registered plan; if deviating, document clearly and label as exploratory - Run robustness checks with alternative specifications - Commit code regularly to Git with informative commit messages</p>
+<p><strong>Documentation</strong> - Update the README as the project evolves - Maintain the analysis log with dated entries - Create or update the codebook - Document software versions with <code>sessionInfo()</code></p>
+</div>
+</div>
+</section>
+<section id="before-publication" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="before-publication">Before publication</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Preparation phase checklist
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Code review</strong> - Confirm code runs from scratch on a clean environment - Replace all hard-coded paths with relative paths - Ensure all dependencies are documented in <code>renv.lock</code> - Add explanatory comments to any complex sections</p>
+<p><strong>Data preparation</strong> - Deidentify data if ethically required - Write a comprehensive codebook - Check for errors and inconsistencies in the final dataset - Document all data sources</p>
+<p><strong>Repository and DOI</strong> - Choose an appropriate repository (Zenodo, OSF, institutional RDM) - Upload all shareable materials: data, code, README, codebook, materials - Obtain a DOI before submission - Set an appropriate licence (CC-BY 4.0 is recommended for most research outputs) - Test that materials are accessible before citing the DOI in the manuscript</p>
+<p><strong>Computational environment</strong> - Run <code>renv::snapshot()</code> to update the lockfile - Record R version and key package versions - Include <code>sessionInfo()</code> output in the supplementary materials</p>
+</div>
+</div>
+</section>
+<section id="at-publication" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="at-publication">At publication</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Sharing phase checklist
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Manuscript</strong> - Include a data/code availability statement with the repository DOI - Cite data and code in the reference list - Reference the pre-registration (if applicable) and report any deviations from it - Report all analyses, not only significant ones</p>
+<p><strong>Repository</strong> - Make the repository public on acceptance (if embargoed during review) - Respond promptly to data access requests - Update the repository if post-publication errors are identified</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="part6" class="level1">
+<h1>Part 6: Troubleshooting Common Challenges</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Five common obstacles to reproducible research practice, and how to address them.</strong></p>
+</div>
+</div>
+<section id="i-cannot-share-my-data-privacyethics" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="i-cannot-share-my-data-privacyethics">“I cannot share my data (privacy/ethics)”</h2>
+<p>Data sharing is not always possible, and reproducibility does not require sharing everything. Practical alternatives include: sharing deidentified data (removing or pseudonymising personal identifiers); sharing synthetic data that preserves the statistical structure of the original; making data available on request subject to a data access agreement; or sharing the analysis code and derived outputs (frequency tables, aggregated statistics) without the raw data. Even without data sharing, sharing code, codebooks, and analysis logs substantially improves transparency.</p>
+</section>
+<section id="my-code-is-messy" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="my-code-is-messy">“My code is messy”</h2>
+<p>All researchers feel this way. The appropriate response is not to delay sharing until the code is “perfect” — that day rarely arrives. Working code that is shared and commented is far more valuable than polished code that stays on your hard drive. Start by adding comments that explain intent (not just mechanics), use consistent naming conventions, and test that the code runs from scratch in a clean environment. Sharing imperfect code helps the field and tends to attract collaborative improvement.</p>
+</section>
+<section id="i-do-not-have-time-for-this" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="i-do-not-have-time-for-this">“I do not have time for this”</h2>
+<p>The time investment for setting up reproducible practices is real but front-loaded: roughly four to six hours for initial setup. Ongoing maintenance runs to about thirty minutes per week. This is typically offset many times over by time saved finding files, recovering lost analyses, responding to reviewer queries about methods, and handing projects to collaborators or research assistants. Starting small — folder structure and README in week one, Git in week two, documentation in week three — makes the transition manageable.</p>
+</section>
+<section id="my-collaborators-do-not-care" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="my-collaborators-do-not-care">“My collaborators do not care”</h2>
+<p>You can only directly control your own practices. A practical strategy is to make reproducible practices convenient for collaborators rather than demanding: set up the folder structure and Git repository yourself, create README templates they can fill in, and demonstrate efficiency gains over time. Emphasizing that funder and journal requirements are moving in this direction tends to be persuasive.</p>
+</section>
+<section id="my-field-does-not-do-this" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="my-field-does-not-do-this">“My field does not do this”</h2>
+<p>Linguistics has historically lagged behind the natural and social sciences in open science practice, but this is changing rapidly. The special issues edited by <span class="citation" data-cites="sonning2021replication">Sönning and Werner (<a href="#ref-sonning2021replication" role="doc-biblioref">2021</a>)</span>, <span class="citation" data-cites="schweinberger2026repro_intro">Schweinberger (<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">2026</a>)</span>, and <span class="citation" data-cites="schweinberger2025introduction">Schweinberger and Haugh (<a href="#ref-schweinberger2025introduction" role="doc-biblioref">2025b</a>)</span> document both the gap and the ongoing transformation. Early adopters in a field receive disproportionate recognition and have greater influence over the norms that eventually emerge. The practices described in this tutorial are the direction the field is moving, not a departure from it.</p>
+<hr>
+</section>
+</section>
+<section id="resources" class="level1">
+<h1>Resources</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Section Overview
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Key tools, learning resources, and communities for reproducible research practice.</strong></p>
+</div>
+</div>
+<section id="tools" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="tools">Tools</h2>
+<p><strong>Version control:</strong> <a href="https://git-scm.com/">Git</a>, <a href="https://github.com/">GitHub</a>, <a href="https://about.gitlab.com/">GitLab</a></p>
+<p><strong>Notebooks:</strong> <a href="https://quarto.org/">Quarto</a> (recommended), <a href="https://rmarkdown.rstudio.com/">R Markdown</a>, <a href="https://jupyter.org/">Jupyter</a></p>
+<p><strong>Environment management:</strong> <a href="https://rstudio.github.io/renv/">renv</a> (R), <a href="https://conda.io/">conda</a> (Python), <a href="https://www.docker.com/">Docker</a></p>
+<p><strong>Data repositories:</strong> <a href="https://zenodo.org">Zenodo</a>, <a href="https://osf.io">OSF</a>, <a href="https://figshare.com">Figshare</a>, <a href="https://research.uq.edu.au/rmbt/uqrdm">UQ RDM</a></p>
+<p><strong>Pre-registration:</strong> <a href="https://osf.io/registries">OSF Registries</a>, <a href="https://aspredicted.org">AsPredicted</a>, <a href="https://cos.io/rr/">Registered Reports</a></p>
+</section>
+<section id="learning-resources" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="learning-resources">Learning resources</h2>
+<ul>
+<li><a href="https://the-turing-way.netlify.app/">The Turing Way</a> — a comprehensive community-driven handbook for reproducible research</li>
+<li><a href="https://www.britishecologicalsociety.org/publications/guides-to/">British Ecological Society Guide</a> — practical guide with workflow templates</li>
+<li><a href="../..\tutorials/r_reproducibility/r_reproducibility.html">LADAL Reproducibility with R</a> — a hands-on practical companion tutorial</li>
+<li><a href="https://software-carpentry.org/">Software Carpentry</a> and <a href="https://datacarpentry.org/">Data Carpentry</a> — workshops and lesson materials</li>
+</ul>
+<p><strong>Key papers:</strong> - <span class="citation" data-cites="baker2016reproducibility">Baker (<a href="#ref-baker2016reproducibility" role="doc-biblioref">2016</a>)</span> — Nature survey of researcher experiences - <span class="citation" data-cites="munafo2018robust">Munafò and Davey Smith (<a href="#ref-munafo2018robust" role="doc-biblioref">2018</a>)</span> — manifesto for reproducible science with a practical reform agenda - <span class="citation" data-cites="nosek2020replication">Nosek and Errington (<a href="#ref-nosek2020replication" role="doc-biblioref">2020</a>)</span> — review of replication and reproducibility across sciences - <span class="citation" data-cites="goodman2016repro">Goodman, Fanelli, and Ioannidis (<a href="#ref-goodman2016repro" role="doc-biblioref">2016</a>)</span> — clarifying the concepts of reproducibility - <span class="citation" data-cites="wilson2017good">Wilson et al. (<a href="#ref-wilson2017good" role="doc-biblioref">2017</a>)</span> — good enough practices in scientific computing - <span class="citation" data-cites="sonning2021replication">Sönning and Werner (<a href="#ref-sonning2021replication" role="doc-biblioref">2021</a>)</span> — the replication crisis and its implications for linguistics - <span class="citation" data-cites="schweinberger2026repro_intro">Schweinberger (<a href="#ref-schweinberger2026repro_intro" role="doc-biblioref">2026</a>)</span> — reproducibility, replication, and robustness in corpus linguistics (special issue) - <span class="citation" data-cites="flanagan2025repro">Flanagan (<a href="#ref-flanagan2025repro" role="doc-biblioref">2025</a>)</span> — empirical assessment of the four reproducibility dimensions in corpus linguistics - <span class="citation" data-cites="schweinberger2025implications">Schweinberger (<a href="#ref-schweinberger2025implications" role="doc-biblioref">2025</a>)</span> — practical implications for corpus-linguistic research design and reporting</p>
+</section>
+<section id="communities" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="communities">Communities</h2>
+<ul>
+<li><a href="https://cos.io/">Center for Open Science</a> — tools, training, and advocacy for open research</li>
+<li><a href="https://reproducibilitea.org/">ReproducibiliTea</a> — international network of journal clubs discussing reproducibility</li>
+<li><a href="https://ropensci.org/">rOpenSci</a> — R packages and community for reproducible research</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="quick-reference" class="level1 unnumbered">
+<h1 class="unnumbered">Quick Reference</h1>
+<section id="reproducibility-workflow-summary" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="reproducibility-workflow-summary">Reproducibility workflow summary</h2>
+<p><strong>Every new project:</strong></p>
+<pre><code>1. Create standard folder structure
+2. Initialise Git (git init) and make initial commit
+3. Create README
+4. Set up renv (renv::init())
+5. Consider pre-registration</code></pre>
+<p><strong>Every analysis session:</strong></p>
+<pre><code>1. Pull latest (git pull)
+2. Work on code and analysis
+3. Commit frequently with descriptive messages
+4. Update documentation (README, analysis log)
+5. Push to remote (git push)</code></pre>
+<p><strong>Before publication:</strong></p>
+<pre><code>1. Confirm code runs from scratch in a clean environment
+2. Document environment (renv::snapshot(); sessionInfo())
+3. Write or update codebook
+4. Obtain DOI for data/code repository
+5. Upload all shareable materials; set licence</code></pre>
+</section>
+<section id="red-flags-for-non-reproducibility" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="red-flags-for-non-reproducibility">Red flags for non-reproducibility</h2>
+<p>Watch out for: no version control; data in emails or unnamed desktop folders; hard-coded file paths; no documentation; manual data processing steps with no code; multiple files named “final”; software or package versions not recorded; analysis decisions that are not reported.</p>
+</section>
+<section id="green-flags-for-reproducibility" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="green-flags-for-reproducibility">Green flags for reproducibility</h2>
+<p>Look for: a Git repository with meaningful commit history; a standard folder structure; a README explaining how to reproduce the analysis; commented code in a notebook; an <code>renv.lock</code> file; a codebook; a public repository with a DOI; a data/code availability statement in the manuscript; pre-registration for confirmatory hypotheses.</p>
+<hr>
+</section>
+</section>
+<section id="citation-session-info" class="level1 unnumbered">
+<h1 class="unnumbered">Citation &amp; Session Info</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Citation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Martin Schweinberger. 2026. <em>Reproducible Research: Principles and Practice</em>. The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia. url: https://ladal.edu.au/tutorials/reproducibility/reproducibility.html (Version 3.1.1). doi: <a href="https://doi.org/10.5281/zenodo.19332951" target="_blank">10.5281/zenodo.19332951</a>.</p>
+<pre><code>@manual{martinschweinberger2026reproducible,
+  author       = {Martin Schweinberger},
+  title        = {Reproducible Research: Principles and Practice},
+  year         = {2026},
+  note         = {https://ladal.edu.au/tutorials/reproducibility/reproducibility.html},
+  organization = {The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia},
+  edition      = {3.1.1}
+  doi      = {10.5281/zenodo.19332951}
+}</code></pre>
+</div>
+</div>
+<div class="cell">
+<details open="" class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.2 (2024-10-31 ucrt)
+Platform: x86_64-w64-mingw32/x64
+Running under: Windows 11 x64 (build 26200)
+
+Matrix products: default
+
+
+locale:
+[1] LC_COLLATE=English_United States.utf8 
+[2] LC_CTYPE=English_United States.utf8   
+[3] LC_MONETARY=English_United States.utf8
+[4] LC_NUMERIC=C                          
+[5] LC_TIME=English_United States.utf8    
+
+time zone: Australia/Brisbane
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices datasets  utils     methods   base     
+
+other attached packages:
+[1] checkdown_0.0.13
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.39       codetools_0.2-20    fastmap_1.2.0      
+ [4] xfun_0.56           glue_1.8.0          knitr_1.51         
+ [7] htmltools_0.5.9     rmarkdown_2.30      cli_3.6.5          
+[10] litedown_0.9        renv_1.1.7          compiler_4.4.2     
+[13] rstudioapi_0.17.1   tools_4.4.2         commonmark_2.0.0   
+[16] evaluate_1.0.5      yaml_2.3.10         BiocManager_1.30.27
+[19] rlang_1.1.7         jsonlite_2.0.0      htmlwidgets_1.6.4  
+[22] markdown_2.0       </code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+AI Transparency Statement
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This tutorial was revised and restyled with the assistance of <strong>Claude</strong> (claude.ai), a large language model created by Anthropic. All new content — the corpus linguistics section, the integrated references, the exercises, and the revised prose — was reviewed and approved by Martin Schweinberger, who takes full responsibility for the tutorial’s accuracy and completeness.</p>
+</div>
+</div>
+<hr>
+<p><a href="#intro">Back to top</a></p>
+<p><a href="../..\index.html">Back to HOME</a></p>
+<hr>
+</section>
+<section id="references" class="level1 unnumbered">
+
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-anderson2016repro" class="csl-entry" role="listitem">
+Anderson, C. J., S. Bahnik, M. Barnett-Cowan, F. A. Bosco, J. Chandler, C. R. Chartier, and N. Della Penna. 2016. <span>“Response to Comment on "Estimating the Reproducibility of Psychological Science".”</span> <em>Science</em> 351 (6277): 1037. <a href="https://doi.org/10.1126/science.aad9163">https://doi.org/10.1126/science.aad9163</a>.
+</div>
+<div id="ref-baker2016reproducibility" class="csl-entry" role="listitem">
+Baker, Monya. 2016. <span>“1,500 Scientists Lift the Lid on Reproducibility.”</span> <em>Nature</em> 533 (7604): 452–54. <a href="https://doi.org/10.1038/533452a">https://doi.org/10.1038/533452a</a>.
+</div>
+<div id="ref-osc2015repro" class="csl-entry" role="listitem">
+Collaboration, Open Science. 2015. <span>“Estimating the Reproducibility of Psychological Science.”</span> <em>Science</em> 349 (6251): aac4716. <a href="https://doi.org/10.1126/science.aac4716">https://doi.org/10.1126/science.aac4716</a>.
+</div>
+<div id="ref-flanagan2025repro" class="csl-entry" role="listitem">
+Flanagan, Joseph. 2025. <span>“Reproducibility, Replicability, Robustness, and Generalizability in Corpus Linguistics.”</span> <em>International Journal of Corpus Linguistics</em> 30 (2): 130–49. <a href="https://doi.org/10.1075/ijcl.23027.fla">https://doi.org/10.1075/ijcl.23027.fla</a>.
+</div>
+<div id="ref-freedman2015economics" class="csl-entry" role="listitem">
+Freedman, Leonard P, Iain M Cockburn, and Timothy S Simcoe. 2015. <span>“The Economics of Reproducibility in Preclinical Research.”</span> <em>PLoS Biology</em> 13 (6): e1002165.
+</div>
+<div id="ref-goodman2016repro" class="csl-entry" role="listitem">
+Goodman, S. N., D. Fanelli, and J. P. Ioannidis. 2016. <span>“What Does Research Reproducibility Mean?”</span> <em>Science Translational Medicine</em> 8 (341): 341ps12. <a href="https://doi.org/10.1126/scitranslmed.aaf5027">https://doi.org/10.1126/scitranslmed.aaf5027</a>.
+</div>
+<div id="ref-ioannidis2005false" class="csl-entry" role="listitem">
+Ioannidis, J. P. A. 2005. <span>“Why Most Published Research Findings Are False.”</span> <em>PLoS Medicine</em> 2 (8): e124. <a href="https://doi.org/10.1371/journal.pmed.0020124">https://doi.org/10.1371/journal.pmed.0020124</a>.
+</div>
+<div id="ref-mcenery2022fundamental" class="csl-entry" role="listitem">
+McEnery, Tony, and Vaclav Brezina. 2022. <em>Fundamental Principles of Corpus Linguistics</em>. Cambridge University Press.
+</div>
+<div id="ref-munafo2018robust" class="csl-entry" role="listitem">
+Munafò, Marcus R., and George Davey Smith. 2018. <span>“Robust Research Needs Many Lines of Evidence.”</span> <em>Nature</em> 553 (7689): 399–401. <a href="https://doi.org/10.1038/d41586-018-01023-3">https://doi.org/10.1038/d41586-018-01023-3</a>.
+</div>
+<div id="ref-nosek2020replication" class="csl-entry" role="listitem">
+Nosek, Brian A., and Timothy M. Errington. 2020. <span>“What Is Replication?”</span> <em>PLoS Biology</em> 18 (3): e3000691. <a href="https://doi.org/10.1371/journal.pbio.3000691">https://doi.org/10.1371/journal.pbio.3000691</a>.
+</div>
+<div id="ref-piwowar2013data" class="csl-entry" role="listitem">
+Piwowar, Heather A, and Todd J Vision. 2013. <span>“Data Reuse and the Open Data Citation Advantage.”</span> <em>PeerJ</em> 1: e175.
+</div>
+<div id="ref-schweinberger2025implications" class="csl-entry" role="listitem">
+Schweinberger, Martin. 2025. <span>“Implications of the Replication Crisis for Corpus Linguistics – Some Suggestions to Improve Reproducibility and Transparency.”</span> In <em>Data-Intensive Investigations of English</em>, edited by Mikko Laitinen and Paula Rautionaho, 258–86. Cambridge University Press. <a href="https://doi.org/10.1017/9781009415682.010">https://doi.org/10.1017/9781009415682.010</a>.
+</div>
+<div id="ref-schweinberger2026repro_intro" class="csl-entry" role="listitem">
+———. 2026. <span>“Reproducibility with r.”</span> The Language Technology; Data Analysis Laboratory (LADAL), The University of Queensland, Australia. 2026. <a href="https://ladal.edu.au/tutorials/r_reproducibility/r_reproducibility.html">https://ladal.edu.au/tutorials/r_reproducibility/r_reproducibility.html</a>.
+</div>
+<div id="ref-schweinberger2025transparency" class="csl-entry" role="listitem">
+Schweinberger, Martin, and Michael Haugh. 2025a. <span>“Reproducibility and Transparency in Interpretive Corpus Pragmatics.”</span> <em>International Journal of Corpus Linguistics</em> 30 (2): 234–60. <a href="https://doi.org/10.1075/ijcl.23033.sch">https://doi.org/10.1075/ijcl.23033.sch</a>.
+</div>
+<div id="ref-schweinberger2025introduction" class="csl-entry" role="listitem">
+———. 2025b. <span>“Reproducibility, Replicability, and Robustness in Corpus Linguistics: An Introduction.”</span> <em>International Journal of Corpus Linguistics</em> 30 (2): 119–29. <a href="https://doi.org/10.1075/ijcl.25081.sch">https://doi.org/10.1075/ijcl.25081.sch</a>.
+</div>
+<div id="ref-sonning2021replication" class="csl-entry" role="listitem">
+Sönning, Lukas, and Valentin Werner. 2021. <span>“The Replication Crisis, Scientific Revolutions, and Linguistics.”</span> <em>Linguistics</em> 59 (5): 1179–1206. <a href="https://doi.org/10.1515/ling-2021-0033">https://doi.org/10.1515/ling-2021-0033</a>.
+</div>
+<div id="ref-sonning2021linguistics" class="csl-entry" role="listitem">
+<span>“Special Issue: The Replication Crisis: Implications for Linguistics.”</span> 2021. <em>Linguistics</em>.
+</div>
+<div id="ref-wilson2017good" class="csl-entry" role="listitem">
+Wilson, Greg, Jennifer Bryan, Karen Cranston, Justin Kitzes, Lex Nederbragt, and Tracy K Teal. 2017. <span>“Good Enough Practices in Scientific Computing.”</span> <em>PLoS Computational Biology</em> 13 (6): e1005510.
+</div>
+</div></section></div></main> <!-- /main -->
+<style>
+  /* Pull footer outside the content column */
+  .ladal-footer-wrap {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    margin-top: 3rem;
+  }
+
+  .ladal-footer {
+    background: #3d1a5e;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: "Roboto", sans-serif;
+    font-size: 12px;
+    padding: 28px 40px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .ladal-footer a {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+  }
+
+  .ladal-footer a:hover {
+    color: #00A2C7;
+  }
+
+  .ladal-footer strong {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  @media (max-width: 640px) {
+    .ladal-footer {
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+    }
+  }
+</style>
+
+<div class="ladal-footer-wrap">
+  <footer class="ladal-footer">
+    <span>
+      <strong>Part of</strong> &nbsp;
+      <a href="https://ldaca.edu.au">LDaCA</a> &nbsp;·&nbsp;
+      <a href="https://ardc.edu.au">ARDC</a> &nbsp;·&nbsp;
+      <a href="https://www.education.gov.au/ncris">NCRIS</a> &nbsp;·&nbsp;
+      <a href="https://www.uq.edu.au">University of Queensland</a>
+    </span>
+    <span>
+      © 2026 LADAL &nbsp;·&nbsp;
+      <a href="../../about.html#citing">Citing LADAL</a> &nbsp;·&nbsp;
+      <a href="../../about.html#licensing">Licensing</a> &nbsp;·&nbsp;
+      <a href="../../about.html#legal-disclaimer">Legal Disclaimer</a>
+    </span>
+    <span>
+      <a href="mailto:ladal@uq.edu.au">ladal@uq.edu.au</a> &nbsp;·&nbsp;
+      <a href="https://www.youtube.com/channel/UCrPUPT8UvOAxUnorC95-F4Q">YouTube</a> &nbsp;·&nbsp;
+      <a href="https://github.com/SLCLADAL/ladal">GitHub</a>
+    </span>
+  </footer>
+</div>
+
+<!-- GA4 custom event tracking — deferred so it never blocks page rendering -->
+<script defer="" src="../../assets/ladal-ga4-tracking.js"></script>
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+  const viewSource = window.document.getElementById('quarto-view-source') ||
+                     window.document.getElementById('quarto-code-tools-source');
+  if (viewSource) {
+    const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+    viewSource.addEventListener("click", function(e) {
+      if (sourceUrl) {
+        // rstudio viewer pane
+        if (/\bcapabilities=\b/.test(window.location)) {
+          window.open(sourceUrl);
+        } else {
+          window.location.href = sourceUrl;
+        }
+      } else {
+        const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+        modal.show();
+      }
+      return false;
+    });
+  }
+  function toggleCodeHandler(show) {
+    return function(e) {
+      const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+      for (let i=0; i<detailsSrc.length; i++) {
+        const details = detailsSrc[i].parentElement;
+        if (show) {
+          details.open = true;
+        } else {
+          details.removeAttribute("open");
+        }
+      }
+      const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+      const fromCls = show ? "hidden" : "unhidden";
+      const toCls = show ? "unhidden" : "hidden";
+      for (let i=0; i<cellCodeDivs.length; i++) {
+        const codeDiv = cellCodeDivs[i];
+        if (codeDiv.classList.contains(fromCls)) {
+          codeDiv.classList.remove(fromCls);
+          codeDiv.classList.add(toCls);
+        } 
+      }
+      return false;
+    }
+  }
+  const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+  if (hideAllCode) {
+    hideAllCode.addEventListener("click", toggleCodeHandler(false));
+  }
+  const showAllCode = window.document.getElementById("quarto-show-all-code");
+  if (showAllCode) {
+    showAllCode.addEventListener("click", toggleCodeHandler(true));
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/ladal\.edu\.au");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
