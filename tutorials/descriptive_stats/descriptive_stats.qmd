@@ -2,13 +2,13 @@
 title: "Descriptive Statistics with R"
 description: "This tutorial introduces descriptive statistics in R, covering measures of central tendency (mean, median, mode), measures of dispersion (variance, standard deviation), creating summary statistics, exploring data distributions, and identifying outliers. It is the recommended starting point for the statistics section and is aimed at researchers in linguistics and the humanities with no prior statistical experience."
 author: "Martin Schweinberger"
-date: "2026-03-27"
+date: "2026-09-04"
 params:
   title:       "Descriptive Statistics with R"
   author:      "Martin Schweinberger"
   year:        "2026"
-  version:       "3.1.1"
-  date_published:       "2026-03-27"
+  version:       "3.1.2"
+  date_published:       "2026-09-04"
   url:         "https://ladal.edu.au/tutorials/descriptive_stats/descriptive_stats.html"
   institution: "The Language Technology and Data Analysis Laboratory (LADAL), The University of Queensland, Australia"
   description: "This tutorial introduces descriptive statistics in R, covering measures of central tendency (mean, median, mode), measures of dispersion (variance, standard deviation), creating summary statistics, exploring data distributions, and identifying outliers. It is the recommended starting point for the statistics section and is aimed at researchers in linguistics and the humanities with no prior statistical experience."
@@ -22,12 +22,12 @@ library(dplyr)
 library(ggplot2)  
 library(stringr)  
 library(boot)  
-library(DescTools)  
 library(ggpubr)  
 library(flextable)  
 library(psych)  
 library(Rmisc)  
 library(cowplot)  
+library(e1071)  
 options(stringsAsFactors = FALSE)  
 options("scipen" = 100, "digits" = 12)  
 ```  
@@ -150,8 +150,9 @@ install.packages("dplyr")
 install.packages("ggplot2")  
 install.packages("stringr")  
 install.packages("boot")  
-install.packages("DescTools")  
 install.packages("ggpubr")  
+install.packages("e1071")  
+install.packages("cowplot")  
 install.packages("flextable")  
 install.packages("psych")  
 install.packages("Rmisc")  
@@ -167,7 +168,6 @@ options("scipen" = 100, "digits" = 12)   # suppress scientific notation
   
 # load packages  
 library(boot)  
-library(DescTools)  
 library(dplyr)  
 library(stringr)  
 library(ggplot2)  
@@ -175,6 +175,8 @@ library(flextable)
 library(ggpubr)  
 library(psych)  
 library(Rmisc)  
+library(e1071)  
+library(cowplot)  
 library(checkdown)  
 ```  
   
@@ -1224,19 +1226,34 @@ Alternatively, use `t.test()` (which also tests H₀: μ = 0):
 stats::t.test(rts$RT, conf.level = 0.95)  
 ```  
   
-Or `MeanCI()` from `DescTools`:  
+Or compute the interval by hand from the formula. This makes explicit what `CI()` and `t.test()` do internally: the mean plus and minus a *t*-quantile times the standard error.  
   
 ```{r ds37, message=FALSE, warning=FALSE}  
-DescTools::MeanCI(rts$RT, conf.level = 0.95)  
+n      <- length(rts$RT)  
+xbar   <- mean(rts$RT)  
+se     <- sd(rts$RT) / sqrt(n)  
+t_crit <- qt(0.975, df = n - 1)   # two-sided 95% -> 0.975 quantile  
+  
+c(mean  = xbar,  
+  lower = xbar - t_crit * se,  
+  upper = xbar + t_crit * se)  
 ```  
   
 ### Bootstrapped Confidence Intervals {-}  
   
 Bootstrapping is a powerful, assumption-free alternative. Rather than relying on the formula $\bar{x} \pm 1.96 \times \text{SE}$ (which assumes normality), bootstrapping repeatedly **resamples** the data and builds an empirical distribution of the sample mean.  
   
+The simplest way to see how this works is to do it by hand with base R: draw 1,000 samples *with replacement* from the data, compute the mean of each, and take the 2.5th and 97.5th percentiles of those 1,000 means as the interval.  
+  
 ```{r ds38, message=FALSE, warning=FALSE}  
-# bootstrapped CI using MeanCI  
-DescTools::MeanCI(rts$RT, method = "boot", type = "norm", R = 1000)  
+set.seed(42)  
+  
+# 1,000 bootstrap resamples of the mean  
+boot_means <- replicate(1000, mean(sample(rts$RT, replace = TRUE)))  
+  
+# bootstrapped mean and 95% percentile CI  
+mean(boot_means)  
+quantile(boot_means, probs = c(0.025, 0.975))  
 ```  
   
 ::: {.callout-tip}  
@@ -1251,8 +1268,10 @@ Bootstrapped confidence intervals are preferable when:
 For large samples, parametric and bootstrapped CIs typically converge. Because bootstrapping is random (resampling), the results will vary slightly between runs. Use a fixed `set.seed()` for reproducibility.  
 :::  
   
+The `boot` package does the same thing more flexibly and offers several methods for turning the resampled statistics into an interval (`boot.ci()` reports normal, basic, percentile, and studentised intervals):  
+  
 ```{r ds42, message=FALSE, warning=FALSE}  
-# manual bootstrapping with the boot package  
+# bootstrapping with the boot package  
 set.seed(42)  
   
 BootFunction <- function(x, index) {  
@@ -1304,33 +1323,45 @@ stats::binom.test(
 )  
 ```  
   
-The `BinomCI()` function from `DescTools` offers more method options:  
+`binom.test()` returns the exact Clopper-Pearson interval, which is conservative (wider than it needs to be) for small samples. An alternative that is generally preferred is the **Wilson score interval**, which `stats::prop.test()` returns when the continuity correction is switched off:  
   
 ```{r ds48, message=FALSE, warning=FALSE}  
-DescTools::BinomCI(  
+stats::prop.test(  
   x          = 2,  
   n          = 20,  
   conf.level = 0.95,  
-  method     = "modified wilson"  
-)  
+  correct    = FALSE   # FALSE gives the Wilson score interval  
+)$conf.int  
 ```  
   
 ---  
   
 ### Confidence Intervals for Multinomial Data {-}  
   
-When there are more than two nominal categories (e.g., which of several linguistic constructions was chosen), use `MultinomCI()`:  
+When there are more than two nominal categories (e.g., which of several linguistic constructions was chosen), the proportions are not independent — they must sum to 1 — so we want **simultaneous** confidence intervals that hold for all categories at once. Base R has no ready-made function for this, but the widely used method proposed by Goodman (1965) is short enough to implement directly. It is based on the chi-square distribution with *k* − 1 degrees of freedom, where *k* is the number of categories:  
   
 ```{r ds50, message=FALSE, warning=FALSE}  
 # observed counts for four categories  
 observed <- c(35, 74, 22, 69)  
+n <- sum(observed)  
+k <- length(observed)  
   
-DescTools::MultinomCI(  
-  x          = observed,  
-  conf.level = 0.95,  
-  method     = "goodman"  
+# Goodman (1965) simultaneous 95% CIs  
+q     <- qchisq(0.95, df = k - 1)  
+root  <- sqrt(q * (q + 4 * observed * (n - observed) / n))  
+lower <- (q + 2 * observed - root) / (2 * (n + q))  
+upper <- (q + 2 * observed + root) / (2 * (n + q))  
+  
+data.frame(  
+  category   = paste0("Category ", seq_len(k)),  
+  count      = observed,  
+  proportion = round(observed / n, 3),  
+  lower      = round(lower, 3),  
+  upper      = round(upper, 3)  
 )  
 ```  
+  
+Each interval is wider than the corresponding single-proportion interval would be, because the method guarantees that *all four* intervals contain their true proportions simultaneously with 95% confidence.  
   
 ---  
   
@@ -1616,29 +1647,36 @@ $$\text{kurtosis} = \frac{1}{n} \sum_{i=1}^{n} \left(\frac{x_i - \bar{x}}{s}\rig
   
 ```{r kurt_fig, echo=FALSE, message=FALSE, warning=FALSE}  
 set.seed(42)  
-x_vals <- seq(-5, 5, length.out = 400)  
-df_kurt <- data.frame(  
-  x    = rep(x_vals, 3),  
-  y    = c(dnorm(x_vals, 0, 1),  
-           dt(x_vals, df = 3),  
-           dunif(x_vals, -3, 3) * 0.8 + 0.01),  
-  type = rep(c("Mesokurtic (normal)\nExcess kurtosis = 0",  
-               "Leptokurtic (t-dist., df=3)\nExcess kurtosis > 0",  
-               "Platykurtic (uniform-like)\nExcess kurtosis < 0"), each = 400)  
-) |>  
-  dplyr::mutate(type = factor(type, levels = c(  
-    "Mesokurtic (normal)\nExcess kurtosis = 0",  
-    "Leptokurtic (t-dist., df=3)\nExcess kurtosis > 0",  
-    "Platykurtic (uniform-like)\nExcess kurtosis < 0")))  
-  
-df_kurt |>  
-  ggplot(aes(x = x, y = y, color = type)) +  
-  geom_line(linewidth = 1.2) +  
-  theme_bw() +  
-  scale_color_manual(values = c("steelblue", "tomato", "seagreen")) +  
-  labs(title = "Kurtosis: mesokurtic, leptokurtic, and platykurtic distributions",  
-       x = "Value", y = "Density", color = "Distribution type") +  
-  theme(legend.position = "top", panel.grid.minor = element_blank())  
+x_vals <- seq(-5, 5, length.out = 400)
+
+# all three distributions scaled to mean 0, variance 1 so that only
+# tail weight and peakedness differ
+s_t   <- sqrt(3)            # t(df=3) has variance 3 -> divide by sqrt(3)
+a     <- sqrt(5)            # Beta(2,2) rescaled to [-a, a] has variance a^2/5 = 1
+
+y_meso  <- dnorm(x_vals, 0, 1)
+y_lepto <- dt(x_vals * s_t, df = 3) * s_t
+y_platy <- dbeta((x_vals + a) / (2 * a), 2, 2) / (2 * a)   # 0 outside [-a, a]
+
+type_levels <- c("Mesokurtic (normal)\nExcess kurtosis = 0",
+                 "Leptokurtic (t-dist., df=3)\nExcess kurtosis > 0",
+                 "Platykurtic (scaled Beta(2,2))\nExcess kurtosis < 0")
+
+df_kurt <- data.frame(
+  x    = rep(x_vals, 3),
+  y    = c(y_meso, y_lepto, y_platy),
+  type = factor(rep(type_levels, each = length(x_vals)), levels = type_levels)
+)
+
+df_kurt |>
+  ggplot(aes(x = x, y = y, color = type)) +
+  geom_line(linewidth = 1.2) +
+  theme_bw() +
+  scale_color_manual(values = c("steelblue", "tomato", "seagreen")) +
+  labs(title = "Kurtosis: mesokurtic, leptokurtic, and platykurtic distributions",
+       subtitle = "All three distributions have mean 0 and variance 1",
+       x = "Value", y = "Density", color = "Distribution type") +
+  theme(legend.position = "top", panel.grid.minor = element_blank())
 ```  
   
 In R:  
@@ -1712,7 +1750,7 @@ check_question("e1071::skewness()",
                ),  
                type = "radio",  
                q_id = "DIST_Q3",  
-               random_answer_order = FALSE,  
+               random_answer_order = TRUE,  
                button_label = "Check answer",  
                right = "Correct! The e1071 package provides skewness() and kurtosis() functions. The psych package's describe() also reports skewness. Base R has no built-in skewness function. Note that mean - median gives a rough indication of skew direction (positive = right-skewed) but is not the formal skewness statistic.",  
                wrong = "Base R does not have a built-in skewness function. Which package provides it?")  
@@ -1863,7 +1901,7 @@ check_question("psych::describe()",
                  "psych::describe()",  
                  "base::summary()",  
                  "stats::var()",  
-                 "DescTools::MeanCI()"  
+                 "Rmisc::CI()"  
                ),  
                type = "radio",  
                q_id = "SUM_Q2",  
@@ -2595,11 +2633,14 @@ The trimmed mean sits between the mean (inflated by outliers) and the median (wh
   
 Unlike trimming, Winsorisation retains the full sample size — important when data are scarce.  
   
-```{r wins1, message=FALSE, warning=FALSE}  
-library(DescTools)  
+Winsorisation needs no special package. We find the 5th and 95th percentiles with `quantile()` and then clamp the data to that range: `pmax()` raises every value below the lower cut-off to the cut-off, and `pmin()` lowers every value above the upper cut-off.  
   
-# Winsorise at 5th and 95th percentiles  
-rt_winsorised <- DescTools::Winsorize(rt_skewed)  
+```{r wins1, message=FALSE, warning=FALSE}  
+# 5th and 95th percentiles as cut-offs  
+cutoffs <- quantile(rt_skewed, probs = c(0.05, 0.95))  
+  
+# Winsorise: clamp values to the cut-offs  
+rt_winsorised <- pmin(pmax(rt_skewed, cutoffs[1]), cutoffs[2])  
   
 # compare means  
 cat("Original mean:    ", round(mean(rt_skewed), 1), "\n")  
@@ -3259,7 +3300,7 @@ sessionInfo()
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to restructure the document into Quarto format, expand the theoretical introduction, add the new sections and accompanying callouts, expand  interpretation guidance across all sections, write the new  quiz questions and detailed answer explanations, and produce the comparison summary table. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for its accuracy.
+This tutorial was revised and substantially expanded with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for its accuracy.
 :::
   
 [Back to top](#intro)  
