@@ -671,24 +671,39 @@ tail(romeo$text, 20)
 
 ## Removing Boilerplate {-}
 
-Every Project Gutenberg text uses `*** START OF` and `*** END OF` as consistent boundary markers:
+Project Gutenberg texts often contain boilerplate before and after the literary work. Because the formatting of downloaded texts can vary, rather than relying on the exact Gutenberg boundary markers, we can inspect the text and identify the beginning and end of the literary work directly.
+
+For this version of *Romeo and Juliet*, the literary text begins with `THE PROLOGUE.`. The literary text ends with the final non-empty line of the file.
 
 ```{r gb_clean_boilerplate, message=FALSE, warning=FALSE}
-# Find the start and end marker line positions
-start_marker <- which(stringr::str_detect(romeo$text, "\\*\\*\\* START OF"))
-end_marker   <- which(stringr::str_detect(romeo$text, "\\*\\*\\* END OF"))
+# Find the beginning of the literary text
+start_marker <- which(
+  stringr::str_detect(romeo$text, "^\\s*THE PROLOGUE\\.\\s*$")
+)[1]
 
-cat("START marker at line:", start_marker, "\n")
-cat("END marker at line:",   end_marker, "\n")
+# Find the last non-empty line
+end_marker <- max(which(
+  !is.na(romeo$text) & stringr::str_trim(romeo$text) != ""
+))
 
-# Keep only lines between the two markers
+cat("Start of literary text:", start_marker, "\n")
+cat("End of literary text:", end_marker, "\n")
+
+# Check that the beginning was found
+if (is.na(start_marker)) {
+  stop(
+    "Could not identify the beginning of the literary text. ",
+    "Inspect the first lines using head()."
+  )
+}
+
+# Keep only the literary text
 romeo_clean <- romeo |>
-  dplyr::slice((start_marker + 1):(end_marker - 1)) |>
+  dplyr::slice(start_marker:end_marker) |>
   dplyr::filter(!is.na(text))
-
-cat("Lines after boilerplate removal:", nrow(romeo_clean),
-    "(removed", nrow(romeo) - nrow(romeo_clean), ")\n")
 ```
+
+If the markers are not found, as can happen with some downloaded or pre-processed versions of Project Gutenberg texts, inspect the first and last lines of the object before deciding where the literary text begins and ends.
 
 ## Removing Empty Lines {-}
 
