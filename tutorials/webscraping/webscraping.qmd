@@ -82,8 +82,23 @@ For linguists and corpus researchers, web scraping opens up access to enormous q
 
 The tutorial is aimed at intermediate users of R with some familiarity with HTML. It covers the legal and ethical context of web scraping, the structure of HTML documents, and two complementary R packages — `rvest` for scraping static pages and `RSelenium` for scraping dynamic, JavaScript-rendered pages. For deeper coverage of the technical and legal dimensions, see @mitchell2018webscraping, @munzert2014automated, and @nolan2014xml.
 
-::: {.callout-note}
-## Prerequisite Tutorials
+::: {.callout-tip}
+## Learning Objectives
+
+By the end of this tutorial you will be able to:
+
+- explain what web scraping is and how it differs from using an API
+- identify the legal and ethical constraints on scraping a given website
+- read and interpret basic HTML structure (tags, attributes, CSS selectors)
+- apply `rvest` to scrape text, tables, and links from static web pages
+- implement pagination and multi-page scraping loops with error handling
+- clean and structure scraped text for corpus or quantitative analysis
+- distinguish static from dynamic pages and recognise when `RSelenium` is required
+- apply best practices for polite, reproducible web scraping
+:::
+
+::: {.callout-warning}
+## Prerequisites
 
 Before working through this tutorial, you should be familiar with:
 
@@ -91,21 +106,6 @@ Before working through this tutorial, you should be familiar with:
 - [Loading, Saving, and Generating Data in R](/tutorials/data_loading/data_loading.html) — data import, file paths
 - [Handling Tables in R](/tutorials/table/table.html) — data frames, `dplyr`, pipes
 - [String Processing in R](/tutorials/string/string.html) — `stringr`, regular expressions
-:::
-
-::: {.callout-note}
-## Learning Objectives
-
-By the end of this tutorial you will be able to:
-
-1. Explain what web scraping is and how it differs from using an API
-2. Identify the legal and ethical constraints on web scraping a given website
-3. Read and interpret basic HTML structure (tags, attributes, CSS selectors)
-4. Use `rvest` to scrape text, tables, and links from static web pages
-5. Navigate multi-page websites by following pagination links
-6. Clean and structure scraped text for corpus or quantitative analysis
-7. Understand when `RSelenium` is needed for JavaScript-rendered content
-8. Apply best practices for polite, reproducible web scraping
 :::
 
 
@@ -384,13 +384,17 @@ check_question(".article-body",
 
 ---
 
----
-
 # Setup {#setup}
+
+::: {.callout-note}
+## Section Overview
+
+**What you will learn:** Which R packages you need for web scraping, how to install them, and how to load them into your session.
+:::
 
 ## Installing Packages {-}
 
-```{r prep1, eval=FALSE, message=FALSE, warning=FALSE}
+```{r prep1, eval=FALSE, echo=TRUE}
 # Run once — comment out after installation
 install.packages("rvest")
 install.packages("httr")
@@ -399,9 +403,15 @@ install.packages("tidyverse")
 install.packages("flextable")
 install.packages("xml2")
 install.packages("polite")
+install.packages("janitor")
+install.packages("tidytext")
+install.packages("here")
+install.packages("digest")
+install.packages("purrr")
 install.packages("checkdown")
 install.packages("remotes")
 remotes::install_github("rlesur/klippy")
+remotes::install_github("dmi3kno/polite")
 ```
 
 ## Loading Packages {-}
@@ -415,7 +425,7 @@ library(flextable)
 library(xml2)
 library(polite)
 library(checkdown)
-klippy::klippy()
+if (requireNamespace("klippy", quietly = TRUE)) klippy::klippy()
 ```
 
 ---
@@ -898,12 +908,13 @@ cat_page <- tryCatch(
 )
 
 if (!is.null(cat_page)) {
-  article_links <- cat_page |>
+  # Two-step: extract relative paths, then convert to absolute URLs
+  relative_paths <- cat_page |>
     html_elements("div.mw-category a") |>
     html_attr("href") |>
-    stringr::str_subset("^/wiki/[^:]+$") |>
-    paste0("https://en.wikipedia.org", x = _) |>
-    unique()
+    stringr::str_subset("^/wiki/[^:]+$")
+
+  article_links <- unique(paste0("https://en.wikipedia.org", relative_paths))
 
   cat("Article links found:", length(article_links), "\n")
   head(article_links, 8)
@@ -983,6 +994,30 @@ scrape_with_cache <- function(url, cache_dir = "cache") {
   saveRDS(page, fname)
   page
 }
+```
+
+::: {.callout-tip}
+## Exercise: Caching and Reproducibility
+:::
+
+**Q4. You have scraped 800 newspaper articles across four weeks. Halfway through your analysis script, you discover a bug in your text-cleaning code and need to re-run everything. What is the best way to structure your project so that fixing the bug does *not* require re-scraping all 800 pages?**
+
+```{r}
+#| echo: false
+#| label: "SAVE_Q4"
+check_question("Save the raw scraped HTML (or the raw text output of the scraping step) to disk as .rds or plain text files immediately after collection, and load from those files at the start of the cleaning script.",
+               options = c(
+                 "Save the raw scraped HTML (or the raw text output of the scraping step) to disk as .rds or plain text files immediately after collection, and load from those files at the start of the cleaning script.",
+                 "Rerun the scraping script from scratch every time — it will only take a few extra hours",
+                 "Rely on the browser cache to store the scraped pages",
+                 "Store the scraped data as R objects in the global environment and hope RStudio does not crash"
+               ),
+               type = "radio",
+               q_id = "SAVE_Q4",
+               random_answer_order = TRUE,
+               button_label = "Check answer",
+               right = "Correct! The single most important principle of reproducible scraping is that scraping and cleaning are separate steps. Save the raw scraped output to disk (as `.rds`, plain text, or CSV) immediately after collection, and start every cleaning and analysis script by loading that saved file. This means you can iterate freely on cleaning and analysis code without touching the target server again — the raw scrape is a permanent snapshot. It also gives you a fixed reference point for reproducibility: the same raw file yields the same downstream results.",
+               wrong = "Think about how to separate scraping (an expensive, external-facing step) from analysis (a local, repeatable step). Which option ensures the raw scrape only happens once?")
 ```
 
 ---
@@ -1107,11 +1142,11 @@ Use `wdman::chrome()` or `wdman::gecko()` to manage driver downloads automatical
 ## Exercise: Static vs. Dynamic Pages
 :::
 
-**Q4. You try to scrape a news website with `rvest` but the returned text is empty even though the articles are clearly visible in your browser. What is the most likely explanation?**
+**Q5. You try to scrape a news website with `rvest` but the returned text is empty even though the articles are clearly visible in your browser. What is the most likely explanation?**
 
 ```{r}
 #| echo: false
-#| label: "SEL_Q4"
+#| label: "SEL_Q5"
 check_question("The page content is loaded dynamically by JavaScript after the initial HTML is downloaded. rvest only sees the initial HTML skeleton, not the JavaScript-rendered content. Use RSelenium or chromote to control a real browser and scrape the fully rendered page.",
                options = c(
                  "The page content is loaded dynamically by JavaScript after the initial HTML is downloaded. rvest only sees the initial HTML skeleton, not the JavaScript-rendered content. Use RSelenium or chromote to control a real browser and scrape the fully rendered page.",
@@ -1120,7 +1155,7 @@ check_question("The page content is loaded dynamically by JavaScript after the i
                  "The website has detected the scraper and is returning an empty page as a CAPTCHA"
                ),
                type = "radio",
-               q_id = "SEL_Q4",
+               q_id = "SEL_Q5",
                random_answer_order = TRUE,
                button_label = "Check answer",
                right = "Correct! When rvest returns empty results despite visible content in the browser, dynamic JavaScript rendering is almost always the cause. The browser executes JavaScript that fetches and injects the article text after the initial page load — rvest never sees this injected content because it only downloads the initial HTML response. The solution is to use a tool that controls a real browser: RSelenium, chromote, or the httr2 + JavaScript approach of inspecting the underlying API calls in the Network tab of browser DevTools.",
@@ -1208,11 +1243,11 @@ session
 ## Exercise: Best Practices
 :::
 
-**Q5. A researcher wants to scrape 5,000 pages from a news archive as quickly as possible. She sets up a parallel scraping loop with 10 concurrent connections and no delay. What problems could this cause?**
+**Q6. A researcher wants to scrape 5,000 pages from a news archive as quickly as possible. She sets up a parallel scraping loop with 10 concurrent connections and no delay. What problems could this cause?**
 
 ```{r}
 #| echo: false
-#| label: "BP_Q5"
+#| label: "BP_Q6"
 check_question("Sending 10 simultaneous requests with no delay could overwhelm the server (effectively a denial-of-service attack), causing the site to go down or the researcher's IP to be permanently banned. It also violates the ethical principle of polite scraping. The correct approach is sequential scraping with a random 1–3 second delay between requests.",
                options = c(
                  "Sending 10 simultaneous requests with no delay could overwhelm the server (effectively a denial-of-service attack), causing the site to go down or the researcher's IP to be permanently banned. It also violates the ethical principle of polite scraping. The correct approach is sequential scraping with a random 1–3 second delay between requests.",
@@ -1221,7 +1256,7 @@ check_question("Sending 10 simultaneous requests with no delay could overwhelm t
                  "Parallel scraping is fine as long as the researcher uses a VPN"
                ),
                type = "radio",
-               q_id = "BP_Q5",
+               q_id = "BP_Q6",
                random_answer_order = TRUE,
                button_label = "Check answer",
                right = "Correct! Aggressive parallel scraping with no delay is the single most harmful scraping behaviour. From the server's perspective, it is indistinguishable from a denial-of-service attack. Consequences include: the server going down (affecting all users), the researcher's IP being permanently banned, potential legal liability, and reputational damage to the researcher's institution. Always scrape sequentially with a polite delay — the `polite` package enforces this automatically.",
@@ -1268,8 +1303,8 @@ cat("  title        = {", params$title,       "},\n", sep = "")
 cat("  year         = {", params$year,        "},\n", sep = "")
 cat("  note         = {", params$url,         "},\n", sep = "")
 cat("  organization = {", params$institution, "},\n", sep = "")
-cat("  edition      = {", params$version,     "}\n",  sep = "")
-cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("  edition      = {", params$version,     "},\n", sep = "")
+cat("  doi          = {", params$doi,         "}\n",  sep = "")
 cat("}\n```\n")
 ```
 :::
@@ -1281,7 +1316,7 @@ sessionInfo()
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was written with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to write and structure the full tutorial on web scraping with R. All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy.
+This tutorial was written and revised with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to draft and structure the full tutorial (including all conceptual explanations, R code, and worked scraping examples for Wikipedia), design the six `checkdown` exercises with distractors and feedback, and revise the file for compliance with the LADAL style guide — including fixing a broken native-pipe placeholder in the link-collection example, correcting the BibTeX citation-chunk comma, adding the `format:` and `bibliography:` YAML blocks, adjusting the Learning Objectives and Prerequisites callouts to their correct types, and adding missing package installs (`janitor`, `tidytext`, `here`, `digest`). All content was reviewed and approved by Martin Schweinberger, who takes full responsibility for its accuracy and pedagogical appropriateness.
 :::
 
 ---
