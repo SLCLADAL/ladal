@@ -8,7 +8,7 @@
 [![Part of LDaCA](https://img.shields.io/badge/part%20of-LDaCA-00A2C7)](https://ldaca.edu.au)
 [![University of Queensland](https://img.shields.io/badge/institution-UQ-51247A)](https://www.uq.edu.au)
 
-**[ladal.edu.au](https://ladal.edu.au)** &nbsp;·&nbsp; 1.5M+ page views &nbsp;·&nbsp; 650K+ users &nbsp;·&nbsp; 100+ countries &nbsp;·&nbsp; Est. 2019
+**[ladal.edu.au](https://ladal.edu.au)** &nbsp;·&nbsp; 1.5M+ page views &nbsp;·&nbsp; 650K+ users &nbsp;·&nbsp; 220+ countries &nbsp;·&nbsp; Est. 2019
 
 ---
 
