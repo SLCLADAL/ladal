@@ -81,7 +81,7 @@ This tutorial introduces data visualisation with R, focusing on the `ggplot2` pa
 
 The tutorial works through a concrete dataset on preposition frequencies in historical English texts, providing a continuous research narrative that connects the individual examples. Exercises at the end of each section consolidate understanding.
 
-::: {.callout-note}
+::: {.callout-tip}
 ## Learning Objectives
 
 By the end of this tutorial you will be able to:
@@ -97,8 +97,8 @@ By the end of this tutorial you will be able to:
 9. Avoid common visualisation mistakes including truncated axes, chartjunk, and overplotting
 :::
 
-::: {.callout-note}
-## Prerequisite Tutorials
+::: {.callout-warning}
+## Prerequisites
 
 Before working through this tutorial, you should be familiar with:
 
@@ -136,7 +136,7 @@ cat(
 # Setup and Preparation {#setup}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Which packages are needed and why; how to load the tutorial dataset; and how to set up a consistent colour palette for use throughout the tutorial
 :::
@@ -156,11 +156,14 @@ install.packages("ggstats")
 install.packages("ggstatsplot")
 install.packages("EnvStats")
 install.packages("likert")
+install.packages("labelled")     # Required by ggstats::gglikert()
 install.packages("vcd")
 install.packages("hexbin")
 install.packages("patchwork")    # Combining multiple plots
 install.packages("viridis")      # Colourblind-safe palettes
 install.packages("flextable")
+install.packages("quanteda")
+install.packages("quanteda.textplots")
 install.packages("devtools")
 
 # Install ggflags from GitHub (country flags in plots)
@@ -179,10 +182,14 @@ library(hexbin)
 library(patchwork)
 library(ggflags)
 library(ggstats)
+library(labelled)
 library(ggridges)
 library(EnvStats)
 library(scales)
 library(viridis)
+library(vcd)
+library(quanteda)
+library(quanteda.textplots)
 ```
 
 ## Loading and inspecting the data {-}
@@ -240,7 +247,7 @@ For accessibility, prefer palettes from the `viridis` package or `scale_color_br
 # Part 1: The Grammar of Graphics {#grammar}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** The conceptual framework underlying `ggplot2`; the seven components of every plot; and how to read and write `ggplot2` code systematically
 :::
@@ -291,7 +298,7 @@ The `+` operator adds layers and components to the plot. The order generally doe
 When you encounter unfamiliar `ggplot2` code, read it layer by layer. Ask: what data is being used? What is mapped to x, y, colour, and other aesthetics? What geometric objects are being drawn? What scales and themes have been applied? This decomposition makes even complex plots understandable.
 :::
 
-```{r check-grammar, echo=FALSE}
+```{r DVA_Q1, echo=FALSE}
 check_question(
   answer = "It controls all non-data visual elements of the plot, such as background colour, gridlines, font sizes, axis labels, and legend position.",
   options = c(
@@ -302,7 +309,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "grammar_q1",
+  q_id = "DVA_Q1",
   right = "Correct! The theme controls the appearance of all non-data elements. Functions like theme_bw() or theme_minimal() set a base style, and theme() lets you override individual elements such as legend.position, axis.text.x, or plot.title.",
   wrong = "Not quite. Axis mappings are controlled by aes(); geometric objects by geom_*(); and data transformations by scale_*() or stat_*(). The theme controls visual appearance elements that are not derived from the data itself."
 )
@@ -313,7 +320,7 @@ check_question(
 # Part 2: Exploring Relationships {#part2}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Scatter plots as the foundation for showing relationships between two continuous variables; adding colour, shape, and trend lines; using facets; managing overplotting with transparency, density contours, and hex plots
 :::
@@ -431,7 +438,7 @@ pdat |>
 # Part 3: Showing Distributions {#part3}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Density plots, histograms, ridge plots, boxplots, and violin plots — when each is appropriate and what each reveals that the others do not
 :::
@@ -445,7 +452,8 @@ ggplot(pdat, aes(Date, fill = Region)) +
   geom_density(alpha = 0.5) +
   scale_fill_manual(values = clrs[1:2]) +
   theme_bw() +
-  theme(legend.position = c(0.1, 0.9)) +
+  theme(legend.position = "inside",
+        legend.position.inside = c(0.1, 0.9)) +
   labs(x = "Year", y = "Density",
        title = "Temporal distribution of texts by region")
 ```
@@ -580,7 +588,7 @@ ggplot(pdat, aes(DateRedux, Prepositions, fill = DateRedux)) +
 | Boxplot | Five-number summary + outliers | Statistical summaries | Distribution shape matters |
 | Violin | Shape + summary | Detecting multimodality | Very small samples |
 
-```{r check-distributions, echo=FALSE}
+```{r DVA_Q2, echo=FALSE}
 check_question(
   answer = "A violin plot, because it shows both the distribution shape (like a density plot) and summary statistics, and can reveal multimodal distributions that a boxplot would hide.",
   options = c(
@@ -591,7 +599,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "dist_q1",
+  q_id = "DVA_Q2",
   right = "Correct! Violin plots are the best choice here because the research question is specifically about distribution shape — are there multiple peaks (bimodality) indicating two distinct groups within a genre? A boxplot would reduce the distribution to five statistics and completely hide any bimodality. A histogram or density plot for a single group would work, but cannot easily show multiple genres side by side. A ridge plot is also a reasonable alternative.",
   wrong = "Not quite. The key issue is that you specifically want to see distribution shape, including whether there are multiple peaks. Boxplots compress the distribution into five statistics and cannot show bimodality. Histograms work for a single group but are harder to compare across many groups. Violin plots show both the full shape (including multimodality) and a compact summary, making them ideal for this question."
 )
@@ -602,7 +610,7 @@ check_question(
 # Part 4: Categorical Data {#part4}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Bar plots in their basic, grouped, stacked, and normalised forms; Likert scale visualisation; and the case against pie charts
 :::
@@ -754,9 +762,10 @@ lbs <- c("Disagree", "Somewhat\nDisagree", "Neutral",
          "Somewhat\nAgree", "Agree")
 
 survey <- sdat |>
-  dplyr::mutate_if(is.character, factor) |>
-  dplyr::mutate_if(is.numeric, factor, levels = 1:5, labels = lbs) |>
-  drop_na() |>
+  dplyr::mutate(dplyr::across(where(is.character), factor)) |>
+  dplyr::mutate(dplyr::across(where(is.numeric),
+                              ~ factor(.x, levels = 1:5, labels = lbs))) |>
+  tidyr::drop_na() |>
   as.data.frame()
 
 survey |>
@@ -811,7 +820,7 @@ p_bar + p_pie
 
 Without looking at the percentage labels, try to identify the second-largest category in each plot. The bar plot makes this easy; the pie chart makes it difficult.
 
-```{r check-categorical, echo=FALSE}
+```{r DVA_Q3, echo=FALSE}
 check_question(
   answer = "A 100% normalised stacked bar plot, because it directly shows how the proportions of each genre changed across periods while maintaining the correct total of 100% for each period.",
   options = c(
@@ -822,7 +831,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "cat_q1",
+  q_id = "DVA_Q3",
   right = "Correct! When the research question is about how proportions (not absolute counts) change across a categorical variable like time period, the 100% normalised stacked bar plot is ideal. Each bar sums to 100%, making the proportional composition of each period directly comparable. A grouped bar plot would show absolute counts, which conflates changes in composition with changes in total document numbers. Multiple pie charts would make cross-period comparison very difficult.",
   wrong = "Not quite. The key is that the question asks about proportional composition — how the mix of genres changed — not about absolute counts. A 100% normalised stacked bar plot (position = 'fill' in ggplot2) addresses this directly: each bar represents one time period and the segments show what proportion of that period's documents were in each genre. This makes it easy to compare how genre proportions shifted across time periods."
 )
@@ -833,7 +842,7 @@ check_question(
 # Part 5: Advanced Visualisations {#part5}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Heatmaps and association plots for matrix data; word clouds for text data; flag plots for international comparisons; dot plots with error bars; and diverging bar plots
 :::
@@ -868,14 +877,12 @@ The dendrograms show which genres (rows) and time periods (columns) cluster toge
 Association plots and mosaic plots from the `vcd` package visualise the relationship between two categorical variables, showing deviations from statistical independence.
 
 ```{r assoc-prep, message=FALSE, warning=FALSE}
-library(vcd)
-
 assocdata <- pdat |>
   dplyr::mutate(
     GenreRedux = dplyr::case_when(
       GenreRedux == "Conversational" ~ "Conv.",
       GenreRedux == "Religious"      ~ "Relig.",
-      TRUE ~ GenreRedux
+      .default = as.character(GenreRedux)
     )
   ) |>
   dplyr::group_by(GenreRedux, DateRedux) |>
@@ -910,9 +917,6 @@ mosaic(assocmx, shade = TRUE, legend = TRUE,
 Word clouds represent term frequencies visually, with word size proportional to frequency. They are visually engaging but imprecise — word sizes are difficult to compare accurately. Use them for exploratory purposes or presentations, not as primary evidence in a paper.
 
 ```{r wordcloud-prep, message=FALSE, warning=FALSE}
-library(quanteda)
-library(quanteda.textplots)
-
 clinton <- base::readRDS("tutorials/data_viz_advanced/data/Clinton.rda", "rb") |>
   paste0(collapse = " ")
 trump   <- base::readRDS("tutorials/data_viz_advanced/data/Trump.rda", "rb") |>
@@ -970,7 +974,8 @@ flagsdf |>
   labs(x = "", y = "Vulgar language percentage",
        title = "Vulgar language use by English-speaking region",
        fill = "English type") +
-  theme(legend.position = c(0.8, 0.3),
+  theme(legend.position = "inside",
+        legend.position.inside = c(0.8, 0.3),
         panel.grid.major = element_blank())
 ```
 
@@ -1036,7 +1041,7 @@ ggplot(plottable, aes(Test, Value, fill = Test)) +
 # Part 6: Time Series and Line Graphs {#part6}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** Line graphs for discrete and continuous time variables; smoothed trend lines; ribbon plots for displaying uncertainty; and how to choose between these approaches
 :::
@@ -1113,7 +1118,7 @@ pdat |>
        y = "Frequency per 1,000 words")
 ```
 
-```{r check-timeseries, echo=FALSE}
+```{r DVA_Q4, echo=FALSE}
 check_question(
   answer = "geom_smooth() uses statistical smoothing (LOESS or linear regression) to draw a trend curve, which reduces noise but does not show the actual data points. geom_line() connects the actual data points in order, showing every measured value but potentially hiding the overall trend in noisy data.",
   options = c(
@@ -1124,7 +1129,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "ts_q1",
+  q_id = "DVA_Q4",
   right = "Correct! The key distinction is between showing the actual measured values (geom_line) versus showing a smoothed model of the trend (geom_smooth). For time series with noisy individual measurements, geom_smooth() is useful for revealing the overall direction of change. For discrete time points that represent means (as in the basic line graph above), geom_line() directly connects those means and is appropriate. For continuous time with many individual observations, combining both — points with geom_smooth — is often the best approach.",
   wrong = "Not quite. The key difference is whether the line represents the actual data values or a statistical model of the trend. geom_line() connects observed values in order; geom_smooth() fits a smoothed curve (LOESS by default, or a linear model with method = 'lm'). The smooth reduces noise but hides individual variation. geom_line() preserves every data point but can look jagged with noisy data. Use geom_smooth() when you have many noisy observations and want to emphasise the trend; use geom_line() when the data points themselves (e.g., period means) are the thing you want to display."
 )
@@ -1135,7 +1140,7 @@ check_question(
 # Part 7: Combining Plots with patchwork {#patchwork}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** How to combine multiple `ggplot2` plots into a single figure using the `patchwork` package; layout operators; adding shared titles, subtitles, and labels; and when combining plots is appropriate
 :::
@@ -1230,7 +1235,7 @@ pb2 <- pb + theme(legend.position = "bottom")
 pa2 | pb2
 ```
 
-```{r check-patchwork, echo=FALSE}
+```{r DVA_Q5, echo=FALSE}
 check_question(
   answer = "Use (p1 | p2) / p3, which places p1 and p2 side by side in the top row and p3 spanning the full width in the bottom row.",
   options = c(
@@ -1241,7 +1246,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "patchwork_q1",
+  q_id = "DVA_Q5",
   right = "Correct! The patchwork operators work like arithmetic precedence. | combines plots horizontally; / stacks vertically. Parentheses group operations. So (p1 | p2) / p3 first combines p1 and p2 side by side, then places that combined row above p3, which spans the full width. p1 / (p2 | p3) would give the mirror image: p1 on top spanning full width, with p2 and p3 side by side below.",
   wrong = "Not quite. In patchwork, | places plots side by side and / stacks them. p1 + p2 + p3 fills left-to-right and wraps automatically — it does not guarantee a 2+1 layout. To achieve two plots on top and one below spanning the full width, you need (p1 | p2) / p3. The parentheses are essential: they group the horizontal combination before the vertical stacking is applied."
 )
@@ -1252,7 +1257,7 @@ check_question(
 # Part 8: Publication-Ready Plots and Choosing Wisely {#part8}
 
 ::: {.callout-note}
-## Section Overview
+## Section overview
 
 **What you will learn:** What makes a plot publication-ready; saving figures in the right format and resolution; colour accessibility; a decision framework for choosing plot types; and the most common visualisation mistakes to avoid
 :::
@@ -1294,12 +1299,13 @@ pdat |>
   scale_y_continuous(breaks = seq(100, 200, 20), limits = c(100, 200)) +
   theme_bw(base_size = 14) +
   theme(
-    legend.position       = c(0.15, 0.65),
-    legend.background     = element_rect(fill = "white", color = "black"),
-    panel.grid.minor      = element_blank(),
-    plot.title            = element_text(face = "bold", size = 16),
-    plot.subtitle         = element_text(size = 12, color = "gray30"),
-    plot.caption          = element_text(size = 10, hjust = 0)
+    legend.position        = "inside",
+    legend.position.inside = c(0.15, 0.65),
+    legend.background      = element_rect(fill = "white", color = "black"),
+    panel.grid.minor       = element_blank(),
+    plot.title             = element_text(face = "bold", size = 16),
+    plot.subtitle          = element_text(size = 12, color = "gray30"),
+    plot.caption           = element_text(size = 10, hjust = 0)
   ) +
   labs(
     title    = "Historical trends in preposition usage",
@@ -1428,7 +1434,7 @@ Colourblind-safe options in `ggplot2`:
 
 **Sorting bars randomly** — unless the categories have a natural order (time periods, scale levels), sort bars by value to make rank comparisons easy.
 
-```{r check-publication, echo=FALSE}
+```{r DVA_Q6, echo=FALSE}
 check_question(
   answer = "No. Bar plots encode values as heights measured from zero. Cutting the y-axis at 150 makes a difference of 20 units (160 vs 180) appear as a much larger proportion of the bar than it would if the axis started at zero. This visually exaggerates the difference and could mislead readers. The y-axis on a bar plot must start at zero. A dot plot with error bars could legitimately use a truncated axis because it does not encode values by distance from a baseline.",
   options = c(
@@ -1439,7 +1445,7 @@ check_question(
   ),
   type = "radio",
   button_label = "Check answer",
-  q_id = "pub_q1",
+  q_id = "DVA_Q6",
   right = "Correct! The principle is about how bar plots encode values. A bar's height represents a quantity measured from zero — cutting the axis at a non-zero value means the visible bar height no longer accurately represents the value. A bar twice as tall should represent a value twice as large, but with a truncated axis this correspondence breaks. The same caveat does not apply to dot plots with error bars or line graphs, because those plot types do not encode values by distance from a baseline.",
   wrong = "Not quite. The issue with truncated y-axes on bar plots is more fundamental than labelling. Bar plots encode values through bar height measured from zero. If you start the axis at 150 instead of 0, a bar for a value of 180 is six times taller than a bar for 160, even though 180 is only 12.5% larger than 160. This is visually misleading regardless of labelling. The rule is: bar plots always start at zero. If the meaningful variation only occurs far from zero, use a dot plot instead."
 )
@@ -1467,7 +1473,7 @@ You have learned all the core techniques. The capstone is to create a coherent d
 - Are there regional differences in preposition frequency, and do they interact with time period?
 - Which genres show the greatest variability in preposition use, and what might this reflect about genre norms?
 
-**Suggested deliverables:** A fully ggplot2::annotated `.qmd` document with all code, at least three saved publication-quality figures (PNG, 300 dpi), and a brief 2--3 sentence caption for each figure as it would appear in a paper.
+**Suggested deliverables:** A fully annotated `.qmd` document with all code, at least three saved publication-quality figures (PNG, 300 dpi), and a brief 2--3 sentence caption for each figure as it would appear in a paper.
 :::
 
 ---
@@ -1510,8 +1516,8 @@ cat("  title        = {", params$title,       "},\n", sep = "")
 cat("  year         = {", params$year,        "},\n", sep = "")
 cat("  note         = {", params$url,         "},\n", sep = "")
 cat("  organization = {", params$institution, "},\n", sep = "")
-cat("  edition      = {", params$version,     "}\n",  sep = "")
-cat("  doi      = {", params$doi,     "}\n",  sep = "")
+cat("  edition      = {", params$version,     "},\n", sep = "")
+cat("  doi          = {", params$doi,         "}\n",  sep = "")
 cat("}\n```\n")
 ```
 :::
@@ -1525,7 +1531,7 @@ sessionInfo()
 ::: {.callout-note}
 ## AI Transparency Statement
 
-This tutorial was re-developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the `checkdown` quiz questions and feedback strings. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material. The use of AI assistance is disclosed here in the interest of transparency and in accordance with emerging best practices for AI-assisted academic content creation.
+This tutorial was re-developed with the assistance of **Claude** (claude.ai), a large language model created by Anthropic. In the initial pass, Claude was used to help revise the tutorial text, structure the instructional content, generate the R code examples, and write the `checkdown` quiz questions and feedback strings. In a subsequent fix-up pass, Claude was used to repair render-breaking issues: adding `labelled` to the installed/loaded packages so that `ggstats::gglikert()` runs, adding the missing `quanteda` and `quanteda.textplots` installations and consolidating all `library()` calls at the top, replacing the superseded `dplyr::mutate_if()` with `dplyr::mutate(dplyr::across(where(...), ...))`, fixing a `dplyr::case_when()` type mismatch (character branches with a factor fallback) that errors in `dplyr` 1.1+, repairing the known BibTeX comma bug in the citation chunk, updating three uses of the deprecated `legend.position = c(x, y)` syntax to the `legend.position = "inside"` + `legend.position.inside` form required by `ggplot2` 3.5+, correcting the Learning Objectives callout from `.callout-note` to `.callout-tip` and Prerequisites from `.callout-note` to `.callout-warning`, normalising all nine "Section Overview" headings to lowercase "overview", renaming the six `checkdown` chunks and `q_id` values to the LADAL `DVA_Q1`…`DVA_Q6` convention, and removing an orphaned `ggplot2::` namespace prefix in the Capstone section. All content was reviewed, edited, and approved by the author (Martin Schweinberger), who takes full responsibility for the accuracy and pedagogical appropriateness of the material.
 :::
 
 [Back to top](#intro)
